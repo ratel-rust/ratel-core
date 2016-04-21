@@ -7,7 +7,6 @@ use lexicon::ReservedKind::*;
 use lexicon::CompareKind::*;
 use lexicon::OperatorKind::*;
 
-
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,
 }
