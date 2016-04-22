@@ -6,13 +6,14 @@ use lexicon::KeywordKind::*;
 use lexicon::ReservedKind::*;
 use lexicon::CompareKind::*;
 use lexicon::OperatorKind::*;
+use literals::*;
 
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(source: &'a mut String) -> Self {
+    pub fn new(source: &'a String) -> Self {
         Tokenizer {
             source: source.chars().peekable(),
         }
@@ -63,7 +64,7 @@ impl<'a> Tokenizer<'a> {
         return value;
     }
 
-    fn read_binary(&mut self) -> f64 {
+    fn read_binary(&mut self) -> LiteralValue {
         let mut value = 0;
 
         while let Some(&peek) = self.source.peek() {
@@ -75,75 +76,77 @@ impl<'a> Tokenizer<'a> {
                     }
                     self.source.next();
                 },
-                _ => return value as f64,
+                _ => return LiteralInteger(value),
             }
         }
 
-        return value as f64;
+        return LiteralInteger(value);
     }
 
-    fn read_octal(&mut self) -> f64 {
+    fn read_octal(&mut self) -> LiteralValue {
         let mut value = 0;
 
         while let Some(&peek) = self.source.peek() {
-            match peek {
-                '0' ... '7' => {
-                    value <<= 3;
-                    value += match peek {
-                        '1' => 1,
-                        '2' => 2,
-                        '3' => 3,
-                        '4' => 4,
-                        '5' => 5,
-                        '6' => 6,
-                        '7' => 7,
-                        _   => 0,
-                    };
-                    self.source.next();
-                },
-                _ => return value as f64,
+            let digit = match peek {
+                '0' => 0,
+                '1' => 1,
+                '2' => 2,
+                '3' => 3,
+                '4' => 4,
+                '5' => 5,
+                '6' => 6,
+                '7' => 7,
+                _   => -1,
+            };
+            if digit == -1 {
+                return LiteralInteger(value);
+            } else {
+                value <<= 3;
+                value += digit;
+                self.source.next();
             }
         }
 
-        return value as f64;
+        return LiteralInteger(value);
     }
 
-    fn read_hexadec(&mut self) -> f64 {
+    fn read_hexadec(&mut self) -> LiteralValue {
         let mut value = 0;
 
         while let Some(&peek) = self.source.peek() {
-            match peek {
-                '0' ... '9' | 'a'...'f' | 'A'...'F' => {
-                    value <<= 4;
-                    value += match peek {
-                        '1'       => 1,
-                        '2'       => 2,
-                        '3'       => 3,
-                        '4'       => 4,
-                        '5'       => 5,
-                        '6'       => 6,
-                        '7'       => 7,
-                        '8'       => 8,
-                        '9'       => 9,
-                        'a' | 'A' => 10,
-                        'b' | 'B' => 11,
-                        'c' | 'C' => 12,
-                        'd' | 'D' => 13,
-                        'e' | 'E' => 14,
-                        'f' | 'F' => 15,
-                        _         => 0,
-                    };
-                    self.source.next();
-                },
-                _ => return value as f64,
+            let digit = match peek {
+                '0'       => 0,
+                '1'       => 1,
+                '2'       => 2,
+                '3'       => 3,
+                '4'       => 4,
+                '5'       => 5,
+                '6'       => 6,
+                '7'       => 7,
+                '8'       => 8,
+                '9'       => 9,
+                'a' | 'A' => 10,
+                'b' | 'B' => 11,
+                'c' | 'C' => 12,
+                'd' | 'D' => 13,
+                'e' | 'E' => 14,
+                'f' | 'F' => 15,
+                _         => -1,
+            };
+            if digit == -1 {
+                return LiteralInteger(value);
+            } else {
+                value <<= 4;
+                value += digit;
+                self.source.next();
             }
         }
 
-        return value as f64;
+        return LiteralInteger(value);
     }
 
-    fn read_number(&mut self, first: char) -> f64 {
-        let mut strvalue = first.to_string();
+    fn read_number(&mut self, first: char) -> LiteralValue {
+        let mut value = first.to_string();
         let mut period = false;
 
         if first == '0' {
@@ -164,23 +167,23 @@ impl<'a> Tokenizer<'a> {
         while let Some(&ch) = self.source.peek() {
             match ch {
                 '0'...'9' => {
-                    strvalue.push(ch);
+                    value.push(ch);
                     self.source.next();
                 },
                 '.' => {
                     if !period {
                         period = true;
-                        strvalue.push(ch);
+                        value.push(ch);
                         self.source.next();
                     } else {
-                        return strvalue.parse().unwrap_or(0.0);
+                        return LiteralValue::float_from_string(value);
                     }
                 },
-                _ => return strvalue.parse().unwrap_or(0.0),
+                _ => return LiteralValue::float_from_string(value),
             }
         }
 
-        return 0.0;
+        return LiteralValue::float_from_string(value);
     }
 
     fn read_comment(&mut self) -> String {
@@ -258,7 +261,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 },
                 '.' => return Some(Accessor),
                 '"' | '\'' => {
-                    return Some(LiteralString( self.read_string(ch) ));
+                    return Some(Literal(LiteralString( self.read_string(ch) )));
                 },
                 '=' => {
                     if Some(&'>') == self.source.peek() {
@@ -346,10 +349,10 @@ impl<'a> Iterator for Tokenizer<'a> {
                         "void"       => Keyword(Void),
                         "async"      => Keyword(Async),
                         "await"      => Keyword(Await),
-                        "true"       => LiteralTrue,
-                        "false"      => LiteralFalse,
-                        "undefined"  => LiteralUndefined,
-                        "null"       => LiteralNull,
+                        "true"       => Literal(LiteralTrue),
+                        "false"      => Literal(LiteralFalse),
+                        "undefined"  => Literal(LiteralUndefined),
+                        "null"       => Literal(LiteralNull),
                         "enum"       => Reserved(Enum),
                         "implements" => Reserved(Implements),
                         "package"    => Reserved(Package),
@@ -362,7 +365,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 },
                 '0'...'9' => {
                     let number = self.read_number(ch);
-                    return Some(LiteralNumber(number));
+                    return Some(Literal(number));
                 },
                 _ => {},
             }

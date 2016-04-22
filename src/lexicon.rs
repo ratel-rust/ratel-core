@@ -1,3 +1,5 @@
+use literals::*;
+
 #[derive(Debug)]
 pub enum KeywordKind {
     Break,
@@ -92,12 +94,7 @@ pub enum Token {
     Keyword(KeywordKind),
     Reserved(ReservedKind),
     Identifier(String),
-    LiteralTrue,
-    LiteralFalse,
-    LiteralUndefined,
-    LiteralNull,
-    LiteralNumber(f64),
-    LiteralString(String),
+    Literal(LiteralValue),
     Comment(String),
     BlockComment(String),
 }
