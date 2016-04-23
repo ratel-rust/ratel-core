@@ -294,11 +294,15 @@ impl<'a> Iterator for Tokenizer<'a> {
                 '/' => {
                     if Some(&'/') == self.source.peek() {
                         self.source.next();
-                        return Some(Comment(self.read_comment()));
+                        self.read_comment();
+                        continue;
+                        // return Some(Comment(self.read_comment()));
                     }
                     if Some(&'*') == self.source.peek() {
                         self.source.next();
-                        return Some(BlockComment(self.read_block_comment()));
+                        self.read_block_comment();
+                        continue;
+                        // return Some(BlockComment(self.read_block_comment()));
                     }
                     return Some(Operator(Divide));
                 }

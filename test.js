@@ -1,9 +1,37 @@
-let foo = 'lorem', bar = "ipsum";
+let foo = 'lorem',
+    bar = "ipsum";
 const pi = 3.14;
-let binary = 0b101010; // 42
-let octal = 0o52;     // also 42
-let hexal = 0x2A;     // yep, also 42
-// var squares = [1, 2, 3].forEach(n => n * n);
+
+// 42
+let binary = 0b101010;
+
+// also 42
+let octal = 0o52;
+
+// yep, also 42
+let hexal = 0x2A;
+
+var pojo = {
+    id: 9001,
+    name: "Maciej",
+    'is-radical': true,
+    [foo + bar]: 'totally'
+};
+
+// let emptyArray = [];
+
+var squares = [
+    1,
+    2,
+    3,
+    [
+        'a',
+        'b',
+        'c',
+    ],
+];
+
+//.forEach(n => n * n);
 
 
 // /*

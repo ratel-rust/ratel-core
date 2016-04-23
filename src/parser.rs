@@ -5,7 +5,126 @@ use lexicon::ReservedKind::*;
 use lexicon::CompareKind::*;
 use lexicon::OperatorKind::*;
 use tokenizer::Tokenizer;
+use std::iter::Peekable;
 use literals::*;
+
+/// Expects next token to be `$p`, otherwise panics.
+macro_rules! expect {
+    ($parser:ident, $p:pat) => {
+        match $parser.tokenizer.next() {
+            Some($p) => {},
+            None     => panic!("Unexpected end of program"),
+            token    => panic!("Unexpected token {:?}", token),
+        }
+    }
+}
+
+/// If the next token is `$p`, consume that token and return true,
+/// else do nothing and return false
+macro_rules! allow {
+    ($parser:ident, $p:pat) => {
+        match $parser.tokenizer.peek() {
+            Some(&$p) => {
+                $parser.tokenizer.next();
+                true
+            },
+            _        => false
+        }
+    }
+}
+
+/// Allow multiple occurences of `$p` in a row, consuming them all,
+/// returns true if at least one was found
+macro_rules! allow_many {
+    ($parser:ident, $p:pat) => {
+        if allow!($parser, $p) {
+            while allow!($parser, $p) {}
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Expects a semicolon to end the statement and return `true`. If no
+/// semicolon is found, but `LimeTermination` occured, invoke
+/// automatic semicolon injection. Additionally a `$cont` token can
+/// be specified, if met the macro will stop and return `false`.
+macro_rules! expect_statement_end {
+    ($parser:ident, $cont:pat) => ({
+        let asi = allow_many!($parser, LineTermination);
+
+        match $parser.tokenizer.next() {
+            Some(Semicolon)       => true,
+            Some($cont)           => false,
+            token => asi || panic!("Unexpected token {:?}", token)
+        }
+    });
+
+    ($parser:ident) => ({
+        let asi = allow_many!(LineTermination);
+
+        match self.tokenizer.next() {
+            Some(Semicolon) => true,
+            token => asi || panic!("Unexpected token {:?}", token)
+        }
+    })
+}
+
+/// Read a list of items with predefined `$start`, `$end` and
+/// `$separator` tokens and an `$item` expression that is then
+/// pushed onto a vector.
+macro_rules! expect_list {
+    ($parser:ident, $start:pat, $item:expr, $separator:pat, $end:pat) => ({
+        let mut list = Vec::new();
+
+        expect!($parser, $start);
+        loop {
+            allow_many!($parser, LineTermination);
+            if allow!($parser, $end) {
+                break;
+            }
+            list.push($item);
+            allow_many!($parser, LineTermination);
+            if expect_list_end!($parser, $separator, $end) {
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        list
+    })
+}
+
+/// Shorthand for reading a key expression, separator token and
+/// value expression in that order.
+macro_rules! expect_key_value_pair {
+    ($parser:ident, $key:expr, $separator:pat, $value:expr) => ({
+        allow_many!($parser, LineTermination);
+        let key = $key;
+        allow_many!($parser, LineTermination);
+        expect!($parser, $separator);
+        (key, $value)
+    })
+}
+
+/// Returns true if met with a list closing token `$p`, allows
+/// a tailing comma to appear before `$p`.
+macro_rules! expect_list_end {
+    ($parser:ident, $separator:pat, $end:pat) => {
+        match $parser.tokenizer.next() {
+            Some($separator) => {
+                allow_many!($parser, LineTermination);
+                allow!($parser, $end)
+            }
+            Some($end)       => true,
+            _                => false,
+        }
+    }
+}
+
+type PT<'a> = Peekable<Tokenizer<'a>>;
 
 #[derive(Debug)]
 pub enum VariableDeclarationKind {
@@ -15,8 +134,21 @@ pub enum VariableDeclarationKind {
 }
 
 #[derive(Debug)]
+pub enum ObjectKey {
+    Static(String),
+    Computed(Expression),
+}
+
+#[derive(Debug)]
 pub enum Expression {
+    Variable(String),
     Literal(LiteralValue),
+    Array(Vec<Expression>),
+    Object(Vec<(ObjectKey, Expression)>),
+    Addition {
+        left: Box<Expression>,
+        right: Box<Expression>,
+    }
 }
 
 #[derive(Debug)]
@@ -40,93 +172,162 @@ pub enum Statement {
     BlockComment(String),
 }
 
-fn variable_declaration(
-    kind: VariableDeclarationKind,
-    tokenizer: &mut Tokenizer
-) -> Statement {
-    let mut declarations: Vec<VariableDeclarator> = Vec::new();
-
-    'outer: loop {
-        let id = match tokenizer.next() {
-            Some(Identifier(id)) => id,
-            _                    => panic!("WAT"),
-        };
-        match tokenizer.next() {
-            Some(Assign)         => {},
-            _                    => panic!("WAT2")
-        }
-        let expression = match tokenizer.next() {
-            Some(Literal(kind))  => Expression::Literal(kind),
-            _                    => panic!("WAT3")
-        };
-
-        declarations.push(
-            VariableDeclarator {
-                id: id,
-                value: expression,
-            }
-        );
-
-        let mut new_line = false;
-
-        loop {
-            match tokenizer.next() {
-                Some(LineTermination) => new_line = true,
-                Some(Semicolon)       => break 'outer,
-                Some(Comma)           => continue 'outer,
-                _                     => {
-                    if new_line {
-                        break 'outer;
-                    } else {
-                        panic!("WUUUUT!");
-                    }
-                }
-            }
-        }
-    }
-
-    Statement::VariableDeclaration {
-        kind: kind,
-        declarations: declarations,
-    }
+pub struct Parser<'a> {
+    tokenizer: Peekable<Tokenizer<'a>>,
 }
 
-fn statement(tokenizer: &mut Tokenizer) -> Option<Statement> {
-    if let Some(token) = tokenizer.next() {
-        return match token {
-            LineTermination       => statement(tokenizer),
-            Comment(comment)      => Some(
-                Statement::Comment(comment)
-            ),
-            BlockComment(comment) => Some (
-                Statement::BlockComment(comment)
-            ),
-            Keyword(Var)          => Some(variable_declaration(
-                VariableDeclarationKind::Var,
-                tokenizer
-            )),
-            Keyword(Let)          => Some(variable_declaration(
-                VariableDeclarationKind::Let,
-                tokenizer
-            )),
-            Keyword(Const)        => Some(variable_declaration(
-                VariableDeclarationKind::Const,
-                tokenizer
-            )),
-            _ => None,
+impl<'a> Parser<'a> {
+    pub fn new(source: &'a String) -> Self {
+        Parser {
+            tokenizer: Tokenizer::new(source).peekable(),
         }
     }
-    return None;
+
+    pub fn array(&mut self) -> Expression {
+        Expression::Array(expect_list!(self,
+            BracketOn,
+            self.expression(),
+            Comma,
+            BracketOff
+        ))
+    }
+
+    pub fn object(&mut self) -> Expression {
+        Expression::Object(expect_list!(self,
+            BlockOn,
+            expect_key_value_pair!(self,
+                self.object_key(),
+                Colon,
+                self.expression()
+            ),
+            Comma,
+            BlockOff
+        ))
+    }
+
+    pub fn object_key(&mut self) -> ObjectKey {
+        match self.tokenizer.next() {
+            Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
+                ObjectKey::Static(key)
+            },
+            Some(BracketOn) => {
+                allow_many!(self, LineTermination);
+                let key = self.expression();
+                allow_many!(self, LineTermination);
+                expect!(self, BracketOff);
+                ObjectKey::Computed(key)
+            },
+            token => {
+                panic!("Expected object key, got {:?}", token)
+            }
+        }
+    }
+
+    pub fn expression(&mut self) -> Expression {
+        let left = match self.tokenizer.peek() {
+            Some(&Literal(_)) => {
+                if let Some(Literal(literal)) = self.tokenizer.next() {
+                    Expression::Literal(literal)
+                } else {
+                    panic!("Failed to read expression")
+                }
+            }
+            Some(&Identifier(_)) => {
+                if let Some(Identifier(literal)) = self.tokenizer.next() {
+                    Expression::Variable(literal)
+                } else {
+                    panic!("Failed to read expression")
+                }
+            }
+            Some(&BracketOn)        => self.array(),
+            Some(&BlockOn)          => self.object(),
+            _                       => panic!("Failed to read expression")
+        };
+
+        allow_many!(self, LineTermination);
+
+        return match self.tokenizer.peek() {
+            Some(&Operator(Add)) => {
+                self.tokenizer.next();
+                allow_many!(self, LineTermination);
+
+                Expression::Addition {
+                    left: Box::new(left),
+                    right: Box::new(self.expression()),
+                }
+            }
+            _ => left
+        }
+    }
+
+    fn identifier(&mut self) -> String {
+        match self.tokenizer.next() {
+            Some(Identifier(id)) => id,
+            token => panic!("Expected identifier, got {:?}", token),
+        }
+    }
+
+    fn variable_declaration(&mut self, kind: VariableDeclarationKind)
+    -> Statement {
+        let mut declarations: Vec<VariableDeclarator> = Vec::new();
+
+        loop {
+            let (id, value) = expect_key_value_pair!(self,
+                self.identifier(),
+                Assign,
+                self.expression()
+            );
+
+            declarations.push(VariableDeclarator {
+                id: id,
+                value: value,
+            });
+
+            if expect_statement_end!(self, Comma) {
+                break
+            }
+        }
+
+        Statement::VariableDeclaration {
+            kind: kind,
+            declarations: declarations,
+        }
+    }
+
+    fn statement(&mut self) -> Option<Statement> {
+        if let Some(token) = self.tokenizer.next() {
+            return match token {
+                LineTermination       => self.statement(),
+                Comment(comment)      => Some(
+                    Statement::Comment(comment)
+                ),
+                BlockComment(comment) => Some (
+                    Statement::BlockComment(comment)
+                ),
+                Keyword(Var)          => Some(self.variable_declaration(
+                    VariableDeclarationKind::Var
+                )),
+                Keyword(Let)          => Some(self.variable_declaration(
+                    VariableDeclarationKind::Let
+                )),
+                Keyword(Const)        => Some(self.variable_declaration(
+                    VariableDeclarationKind::Const
+                )),
+                _ => None,
+            }
+        }
+        return None;
+    }
 }
 
 pub fn parse(source: String) -> Program {
-    let mut tokenizer = Tokenizer::new(&source);
+    let mut parser = Parser::new(&source);
     let mut program = Program { body: Vec::new() };
 
     // for token in tokenizer {
     //     println!("{:?}", token);
     // }
-    while let Some(statement) = statement(&mut tokenizer) {
+    while let Some(statement) = parser.statement() {
         program.body.push(statement);
     }
 
