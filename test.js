@@ -8,7 +8,7 @@ var binary = 0b101010,
     octal = 0o52,
     hexal = 0x2A;
 
-let fifty = binary + 8;
+let fifty = binary + 8
 
 let pojo = {
     id: 9001,
@@ -19,7 +19,7 @@ let pojo = {
 
 let emptyArray = [];
 
-let squares = [1, 2, 3].forEach(square);
+[1, 2, 3].forEach(square);
 
 //.forEach(n => n * n);
 

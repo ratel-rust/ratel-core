@@ -229,18 +229,18 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        while let Some(ch) = self.source.next() {
-            match ch {
-                '\n' => return Some(LineTermination),
-                ';' => return Some(Semicolon),
-                ',' => return Some(Comma),
-                ':' => return Some(Colon),
-                '(' => return Some(ParenOn),
-                ')' => return Some(ParenOff),
-                '[' => return Some(BracketOn),
-                ']' => return Some(BracketOff),
-                '{' => return Some(BlockOn),
-                '}' => return Some(BlockOff),
+        if let Some(ch) = self.source.next() {
+            let token = match ch {
+                '\n' => LineTermination,
+                ';' => Semicolon,
+                ',' => Comma,
+                ':' => Colon,
+                '(' => ParenOn,
+                ')' => ParenOff,
+                '[' => BracketOn,
+                ']' => BracketOff,
+                '{' => BlockOn,
+                '}' => BlockOff,
                 '<' => {
                     let comp_type = if Some(&'=') == self.source.peek() {
                         self.source.next();
@@ -248,7 +248,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     } else {
                         Lesser
                     };
-                    return Some(Compare(comp_type));
+                    Compare(comp_type)
                 },
                 '>' => {
                     let comp_type = if Some(&'=') == self.source.peek() {
@@ -257,66 +257,72 @@ impl<'a> Iterator for Tokenizer<'a> {
                     } else {
                         Greater
                     };
-                    return Some(Compare(comp_type));
+                    Compare(comp_type)
                 },
-                '.' => return Some(Accessor),
+                '.' => Accessor,
                 '"' | '\'' => {
-                    return Some(Literal(LiteralString( self.read_string(ch) )));
+                    Literal(LiteralString( self.read_string(ch) ))
                 },
                 '=' => {
                     if Some(&'>') == self.source.peek() {
                         self.source.next();
-                        return Some(FatArrow);
-                    }
-                    if Some(&'=') == self.source.peek() {
-                        self.source.next();
+                        FatArrow
+                    } else {
                         if Some(&'=') == self.source.peek() {
                             self.source.next();
-                            return Some(Compare(Is));
+                            if Some(&'=') == self.source.peek() {
+                                self.source.next();
+                                Compare(Is)
+                            } else {
+                                Compare(Equals)
+                            }
+                        } else {
+                            Assign
                         }
-                        return Some(Compare(Equals));
                     }
-                    return Some(Assign);
                 },
                 '!' => {
                     if Some(&'=') == self.source.peek() {
                         self.source.next();
                         if Some(&'=') == self.source.peek() {
                             self.source.next();
-                            return Some(Compare(Isnt));
+                            Compare(Isnt)
+                        } else {
+                            Compare(NotEquals)
                         }
-                        return Some(Compare(NotEquals));
+                    } else {
+                        Operator(Not)
                     }
-                    return Some(Operator(Not));
                 },
-                '+' => return Some(Operator(Add)),
-                '-' => return Some(Operator(Substract)),
+                '+' => Operator(Add),
+                '-' => Operator(Substract),
                 '/' => {
                     if Some(&'/') == self.source.peek() {
                         self.source.next();
                         self.read_comment();
-                        continue;
+                        return self.next();
                         // return Some(Comment(self.read_comment()));
                     }
                     if Some(&'*') == self.source.peek() {
                         self.source.next();
                         self.read_block_comment();
-                        continue;
+                        return self.next();
                         // return Some(BlockComment(self.read_block_comment()));
                     }
-                    return Some(Operator(Divide));
+                    Operator(Divide)
                 }
                 '*' => {
                     if Some(&'*') == self.source.peek() {
                         self.source.next();
-                        return Some(Operator(Exponent));
+                        Operator(Exponent)
+                    } else {
+                        Operator(Multiply)
                     }
-                    return Some(Operator(Multiply));
                 },
                 '%' => return Some(Operator(Modulo)),
                 'a'...'z' | 'A'...'Z' | '$' | '_' => {
                     let label = self.read_label(ch);
-                    return Some(match label.as_ref() {
+                    match label.as_ref() {
                         "break"      => Keyword(Break),
                         "do"         => Keyword(Do),
                         "in"         => Keyword(In),
@@ -365,14 +371,13 @@ impl<'a> Iterator for Tokenizer<'a> {
                         "private"    => Reserved(Private),
                         "public"     => Reserved(Public),
                         _            => Identifier(label),
-                    })
+                    }
                 },
-                '0'...'9' => {
-                    let number = self.read_number(ch);
-                    return Some(Literal(number));
-                },
-                _ => {},
-            }
+                '0'...'9' => Literal(self.read_number(ch)),
+                _         => return self.next(),
+            };
+
+            return Some(token);
         }
         return None;
     }

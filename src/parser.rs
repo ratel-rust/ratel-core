@@ -11,7 +11,7 @@ use literals::*;
 /// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
     ($parser:ident, $p:pat) => {
-        match $parser.tokenizer.next() {
+        match $parser.next() {
             Some($p) => {},
             None     => panic!("Unexpected end of program"),
             token    => panic!("Unexpected token {:?}", token),
@@ -25,7 +25,7 @@ macro_rules! allow {
     ($parser:ident, $p:pat) => {
         match $parser.tokenizer.peek() {
             Some(&$p) => {
-                $parser.tokenizer.next();
+                $parser.next();
                 true
             },
             _ => false
@@ -55,7 +55,7 @@ macro_rules! on {
         match $parser.tokenizer.peek() {
             $(
                 Some(&$p) => {
-                    $parser.tokenizer.next();
+                    $parser.next();
                     allow_many!($parser, LineTermination);
                     $then
                 }
@@ -71,22 +71,36 @@ macro_rules! on {
 /// be specified, if met the macro will stop and return `false`.
 macro_rules! expect_statement_end {
     ($parser:ident, $cont:pat) => ({
-        let asi = allow_many!($parser, LineTermination);
+        allow_many!($parser, LineTermination);
 
-        match $parser.tokenizer.next() {
-            Some(Semicolon) => true,
-            Some($cont)     => false,
-            token => asi || panic!("Unexpected token {:?}", token)
+        let asi = $parser.allow_asi;
+        let end = match $parser.tokenizer.peek() {
+            Some(&Semicolon) => true,
+            Some(&$cont)     => false,
+            token            => asi || panic!("Unexpected token {:?}", token)
+        };
+
+        if !asi {
+            $parser.next();
         }
+
+        end
     });
 
     ($parser:ident) => ({
-        let asi = allow_many!(LineTermination);
+        allow_many!($parser, LineTermination);
 
-        match self.tokenizer.next() {
-            Some(Semicolon) => true,
-            token => asi || panic!("Unexpected token {:?}", token)
+        let asi = $parser.allow_asi;
+        match $parser.tokenizer.peek() {
+            Some(&Semicolon) => true,
+            token            => asi || panic!("Unexpected token {:?}", token)
+        };
+
+        if !asi {
+            $parser.next();
         }
+
+        true
     })
 }
 
@@ -124,6 +138,7 @@ macro_rules! expect_key_value_pair {
         let key = $key;
         allow_many!($parser, LineTermination);
         expect!($parser, $separator);
+        allow_many!($parser, LineTermination);
         (key, $value)
     })
 }
@@ -132,7 +147,7 @@ macro_rules! expect_key_value_pair {
 /// a tailing comma to appear before `$p`.
 macro_rules! expect_list_end {
     ($parser:ident, $separator:pat, $end:pat) => {
-        match $parser.tokenizer.next() {
+        match $parser.next() {
             Some($separator) => {
                 allow_many!($parser, LineTermination);
                 allow!($parser, $end)
@@ -197,13 +212,28 @@ pub enum Statement {
 
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
+    allow_asi: bool,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a String) -> Self {
         Parser {
             tokenizer: Tokenizer::new(source).peekable(),
+            allow_asi: false,
         }
+    }
+
+    pub fn next(&mut self) -> Option<Token> {
+        let token = self.tokenizer.next();
+
+        match token {
+            Some(LineTermination) => self.allow_asi = true,
+            _                     => self.allow_asi = false,
+        }
+
+        println!("Consume {:?}", token);
+
+        return token;
     }
 
     pub fn array(&mut self) -> Expression {
@@ -229,7 +259,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn object_key(&mut self) -> ObjectKey {
-        match self.tokenizer.next() {
+        match self.next() {
             Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
                 ObjectKey::Static(key)
             },
@@ -247,7 +277,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn object_property(&mut self) -> ObjectKey {
-        match self.tokenizer.next() {
+        match self.next() {
             Some(Identifier(property)) => {
                 ObjectKey::Static(property)
             },
@@ -267,14 +297,14 @@ impl<'a> Parser<'a> {
     pub fn expression(&mut self) -> Expression {
         let left = match self.tokenizer.peek() {
             Some(&Literal(_)) => {
-                if let Some(Literal(literal)) = self.tokenizer.next() {
+                if let Some(Literal(literal)) = self.next() {
                     Expression::Literal(literal)
                 } else {
                     panic!("Failed to read expression")
                 }
             }
             Some(&Identifier(_)) => {
-                if let Some(Identifier(literal)) = self.tokenizer.next() {
+                if let Some(Identifier(literal)) = self.next() {
                     Expression::Variable(literal)
                 } else {
                     panic!("Failed to read expression")
@@ -320,7 +350,7 @@ impl<'a> Parser<'a> {
     }
 
     fn identifier(&mut self) -> String {
-        match self.tokenizer.next() {
+        match self.next() {
             Some(Identifier(id)) => id,
             token => panic!("Expected identifier, got {:?}", token),
         }
@@ -359,14 +389,19 @@ impl<'a> Parser<'a> {
             Keyword(Const) => return Some(self.variable_declaration(
                 VariableDeclarationKind::Const
             ))
+            // Semicolon      => return self.statement()
         });
 
-        if let Some(_) = self.tokenizer.peek() {
-            Some(Statement::Expression(self.expression()))
+        // println!("Not a declaration {:?}", self.tokenizer.peek());
+
+        if self.tokenizer.peek().is_some() {
+            let expression = self.expression();
+            expect_statement_end!(self);
+            Some(Statement::Expression(expression))
         } else {
             None
         }
-        // if let Some(token) = self.tokenizer.next() {
+        // if let Some(token) = self.next() {
         //     return match token {
         //         LineTermination       => self.statement(),
         //         Comment(comment)      => Some(
