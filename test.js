@@ -17,6 +17,8 @@ let pojo = {
     [foo + bar]: 'totally'
 };
 
+;
+
 let emptyArray = [];
 
 [1, 2, 3].forEach(square);

@@ -388,8 +388,8 @@ impl<'a> Parser<'a> {
             )),
             Keyword(Const) => return Some(self.variable_declaration(
                 VariableDeclarationKind::Const
-            ))
-            // Semicolon      => return self.statement()
+            )),
+            Semicolon      => return self.statement()
         });
 
         // println!("Not a declaration {:?}", self.tokenizer.peek());
