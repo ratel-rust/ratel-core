@@ -8,7 +8,7 @@ use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use literals::*;
 
-/// Expects next token to be `$p`, otherwise panics.
+/// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
     ($parser:ident, $p:pat) => {
         match $parser.tokenizer.next() {
@@ -19,8 +19,8 @@ macro_rules! expect {
     }
 }
 
-/// If the next token is `$p`, consume that token and return true,
-/// else do nothing and return false
+/// If the next token matches `$p`, consume that token and return
+/// true, else do nothing and return false
 macro_rules! allow {
     ($parser:ident, $p:pat) => {
         match $parser.tokenizer.peek() {
@@ -28,7 +28,7 @@ macro_rules! allow {
                 $parser.tokenizer.next();
                 true
             },
-            _        => false
+            _ => false
         }
     }
 }
@@ -46,6 +46,25 @@ macro_rules! allow_many {
     }
 }
 
+/// More robust version of the regular `match`, will peek at the next
+/// token, if the token matches `$p` then consume that token, any line
+/// breaks after and call the `$then` expression.
+macro_rules! on {
+    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
+        allow_many!($parser, LineTermination);
+        match $parser.tokenizer.peek() {
+            $(
+                Some(&$p) => {
+                    $parser.tokenizer.next();
+                    allow_many!($parser, LineTermination);
+                    $then
+                }
+            )*
+            _ => {}
+        }
+    })
+}
+
 /// Expects a semicolon to end the statement and return `true`. If no
 /// semicolon is found, but `LimeTermination` occured, invoke
 /// automatic semicolon injection. Additionally a `$cont` token can
@@ -55,8 +74,8 @@ macro_rules! expect_statement_end {
         let asi = allow_many!($parser, LineTermination);
 
         match $parser.tokenizer.next() {
-            Some(Semicolon)       => true,
-            Some($cont)           => false,
+            Some(Semicolon) => true,
+            Some($cont)     => false,
             token => asi || panic!("Unexpected token {:?}", token)
         }
     });
@@ -145,6 +164,15 @@ pub enum Expression {
     Literal(LiteralValue),
     Array(Vec<Expression>),
     Object(Vec<(ObjectKey, Expression)>),
+    Member {
+        object: Box<Expression>,
+        property: Box<ObjectKey>,
+    },
+    MethodCall {
+        object: Box<Expression>,
+        method: Box<ObjectKey>,
+        arguments: Vec<Expression>,
+    },
     Addition {
         left: Box<Expression>,
         right: Box<Expression>,
@@ -168,6 +196,7 @@ pub enum Statement {
         kind: VariableDeclarationKind,
         declarations: Vec<VariableDeclarator>,
     },
+    Expression(Expression),
     Comment(String),
     BlockComment(String),
 }
@@ -223,6 +252,24 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn object_property(&mut self) -> ObjectKey {
+        match self.tokenizer.next() {
+            Some(Identifier(property)) => {
+                ObjectKey::Static(property)
+            },
+            Some(BracketOn) => {
+                allow_many!(self, LineTermination);
+                let property = self.expression();
+                allow_many!(self, LineTermination);
+                expect!(self, BracketOff);
+                ObjectKey::Computed(property)
+            },
+            token => {
+                panic!("Expected object property, got {:?}", token)
+            }
+        }
+    }
+
     pub fn expression(&mut self) -> Expression {
         let left = match self.tokenizer.peek() {
             Some(&Literal(_)) => {
@@ -239,25 +286,43 @@ impl<'a> Parser<'a> {
                     panic!("Failed to read expression")
                 }
             }
-            Some(&BracketOn)        => self.array(),
-            Some(&BlockOn)          => self.object(),
-            _                       => panic!("Failed to read expression")
+            Some(&BracketOn) => self.array(),
+            Some(&BlockOn)   => self.object(),
+            Some(_)          => panic!("Unexpected token"),
+            _                => panic!("Unexpected end of program")
         };
 
-        allow_many!(self, LineTermination);
-
-        return match self.tokenizer.peek() {
-            Some(&Operator(Add)) => {
-                self.tokenizer.next();
+        on!(self, {
+            Accessor => {
+                let object = Box::new(left);
+                let property = Box::new(self.object_property());
                 allow_many!(self, LineTermination);
 
-                Expression::Addition {
-                    left: Box::new(left),
-                    right: Box::new(self.expression()),
+                if let Some(&ParenOn) = self.tokenizer.peek() {
+                    return Expression::MethodCall {
+                        object: object,
+                        method: property,
+                        arguments: expect_list!(self,
+                            ParenOn,
+                            self.expression(),
+                            Comma,
+                            ParenOff
+                        )
+                    };
                 }
+
+                return Expression::Member {
+                    object: object,
+                    property: property,
+                }
+            },
+            Operator(Add) => return Expression::Addition {
+                left: Box::new(left),
+                right: Box::new(self.expression()),
             }
-            _ => left
-        }
+        });
+
+        left
     }
 
     fn identifier(&mut self) -> String {
@@ -295,28 +360,44 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        if let Some(token) = self.tokenizer.next() {
-            return match token {
-                LineTermination       => self.statement(),
-                Comment(comment)      => Some(
-                    Statement::Comment(comment)
-                ),
-                BlockComment(comment) => Some (
-                    Statement::BlockComment(comment)
-                ),
-                Keyword(Var)          => Some(self.variable_declaration(
-                    VariableDeclarationKind::Var
-                )),
-                Keyword(Let)          => Some(self.variable_declaration(
-                    VariableDeclarationKind::Let
-                )),
-                Keyword(Const)        => Some(self.variable_declaration(
-                    VariableDeclarationKind::Const
-                )),
-                _ => None,
-            }
+        on!(self, {
+            Keyword(Var)   => return Some(self.variable_declaration(
+                VariableDeclarationKind::Var
+            )),
+            Keyword(Let)   => return Some(self.variable_declaration(
+                VariableDeclarationKind::Let
+            )),
+            Keyword(Const) => return Some(self.variable_declaration(
+                VariableDeclarationKind::Const
+            ))
+        });
+
+        if let Some(_) = self.tokenizer.peek() {
+            Some(Statement::Expression(self.expression()))
+        } else {
+            None
         }
-        return None;
+        // if let Some(token) = self.tokenizer.next() {
+        //     return match token {
+        //         LineTermination       => self.statement(),
+        //         Comment(comment)      => Some(
+        //             Statement::Comment(comment)
+        //         ),
+        //         BlockComment(comment) => Some (
+        //             Statement::BlockComment(comment)
+        //         ),
+        //         Keyword(Var)          => Some(self.variable_declaration(
+        //             VariableDeclarationKind::Var
+        //         )),
+        //         Keyword(Let)          => Some(self.variable_declaration(
+        //             VariableDeclarationKind::Let
+        //         )),
+        //         Keyword(Const)        => Some(self.variable_declaration(
+        //             VariableDeclarationKind::Const
+        //         )),
+        //         _ => None,
+        //     }
+        // }
     }
 }
 
