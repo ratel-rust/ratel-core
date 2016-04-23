@@ -180,12 +180,6 @@ pub enum Expression {
 }
 
 #[derive(Debug)]
-pub struct VariableDeclarator {
-    id: String,
-    value: Expression,
-}
-
-#[derive(Debug)]
 pub struct Program {
     body: Vec<Statement>,
 }
@@ -194,7 +188,7 @@ pub struct Program {
 pub enum Statement {
     VariableDeclaration {
         kind: VariableDeclarationKind,
-        declarations: Vec<VariableDeclarator>,
+        declarations: Vec<(String, Expression)>,
     },
     Expression(Expression),
     Comment(String),
@@ -334,19 +328,14 @@ impl<'a> Parser<'a> {
 
     fn variable_declaration(&mut self, kind: VariableDeclarationKind)
     -> Statement {
-        let mut declarations: Vec<VariableDeclarator> = Vec::new();
+        let mut declarations = Vec::new();
 
         loop {
-            let (id, value) = expect_key_value_pair!(self,
+            declarations.push(expect_key_value_pair!(self,
                 self.identifier(),
                 Assign,
                 self.expression()
-            );
-
-            declarations.push(VariableDeclarator {
-                id: id,
-                value: value,
-            });
+            ));
 
             if expect_statement_end!(self, Comma) {
                 break
