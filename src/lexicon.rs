@@ -95,6 +95,4 @@ pub enum Token {
     Reserved(ReservedKind),
     Identifier(String),
     Literal(LiteralValue),
-    Comment(String),
-    BlockComment(String),
 }

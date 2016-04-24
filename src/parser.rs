@@ -356,7 +356,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn variable_declaration(&mut self, kind: VariableDeclarationKind)
+    fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind)
     -> Statement {
         let mut declarations = Vec::new();
 
@@ -378,50 +378,31 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expression_statement(&mut self) -> Statement {
+        let expression = self.expression();
+        expect_statement_end!(self);
+        Statement::Expression(expression)
+    }
+
     fn statement(&mut self) -> Option<Statement> {
         on!(self, {
-            Keyword(Var)   => return Some(self.variable_declaration(
+            Keyword(Var)   => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),
-            Keyword(Let)   => return Some(self.variable_declaration(
+            Keyword(Let)   => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Let
             )),
-            Keyword(Const) => return Some(self.variable_declaration(
+            Keyword(Const) => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Const
             )),
             Semicolon      => return self.statement()
         });
 
-        // println!("Not a declaration {:?}", self.tokenizer.peek());
-
         if self.tokenizer.peek().is_some() {
-            let expression = self.expression();
-            expect_statement_end!(self);
-            Some(Statement::Expression(expression))
+            Some(self.expression_statement())
         } else {
             None
         }
-        // if let Some(token) = self.next() {
-        //     return match token {
-        //         LineTermination       => self.statement(),
-        //         Comment(comment)      => Some(
-        //             Statement::Comment(comment)
-        //         ),
-        //         BlockComment(comment) => Some (
-        //             Statement::BlockComment(comment)
-        //         ),
-        //         Keyword(Var)          => Some(self.variable_declaration(
-        //             VariableDeclarationKind::Var
-        //         )),
-        //         Keyword(Let)          => Some(self.variable_declaration(
-        //             VariableDeclarationKind::Let
-        //         )),
-        //         Keyword(Const)        => Some(self.variable_declaration(
-        //             VariableDeclarationKind::Const
-        //         )),
-        //         _ => None,
-        //     }
-        // }
     }
 }
 

@@ -186,42 +186,30 @@ impl<'a> Tokenizer<'a> {
         return LiteralValue::float_from_string(value);
     }
 
-    fn read_comment(&mut self) -> String {
-        let mut comment = String::new();
-
+    fn read_comment(&mut self) {
         while let Some(&ch) = self.source.peek() {
             if ch == '\n' {
-                return comment;
+                return;
             }
-            comment.push(ch);
             self.source.next();
         }
-
-        return comment;
     }
 
-    fn read_block_comment(&mut self) -> String {
-        let mut comment = String::new();
+    fn read_block_comment(&mut self) {
         let mut asterisk = false;
 
         while let Some(&ch) = self.source.peek() {
             if ch == '/' && asterisk {
                 self.source.next();
-                return comment;
+                return;
             }
             if ch == '*' {
                 asterisk = true;
                 self.source.next();
                 continue;
             }
-            if asterisk {
-                comment.push('*');
-            }
-            comment.push(ch);
             self.source.next();
         }
-
-        return comment;
     }
 }
 
@@ -229,8 +217,8 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        if let Some(ch) = self.source.next() {
-            let token = match ch {
+        'lex: while let Some(ch) = self.source.next() {
+            return Some(match ch {
                 '\n' => LineTermination,
                 ';' => Semicolon,
                 ',' => Comma,
@@ -300,14 +288,12 @@ impl<'a> Iterator for Tokenizer<'a> {
                     if Some(&'/') == self.source.peek() {
                         self.source.next();
                         self.read_comment();
-                        return self.next();
-                        // return Some(Comment(self.read_comment()));
+                        continue 'lex;
                     }
                     if Some(&'*') == self.source.peek() {
                         self.source.next();
                         self.read_block_comment();
-                        return self.next();
-                        // return Some(BlockComment(self.read_block_comment()));
+                        continue 'lex;
                     }
                     Operator(Divide)
                 }
@@ -374,10 +360,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                     }
                 },
                 '0'...'9' => Literal(self.read_number(ch)),
-                _         => return self.next(),
-            };
-
-            return Some(token);
+                _         => continue 'lex,
+            });
         }
         return None;
     }
