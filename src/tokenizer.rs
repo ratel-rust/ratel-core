@@ -283,8 +283,20 @@ impl<'a> Iterator for Tokenizer<'a> {
                         Operator(Not)
                     }
                 },
-                '+' => Operator(Add),
-                '-' => Operator(Substract),
+                '+' => match self.source.peek() {
+                    Some(&'+') => {
+                        self.source.next();
+                        Operator(Increment)
+                    },
+                    _          => Operator(Add)
+                },
+                '-' => match self.source.peek() {
+                    Some(&'-') => {
+                        self.source.next();
+                        Operator(Decrement)
+                    }
+                    _          => Operator(Substract)
+                },
                 '/' => {
                     if Some(&'/') == self.source.peek() {
                         self.source.next();

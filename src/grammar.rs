@@ -55,6 +55,12 @@ pub enum BinaryOperator {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum UpdateOperator {
+    Increment,
+    Decrement,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Variable(String),
     Literal(LiteralValue),
@@ -73,6 +79,11 @@ pub enum Expression {
         operator: BinaryOperator,
         left: Box<Expression>,
         right: Box<Expression>,
+    },
+    Update {
+        operator: UpdateOperator,
+        prefix: bool,
+        argument: Box<Expression>,
     },
     ArrowFunction {
         params: Vec<Parameter>,

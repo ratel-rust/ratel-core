@@ -62,6 +62,18 @@ macro_rules! expect {
     })
 }
 
+macro_rules! predict {
+    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
+        ignore_nl!($parser);
+        match $parser.lookahead() {
+            $(
+                Some(&$p) => $then,
+            )*
+            _ => {}
+        }
+    })
+}
+
 /// More robust version of the regular `match`, will peek at the next
 /// token, if the token matches `$p` then consume that token, any line
 /// breaks after and call the `$then` expression.
@@ -188,6 +200,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline(always)]
     fn consume(&mut self) -> Option<Token> {
         let token = self.tokenizer.next();
 
@@ -201,6 +214,7 @@ impl<'a> Parser<'a> {
         return token;
     }
 
+    #[inline(always)]
     fn lookahead(&mut self) -> Option<&Token> {
         self.tokenizer.peek()
     }
@@ -289,18 +303,10 @@ impl<'a> Parser<'a> {
     fn expression(&mut self) -> Expression {
         let left = match self.lookahead() {
             Some(&Literal(_)) => {
-                if let Some(Literal(literal)) = self.consume() {
-                    Expression::Literal(literal)
-                } else {
-                    panic!("Failed to read expression")
-                }
+                Expression::Literal(expect!(self, Literal(v) => v))
             }
             Some(&Identifier(_)) => {
-                if let Some(Identifier(literal)) = self.consume() {
-                    Expression::Variable(literal)
-                } else {
-                    panic!("Failed to read expression")
-                }
+                Expression::Variable(expect!(self, Identifier(v) => v))
             }
             Some(&BracketOn) => self.array_expression(),
             Some(&BlockOn)   => self.object_expression(),
@@ -314,8 +320,8 @@ impl<'a> Parser<'a> {
                 let property = Box::new(self.object_key(false));
                 ignore_nl!(self);
 
-                if let Some(&ParenOn) = self.lookahead() {
-                    return Expression::MethodCall {
+                predict!(self, {
+                    ParenOn => return Expression::MethodCall {
                         object: object,
                         method: property,
                         arguments: expect_list!(self,
@@ -324,13 +330,23 @@ impl<'a> Parser<'a> {
                             Comma,
                             ParenOff
                         )
-                    };
-                }
+                    }
+                });
 
                 return Expression::Member {
                     object: object,
                     property: property,
                 }
+            },
+            Operator(Increment) => return Expression::Update {
+                operator: UpdateOperator::Increment,
+                prefix: false,
+                argument: Box::new(left),
+            },
+            Operator(Decrement) => return Expression::Update {
+                operator: UpdateOperator::Decrement,
+                prefix: false,
+                argument: Box::new(left),
             },
             Operator(Add) => return Expression::Binary {
                 operator: BinaryOperator::Add,

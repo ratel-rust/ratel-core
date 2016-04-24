@@ -1,7 +1,7 @@
 let foo = 'lorem',
     bar = "ipsum";
 
-const pi = 3.14;
+const pi = 3.14
 
 // 42
 var binary = 0b101010,
@@ -20,19 +20,19 @@ let pojo = {
 ;
 
 
-[1, 2, 3].forEach(n => n * n);
+[1, 2, 3].forEach(n => n * n)
 
-['fooz', 'baz'].map(item => {
-    return item.toUpperCase();
-});
+['fooz', 'baz'].map(item => item.toUpperCase());
 
 function helloKitty(count, name) {
-    while (count) console.log(name);
+    while (count--) console.log(name);
 
     return false;
 }
 
-let emptyArray = [];
+// helloKitty();
+
+let emptyArray = []
 
 
 // /*

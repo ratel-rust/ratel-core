@@ -70,7 +70,9 @@ pub enum OperatorKind {
     Divide,     // /
     Modulo,     // %
     Exponent,   // **
-    Not         // !
+    Not,        // !
+    Increment,  // ++
+    Decrement,  // --
 }
 
 #[derive(Debug, PartialEq)]
