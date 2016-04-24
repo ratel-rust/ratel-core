@@ -11,7 +11,7 @@ use literals::*;
 /// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
     ($parser:ident, $p:pat) => {
-        match $parser.next() {
+        match $parser.consume() {
             Some($p) => {},
             None     => panic!("Unexpected end of program"),
             token    => panic!("Unexpected token {:?}", token),
@@ -23,9 +23,9 @@ macro_rules! expect {
 /// true, else do nothing and return false
 macro_rules! allow {
     ($parser:ident, $p:pat) => {
-        match $parser.tokenizer.peek() {
+        match $parser.lookahead() {
             Some(&$p) => {
-                $parser.next();
+                $parser.consume();
                 true
             },
             _ => false
@@ -43,6 +43,12 @@ macro_rules! allow_many {
         } else {
             false
         }
+    };
+}
+
+macro_rules! ignore_nl {
+    ($parser:ident) => {
+        allow_many!($parser, LineTermination)
     }
 }
 
@@ -51,12 +57,12 @@ macro_rules! allow_many {
 /// breaks after and call the `$then` expression.
 macro_rules! on {
     ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
-        allow_many!($parser, LineTermination);
-        match $parser.tokenizer.peek() {
+        ignore_nl!($parser);
+        match $parser.lookahead() {
             $(
                 Some(&$p) => {
-                    $parser.next();
-                    allow_many!($parser, LineTermination);
+                    $parser.consume();
+                    ignore_nl!($parser);
                     $then
                 }
             )*
@@ -71,33 +77,33 @@ macro_rules! on {
 /// be specified, if met the macro will stop and return `false`.
 macro_rules! expect_statement_end {
     ($parser:ident, $cont:pat) => ({
-        allow_many!($parser, LineTermination);
+        ignore_nl!($parser);
 
         let asi = $parser.allow_asi;
-        let end = match $parser.tokenizer.peek() {
+        let end = match $parser.lookahead() {
             Some(&Semicolon) => true,
             Some(&$cont)     => false,
             token            => asi || panic!("Unexpected token {:?}", token)
         };
 
         if !asi {
-            $parser.next();
+            $parser.consume();
         }
 
         end
     });
 
     ($parser:ident) => ({
-        allow_many!($parser, LineTermination);
+        ignore_nl!($parser);
 
         let asi = $parser.allow_asi;
-        match $parser.tokenizer.peek() {
+        match $parser.lookahead() {
             Some(&Semicolon) => true,
             token            => asi || panic!("Unexpected token {:?}", token)
         };
 
         if !asi {
-            $parser.next();
+            $parser.consume();
         }
 
         true
@@ -113,12 +119,12 @@ macro_rules! expect_list {
 
         expect!($parser, $start);
         loop {
-            allow_many!($parser, LineTermination);
+            ignore_nl!($parser);
             if allow!($parser, $end) {
                 break;
             }
             list.push($item);
-            allow_many!($parser, LineTermination);
+            ignore_nl!($parser);
             if expect_list_end!($parser, $separator, $end) {
                 break;
             } else {
@@ -134,11 +140,11 @@ macro_rules! expect_list {
 /// value expression in that order.
 macro_rules! expect_key_value_pair {
     ($parser:ident, $key:expr, $separator:pat, $value:expr) => ({
-        allow_many!($parser, LineTermination);
+        ignore_nl!($parser);
         let key = $key;
-        allow_many!($parser, LineTermination);
+        ignore_nl!($parser);
         expect!($parser, $separator);
-        allow_many!($parser, LineTermination);
+        ignore_nl!($parser);
         (key, $value)
     })
 }
@@ -147,9 +153,9 @@ macro_rules! expect_key_value_pair {
 /// a tailing comma to appear before `$p`.
 macro_rules! expect_list_end {
     ($parser:ident, $separator:pat, $end:pat) => {
-        match $parser.next() {
+        match $parser.consume() {
             Some($separator) => {
-                allow_many!($parser, LineTermination);
+                ignore_nl!($parser);
                 allow!($parser, $end)
             }
             Some($end)       => true,
@@ -223,7 +229,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn next(&mut self) -> Option<Token> {
+    fn consume(&mut self) -> Option<Token> {
         let token = self.tokenizer.next();
 
         match token {
@@ -236,7 +242,11 @@ impl<'a> Parser<'a> {
         return token;
     }
 
-    pub fn array(&mut self) -> Expression {
+    fn lookahead(&mut self) -> Option<&Token> {
+        self.tokenizer.peek()
+    }
+
+    fn array(&mut self) -> Expression {
         Expression::Array(expect_list!(self,
             BracketOn,
             self.expression(),
@@ -245,11 +255,11 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    pub fn object(&mut self) -> Expression {
+    fn object(&mut self) -> Expression {
         Expression::Object(expect_list!(self,
             BlockOn,
             expect_key_value_pair!(self,
-                self.object_key(),
+                self.object_key(true),
                 Colon,
                 self.expression()
             ),
@@ -258,15 +268,19 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    pub fn object_key(&mut self) -> ObjectKey {
-        match self.next() {
-            Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
+    fn object_key(&mut self, allow_string: bool) -> ObjectKey {
+        match self.consume() {
+            Some(Identifier(key))             => ObjectKey::Static(key),
+            Some(Literal(LiteralString(key))) => {
+                if !allow_string {
+                    panic!("Expected object key, got LiteralString({:?})", key);
+                }
                 ObjectKey::Static(key)
             },
             Some(BracketOn) => {
-                allow_many!(self, LineTermination);
+                ignore_nl!(self);
                 let key = self.expression();
-                allow_many!(self, LineTermination);
+                ignore_nl!(self);
                 expect!(self, BracketOff);
                 ObjectKey::Computed(key)
             },
@@ -276,35 +290,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn object_property(&mut self) -> ObjectKey {
-        match self.next() {
-            Some(Identifier(property)) => {
-                ObjectKey::Static(property)
-            },
-            Some(BracketOn) => {
-                allow_many!(self, LineTermination);
-                let property = self.expression();
-                allow_many!(self, LineTermination);
-                expect!(self, BracketOff);
-                ObjectKey::Computed(property)
-            },
-            token => {
-                panic!("Expected object property, got {:?}", token)
-            }
-        }
-    }
-
-    pub fn expression(&mut self) -> Expression {
-        let left = match self.tokenizer.peek() {
+    fn expression(&mut self) -> Expression {
+        let left = match self.lookahead() {
             Some(&Literal(_)) => {
-                if let Some(Literal(literal)) = self.next() {
+                if let Some(Literal(literal)) = self.consume() {
                     Expression::Literal(literal)
                 } else {
                     panic!("Failed to read expression")
                 }
             }
             Some(&Identifier(_)) => {
-                if let Some(Identifier(literal)) = self.next() {
+                if let Some(Identifier(literal)) = self.consume() {
                     Expression::Variable(literal)
                 } else {
                     panic!("Failed to read expression")
@@ -319,10 +315,10 @@ impl<'a> Parser<'a> {
         on!(self, {
             Accessor => {
                 let object = Box::new(left);
-                let property = Box::new(self.object_property());
-                allow_many!(self, LineTermination);
+                let property = Box::new(self.object_key(false));
+                ignore_nl!(self);
 
-                if let Some(&ParenOn) = self.tokenizer.peek() {
+                if let Some(&ParenOn) = self.lookahead() {
                     return Expression::MethodCall {
                         object: object,
                         method: property,
@@ -350,7 +346,7 @@ impl<'a> Parser<'a> {
     }
 
     fn identifier(&mut self) -> String {
-        match self.next() {
+        match self.consume() {
             Some(Identifier(id)) => id,
             token => panic!("Expected identifier, got {:?}", token),
         }
@@ -398,7 +394,7 @@ impl<'a> Parser<'a> {
             Semicolon      => return self.statement()
         });
 
-        if self.tokenizer.peek().is_some() {
+        if self.lookahead().is_some() {
             Some(self.expression_statement())
         } else {
             None
