@@ -8,24 +8,6 @@ use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
 
-/// Expects next token to match `$p`, otherwise panics.
-macro_rules! expect {
-    ($parser:ident, $p:pat => $value:ident) => {
-        match $parser.consume() {
-            Some($p) => $value,
-            None     => panic!("Unexpected end of program"),
-            token    => panic!("Unexpected token {:?}", token),
-        }
-    };
-    ($parser:ident, $p:pat) => {
-        match $parser.consume() {
-            Some($p) => {},
-            None     => panic!("Unexpected end of program"),
-            token    => panic!("Unexpected token {:?}", token),
-        }
-    }
-}
-
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
 macro_rules! allow {
@@ -58,6 +40,26 @@ macro_rules! ignore_nl {
     ($parser:ident) => {
         allow_many!($parser, LineTermination)
     }
+}
+
+/// Expects next token to match `$p`, otherwise panics.
+macro_rules! expect {
+    ($parser:ident, $p:pat => $value:ident) => ({
+        ignore_nl!($parser);
+        match $parser.consume() {
+            Some($p) => $value,
+            None     => panic!("Unexpected end of program"),
+            token    => panic!("Unexpected token {:?}", token),
+        }
+    });
+    ($parser:ident, $p:pat) => ({
+        ignore_nl!($parser);
+        match $parser.consume() {
+            Some($p) => {},
+            None     => panic!("Unexpected end of program"),
+            token    => panic!("Unexpected token {:?}", token),
+        }
+    })
 }
 
 /// More robust version of the regular `match`, will peek at the next
@@ -125,7 +127,7 @@ macro_rules! expect_statement_end {
 macro_rules! expect_list {
     ($parser:ident, $start:pat, $item:expr, $separator:pat, $end:pat) => ({
         let mut list = Vec::new();
-
+        ignore_nl!($parser);
         expect!($parser, $start);
         loop {
             ignore_nl!($parser);
@@ -133,7 +135,6 @@ macro_rules! expect_list {
                 break;
             }
             list.push($item);
-            ignore_nl!($parser);
             if expect_list_end!($parser, $separator, $end) {
                 break;
             } else {
@@ -161,7 +162,8 @@ macro_rules! expect_key_value_pair {
 /// Returns true if met with a list closing token `$p`, allows
 /// a tailing comma to appear before `$p`.
 macro_rules! expect_list_end {
-    ($parser:ident, $separator:pat, $end:pat) => {
+    ($parser:ident, $separator:pat, $end:pat) => ({
+        ignore_nl!($parser);
         match $parser.consume() {
             Some($separator) => {
                 ignore_nl!($parser);
@@ -170,7 +172,7 @@ macro_rules! expect_list_end {
             Some($end)       => true,
             _                => false,
         }
-    }
+    })
 }
 
 pub struct Parser<'a> {
@@ -237,13 +239,22 @@ impl<'a> Parser<'a> {
             Some(BracketOn) => {
                 ignore_nl!(self);
                 let key = self.expression();
-                ignore_nl!(self);
                 expect!(self, BracketOff);
                 ObjectKey::Computed(key)
             },
             token => {
                 panic!("Expected object key, got {:?}", token)
             }
+        }
+    }
+
+    fn optional_block(&mut self) -> OptionalBlock {
+        ignore_nl!(self);
+        if let Some(&BlockOn) = self.lookahead() {
+            self.consume();
+            OptionalBlock::Block(self.block())
+        } else {
+            OptionalBlock::Expression(Box::new(self.expression()))
         }
     }
 
@@ -269,18 +280,9 @@ impl<'a> Parser<'a> {
                 panic!("Can cast {:?} to parameters", p),
         };
 
-        on!(self, {
-            BlockOn => {
-                return Expression::ArrowFunction {
-                    params: params,
-                    body: ArrayFunctionBody::Block(self.block())
-                }
-            }
-        });
-
         Expression::ArrowFunction {
             params: params,
-            body: ArrayFunctionBody::Expression(Box::new(self.expression()))
+            body: self.optional_block()
         }
     }
 
@@ -346,20 +348,13 @@ impl<'a> Parser<'a> {
         left
     }
 
-    fn identifier(&mut self) -> String {
-        match self.consume() {
-            Some(Identifier(id)) => id,
-            token => panic!("Expected identifier, got {:?}", token),
-        }
-    }
-
     fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind)
     -> Statement {
         let mut declarations = Vec::new();
 
         loop {
             declarations.push(expect_key_value_pair!(self,
-                self.identifier(),
+                expect!(self, Identifier(name) => name),
                 Assign,
                 self.expression()
             ));
@@ -387,9 +382,20 @@ impl<'a> Parser<'a> {
         Statement::ReturnStatement(expression)
     }
 
+    fn while_statement(&mut self) -> Statement {
+        expect!(self, ParenOn);
+        ignore_nl!(self);
+        let condition = self.expression();
+        expect!(self, ParenOff);
+
+        Statement::WhileStatement {
+            condition: condition,
+            body: self.optional_block()
+        }
+    }
+
     fn function_statement(&mut self) -> Statement {
         let name = expect!(self, Identifier(name) => name);
-        ignore_nl!(self);
         let params = expect_list!(self,
             ParenOn,
             Parameter { name: expect!(self, Identifier(name) => name) },
@@ -417,6 +423,7 @@ impl<'a> Parser<'a> {
             )),
             Keyword(Return)   => return Some(self.return_statement()),
             Keyword(Function) => return Some(self.function_statement()),
+            Keyword(While)    => return Some(self.while_statement()),
             Semicolon         => return self.statement()
         });
 

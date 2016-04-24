@@ -344,7 +344,6 @@ impl<'a> Iterator for Tokenizer<'a> {
                         "import"     => Keyword(Import),
                         "try"        => Keyword(Try),
                         "void"       => Keyword(Void),
-                        "async"      => Keyword(Async),
                         "await"      => Keyword(Await),
                         "true"       => Literal(LiteralTrue),
                         "false"      => Literal(LiteralFalse),

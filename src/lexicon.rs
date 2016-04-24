@@ -36,7 +36,6 @@ pub enum KeywordKind {
     Import,
     Try,
     Void,
-    Async,
     Await,
 }
 

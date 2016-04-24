@@ -39,7 +39,7 @@ pub struct Parameter {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ArrayFunctionBody {
+pub enum OptionalBlock {
     Expression(Box<Expression>),
     Block(Vec<Statement>),
 }
@@ -76,7 +76,7 @@ pub enum Expression {
     },
     ArrowFunction {
         params: Vec<Parameter>,
-        body: ArrayFunctionBody,
+        body: OptionalBlock,
     },
     Function {
         name: Option<String>,
@@ -102,5 +102,9 @@ pub enum Statement {
         name: String,
         params: Vec<Parameter>,
         body: Vec<Statement>,
+    },
+    WhileStatement {
+        condition: Expression,
+        body: OptionalBlock,
     }
 }

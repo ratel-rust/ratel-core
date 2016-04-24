@@ -19,7 +19,6 @@ let pojo = {
 
 ;
 
-let emptyArray = [];
 
 [1, 2, 3].forEach(n => n * n);
 
@@ -28,11 +27,12 @@ let emptyArray = [];
 });
 
 function helloKitty(count, name) {
-    console.log(count);
-    console.log(name);
+    while (count) console.log(name);
 
     return false;
 }
+
+let emptyArray = [];
 
 
 // /*
