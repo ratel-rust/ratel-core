@@ -6,7 +6,8 @@ use lexicon::KeywordKind::*;
 use lexicon::ReservedKind::*;
 use lexicon::CompareKind::*;
 use lexicon::OperatorKind::*;
-use literals::*;
+use grammar::LiteralValue;
+use grammar::LiteralValue::*;
 
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,

@@ -6,10 +6,17 @@ use lexicon::CompareKind::*;
 use lexicon::OperatorKind::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
-use literals::*;
+use grammar::*;
 
 /// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
+    ($parser:ident, $p:pat => $value:ident) => {
+        match $parser.consume() {
+            Some($p) => $value,
+            None     => panic!("Unexpected end of program"),
+            token    => panic!("Unexpected token {:?}", token),
+        }
+    };
     ($parser:ident, $p:pat) => {
         match $parser.consume() {
             Some($p) => {},
@@ -46,6 +53,7 @@ macro_rules! allow_many {
     };
 }
 
+/// Just a shorthand for allow_many!(self, LineTermination)
 macro_rules! ignore_nl {
     ($parser:ident) => {
         allow_many!($parser, LineTermination)
@@ -63,7 +71,7 @@ macro_rules! on {
                 Some(&$p) => {
                     $parser.consume();
                     ignore_nl!($parser);
-                    $then
+                    $then;
                 }
             )*
             _ => {}
@@ -72,18 +80,18 @@ macro_rules! on {
 }
 
 /// Expects a semicolon to end the statement and return `true`. If no
-/// semicolon is found, but `LimeTermination` occured, invoke
-/// automatic semicolon injection. Additionally a `$cont` token can
-/// be specified, if met the macro will stop and return `false`.
+/// semicolon is found, we try to follow the ECMA 262 Automatic
+/// Semicolon Insertion (ASI) Rules.
 macro_rules! expect_statement_end {
     ($parser:ident, $cont:pat) => ({
         ignore_nl!($parser);
 
         let asi = $parser.allow_asi;
         let end = match $parser.lookahead() {
-            Some(&Semicolon) => true,
-            Some(&$cont)     => false,
-            token            => asi || panic!("Unexpected token {:?}", token)
+            None | Some(&Semicolon) => true,
+            Some(&$cont)            => false,
+            token                   =>
+                asi || panic!("Unexpected token {:?}", token)
         };
 
         if !asi {
@@ -98,8 +106,9 @@ macro_rules! expect_statement_end {
 
         let asi = $parser.allow_asi;
         match $parser.lookahead() {
-            Some(&Semicolon) => true,
-            token            => asi || panic!("Unexpected token {:?}", token)
+            None | Some(&Semicolon) => true,
+            token                   =>
+                asi || panic!("Unexpected token {:?}", token)
         };
 
         if !asi {
@@ -164,58 +173,6 @@ macro_rules! expect_list_end {
     }
 }
 
-type PT<'a> = Peekable<Tokenizer<'a>>;
-
-#[derive(Debug)]
-pub enum VariableDeclarationKind {
-    Var,
-    Let,
-    Const,
-}
-
-#[derive(Debug)]
-pub enum ObjectKey {
-    Static(String),
-    Computed(Expression),
-}
-
-#[derive(Debug)]
-pub enum Expression {
-    Variable(String),
-    Literal(LiteralValue),
-    Array(Vec<Expression>),
-    Object(Vec<(ObjectKey, Expression)>),
-    Member {
-        object: Box<Expression>,
-        property: Box<ObjectKey>,
-    },
-    MethodCall {
-        object: Box<Expression>,
-        method: Box<ObjectKey>,
-        arguments: Vec<Expression>,
-    },
-    Addition {
-        left: Box<Expression>,
-        right: Box<Expression>,
-    }
-}
-
-#[derive(Debug)]
-pub struct Program {
-    body: Vec<Statement>,
-}
-
-#[derive(Debug)]
-pub enum Statement {
-    VariableDeclaration {
-        kind: VariableDeclarationKind,
-        declarations: Vec<(String, Expression)>,
-    },
-    Expression(Expression),
-    Comment(String),
-    BlockComment(String),
-}
-
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
     allow_asi: bool,
@@ -237,7 +194,7 @@ impl<'a> Parser<'a> {
             _                     => self.allow_asi = false,
         }
 
-        println!("Consume {:?}", token);
+        // println!("Consume {:?}", token);
 
         return token;
     }
@@ -246,7 +203,7 @@ impl<'a> Parser<'a> {
         self.tokenizer.peek()
     }
 
-    fn array(&mut self) -> Expression {
+    fn array_expression(&mut self) -> Expression {
         Expression::Array(expect_list!(self,
             BracketOn,
             self.expression(),
@@ -255,7 +212,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn object(&mut self) -> Expression {
+    fn object_expression(&mut self) -> Expression {
         Expression::Object(expect_list!(self,
             BlockOn,
             expect_key_value_pair!(self,
@@ -290,6 +247,43 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn block(&mut self) -> Vec<Statement> {
+        let mut body = Vec::new();
+        loop {
+            on!(self, {
+                BlockOff => break
+            });
+            match self.statement() {
+                Some(statement) => body.push(statement),
+                None            => panic!("Unexpected end of function block")
+            }
+        }
+
+        body
+    }
+
+    fn arrow_function_expression(&mut self, p: Expression) -> Expression {
+        let params: Vec<Parameter> = match p {
+            Expression::Variable(name) => vec![Parameter { name: name }],
+            _                          =>
+                panic!("Can cast {:?} to parameters", p),
+        };
+
+        on!(self, {
+            BlockOn => {
+                return Expression::ArrowFunction {
+                    params: params,
+                    body: ArrayFunctionBody::Block(self.block())
+                }
+            }
+        });
+
+        Expression::ArrowFunction {
+            params: params,
+            body: ArrayFunctionBody::Expression(Box::new(self.expression()))
+        }
+    }
+
     fn expression(&mut self) -> Expression {
         let left = match self.lookahead() {
             Some(&Literal(_)) => {
@@ -306,8 +300,8 @@ impl<'a> Parser<'a> {
                     panic!("Failed to read expression")
                 }
             }
-            Some(&BracketOn) => self.array(),
-            Some(&BlockOn)   => self.object(),
+            Some(&BracketOn) => self.array_expression(),
+            Some(&BlockOn)   => self.object_expression(),
             Some(_)          => panic!("Unexpected token"),
             _                => panic!("Unexpected end of program")
         };
@@ -336,10 +330,17 @@ impl<'a> Parser<'a> {
                     property: property,
                 }
             },
-            Operator(Add) => return Expression::Addition {
+            Operator(Add) => return Expression::Binary {
+                operator: BinaryOperator::Add,
                 left: Box::new(left),
                 right: Box::new(self.expression()),
-            }
+            },
+            Operator(Multiply) => return Expression::Binary {
+                operator: BinaryOperator::Multiply,
+                left: Box::new(left),
+                right: Box::new(self.expression()),
+            },
+            FatArrow      => return self.arrow_function_expression(left)
         });
 
         left
@@ -368,7 +369,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Statement::VariableDeclaration {
+        Statement::VariableDeclarationStatement {
             kind: kind,
             declarations: declarations,
         }
@@ -377,21 +378,46 @@ impl<'a> Parser<'a> {
     fn expression_statement(&mut self) -> Statement {
         let expression = self.expression();
         expect_statement_end!(self);
-        Statement::Expression(expression)
+        Statement::ExpressionStatement(expression)
+    }
+
+    fn return_statement(&mut self) -> Statement {
+        let expression = self.expression();
+        expect_statement_end!(self);
+        Statement::ReturnStatement(expression)
+    }
+
+    fn function_statement(&mut self) -> Statement {
+        let name = expect!(self, Identifier(name) => name);
+        ignore_nl!(self);
+        let params = expect_list!(self,
+            ParenOn,
+            Parameter { name: expect!(self, Identifier(name) => name) },
+            Comma,
+            ParenOff
+        );
+        expect!(self, BlockOn);
+        Statement::FunctionStatement {
+            name: name,
+            params: params,
+            body: self.block(),
+        }
     }
 
     fn statement(&mut self) -> Option<Statement> {
         on!(self, {
-            Keyword(Var)   => return Some(self.variable_declaration_statement(
+            Keyword(Var)      => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),
-            Keyword(Let)   => return Some(self.variable_declaration_statement(
+            Keyword(Let)      => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Let
             )),
-            Keyword(Const) => return Some(self.variable_declaration_statement(
+            Keyword(Const)    => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Const
             )),
-            Semicolon      => return self.statement()
+            Keyword(Return)   => return Some(self.return_statement()),
+            Keyword(Function) => return Some(self.function_statement()),
+            Semicolon         => return self.statement()
         });
 
         if self.lookahead().is_some() {
@@ -406,14 +432,9 @@ pub fn parse(source: String) -> Program {
     let mut parser = Parser::new(&source);
     let mut program = Program { body: Vec::new() };
 
-    // for token in tokenizer {
-    //     println!("{:?}", token);
-    // }
     while let Some(statement) = parser.statement() {
         program.body.push(statement);
     }
-
-    println!("{:#?}", program);
 
     return program;
 }

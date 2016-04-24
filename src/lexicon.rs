@@ -1,6 +1,6 @@
-use literals::*;
+use grammar::LiteralValue;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum KeywordKind {
     Break,
     Do,
@@ -40,7 +40,7 @@ pub enum KeywordKind {
     Await,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ReservedKind {
     Enum,
     Implements,
@@ -51,7 +51,7 @@ pub enum ReservedKind {
     Public,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CompareKind {
     Is,             // ===
     Isnt,           // !==
@@ -63,7 +63,7 @@ pub enum CompareKind {
     GreaterEquals,  // >=
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum OperatorKind {
     Add,        // +
     Substract,  // -
@@ -74,7 +74,7 @@ pub enum OperatorKind {
     Not         // !
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     LineTermination,
     Semicolon,

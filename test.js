@@ -21,9 +21,18 @@ let pojo = {
 
 let emptyArray = [];
 
-[1, 2, 3].forEach(square);
+[1, 2, 3].forEach(n => n * n);
 
-//.forEach(n => n * n);
+['fooz', 'baz'].map(item => {
+    return item.toUpperCase();
+});
+
+function helloKitty(count, name) {
+    console.log(count);
+    console.log(name);
+
+    return false;
+}
 
 
 // /*
