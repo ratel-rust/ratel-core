@@ -70,6 +70,10 @@ pub enum Expression {
         object: Box<Expression>,
         property: Box<ObjectKey>,
     },
+    Call {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
+    },
     MethodCall {
         object: Box<Expression>,
         method: Box<ObjectKey>,

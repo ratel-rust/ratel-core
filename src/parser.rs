@@ -137,10 +137,28 @@ macro_rules! expect_statement_end {
 /// `$separator` tokens and an `$item` expression that is then
 /// pushed onto a vector.
 macro_rules! expect_list {
-    ($parser:ident, $start:pat, $item:expr, $separator:pat, $end:pat) => ({
-        let mut list = Vec::new();
+    [$parser:ident, $item:expr, $start:pat, $separator:pat, $end:pat] => ({
         ignore_nl!($parser);
         expect!($parser, $start);
+
+        let mut list = Vec::new();
+        loop {
+            ignore_nl!($parser);
+            if allow!($parser, $end) {
+                break;
+            }
+            list.push($item);
+            if expect_list_end!($parser, $separator, $end) {
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        list
+    });
+    [$parser:ident, $item:expr, $separator:pat, $end:pat] => ({
+        let mut list = Vec::new();
         loop {
             ignore_nl!($parser);
             if allow!($parser, $end) {
@@ -220,25 +238,25 @@ impl<'a> Parser<'a> {
     }
 
     fn array_expression(&mut self) -> Expression {
-        Expression::Array(expect_list!(self,
-            BracketOn,
+        Expression::Array(expect_list![self,
             self.expression(),
+            BracketOn,
             Comma,
             BracketOff
-        ))
+        ])
     }
 
     fn object_expression(&mut self) -> Expression {
-        Expression::Object(expect_list!(self,
-            BlockOn,
+        Expression::Object(expect_list![self,
             expect_key_value_pair!(self,
                 self.object_key(true),
                 Colon,
                 self.expression()
             ),
+            BlockOn,
             Comma,
             BlockOff
-        ))
+        ])
     }
 
     fn object_key(&mut self, allow_string: bool) -> ObjectKey {
@@ -315,6 +333,14 @@ impl<'a> Parser<'a> {
         };
 
         on!(self, {
+            ParenOn  => return Expression::Call {
+                callee: Box::new(left),
+                arguments: expect_list![self,
+                    self.expression(),
+                    Comma,
+                    ParenOff
+                ]
+            },
             Accessor => {
                 let object = Box::new(left);
                 let property = Box::new(self.object_key(false));
@@ -324,12 +350,12 @@ impl<'a> Parser<'a> {
                     ParenOn => return Expression::MethodCall {
                         object: object,
                         method: property,
-                        arguments: expect_list!(self,
-                            ParenOn,
+                        arguments: expect_list![self,
                             self.expression(),
+                            ParenOn,
                             Comma,
                             ParenOff
-                        )
+                        ]
                     }
                 });
 
@@ -412,12 +438,12 @@ impl<'a> Parser<'a> {
 
     fn function_statement(&mut self) -> Statement {
         let name = expect!(self, Identifier(name) => name);
-        let params = expect_list!(self,
-            ParenOn,
+        let params = expect_list![self,
             Parameter { name: expect!(self, Identifier(name) => name) },
+            ParenOn,
             Comma,
             ParenOff
-        );
+        ];
         expect!(self, BlockOn);
         Statement::FunctionStatement {
             name: name,

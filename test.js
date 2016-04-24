@@ -30,7 +30,7 @@ function helloKitty(count, name) {
     return false;
 }
 
-// helloKitty();
+helloKitty();
 
 let emptyArray = []
 
