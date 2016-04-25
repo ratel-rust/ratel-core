@@ -176,6 +176,19 @@ macro_rules! expect_list {
     })
 }
 
+macro_rules! expect_wrapped {
+    ($parser:ident, $item:expr, $start:pat, $end:pat) => ({
+        expect!($parser, $start);
+        expect_wrapped!($parser, $item, $end)
+    });
+    ($parser:ident, $item:expr, $end:pat) => ({
+        ignore_nl!($parser);
+        let item = $item;
+        expect!($parser, $end);
+        item
+    })
+}
+
 /// Shorthand for reading a key expression, separator token and
 /// value expression in that order.
 macro_rules! expect_key_value_pair {
@@ -264,12 +277,9 @@ impl<'a> Parser<'a> {
             Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
                 ObjectKey::Static(key)
             },
-            Some(BracketOn) => {
-                ignore_nl!(self);
-                let key = self.expression();
-                expect!(self, BracketOff);
-                ObjectKey::Computed(key)
-            },
+            Some(BracketOn) => ObjectKey::Computed(
+                expect_wrapped!(self, self.expression(), BracketOff)
+            ),
             token => {
                 panic!("Expected object key, got {:?}", token)
             }
@@ -318,14 +328,15 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self) -> Expression {
         let mut left = match self.lookahead() {
-            Some(&Literal(_)) => {
-                Expression::Literal(expect!(self, Literal(v) => v))
-            }
             Some(&Identifier(_)) => {
-                Expression::Identifier(
-                    expect!(self, Identifier(v) => v)
-                )
-            }
+                Expression::Identifier(expect!(self, Identifier(v) => v))
+            },
+            Some(&Literal(_))    => {
+                Expression::Literal(expect!(self, Literal(v) => v))
+            },
+            Some(&ParenOn)       => {
+                expect_wrapped!(self, self.expression(), ParenOn, ParenOff)
+            },
             Some(&BracketOn) => self.array_expression(),
             Some(&BlockOn)   => self.object_expression(),
             Some(_)          => panic!("Unexpected token"),
@@ -358,13 +369,13 @@ impl<'a> Parser<'a> {
                 },
                 Some(&BracketOn) => Expression::MemberExpression {
                     object: Box::new(left),
-                    property: Box::new({
-                        expect!(self, BracketOn);
-                        ignore_nl!(self);
-                        let key = self.expression();
-                        expect!(self, BracketOff);
-                        ObjectKey::Computed(key)
-                    }),
+                    property: Box::new(ObjectKey::Computed(
+                        expect_wrapped!(self,
+                            self.expression(),
+                            BracketOn,
+                            BracketOff
+                        )
+                    )),
                 },
                 Some(&Operator(_)) => {
                     match expect!(self, Operator(op) => op) {
