@@ -62,38 +62,33 @@ pub enum UpdateOperator {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Variable(String),
+    Identifier(String),
     Literal(LiteralValue),
-    Array(Vec<Expression>),
-    Object(Vec<(ObjectKey, Expression)>),
-    Member {
+    ArrayExpression(Vec<Expression>),
+    ObjectExpression(Vec<(ObjectKey, Expression)>),
+    MemberExpression {
         object: Box<Expression>,
         property: Box<ObjectKey>,
     },
-    Call {
+    CallExpression {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
-    MethodCall {
-        object: Box<Expression>,
-        method: Box<ObjectKey>,
-        arguments: Vec<Expression>,
-    },
-    Binary {
+    BinaryExpression {
         operator: BinaryOperator,
         left: Box<Expression>,
         right: Box<Expression>,
     },
-    Update {
+    UpdateExpression {
         operator: UpdateOperator,
         prefix: bool,
         argument: Box<Expression>,
     },
-    ArrowFunction {
+    ArrowFunctionExpression {
         params: Vec<Parameter>,
         body: OptionalBlock,
     },
-    Function {
+    FunctionExpression {
         name: Option<String>,
         params: Vec<Parameter>,
         body: Vec<Statement>,

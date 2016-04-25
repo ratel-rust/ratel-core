@@ -25,7 +25,7 @@ macro_rules! allow {
 /// Allow multiple occurences of `$p` in a row, consuming them all,
 /// returns true if at least one was found
 macro_rules! allow_many {
-    ($parser:ident, $p:pat) => {
+    ($parser: ident, $p: pat) => {
         if allow!($parser, $p) {
             while allow!($parser, $p) {}
             true
@@ -238,7 +238,7 @@ impl<'a> Parser<'a> {
     }
 
     fn array_expression(&mut self) -> Expression {
-        Expression::Array(expect_list![self,
+        Expression::ArrayExpression(expect_list![self,
             self.expression(),
             BracketOn,
             Comma,
@@ -247,9 +247,9 @@ impl<'a> Parser<'a> {
     }
 
     fn object_expression(&mut self) -> Expression {
-        Expression::Object(expect_list![self,
+        Expression::ObjectExpression(expect_list![self,
             expect_key_value_pair!(self,
-                self.object_key(true),
+                self.object_key(),
                 Colon,
                 self.expression()
             ),
@@ -259,13 +259,9 @@ impl<'a> Parser<'a> {
         ])
     }
 
-    fn object_key(&mut self, allow_string: bool) -> ObjectKey {
+    fn object_key(&mut self) -> ObjectKey {
         match self.consume() {
-            Some(Identifier(key))             => ObjectKey::Static(key),
-            Some(Literal(LiteralString(key))) => {
-                if !allow_string {
-                    panic!("Expected object key, got LiteralString({:?})", key);
-                }
+            Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
                 ObjectKey::Static(key)
             },
             Some(BracketOn) => {
@@ -307,24 +303,28 @@ impl<'a> Parser<'a> {
 
     fn arrow_function_expression(&mut self, p: Expression) -> Expression {
         let params: Vec<Parameter> = match p {
-            Expression::Variable(name) => vec![Parameter { name: name }],
-            _                          =>
+            Expression::Identifier(name) => {
+                vec![Parameter { name: name }]
+            },
+            _ =>
                 panic!("Can cast {:?} to parameters", p),
         };
 
-        Expression::ArrowFunction {
+        Expression::ArrowFunctionExpression {
             params: params,
             body: self.optional_block()
         }
     }
 
     fn expression(&mut self) -> Expression {
-        let left = match self.lookahead() {
+        let mut left = match self.lookahead() {
             Some(&Literal(_)) => {
                 Expression::Literal(expect!(self, Literal(v) => v))
             }
             Some(&Identifier(_)) => {
-                Expression::Variable(expect!(self, Identifier(v) => v))
+                Expression::Identifier(
+                    expect!(self, Identifier(v) => v)
+                )
             }
             Some(&BracketOn) => self.array_expression(),
             Some(&BlockOn)   => self.object_expression(),
@@ -332,24 +332,11 @@ impl<'a> Parser<'a> {
             _                => panic!("Unexpected end of program")
         };
 
-        on!(self, {
-            ParenOn  => return Expression::Call {
-                callee: Box::new(left),
-                arguments: expect_list![self,
-                    self.expression(),
-                    Comma,
-                    ParenOff
-                ]
-            },
-            Accessor => {
-                let object = Box::new(left);
-                let property = Box::new(self.object_key(false));
-                ignore_nl!(self);
-
-                predict!(self, {
-                    ParenOn => return Expression::MethodCall {
-                        object: object,
-                        method: property,
+        'nest: loop {
+            left = match self.lookahead() {
+                Some(&ParenOn) => {
+                    Expression::CallExpression {
+                        callee: Box::new(left),
                         arguments: expect_list![self,
                             self.expression(),
                             ParenOn,
@@ -357,35 +344,71 @@ impl<'a> Parser<'a> {
                             ParenOff
                         ]
                     }
-                });
+                },
+                Some(&Accessor) => {
+                    self.consume();
+                    ignore_nl!(self);
 
-                return Expression::Member {
-                    object: object,
-                    property: property,
+                    Expression::MemberExpression {
+                        object: Box::new(left),
+                        property: Box::new(ObjectKey::Static(
+                            expect!(self, Identifier(key) => key)
+                        )),
+                    }
+                },
+                Some(&BracketOn) => Expression::MemberExpression {
+                    object: Box::new(left),
+                    property: Box::new({
+                        expect!(self, BracketOn);
+                        ignore_nl!(self);
+                        let key = self.expression();
+                        expect!(self, BracketOff);
+                        ObjectKey::Computed(key)
+                    }),
+                },
+                Some(&Operator(_)) => {
+                    match expect!(self, Operator(op) => op) {
+                        Increment => {
+                            Expression::UpdateExpression {
+                                operator: UpdateOperator::Increment,
+                                prefix: false,
+                                argument: Box::new(left),
+                            }
+                        },
+                        Decrement => {
+                            Expression::UpdateExpression {
+                                operator: UpdateOperator::Decrement,
+                                prefix: false,
+                                argument: Box::new(left),
+                            }
+                        },
+                        Add => {
+                            ignore_nl!(self);
+                            Expression::BinaryExpression {
+                                operator: BinaryOperator::Add,
+                                left: Box::new(left),
+                                right: Box::new(self.expression()),
+                            }
+                        },
+                        Multiply => {
+                            ignore_nl!(self);
+                            Expression::BinaryExpression {
+                                operator: BinaryOperator::Multiply,
+                                left: Box::new(left),
+                                right: Box::new(self.expression()),
+                            }
+                        },
+                        op => panic!("Unimplemented operator {:?}", op)
+                    }
+                },
+                Some(&FatArrow) => {
+                    self.consume();
+                    ignore_nl!(self);
+                    return self.arrow_function_expression(left);
                 }
-            },
-            Operator(Increment) => return Expression::Update {
-                operator: UpdateOperator::Increment,
-                prefix: false,
-                argument: Box::new(left),
-            },
-            Operator(Decrement) => return Expression::Update {
-                operator: UpdateOperator::Decrement,
-                prefix: false,
-                argument: Box::new(left),
-            },
-            Operator(Add) => return Expression::Binary {
-                operator: BinaryOperator::Add,
-                left: Box::new(left),
-                right: Box::new(self.expression()),
-            },
-            Operator(Multiply) => return Expression::Binary {
-                operator: BinaryOperator::Multiply,
-                left: Box::new(left),
-                right: Box::new(self.expression()),
-            },
-            FatArrow      => return self.arrow_function_expression(left)
-        });
+                _ => break 'nest,
+            }
+        }
 
         left
     }
