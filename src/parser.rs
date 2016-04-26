@@ -1,7 +1,6 @@
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::KeywordKind::*;
-use lexicon::ReservedKind::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
@@ -10,6 +9,17 @@ use grammar::OperatorType::*;
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
 macro_rules! allow {
+    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
+        match $parser.lookahead() {
+            $(
+                Some(&$p) => {
+                    $parser.consume();
+                    $then;
+                }
+            )*
+            _ => {}
+        }
+    });
     ($parser:ident, $p:pat) => {
         match $parser.lookahead() {
             Some(&$p) => {
@@ -19,19 +29,6 @@ macro_rules! allow {
             _ => false
         }
     }
-}
-
-/// Allow multiple occurences of `$p` in a row, consuming them all,
-/// returns true if at least one was found
-macro_rules! allow_many {
-    ($parser: ident, $p: pat) => {
-        if allow!($parser, $p) {
-            while allow!($parser, $p) {}
-            true
-        } else {
-            false
-        }
-    };
 }
 
 /// Expects next token to match `$p`, otherwise panics.
@@ -63,34 +60,6 @@ macro_rules! unexpected_token {
     ($parser:ident, $token:expr) => {
         panic!("Unexpected token {:?}", $token)
     }
-}
-
-macro_rules! predict {
-    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
-        match $parser.lookahead() {
-            $(
-                Some(&$p) => $then,
-            )*
-            _ => {}
-        }
-    })
-}
-
-/// More robust version of the regular `match`, will peek at the next
-/// token, if the token matches `$p` then consume that token, any line
-/// breaks after and call the `$then` expression.
-macro_rules! on {
-    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
-        match $parser.lookahead() {
-            $(
-                Some(&$p) => {
-                    $parser.consume();
-                    $then;
-                }
-            )*
-            _ => {}
-        }
-    })
 }
 
 /// Expects a semicolon or end of program. If neither is found,
@@ -252,9 +221,11 @@ impl<'a> Parser<'a> {
             Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
                 ObjectKey::Static(key)
             },
-            Some(BracketOn) => ObjectKey::Computed(
-                expect_wrapped!(self, self.expression(), BracketOff)
-            ),
+            Some(BracketOn) => {
+                let expression = self.expression();
+                expect!(self, BracketOff);
+                ObjectKey::Computed(expression)
+            },
             token => {
                 panic!("Expected object key, got {:?}", token)
             }
@@ -273,7 +244,7 @@ impl<'a> Parser<'a> {
         expect!(self, BlockOn);
         let mut body = Vec::new();
         loop {
-            on!(self, {
+            allow!(self, {
                 BlockOff => break
             });
             match self.statement() {
@@ -321,7 +292,10 @@ impl<'a> Parser<'a> {
                 }
             }
             Some(&ParenOn)       => {
-                expect_wrapped!(self, self.expression(), ParenOn, ParenOff)
+                self.consume();
+                let expression = self.expression();
+                expect!(self, ParenOff);
+                expression
             },
             Some(&BracketOn) => self.array_expression(),
             Some(&BlockOn)   => self.object_expression(),
@@ -368,15 +342,15 @@ impl<'a> Parser<'a> {
                         ]
                     }
                 },
-                Some(&BracketOn) => Expression::MemberExpression {
-                    object: Box::new(left),
-                    property: Box::new(ObjectKey::Computed(
-                        expect_wrapped!(self,
-                            self.expression(),
-                            BracketOn,
-                            BracketOff
-                        )
-                    )),
+                Some(&BracketOn) => {
+                    self.consume();
+                    let expression = self.expression();
+                    expect!(self, BracketOff);
+
+                    Expression::MemberExpression {
+                        object: Box::new(left),
+                        property: Box::new(ObjectKey::Computed(expression))
+                    }
                 },
                 Some(&FatArrow) => {
                     self.consume();
@@ -519,7 +493,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        on!(self, {
+        allow!(self, {
             Keyword(Var)      => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),
