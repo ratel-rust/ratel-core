@@ -52,3 +52,5 @@ class Foo {
         console.log('Static method baz!');
     }
 }
+
+++emptyArray;

@@ -1,19 +1,16 @@
 use grammar::LiteralValue;
+use grammar::OperatorType;
 
 #[derive(Debug, PartialEq)]
 pub enum KeywordKind {
     Break,
     Do,
-    In,
-    Typeof,
     Case,
     Else,
-    Instanceof,
     Var,
     Let,
     Catch,
     Export,
-    New,
     Class,
     Extends,
     Return,
@@ -32,10 +29,8 @@ pub enum KeywordKind {
     Default,
     If,
     Throw,
-    Delete,
     Import,
     Try,
-    Void,
     Await,
     Static,
 }
@@ -52,40 +47,12 @@ pub enum ReservedKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum CompareKind {
-    Is,             // ===
-    Isnt,           // !==
-    Equals,         // ==
-    NotEquals,      // !=
-    Lesser,         // <
-    LesserEquals,   // <=
-    Greater,        // >
-    GreaterEquals,  // >=
-}
-
-#[derive(Debug, PartialEq)]
-pub enum OperatorKind {
-    Add,        // +
-    Substract,  // -
-    Multiply,   // *
-    Divide,     // /
-    Modulo,     // %
-    Exponent,   // **
-    Not,        // !
-    Increment,  // ++
-    Decrement,  // --
-}
-
-#[derive(Debug, PartialEq)]
 pub enum Token {
     LineTermination,
     Semicolon,
     Comma,
     Colon,
-    Accessor, // .
-    Compare(CompareKind),
-    Operator(OperatorKind),
-    Assign,
+    Operator(OperatorType),
     ParenOn,
     ParenOff,
     BracketOn,

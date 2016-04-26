@@ -2,11 +2,10 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::KeywordKind::*;
 use lexicon::ReservedKind::*;
-use lexicon::CompareKind::*;
-use lexicon::OperatorKind::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
+use grammar::OperatorType::*;
 
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
@@ -182,7 +181,6 @@ macro_rules! expect_wrapped {
         expect_wrapped!($parser, $item, $end)
     });
     ($parser:ident, $item:expr, $end:pat) => ({
-        ignore_nl!($parser);
         let item = $item;
         expect!($parser, $end);
         item
@@ -287,7 +285,6 @@ impl<'a> Parser<'a> {
     }
 
     fn optional_block(&mut self) -> OptionalBlock {
-        ignore_nl!(self);
         if let Some(&BlockOn) = self.lookahead() {
             self.consume();
             OptionalBlock::Block(self.block())
@@ -327,6 +324,8 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Expression {
+        ignore_nl!(self);
+
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
                 Expression::Identifier(expect!(self, Identifier(v) => v))
@@ -334,6 +333,18 @@ impl<'a> Parser<'a> {
             Some(&Literal(_))    => {
                 Expression::Literal(expect!(self, Literal(v) => v))
             },
+            Some(&Operator(_))   => {
+                let operator = expect!(self, Operator(op) => op);
+                match operator {
+                    Increment | Decrement => {
+                        Expression::PrefixExpression {
+                            operator: operator,
+                            argument: Box::new(self.expression()),
+                        }
+                    },
+                    _ => panic!("Unexpected operator {:?}", operator)
+                }
+            }
             Some(&ParenOn)       => {
                 expect_wrapped!(self, self.expression(), ParenOn, ParenOff)
             },
@@ -345,6 +356,35 @@ impl<'a> Parser<'a> {
 
         'nest: loop {
             left = match self.lookahead() {
+                Some(&Operator(_)) => {
+                    let operator = expect!(self, Operator(op) => op);
+                    match operator {
+                        Increment | Decrement => {
+                            Expression::PostfixExpression {
+                                operator: operator,
+                                argument: Box::new(left),
+                            }
+                        },
+                        Add | Substract | Multiply | Divide => {
+                            ignore_nl!(self);
+                            Expression::BinaryExpression {
+                                operator: operator,
+                                left: Box::new(left),
+                                right: Box::new(self.expression()),
+                            }
+                        },
+                        Accessor => {
+                            ignore_nl!(self);
+                            Expression::MemberExpression {
+                                object: Box::new(left),
+                                property: Box::new(ObjectKey::Static(
+                                    expect!(self, Identifier(key) => key)
+                                )),
+                            }
+                        },
+                        op => panic!("Unimplemented operator {:?}", op)
+                    }
+                },
                 Some(&ParenOn) => {
                     Expression::CallExpression {
                         callee: Box::new(left),
@@ -356,17 +396,6 @@ impl<'a> Parser<'a> {
                         ]
                     }
                 },
-                Some(&Accessor) => {
-                    self.consume();
-                    ignore_nl!(self);
-
-                    Expression::MemberExpression {
-                        object: Box::new(left),
-                        property: Box::new(ObjectKey::Static(
-                            expect!(self, Identifier(key) => key)
-                        )),
-                    }
-                },
                 Some(&BracketOn) => Expression::MemberExpression {
                     object: Box::new(left),
                     property: Box::new(ObjectKey::Computed(
@@ -376,41 +405,6 @@ impl<'a> Parser<'a> {
                             BracketOff
                         )
                     )),
-                },
-                Some(&Operator(_)) => {
-                    match expect!(self, Operator(op) => op) {
-                        Increment => {
-                            Expression::UpdateExpression {
-                                operator: UpdateOperator::Increment,
-                                prefix: false,
-                                argument: Box::new(left),
-                            }
-                        },
-                        Decrement => {
-                            Expression::UpdateExpression {
-                                operator: UpdateOperator::Decrement,
-                                prefix: false,
-                                argument: Box::new(left),
-                            }
-                        },
-                        Add => {
-                            ignore_nl!(self);
-                            Expression::BinaryExpression {
-                                operator: BinaryOperator::Add,
-                                left: Box::new(left),
-                                right: Box::new(self.expression()),
-                            }
-                        },
-                        Multiply => {
-                            ignore_nl!(self);
-                            Expression::BinaryExpression {
-                                operator: BinaryOperator::Multiply,
-                                left: Box::new(left),
-                                right: Box::new(self.expression()),
-                            }
-                        },
-                        op => panic!("Unimplemented operator {:?}", op)
-                    }
                 },
                 Some(&FatArrow) => {
                     self.consume();
@@ -431,7 +425,7 @@ impl<'a> Parser<'a> {
         loop {
             declarations.push(expect_key_value_pair!(self,
                 expect!(self, Identifier(name) => name),
-                Assign,
+                Operator(Assign),
                 self.expression()
             ));
 
@@ -512,9 +506,8 @@ impl<'a> Parser<'a> {
                     }
                 }
             },
-            Some(&Assign) => {
+            Some(&Operator(Assign)) => {
                 self.consume();
-                ignore_nl!(self);
                 ClassMember::ClassProperty {
                     is_static: is_static,
                     name: name,

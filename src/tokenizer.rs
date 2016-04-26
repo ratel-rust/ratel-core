@@ -4,8 +4,8 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::KeywordKind::*;
 use lexicon::ReservedKind::*;
-use lexicon::CompareKind::*;
-use lexicon::OperatorKind::*;
+use grammar::OperatorType;
+use grammar::OperatorType::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 
@@ -237,7 +237,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     } else {
                         Lesser
                     };
-                    Compare(comp_type)
+                    Operator(comp_type)
                 },
                 '>' => {
                     let comp_type = if Some(&'=') == self.source.peek() {
@@ -246,9 +246,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                     } else {
                         Greater
                     };
-                    Compare(comp_type)
+                    Operator(comp_type)
                 },
-                '.' => Accessor,
+                '.' => Operator(Accessor),
                 '"' | '\'' => {
                     Literal(LiteralString( self.read_string(ch) ))
                 },
@@ -261,12 +261,12 @@ impl<'a> Iterator for Tokenizer<'a> {
                             self.source.next();
                             if Some(&'=') == self.source.peek() {
                                 self.source.next();
-                                Compare(Is)
+                                Operator(StrictEquality)
                             } else {
-                                Compare(Equals)
+                                Operator(Equality)
                             }
                         } else {
-                            Assign
+                            Operator(Assign)
                         }
                     }
                 },
@@ -275,12 +275,12 @@ impl<'a> Iterator for Tokenizer<'a> {
                         self.source.next();
                         if Some(&'=') == self.source.peek() {
                             self.source.next();
-                            Compare(Isnt)
+                            Operator(StrictInequality)
                         } else {
-                            Compare(NotEquals)
+                            Operator(Inequality)
                         }
                     } else {
-                        Operator(Not)
+                        Operator(LogicalNot)
                     }
                 },
                 '+' => match self.source.peek() {
@@ -319,21 +319,24 @@ impl<'a> Iterator for Tokenizer<'a> {
                     }
                 },
                 '%' => return Some(Operator(Modulo)),
+                '0'...'9' => Literal(self.read_number(ch)),
                 'a'...'z' | 'A'...'Z' | '$' | '_' => {
                     let label = self.read_label(ch);
                     match label.as_ref() {
+                        "new"        => Operator(New),
+                        "typeof"     => Operator(Typeof),
+                        "delete"     => Operator(Delete),
+                        "void"       => Operator(Void),
+                        "in"         => Operator(In),
+                        "instanceof" => Operator(Instanceof),
                         "break"      => Keyword(Break),
                         "do"         => Keyword(Do),
-                        "in"         => Keyword(In),
-                        "typeof"     => Keyword(Typeof),
                         "case"       => Keyword(Case),
                         "else"       => Keyword(Else),
-                        "instanceof" => Keyword(Instanceof),
                         "var"        => Keyword(Var),
                         "let"        => Keyword(Let),
                         "catch"      => Keyword(Catch),
                         "export"     => Keyword(Export),
-                        "new"        => Keyword(New),
                         "class"      => Keyword(Class),
                         "extends"    => Keyword(Extends),
                         "return"     => Keyword(Return),
@@ -352,10 +355,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                         "default"    => Keyword(Default),
                         "if"         => Keyword(If),
                         "throw"      => Keyword(Throw),
-                        "delete"     => Keyword(Delete),
                         "import"     => Keyword(Import),
                         "try"        => Keyword(Try),
-                        "void"       => Keyword(Void),
                         "await"      => Keyword(Await),
                         "static"     => Keyword(Static),
                         "true"       => Literal(LiteralTrue),
@@ -372,7 +373,6 @@ impl<'a> Iterator for Tokenizer<'a> {
                         _            => Identifier(label),
                     }
                 },
-                '0'...'9' => Literal(self.read_number(ch)),
                 _         => continue 'lex,
             });
         }
