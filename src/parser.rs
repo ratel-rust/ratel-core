@@ -196,7 +196,7 @@ impl<'a> Parser<'a> {
 
     fn array_expression(&mut self) -> Expression {
         Expression::ArrayExpression(expect_list![self,
-            self.expression(),
+            self.expression(0),
             BracketOn,
             Comma,
             BracketOff
@@ -208,7 +208,7 @@ impl<'a> Parser<'a> {
             expect_key_value_pair!(self,
                 self.object_key(),
                 Colon,
-                self.expression()
+                self.expression(0)
             ),
             BlockOn,
             Comma,
@@ -222,7 +222,7 @@ impl<'a> Parser<'a> {
                 ObjectKey::Static(key)
             },
             Some(BracketOn) => {
-                let expression = self.expression();
+                let expression = self.expression(0);
                 expect!(self, BracketOff);
                 ObjectKey::Computed(expression)
             },
@@ -236,7 +236,7 @@ impl<'a> Parser<'a> {
         if let Some(&BlockOn) = self.lookahead() {
             OptionalBlock::Block(self.block())
         } else {
-            OptionalBlock::Expression(Box::new(self.expression()))
+            OptionalBlock::Expression(Box::new(self.expression(0)))
         }
     }
 
@@ -271,17 +271,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn binary_expression(
-        &mut self, left: Expression, operator: OperatorType, _: u8
-    ) -> Expression {
-        Expression::BinaryExpression {
-            operator: operator,
-            left: Box::new(left),
-            right: Box::new(self.expression()),
-        }
-    }
-
-    fn expression(&mut self) -> Expression {
+    fn expression(&mut self, precedence: u8) -> Expression {
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
                 Expression::Identifier(expect!(self, Identifier(v) => v))
@@ -291,19 +281,20 @@ impl<'a> Parser<'a> {
             },
             Some(&Operator(_))   => {
                 let operator = expect!(self, Operator(op) => op);
-                match operator {
-                    Increment | Decrement => {
-                        Expression::PrefixExpression {
-                            operator: operator,
-                            argument: Box::new(self.expression()),
-                        }
-                    },
-                    _ => panic!("Unexpected operator {:?}", operator)
+                let right_precedence = operator.precedence(true);
+
+                if !operator.prefix() {
+                    panic!("Unexpected operator {:?}", operator);
+                }
+
+                Expression::PrefixExpression {
+                    operator: operator,
+                    argument: Box::new(self.expression(right_precedence)),
                 }
             }
             Some(&ParenOn)       => {
                 self.consume();
-                let expression = self.expression();
+                let expression = self.expression(19);
                 expect!(self, ParenOff);
                 expression
             },
@@ -312,22 +303,26 @@ impl<'a> Parser<'a> {
             _                => unexpected_token!(self)
         };
 
-        'nest: loop {
+        'right: loop {
+            let right_precedence = match self.lookahead() {
+                Some(&Operator(ref op)) => op.precedence(false),
+                _                       => 0,
+            };
+
+            if precedence > right_precedence {
+                break 'right;
+            }
+
             left = match self.lookahead() {
                 Some(&Operator(_)) => {
                     let operator = expect!(self, Operator(op) => op);
+
                     match operator {
                         Increment | Decrement => {
                             Expression::PostfixExpression {
                                 operator: operator,
                                 argument: Box::new(left),
                             }
-                        },
-                        Multiply | Divide => {
-                            self.binary_expression(left, operator, 14)
-                        },
-                        Add | Substract => {
-                            self.binary_expression(left, operator, 13)
                         },
                         Accessor => {
                             Expression::MemberExpression {
@@ -337,14 +332,26 @@ impl<'a> Parser<'a> {
                                 )),
                             }
                         },
-                        op => panic!("Unimplemented operator {:?}", op)
+                        _ => {
+                            if !operator.infix() {
+                                panic!("Unexpected operator {:?}", operator);
+                            }
+
+                            Expression::BinaryExpression {
+                                operator: operator,
+                                left: Box::new(left),
+                                right: Box::new(
+                                    self.expression(right_precedence)
+                                )
+                            }
+                        }
                     }
                 },
                 Some(&ParenOn) => {
                     Expression::CallExpression {
                         callee: Box::new(left),
                         arguments: expect_list![self,
-                            self.expression(),
+                            self.expression(0),
                             ParenOn,
                             Comma,
                             ParenOff
@@ -353,7 +360,7 @@ impl<'a> Parser<'a> {
                 },
                 Some(&BracketOn) => {
                     self.consume();
-                    let expression = self.expression();
+                    let expression = self.expression(0);
                     expect!(self, BracketOff);
 
                     Expression::MemberExpression {
@@ -365,7 +372,7 @@ impl<'a> Parser<'a> {
                     self.consume();
                     return self.arrow_function_expression(left);
                 }
-                _ => break 'nest,
+                _ => break 'right,
             }
         }
 
@@ -381,7 +388,7 @@ impl<'a> Parser<'a> {
             declarations.push(expect_key_value_pair!(self,
                 expect!(self, Identifier(name) => name),
                 Operator(Assign),
-                self.expression()
+                self.expression(0)
             ));
 
             if allow!(self, Comma) {
@@ -399,20 +406,20 @@ impl<'a> Parser<'a> {
     }
 
     fn expression_statement(&mut self) -> Statement {
-        let expression = self.expression();
+        let expression = self.expression(0);
         expect_statement_end!(self);
         Statement::ExpressionStatement(expression)
     }
 
     fn return_statement(&mut self) -> Statement {
-        let expression = self.expression();
+        let expression = self.expression(0);
         expect_statement_end!(self);
         Statement::ReturnStatement(expression)
     }
 
     fn while_statement(&mut self) -> Statement {
         expect!(self, ParenOn);
-        let condition = self.expression();
+        let condition = self.expression(0);
         expect!(self, ParenOff);
         let body = self.optional_block();
         expect_statement_end!(self);
@@ -466,7 +473,7 @@ impl<'a> Parser<'a> {
                 ClassMember::ClassProperty {
                     is_static: is_static,
                     name: name,
-                    value: self.expression(),
+                    value: self.expression(0),
                 }
             },
             _ => panic!("Unexpected token"),

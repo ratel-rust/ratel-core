@@ -4,7 +4,6 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::KeywordKind::*;
 use lexicon::ReservedKind::*;
-use grammar::OperatorType;
 use grammar::OperatorType::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
@@ -270,6 +269,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                         }
                     }
                 },
+                '~' => Operator(BitwiseNot),
                 '!' => {
                     if Some(&'=') == self.source.peek() {
                         self.source.next();

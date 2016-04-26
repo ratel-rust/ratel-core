@@ -73,6 +73,93 @@ pub enum OperatorType {
     Add,              // + ... | ... + ...
     Substract,        // - ... | ... - ...
 }
+use self::OperatorType::*;
+
+impl OperatorType {
+    /// According to the Operator Precedence Table
+    pub fn precedence(&self, prefix: bool) -> u8 {
+        match *self {
+            New              => 17,
+
+            Accessor         => 18,
+
+            Increment        |
+            Decrement        => if prefix { 15 } else { 16 },
+
+            LogicalNot       |
+            BitwiseNot       |
+            Typeof           |
+            Void             |
+            Delete           => 15,
+
+            Multiply         |
+            Divide           |
+            Modulo           |
+            Exponent         => 14,
+
+            Add              |
+            Substract        => 13,
+
+            Lesser           |
+            LesserEquals     |
+            Greater          |
+            GreaterEquals    |
+            Instanceof       |
+            In               => 11,
+
+            StrictEquality   |
+            StrictInequality |
+            Equality         |
+            Inequality       => 10,
+
+            Assign           => 3,
+
+            // _                => 0,
+        }
+    }
+
+    pub fn prefix(&self) -> bool {
+        match *self {
+            LogicalNot |
+            BitwiseNot |
+            Typeof     |
+            Void       |
+            Delete     |
+            New        |
+            Increment  |
+            Decrement  |
+            Add        |
+            Substract  => true,
+
+            _          => false
+        }
+    }
+
+    pub fn infix(&self) -> bool {
+        match *self {
+            Assign           |
+            Accessor         |
+            Multiply         |
+            Divide           |
+            Modulo           |
+            Exponent         |
+            StrictEquality   |
+            StrictInequality |
+            Equality         |
+            Inequality       |
+            Lesser           |
+            LesserEquals     |
+            Greater          |
+            GreaterEquals    |
+            Instanceof       |
+            In               |
+            Add              |
+            Substract        => true,
+
+            _                => false
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {

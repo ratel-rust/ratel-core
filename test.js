@@ -50,3 +50,5 @@ class Foo {
         console.log('Static method baz!');
     }
 }
+
+let x = 10 * 1 + 5 * 5 - !4 / 2;
