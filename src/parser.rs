@@ -34,36 +34,39 @@ macro_rules! allow_many {
     };
 }
 
-/// Just a shorthand for allow_many!(self, LineTermination)
-macro_rules! ignore_nl {
-    ($parser:ident) => {
-        allow_many!($parser, LineTermination)
-    }
-}
-
 /// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
     ($parser:ident, $p:pat => $value:ident) => ({
-        ignore_nl!($parser);
         match $parser.consume() {
             Some($p) => $value,
             None     => panic!("Unexpected end of program"),
-            token    => panic!("Unexpected token {:?}", token),
+            token    => unexpected_token!($parser, token),
         }
     });
     ($parser:ident, $p:pat) => ({
-        ignore_nl!($parser);
         match $parser.consume() {
             Some($p) => {},
             None     => panic!("Unexpected end of program"),
-            token    => panic!("Unexpected token {:?}", token),
+            token    => unexpected_token!($parser, token),
         }
     })
 }
 
+macro_rules! unexpected_token {
+    ($parser:ident) => ({
+        if let Some(token) = $parser.consume() {
+            unexpected_token!($parser, token);
+        } else {
+            panic!("Unexpected end of program");
+        }
+    });
+    ($parser:ident, $token:expr) => {
+        panic!("Unexpected token {:?}", $token)
+    }
+}
+
 macro_rules! predict {
     ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
-        ignore_nl!($parser);
         match $parser.lookahead() {
             $(
                 Some(&$p) => $then,
@@ -78,12 +81,10 @@ macro_rules! predict {
 /// breaks after and call the `$then` expression.
 macro_rules! on {
     ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
-        ignore_nl!($parser);
         match $parser.lookahead() {
             $(
                 Some(&$p) => {
                     $parser.consume();
-                    ignore_nl!($parser);
                     $then;
                 }
             )*
@@ -92,43 +93,24 @@ macro_rules! on {
     })
 }
 
-/// Expects a semicolon to end the statement and return `true`. If no
-/// semicolon is found, we try to follow the ECMA 262 Automatic
-/// Semicolon Insertion (ASI) Rules.
+/// Expects a semicolon or end of program. If neither is found,
+/// but a LineTermination occured on previous token, parsing
+/// will continue as if a semicolon was present. In other cases
+/// cause a panic.
 macro_rules! expect_statement_end {
-    ($parser:ident, $cont:pat) => ({
-        ignore_nl!($parser);
-
-        let asi = $parser.allow_asi;
-        let end = match $parser.lookahead() {
-            None | Some(&Semicolon) => true,
-            Some(&$cont)            => false,
-            token                   =>
-                asi || panic!("Unexpected token {:?}", token)
-        };
-
-        if !asi {
-            $parser.consume();
-        }
-
-        end
-    });
-
     ($parser:ident) => ({
-        ignore_nl!($parser);
-
-        let asi = $parser.allow_asi;
-        match $parser.lookahead() {
-            None | Some(&Semicolon) => true,
-            token                   =>
-                asi || panic!("Unexpected token {:?}", token)
+        let is_end = match $parser.lookahead() {
+            Some(&Semicolon) => {
+                $parser.consume();
+                true
+            },
+            None => true,
+            _    => false
         };
 
-        if !asi {
-            $parser.consume();
-        }
-
-        true
+        if !is_end && !$parser.allow_asi {
+            panic!("Expected semicolon, found {:?}", $parser.consume());
+        };
     })
 }
 
@@ -137,12 +119,10 @@ macro_rules! expect_statement_end {
 /// pushed onto a vector.
 macro_rules! expect_list {
     [$parser:ident, $item:expr, $start:pat, $separator:pat, $end:pat] => ({
-        ignore_nl!($parser);
         expect!($parser, $start);
 
         let mut list = Vec::new();
         loop {
-            ignore_nl!($parser);
             if allow!($parser, $end) {
                 break;
             }
@@ -159,7 +139,6 @@ macro_rules! expect_list {
     [$parser:ident, $item:expr, $separator:pat, $end:pat] => ({
         let mut list = Vec::new();
         loop {
-            ignore_nl!($parser);
             if allow!($parser, $end) {
                 break;
             }
@@ -191,11 +170,8 @@ macro_rules! expect_wrapped {
 /// value expression in that order.
 macro_rules! expect_key_value_pair {
     ($parser:ident, $key:expr, $separator:pat, $value:expr) => ({
-        ignore_nl!($parser);
         let key = $key;
-        ignore_nl!($parser);
         expect!($parser, $separator);
-        ignore_nl!($parser);
         (key, $value)
     })
 }
@@ -204,10 +180,8 @@ macro_rules! expect_key_value_pair {
 /// a tailing comma to appear before `$p`.
 macro_rules! expect_list_end {
     ($parser:ident, $separator:pat, $end:pat) => ({
-        ignore_nl!($parser);
         match $parser.consume() {
             Some($separator) => {
-                ignore_nl!($parser);
                 allow!($parser, $end)
             }
             Some($end)       => true,
@@ -230,21 +204,24 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    fn consume(&mut self) -> Option<Token> {
-        let token = self.tokenizer.next();
-
-        match token {
-            Some(LineTermination) => self.allow_asi = true,
-            _                     => self.allow_asi = false,
+    fn handle_line_termination(&mut self) {
+        while let Some(&LineTermination) = self.tokenizer.peek() {
+            self.tokenizer.next();
+            self.allow_asi = true;
         }
+    }
 
-        // println!("Consume {:?}", token);
-
-        return token;
+    #[inline(always)]
+    fn consume(&mut self) -> Option<Token> {
+        self.handle_line_termination();
+        let token = self.tokenizer.next();
+        self.allow_asi = false;
+        token
     }
 
     #[inline(always)]
     fn lookahead(&mut self) -> Option<&Token> {
+        self.handle_line_termination();
         self.tokenizer.peek()
     }
 
@@ -286,7 +263,6 @@ impl<'a> Parser<'a> {
 
     fn optional_block(&mut self) -> OptionalBlock {
         if let Some(&BlockOn) = self.lookahead() {
-            self.consume();
             OptionalBlock::Block(self.block())
         } else {
             OptionalBlock::Expression(Box::new(self.expression()))
@@ -294,6 +270,7 @@ impl<'a> Parser<'a> {
     }
 
     fn block(&mut self) -> Vec<Statement> {
+        expect!(self, BlockOn);
         let mut body = Vec::new();
         loop {
             on!(self, {
@@ -324,8 +301,6 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Expression {
-        ignore_nl!(self);
-
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
                 Expression::Identifier(expect!(self, Identifier(v) => v))
@@ -350,8 +325,7 @@ impl<'a> Parser<'a> {
             },
             Some(&BracketOn) => self.array_expression(),
             Some(&BlockOn)   => self.object_expression(),
-            Some(_)          => panic!("Unexpected token"),
-            _                => panic!("Unexpected end of program")
+            _                => unexpected_token!(self)
         };
 
         'nest: loop {
@@ -366,7 +340,6 @@ impl<'a> Parser<'a> {
                             }
                         },
                         Add | Substract | Multiply | Divide => {
-                            ignore_nl!(self);
                             Expression::BinaryExpression {
                                 operator: operator,
                                 left: Box::new(left),
@@ -374,7 +347,6 @@ impl<'a> Parser<'a> {
                             }
                         },
                         Accessor => {
-                            ignore_nl!(self);
                             Expression::MemberExpression {
                                 object: Box::new(left),
                                 property: Box::new(ObjectKey::Static(
@@ -408,7 +380,6 @@ impl<'a> Parser<'a> {
                 },
                 Some(&FatArrow) => {
                     self.consume();
-                    ignore_nl!(self);
                     return self.arrow_function_expression(left);
                 }
                 _ => break 'nest,
@@ -429,9 +400,12 @@ impl<'a> Parser<'a> {
                 self.expression()
             ));
 
-            if expect_statement_end!(self, Comma) {
-                break
+            if allow!(self, Comma) {
+                continue;
             }
+
+            expect_statement_end!(self);
+            break;
         }
 
         Statement::VariableDeclarationStatement {
@@ -454,13 +428,14 @@ impl<'a> Parser<'a> {
 
     fn while_statement(&mut self) -> Statement {
         expect!(self, ParenOn);
-        ignore_nl!(self);
         let condition = self.expression();
         expect!(self, ParenOff);
+        let body = self.optional_block();
+        expect_statement_end!(self);
 
         Statement::WhileStatement {
             condition: condition,
-            body: self.optional_block()
+            body: body,
         }
     }
 
@@ -472,7 +447,6 @@ impl<'a> Parser<'a> {
             Comma,
             ParenOff
         ];
-        expect!(self, BlockOn);
         Statement::FunctionStatement {
             name: name,
             params: params,
@@ -481,8 +455,6 @@ impl<'a> Parser<'a> {
     }
 
     fn class_member(&mut self, name: String, is_static: bool) -> ClassMember {
-        ignore_nl!(self);
-
         match self.lookahead() {
             Some(&ParenOn) => {
                 let params = expect_list![self,
@@ -491,7 +463,6 @@ impl<'a> Parser<'a> {
                     Comma,
                     ParenOff
                 ];
-                expect!(self, BlockOn);
                 if !is_static && name == "constructor" {
                     ClassMember::ClassConstructor {
                         params: params,
@@ -520,7 +491,6 @@ impl<'a> Parser<'a> {
 
     fn class_statement(&mut self) -> Statement {
         let name = expect!(self, Identifier(id) => id);
-        ignore_nl!(self);
         let super_class = if allow!(self, Keyword(Extends)) {
             Some(expect!(self, Identifier(name) => name))
         } else {
@@ -529,7 +499,6 @@ impl<'a> Parser<'a> {
         expect!(self, BlockOn);
         let mut members = Vec::new();
         'members: loop {
-            ignore_nl!(self);
             members.push(match self.consume() {
                 Some(Identifier(name)) => self.class_member(name, false),
                 Some(Keyword(Static))  => {

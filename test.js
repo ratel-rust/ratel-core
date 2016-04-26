@@ -18,7 +18,7 @@ let pojo = {
 };
 
 
-[1, 2, 3].forEach(n => n * n)
+[1, 2, 3].forEach(n => n * n);
 
 ['fooz', 'baz'].map(item => item.toUpperCase());
 
