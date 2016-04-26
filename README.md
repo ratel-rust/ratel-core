@@ -4,7 +4,7 @@ WIP ES2015+ to ES5 transpiler + bundler + minifier in Rust.
 
 Because Webpack+Babel+UglifyJS are both awesome and terrible at the same time.
 
-This is nowhere near done, but this tree my MacBook Air from 2012 can generate in 0.13ms:
+This is nowhere near done, but this tree my MacBook Air from 2012 can generate in sub millisecond time:
 
 ```
 Program {
