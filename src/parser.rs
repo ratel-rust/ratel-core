@@ -271,6 +271,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn binary_expression(
+        &mut self, left: Expression, operator: OperatorType, _: u8
+    ) -> Expression {
+        Expression::BinaryExpression {
+            operator: operator,
+            left: Box::new(left),
+            right: Box::new(self.expression()),
+        }
+    }
+
     fn expression(&mut self) -> Expression {
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
@@ -313,12 +323,11 @@ impl<'a> Parser<'a> {
                                 argument: Box::new(left),
                             }
                         },
-                        Add | Substract | Multiply | Divide => {
-                            Expression::BinaryExpression {
-                                operator: operator,
-                                left: Box::new(left),
-                                right: Box::new(self.expression()),
-                            }
+                        Multiply | Divide => {
+                            self.binary_expression(left, operator, 14)
+                        },
+                        Add | Substract => {
+                            self.binary_expression(left, operator, 13)
                         },
                         Accessor => {
                             Expression::MemberExpression {
@@ -363,8 +372,9 @@ impl<'a> Parser<'a> {
         left
     }
 
-    fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind)
-    -> Statement {
+    fn variable_declaration_statement(
+        &mut self, kind: VariableDeclarationKind
+    ) -> Statement {
         let mut declarations = Vec::new();
 
         loop {

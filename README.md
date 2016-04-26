@@ -4,7 +4,7 @@ WIP ES2015+ to ES5 transpiler + bundler + minifier in Rust.
 
 Because Webpack+Babel+UglifyJS are both awesome and terrible at the same time.
 
-This is nowhere near done, but this tree my MacBook Air from 2012 can generate in 0.16ms:
+This is nowhere near done, but this tree my MacBook Air from 2012 can generate in 0.13ms:
 
 ```
 Program {
@@ -69,49 +69,6 @@ Program {
                             42
                         )
                     )
-                )
-            ]
-        },
-        VariableDeclarationStatement {
-            kind: Let,
-            declarations: [
-                (
-                    "fifty",
-                    BinaryExpression {
-                        operator: Add,
-                        left: Identifier(
-                            "binary"
-                        ),
-                        right: BinaryExpression {
-                            operator: Add,
-                            left: Literal(
-                                LiteralFloat(
-                                    2
-                                )
-                            ),
-                            right: BinaryExpression {
-                                operator: Add,
-                                left: Literal(
-                                    LiteralFloat(
-                                        4
-                                    )
-                                ),
-                                right: BinaryExpression {
-                                    operator: Add,
-                                    left: Literal(
-                                        LiteralFloat(
-                                            1
-                                        )
-                                    ),
-                                    right: Literal(
-                                        LiteralFloat(
-                                            1
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
                 )
             ]
         },
@@ -278,9 +235,8 @@ Program {
             ],
             body: [
                 WhileStatement {
-                    condition: UpdateExpression {
+                    condition: PostfixExpression {
                         operator: Decrement,
-                        prefix: false,
                         argument: Identifier(
                             "count"
                         )
@@ -448,5 +404,5 @@ Program {
         }
     ]
 }
-Took 0.16067ms
+Took 0.131372ms
 ```

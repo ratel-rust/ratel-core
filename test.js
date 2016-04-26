@@ -8,8 +8,6 @@ var binary = 0b101010,
     octal = 0o52,
     hexal = 0x2A;
 
-let fifty = binary + 2 + 4 + 1 + 1;
-
 let pojo = {
     id: 9001,
     name: "Maciej",
@@ -52,5 +50,3 @@ class Foo {
         console.log('Static method baz!');
     }
 }
-
-++emptyArray;
