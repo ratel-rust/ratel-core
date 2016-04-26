@@ -96,8 +96,22 @@ pub enum Expression {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Program {
-    pub body: Vec<Statement>,
+pub enum ClassMember {
+    ClassConstructor {
+        params: Vec<Parameter>,
+        body: Vec<Statement>,
+    },
+    ClassMethod {
+        is_static: bool,
+        name: String,
+        params: Vec<Parameter>,
+        body: Vec<Statement>,
+    },
+    ClassProperty {
+        is_static: bool,
+        name: String,
+        value: Expression,
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -113,8 +127,18 @@ pub enum Statement {
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
+    ClassStatement {
+        name: String,
+        extends: Option<String>,
+        body: Vec<ClassMember>,
+    },
     WhileStatement {
         condition: Expression,
         body: OptionalBlock,
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Program {
+    pub body: Vec<Statement>,
 }

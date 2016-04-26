@@ -37,6 +37,7 @@ pub enum KeywordKind {
     Try,
     Void,
     Await,
+    Static,
 }
 
 #[derive(Debug, PartialEq)]

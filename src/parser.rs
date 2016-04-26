@@ -486,6 +486,76 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn class_member(&mut self, name: String, is_static: bool) -> ClassMember {
+        ignore_nl!(self);
+
+        match self.lookahead() {
+            Some(&ParenOn) => {
+                let params = expect_list![self,
+                    Parameter { name: expect!(self, Identifier(name) => name) },
+                    ParenOn,
+                    Comma,
+                    ParenOff
+                ];
+                expect!(self, BlockOn);
+                if !is_static && name == "constructor" {
+                    ClassMember::ClassConstructor {
+                        params: params,
+                        body: self.block(),
+                    }
+                } else {
+                    ClassMember::ClassMethod {
+                        is_static: is_static,
+                        name: name,
+                        params: params,
+                        body: self.block(),
+                    }
+                }
+            },
+            Some(&Assign) => {
+                self.consume();
+                ignore_nl!(self);
+                ClassMember::ClassProperty {
+                    is_static: is_static,
+                    name: name,
+                    value: self.expression(),
+                }
+            },
+            _ => panic!("Unexpected token"),
+        }
+    }
+
+    fn class_statement(&mut self) -> Statement {
+        let name = expect!(self, Identifier(id) => id);
+        ignore_nl!(self);
+        let super_class = if allow!(self, Keyword(Extends)) {
+            Some(expect!(self, Identifier(name) => name))
+        } else {
+            None
+        };
+        expect!(self, BlockOn);
+        let mut members = Vec::new();
+        'members: loop {
+            ignore_nl!(self);
+            members.push(match self.consume() {
+                Some(Identifier(name)) => self.class_member(name, false),
+                Some(Keyword(Static))  => {
+                    let name = expect!(self, Identifier(name) => name);
+                    self.class_member(name, true)
+                },
+                Some(Semicolon)        => continue 'members,
+                Some(BlockOff)         => break 'members,
+                token                  => panic!("Unexpected token {:?}", token),
+            });
+        }
+
+        Statement::ClassStatement {
+            name: name,
+            extends: super_class,
+            body: members,
+        }
+    }
+
     fn statement(&mut self) -> Option<Statement> {
         on!(self, {
             Keyword(Var)      => return Some(self.variable_declaration_statement(
@@ -499,6 +569,7 @@ impl<'a> Parser<'a> {
             )),
             Keyword(Return)   => return Some(self.return_statement()),
             Keyword(Function) => return Some(self.function_statement()),
+            Keyword(Class)    => return Some(self.class_statement()),
             Keyword(While)    => return Some(self.while_statement()),
             Semicolon         => return self.statement()
         });

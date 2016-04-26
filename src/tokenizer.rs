@@ -357,6 +357,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                         "try"        => Keyword(Try),
                         "void"       => Keyword(Void),
                         "await"      => Keyword(Await),
+                        "static"     => Keyword(Static),
                         "true"       => Literal(LiteralTrue),
                         "false"      => Literal(LiteralFalse),
                         "undefined"  => Literal(LiteralUndefined),

@@ -30,29 +30,25 @@ function helloKitty(count, name) {
 
 helloKitty();
 
-very.long.member.chain();
-
 let emptyArray = [];
 
-5["to" + 'String']();
+/*
+    boring block comment
+*/
+class Foo {
+    x = 0;
+    y = 0;
+    static isFoo = true;
 
-5..toString();
+    constructor() {
+        console.log('New instance of Foo');
+    }
 
+    bar(n) {
+        console.log('Called bar with ' + n);
+    }
 
-// /*
-//     boring block comment
-// */
-// export default class Example {
-//     isFooBar() {
-//         if (foo === "bar") {
-//             return true;
-//         }
-
-//         // random comment
-//         return false;
-//     }
-// }
-
-// export function maybe() {
-//     return Math.random() > 0.5;
-// }
+    static baz() {
+        console.log('Static method baz!');
+    }
+}
