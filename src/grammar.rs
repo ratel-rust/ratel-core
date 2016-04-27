@@ -98,7 +98,7 @@ impl OperatorType {
             Exponent         => 14,
 
             Add              |
-            Substract        => 13,
+            Substract        => if prefix { 15 } else { 13 },
 
             Lesser           |
             LesserEquals     |
