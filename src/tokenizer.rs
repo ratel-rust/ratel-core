@@ -341,19 +341,16 @@ impl<'a> Iterator for Tokenizer<'a> {
                 '|' => operator!{ BitwiseOr    | self '|' => LogicalOr },
                 '+' => operator!{ Addition     | self '+' => Increment },
                 '-' => operator!{ Substraction | self '-' => Decrement },
-                '/' => {
-                    on!{ self
-                        '/' => {
-                            self.read_comment();
-                            continue 'lex
-                        },
-                        '*' => {
-                            self.read_block_comment();
-                            continue 'lex
-                        };
-                        _   => Operator(Division)
+                '/' => operator!{ Division     | self
+                    '/' => {
+                        self.read_comment();
+                        continue 'lex
+                    },
+                    '*' => {
+                        self.read_block_comment();
+                        continue 'lex
                     }
-                }
+                },
                 '*' => operator!{ Multiplication | self '*' => Exponent },
                 '%' => operator!{ Remainder },
                 '0'...'9' => Literal(self.read_number(ch)),

@@ -233,6 +233,11 @@ pub enum Expression {
         operator: OperatorType,
         operand: Box<Expression>,
     },
+    ConditionalExpression {
+        test: Box<Expression>,
+        consequent: Box<Expression>,
+        alternate: Box<Expression>,
+    },
     ArrowFunctionExpression {
         params: Vec<Parameter>,
         body: OptionalBlock,

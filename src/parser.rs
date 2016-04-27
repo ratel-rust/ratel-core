@@ -284,6 +284,15 @@ impl<'a> Parser<'a> {
                 )),
             },
 
+            Conditional => ConditionalExpression {
+                test: Box::new(left),
+                consequent: Box::new(self.expression(bp)),
+                alternate: {
+                    expect!(self, Colon);
+                    Box::new(self.expression(bp))
+                }
+            },
+
             _ => {
                 if !operator.infix() {
                     panic!("Unexpected operator {:?}", operator);
