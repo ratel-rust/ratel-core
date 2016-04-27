@@ -28,9 +28,24 @@ pub enum VariableDeclarationKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ObjectKey {
-    Static(String),
+pub enum MemberKey {
+    Literal(String),
     Computed(Expression),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ObjectMember {
+    Shorthand {
+        key: String,
+    },
+    Literal {
+        key: String,
+        value: Expression,
+    },
+    Computed {
+        key: Expression,
+        value: Expression,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -79,9 +94,9 @@ impl OperatorType {
     /// According to the Operator Precedence Table
     pub fn precedence(&self, prefix: bool) -> u8 {
         match *self {
-            New              => 17,
-
             Accessor         => 18,
+
+            New              => 17,
 
             Increment        |
             Decrement        => if prefix { 15 } else { 16 },
@@ -163,30 +178,30 @@ impl OperatorType {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Identifier(String),
-    Literal(LiteralValue),
+    IdentifierExpression(String),
+    LiteralExpression(LiteralValue),
     ArrayExpression(Vec<Expression>),
-    ObjectExpression(Vec<(ObjectKey, Expression)>),
+    ObjectExpression(Vec<ObjectMember>),
     MemberExpression {
         object: Box<Expression>,
-        property: Box<ObjectKey>,
+        property: Box<MemberKey>,
     },
     CallExpression {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
     BinaryExpression {
-        operator: OperatorType,
         left: Box<Expression>,
+        operator: OperatorType,
         right: Box<Expression>,
     },
     PrefixExpression {
         operator: OperatorType,
-        argument: Box<Expression>,
+        operand: Box<Expression>,
     },
     PostfixExpression {
         operator: OperatorType,
-        argument: Box<Expression>,
+        operand: Box<Expression>,
     },
     ArrowFunctionExpression {
         params: Vec<Parameter>,

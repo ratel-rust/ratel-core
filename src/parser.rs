@@ -4,12 +4,15 @@ use lexicon::KeywordKind::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
+use grammar::Statement::*;
+use grammar::Expression::*;
+use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
 macro_rules! allow {
-    ($parser:ident, { $( $p:pat => $then:expr ),* }) => ({
+    ($parser:ident { $( $p:pat => $then:expr ),* }) => ({
         match $parser.lookahead() {
             $(
                 Some(&$p) => {
@@ -20,6 +23,9 @@ macro_rules! allow {
             _ => {}
         }
     });
+    ($parser:ident, $p:pat => $then:expr) => (
+        allow!($parser { $p => $then })
+    );
     ($parser:ident, $p:pat) => {
         match $parser.lookahead() {
             Some(&$p) => {
@@ -33,20 +39,20 @@ macro_rules! allow {
 
 /// Expects next token to match `$p`, otherwise panics.
 macro_rules! expect {
-    ($parser:ident, $p:pat => $value:ident) => ({
+    ($parser:ident, $p:pat => $value:ident) => (
         match $parser.consume() {
             Some($p) => $value,
             None     => panic!("Unexpected end of program"),
             token    => unexpected_token!($parser, token),
         }
-    });
-    ($parser:ident, $p:pat) => ({
+    );
+    ($parser:ident, $p:pat) => (
         match $parser.consume() {
             Some($p) => {},
             None     => panic!("Unexpected end of program"),
             token    => unexpected_token!($parser, token),
         }
-    })
+    )
 }
 
 macro_rules! unexpected_token {
@@ -62,12 +68,14 @@ macro_rules! unexpected_token {
     }
 }
 
-/// Expects a semicolon or end of program. If neither is found,
-/// but a LineTermination occured on previous token, parsing
-/// will continue as if a semicolon was present. In other cases
-/// cause a panic.
-macro_rules! expect_statement_end {
-    ($parser:ident) => ({
+/// Evaluates the `$eval` expression, then expects a semicolon or
+/// end of program. If neither is found, but a LineTermination
+/// occured on previous token, parsing will continue as if a
+/// semicolon was present. In other cases cause a panic.
+macro_rules! statement {
+    ($parser:ident, $eval:expr) => ({
+        let value = $eval;
+
         let is_end = match $parser.lookahead() {
             Some(&Semicolon) => {
                 $parser.consume();
@@ -78,85 +86,60 @@ macro_rules! expect_statement_end {
         };
 
         if !is_end && !$parser.allow_asi {
-            panic!("Expected semicolon, found {:?}", $parser.consume());
+            unexpected_token!($parser);
         };
+
+        value
     })
 }
 
 /// Read a list of items with predefined `$start`, `$end` and
 /// `$separator` tokens and an `$item` expression that is then
 /// pushed onto a vector.
-macro_rules! expect_list {
-    [$parser:ident, $item:expr, $start:pat, $separator:pat, $end:pat] => ({
-        expect!($parser, $start);
-
-        let mut list = Vec::new();
-        loop {
-            if allow!($parser, $end) {
-                break;
-            }
-            list.push($item);
-            if expect_list_end!($parser, $separator, $end) {
-                break;
-            } else {
-                continue;
-            }
-        }
-
-        list
-    });
-    [$parser:ident, $item:expr, $separator:pat, $end:pat] => ({
-        let mut list = Vec::new();
-        loop {
-            if allow!($parser, $end) {
-                break;
-            }
-            list.push($item);
-            if expect_list_end!($parser, $separator, $end) {
-                break;
-            } else {
-                continue;
-            }
-        }
-
-        list
-    })
-}
-
-macro_rules! expect_wrapped {
+macro_rules! list {
     ($parser:ident, $item:expr, $start:pat, $end:pat) => ({
         expect!($parser, $start);
-        expect_wrapped!($parser, $item, $end)
-    });
-    ($parser:ident, $item:expr, $end:pat) => ({
-        let item = $item;
-        expect!($parser, $end);
-        item
-    })
-}
 
-/// Shorthand for reading a key expression, separator token and
-/// value expression in that order.
-macro_rules! expect_key_value_pair {
-    ($parser:ident, $key:expr, $separator:pat, $value:expr) => ({
-        let key = $key;
-        expect!($parser, $separator);
-        (key, $value)
-    })
-}
-
-/// Returns true if met with a list closing token `$p`, allows
-/// a tailing comma to appear before `$p`.
-macro_rules! expect_list_end {
-    ($parser:ident, $separator:pat, $end:pat) => ({
-        match $parser.consume() {
-            Some($separator) => {
-                allow!($parser, $end)
+        let mut list = Vec::new();
+        loop {
+            if allow!($parser, $end) {
+                break;
             }
-            Some($end)       => true,
-            _                => false,
+            list.push($item);
+
+            match $parser.consume() {
+                Some(Comma) => allow!($parser, $end => break),
+                Some($end)  => break,
+                _           => {},
+            }
         }
-    })
+
+        list
+    });
+    ($parser:ident ( $item:expr )) => {
+        list!($parser, $item, ParenOn, ParenOff)
+    };
+    ($parser:ident [ $item:expr ]) => {
+        list!($parser, $item, BracketOn, BracketOff)
+    };
+    ($parser:ident { $item:expr }) => {
+        list!($parser, $item, BlockOn, BlockOff)
+    };
+}
+
+macro_rules! surround {
+    ($parser:ident ( $eval:expr )) => ({
+        expect!($parser, ParenOn);
+        let value = $eval;
+        expect!($parser, ParenOff);
+        value
+    });
+    ($parser:ident [ $eval:expr ]) => ({
+        expect!($parser, BracketOn);
+        let value = $eval;
+        expect!($parser, BracketOff);
+        value
+    });
 }
 
 pub struct Parser<'a> {
@@ -195,41 +178,41 @@ impl<'a> Parser<'a> {
     }
 
     fn array_expression(&mut self) -> Expression {
-        Expression::ArrayExpression(expect_list![self,
-            self.expression(0),
-            BracketOn,
-            Comma,
-            BracketOff
-        ])
+        ArrayExpression(list!(self [ self.expression(0) ]))
     }
 
-    fn object_expression(&mut self) -> Expression {
-        Expression::ObjectExpression(expect_list![self,
-            expect_key_value_pair!(self,
-                self.object_key(),
-                Colon,
-                self.expression(0)
-            ),
-            BlockOn,
-            Comma,
-            BlockOff
-        ])
-    }
-
-    fn object_key(&mut self) -> ObjectKey {
+    #[inline(always)]
+    fn object_member(&mut self) -> ObjectMember {
         match self.consume() {
             Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
-                ObjectKey::Static(key)
+                if allow!(self, Colon) {
+                    ObjectMember::Literal {
+                        key: key,
+                        value: self.expression(0),
+                    }
+                } else {
+                    ObjectMember::Shorthand {
+                        key: key,
+                    }
+                }
             },
             Some(BracketOn) => {
-                let expression = self.expression(0);
+                let key = self.expression(0);
                 expect!(self, BracketOff);
-                ObjectKey::Computed(expression)
+                expect!(self, Colon);
+                ObjectMember::Computed {
+                    key: key,
+                    value: self.expression(0),
+                }
             },
             token => {
                 panic!("Expected object key, got {:?}", token)
             }
         }
+    }
+
+    fn object_expression(&mut self) -> Expression {
+        ObjectExpression(list!(self { self.object_member() }))
     }
 
     fn optional_block(&mut self) -> OptionalBlock {
@@ -242,14 +225,13 @@ impl<'a> Parser<'a> {
 
     fn block(&mut self) -> Vec<Statement> {
         expect!(self, BlockOn);
+
         let mut body = Vec::new();
         loop {
-            allow!(self, {
-                BlockOff => break
-            });
+            allow!(self, BlockOff => break);
             match self.statement() {
                 Some(statement) => body.push(statement),
-                None            => panic!("Unexpected end of function block")
+                None            => panic!("Unexpected end of statements block")
             }
         }
 
@@ -257,50 +239,49 @@ impl<'a> Parser<'a> {
     }
 
     fn arrow_function_expression(&mut self, p: Expression) -> Expression {
+        expect!(self, FatArrow);
+
         let params: Vec<Parameter> = match p {
-            Expression::Identifier(name) => {
+            IdentifierExpression(name) => {
                 vec![Parameter { name: name }]
             },
             _ =>
                 panic!("Can cast {:?} to parameters", p),
         };
 
-        Expression::ArrowFunctionExpression {
+        ArrowFunctionExpression {
             params: params,
             body: self.optional_block()
+        }
+    }
+
+    fn prefix_expression(&mut self) -> Expression {
+        let operator = expect!(self, Operator(op) => op);
+        let right_precedence = operator.precedence(true);
+
+        if !operator.prefix() {
+            panic!("Unexpected operator {:?}", operator);
+        }
+
+        PrefixExpression {
+            operator: operator,
+            operand: Box::new(self.expression(right_precedence)),
         }
     }
 
     fn expression(&mut self, precedence: u8) -> Expression {
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
-                Expression::Identifier(expect!(self, Identifier(v) => v))
+                IdentifierExpression(expect!(self, Identifier(v) => v))
             },
             Some(&Literal(_))    => {
-                Expression::Literal(expect!(self, Literal(v) => v))
+                LiteralExpression(expect!(self, Literal(v) => v))
             },
-            Some(&Operator(_))   => {
-                let operator = expect!(self, Operator(op) => op);
-                let right_precedence = operator.precedence(true);
-
-                if !operator.prefix() {
-                    panic!("Unexpected operator {:?}", operator);
-                }
-
-                Expression::PrefixExpression {
-                    operator: operator,
-                    argument: Box::new(self.expression(right_precedence)),
-                }
-            }
-            Some(&ParenOn)       => {
-                self.consume();
-                let expression = self.expression(19);
-                expect!(self, ParenOff);
-                expression
-            },
-            Some(&BracketOn) => self.array_expression(),
-            Some(&BlockOn)   => self.object_expression(),
-            _                => unexpected_token!(self)
+            Some(&Operator(_)) => self.prefix_expression(),
+            Some(&ParenOn)     => surround!(self ( self.expression(19) )),
+            Some(&BracketOn)   => self.array_expression(),
+            Some(&BlockOn)     => self.object_expression(),
+            _                  => unexpected_token!(self)
         };
 
         'right: loop {
@@ -318,28 +299,26 @@ impl<'a> Parser<'a> {
                     let operator = expect!(self, Operator(op) => op);
 
                     match operator {
-                        Increment | Decrement => {
-                            Expression::PostfixExpression {
-                                operator: operator,
-                                argument: Box::new(left),
-                            }
+                        Increment | Decrement => PostfixExpression {
+                            operator: operator,
+                            operand: Box::new(left),
                         },
-                        Accessor => {
-                            Expression::MemberExpression {
-                                object: Box::new(left),
-                                property: Box::new(ObjectKey::Static(
-                                    expect!(self, Identifier(key) => key)
-                                )),
-                            }
+
+                        Accessor => MemberExpression {
+                            object: Box::new(left),
+                            property: Box::new(MemberKey::Literal(
+                                expect!(self, Identifier(key) => key)
+                            )),
                         },
+
                         _ => {
                             if !operator.infix() {
                                 panic!("Unexpected operator {:?}", operator);
                             }
 
-                            Expression::BinaryExpression {
-                                operator: operator,
+                            BinaryExpression {
                                 left: Box::new(left),
+                                operator: operator,
                                 right: Box::new(
                                     self.expression(right_precedence)
                                 )
@@ -347,32 +326,21 @@ impl<'a> Parser<'a> {
                         }
                     }
                 },
-                Some(&ParenOn) => {
-                    Expression::CallExpression {
-                        callee: Box::new(left),
-                        arguments: expect_list![self,
-                            self.expression(0),
-                            ParenOn,
-                            Comma,
-                            ParenOff
-                        ]
-                    }
-                },
-                Some(&BracketOn) => {
-                    self.consume();
-                    let expression = self.expression(0);
-                    expect!(self, BracketOff);
 
-                    Expression::MemberExpression {
-                        object: Box::new(left),
-                        property: Box::new(ObjectKey::Computed(expression))
-                    }
+                Some(&ParenOn)     => CallExpression {
+                    callee: Box::new(left),
+                    arguments: list!(self ( self.expression(0) ))
                 },
-                Some(&FatArrow) => {
-                    self.consume();
-                    return self.arrow_function_expression(left);
-                }
-                _ => break 'right,
+
+                Some(&BracketOn)   => MemberExpression {
+                    object: Box::new(left),
+                    property: Box::new(MemberKey::Computed(
+                        surround!(self [ self.expression(0) ])
+                    ))
+                },
+
+                Some(&FatArrow)    => self.arrow_function_expression(left),
+                _                  => break 'right,
             }
         }
 
@@ -385,62 +353,52 @@ impl<'a> Parser<'a> {
         let mut declarations = Vec::new();
 
         loop {
-            declarations.push(expect_key_value_pair!(self,
-                expect!(self, Identifier(name) => name),
-                Operator(Assign),
+            let name = expect!(self, Identifier(name) => name);
+            expect!(self, Operator(Assign));
+            declarations.push((
+                name,
                 self.expression(0)
             ));
 
-            if allow!(self, Comma) {
-                continue;
-            }
-
-            expect_statement_end!(self);
+            allow!(self, Comma => continue);
             break;
         }
 
-        Statement::VariableDeclarationStatement {
+        statement!(self, VariableDeclarationStatement {
             kind: kind,
             declarations: declarations,
-        }
+        })
     }
 
     fn expression_statement(&mut self) -> Statement {
-        let expression = self.expression(0);
-        expect_statement_end!(self);
-        Statement::ExpressionStatement(expression)
+        statement!(self, ExpressionStatement(
+            self.expression(0)
+        ))
     }
 
     fn return_statement(&mut self) -> Statement {
-        let expression = self.expression(0);
-        expect_statement_end!(self);
-        Statement::ReturnStatement(expression)
+        statement!(self, ReturnStatement(
+            self.expression(0)
+        ))
     }
 
     fn while_statement(&mut self) -> Statement {
-        expect!(self, ParenOn);
-        let condition = self.expression(0);
-        expect!(self, ParenOff);
-        let body = self.optional_block();
-        expect_statement_end!(self);
+        statement!(self, WhileStatement {
+            condition: surround!(self ( self.expression(0) )),
+            body: self.optional_block(),
+        })
+    }
 
-        Statement::WhileStatement {
-            condition: condition,
-            body: body,
+    fn parameter(&mut self) -> Parameter {
+        Parameter {
+            name: expect!(self, Identifier(name) => name)
         }
     }
 
     fn function_statement(&mut self) -> Statement {
-        let name = expect!(self, Identifier(name) => name);
-        let params = expect_list![self,
-            Parameter { name: expect!(self, Identifier(name) => name) },
-            ParenOn,
-            Comma,
-            ParenOff
-        ];
-        Statement::FunctionStatement {
-            name: name,
-            params: params,
+        FunctionStatement {
+            name: expect!(self, Identifier(name) => name),
+            params: list!(self ( self.parameter() )),
             body: self.block(),
         }
     }
@@ -448,35 +406,29 @@ impl<'a> Parser<'a> {
     fn class_member(&mut self, name: String, is_static: bool) -> ClassMember {
         match self.lookahead() {
             Some(&ParenOn) => {
-                let params = expect_list![self,
-                    Parameter { name: expect!(self, Identifier(name) => name) },
-                    ParenOn,
-                    Comma,
-                    ParenOff
-                ];
                 if !is_static && name == "constructor" {
-                    ClassMember::ClassConstructor {
-                        params: params,
+                    ClassConstructor {
+                        params: list!(self ( self.parameter() )),
                         body: self.block(),
                     }
                 } else {
-                    ClassMember::ClassMethod {
+                    ClassMethod {
                         is_static: is_static,
                         name: name,
-                        params: params,
+                        params: list!(self ( self.parameter())),
                         body: self.block(),
                     }
                 }
             },
             Some(&Operator(Assign)) => {
                 self.consume();
-                ClassMember::ClassProperty {
+                ClassProperty {
                     is_static: is_static,
                     name: name,
                     value: self.expression(0),
                 }
             },
-            _ => panic!("Unexpected token"),
+            _ => unexpected_token!(self),
         }
     }
 
@@ -498,11 +450,11 @@ impl<'a> Parser<'a> {
                 },
                 Some(Semicolon)        => continue 'members,
                 Some(BlockOff)         => break 'members,
-                token                  => panic!("Unexpected token {:?}", token),
+                token                  => unexpected_token!(self, token)
             });
         }
 
-        Statement::ClassStatement {
+        ClassStatement {
             name: name,
             extends: super_class,
             body: members,
@@ -510,7 +462,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        allow!(self, {
+        allow!(self {
             Keyword(Var)      => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),

@@ -9,6 +9,7 @@ var binary = 0b101010,
     hexal = 0x2A;
 
 let pojo = {
+    foo,
     id: 9001,
     name: "Maciej",
     'is-radical': true,
@@ -52,3 +53,5 @@ class Foo {
 }
 
 let foo = bar = -10 * 1 + 5 ** 5 - !4 / 2;
+
+void 0;
