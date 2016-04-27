@@ -52,6 +52,8 @@ class Foo {
     }
 }
 
-let foo = bar = -10 * 1 + 5 ** 5 - !4 / 2;
+let foo = 10 << 2 >>> 5;
 
 void 0;
+
+var µDivs = µ( 'div' ) ;

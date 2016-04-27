@@ -12,7 +12,16 @@ use grammar::OperatorType::*;
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
 macro_rules! allow {
-    ($parser:ident { $( $p:pat => $then:expr ),* }) => ({
+    ($parser:ident, $p:pat) => {
+        match $parser.lookahead() {
+            Some(&$p) => {
+                $parser.consume();
+                true
+            },
+            _ => false
+        }
+    };
+    {$parser:ident $( $p:pat => $then:expr ),* } => ({
         match $parser.lookahead() {
             $(
                 Some(&$p) => {
@@ -23,18 +32,6 @@ macro_rules! allow {
             _ => {}
         }
     });
-    ($parser:ident, $p:pat => $then:expr) => (
-        allow!($parser { $p => $then })
-    );
-    ($parser:ident, $p:pat) => {
-        match $parser.lookahead() {
-            Some(&$p) => {
-                $parser.consume();
-                true
-            },
-            _ => false
-        }
-    }
 }
 
 /// Expects next token to match `$p`, otherwise panics.
@@ -108,7 +105,7 @@ macro_rules! list {
             list.push($item);
 
             match $parser.consume() {
-                Some(Comma) => allow!($parser, $end => break),
+                Some(Comma) => allow!{ $parser $end => break },
                 Some($end)  => break,
                 _           => {},
             }
@@ -228,7 +225,7 @@ impl<'a> Parser<'a> {
 
         let mut body = Vec::new();
         loop {
-            allow!(self, BlockOff => break);
+            allow!{ self BlockOff => break };
             match self.statement() {
                 Some(statement) => body.push(statement),
                 None            => panic!("Unexpected end of statements block")
@@ -364,7 +361,7 @@ impl<'a> Parser<'a> {
                 self.expression(0)
             ));
 
-            allow!(self, Comma => continue);
+            allow!{ self Comma => continue };
             break;
         }
 
@@ -466,7 +463,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        allow!(self {
+        allow!{self
             Keyword(Var)      => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),
@@ -481,7 +478,7 @@ impl<'a> Parser<'a> {
             Keyword(Class)    => return Some(self.class_statement()),
             Keyword(While)    => return Some(self.while_statement()),
             Semicolon         => return self.statement()
-        });
+        };
 
         if self.lookahead().is_some() {
             Some(self.expression_statement())
