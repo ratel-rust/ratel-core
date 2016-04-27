@@ -8,6 +8,20 @@ use grammar::OperatorType::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 
+macro_rules! on {
+    ($tokenizer:ident { $( $p:pat => $then:expr ),* } else { $el:expr }) => ({
+        match $tokenizer.source.peek() {
+            $(
+                Some(&$p) => {
+                    $tokenizer.source.next();
+                    $then
+                }
+            )*
+            _ => $el
+        }
+    });
+}
+
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,
 }
@@ -230,95 +244,93 @@ impl<'a> Iterator for Tokenizer<'a> {
                 '{' => BlockOn,
                 '}' => BlockOff,
                 '<' => {
-                    let comp_type = if Some(&'=') == self.source.peek() {
-                        self.source.next();
-                        LesserEquals
+                    let operator = on!(self {
+                        '=' => LesserEquals,
+                        '<' => BitLeftShift
                     } else {
                         Lesser
-                    };
-                    Operator(comp_type)
+                    });
+
+                    Operator(operator)
                 },
                 '>' => {
-                    let comp_type = if Some(&'=') == self.source.peek() {
-                        self.source.next();
-                        GreaterEquals
+                    let operator = on!(self {
+                        '=' => GreaterEquals,
+                        '>' => on!(self {
+                            '>' => BitUnRightShift
+                        } else {
+                            BitRightShift
+                        })
                     } else {
                         Greater
-                    };
-                    Operator(comp_type)
+                    });
+
+                    Operator(operator)
                 },
                 '.' => Operator(Accessor),
                 '"' | '\'' => {
                     Literal(LiteralString( self.read_string(ch) ))
                 },
                 '=' => {
-                    if Some(&'>') == self.source.peek() {
-                        self.source.next();
-                        FatArrow
-                    } else {
-                        if Some(&'=') == self.source.peek() {
-                            self.source.next();
-                            if Some(&'=') == self.source.peek() {
-                                self.source.next();
-                                Operator(StrictEquality)
-                            } else {
-                                Operator(Equality)
-                            }
+                    on!(self {
+                        '>' => FatArrow,
+                        '=' => on!(self {
+                            '=' => Operator(StrictEquality)
                         } else {
-                            Operator(Assign)
-                        }
-                    }
+                            Operator(Equality)
+                        })
+                    } else {
+                        Operator(Assign)
+                    })
                 },
                 '~' => Operator(BitwiseNot),
                 '!' => {
-                    if Some(&'=') == self.source.peek() {
-                        self.source.next();
-                        if Some(&'=') == self.source.peek() {
-                            self.source.next();
-                            Operator(StrictInequality)
+                    on!(self {
+                        '=' => on!(self {
+                            '=' => Operator(StrictInequality)
                         } else {
                             Operator(Inequality)
-                        }
+                        })
                     } else {
                         Operator(LogicalNot)
-                    }
+                    })
                 },
-                '+' => match self.source.peek() {
-                    Some(&'+') => {
-                        self.source.next();
-                        Operator(Increment)
-                    },
-                    _          => Operator(Add)
-                },
-                '-' => match self.source.peek() {
-                    Some(&'-') => {
-                        self.source.next();
-                        Operator(Decrement)
-                    }
-                    _          => Operator(Substract)
-                },
-                '/' => {
-                    if Some(&'/') == self.source.peek() {
-                        self.source.next();
-                        self.read_comment();
-                        continue 'lex;
-                    }
-                    if Some(&'*') == self.source.peek() {
-                        self.source.next();
-                        self.read_block_comment();
-                        continue 'lex;
-                    }
-                    Operator(Divide)
-                }
-                '*' => {
-                    if Some(&'*') == self.source.peek() {
-                        self.source.next();
-                        Operator(Exponent)
+                '+' => Operator(
+                    on!(self {
+                        '+' => Increment
                     } else {
-                        Operator(Multiply)
-                    }
-                },
-                '%' => return Some(Operator(Modulo)),
+                        Addition
+                    })
+                ),
+                '-' => Operator(
+                    on!(self {
+                        '-' => Decrement
+                    } else {
+                        Substraction
+                    })
+                ),
+                '/' => {
+                    on!(self {
+                        '/' => {
+                            self.read_comment();
+                            continue 'lex
+                        },
+                        '*' => {
+                            self.read_block_comment();
+                            continue 'lex
+                        }
+                    } else {
+                        Operator(Division)
+                    })
+                }
+                '*' => Operator(
+                    on!(self {
+                        '*' => Exponent
+                    } else {
+                        Multiplication
+                    })
+                ),
+                '%' => return Some(Operator(Remainder)),
                 '0'...'9' => Literal(self.read_number(ch)),
                 'a'...'z' | 'A'...'Z' | '$' | '_' => {
                     let label = self.read_label(ch);
