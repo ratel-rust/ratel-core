@@ -92,7 +92,7 @@ use self::OperatorType::*;
 
 impl OperatorType {
     /// According to the Operator Precedence Table
-    pub fn precedence(&self, prefix: bool) -> u8 {
+    pub fn binding_power(&self, prefix: bool) -> u8 {
         match *self {
             Accessor         => 18,
 

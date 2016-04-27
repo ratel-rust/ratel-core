@@ -255,9 +255,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline(always)]
     fn prefix_expression(&mut self) -> Expression {
         let operator = expect!(self, Operator(op) => op);
-        let right_precedence = operator.precedence(true);
+        let bp = operator.binding_power(true);
 
         if !operator.prefix() {
             panic!("Unexpected operator {:?}", operator);
@@ -265,11 +266,44 @@ impl<'a> Parser<'a> {
 
         PrefixExpression {
             operator: operator,
-            operand: Box::new(self.expression(right_precedence)),
+            operand: Box::new(self.expression(bp)),
         }
     }
 
-    fn expression(&mut self, precedence: u8) -> Expression {
+    #[inline(always)]
+    fn infix_expression(&mut self, left: Expression, bp: u8) -> Expression {
+        let operator = expect!(self, Operator(op) => op);
+
+        match operator {
+            Increment | Decrement => PostfixExpression {
+                operator: operator,
+                operand: Box::new(left),
+            },
+
+            Accessor => MemberExpression {
+                object: Box::new(left),
+                property: Box::new(MemberKey::Literal(
+                    expect!(self, Identifier(key) => key)
+                )),
+            },
+
+            _ => {
+                if !operator.infix() {
+                    panic!("Unexpected operator {:?}", operator);
+                }
+
+                BinaryExpression {
+                    left: Box::new(left),
+                    operator: operator,
+                    right: Box::new(
+                        self.expression(bp)
+                    )
+                }
+            }
+        }
+    }
+
+    fn expression(&mut self, lbp: u8) -> Expression {
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
                 IdentifierExpression(expect!(self, Identifier(v) => v))
@@ -285,47 +319,17 @@ impl<'a> Parser<'a> {
         };
 
         'right: loop {
-            let right_precedence = match self.lookahead() {
-                Some(&Operator(ref op)) => op.precedence(false),
+            let rbp = match self.lookahead() {
+                Some(&Operator(ref op)) => op.binding_power(false),
                 _                       => 0,
             };
 
-            if precedence > right_precedence {
+            if lbp > rbp {
                 break 'right;
             }
 
             left = match self.lookahead() {
-                Some(&Operator(_)) => {
-                    let operator = expect!(self, Operator(op) => op);
-
-                    match operator {
-                        Increment | Decrement => PostfixExpression {
-                            operator: operator,
-                            operand: Box::new(left),
-                        },
-
-                        Accessor => MemberExpression {
-                            object: Box::new(left),
-                            property: Box::new(MemberKey::Literal(
-                                expect!(self, Identifier(key) => key)
-                            )),
-                        },
-
-                        _ => {
-                            if !operator.infix() {
-                                panic!("Unexpected operator {:?}", operator);
-                            }
-
-                            BinaryExpression {
-                                left: Box::new(left),
-                                operator: operator,
-                                right: Box::new(
-                                    self.expression(right_precedence)
-                                )
-                            }
-                        }
-                    }
-                },
+                Some(&Operator(_)) => self.infix_expression(left, rbp),
 
                 Some(&ParenOn)     => CallExpression {
                     callee: Box::new(left),
