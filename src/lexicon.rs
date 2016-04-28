@@ -59,7 +59,6 @@ pub enum Token {
     BracketOff,
     BlockOn,
     BlockOff,
-    FatArrow, // =>
     Keyword(KeywordKind),
     Reserved(ReservedKind),
     Identifier(String),

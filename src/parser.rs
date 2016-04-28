@@ -236,7 +236,7 @@ impl<'a> Parser<'a> {
     }
 
     fn arrow_function_expression(&mut self, p: Expression) -> Expression {
-        expect!(self, FatArrow);
+        expect!(self, Operator(FatArrow));
 
         let params: Vec<Parameter> = match p {
             IdentifierExpression(name) => {
@@ -335,6 +335,8 @@ impl<'a> Parser<'a> {
             }
 
             left = match self.lookahead() {
+                Some(&Operator(FatArrow)) => self.arrow_function_expression(left),
+
                 Some(&Operator(_)) => self.infix_expression(left, rbp),
 
                 Some(&ParenOn)     => CallExpression {
@@ -349,7 +351,6 @@ impl<'a> Parser<'a> {
                     ))
                 },
 
-                Some(&FatArrow)    => self.arrow_function_expression(left),
                 _                  => break 'right,
             }
         }

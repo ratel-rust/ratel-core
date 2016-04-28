@@ -8,34 +8,44 @@ use grammar::OperatorType::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 
-macro_rules! on {
-    {$tokenizer:ident $( $p:pat => $then:expr ),* ; _ => $el:expr} => ({
-        match $tokenizer.source.peek() {
+
+
+macro_rules! match_operators {
+    { $tokenizer:ident $ch:ident
+        $(
+            $prime:pat => $tok:ident $cascade:tt
+        )*
+    } => ({
+        match $ch {
             $(
-                Some(&$p) => {
-                    $tokenizer.source.next();
-                    $then
-                    // on!($tokenizer $then)
-                }
-            )*
-            _ => $el
+                $prime => match_descend!( $tokenizer $tok $cascade )
+            ),*
+            ,
+            _ => {}
         }
-    });
+    })
 }
 
-macro_rules! operator {
-    { $op:ident } => {
-        Operator($op)
-    };
-    { $op:ident | $tokenizer:ident $( $ch:pat => $cascade:expr ),* } => {
-        Operator(on!{ $tokenizer
+macro_rules! match_descend {
+    ( $tokenizer:ident $matched:ident { $(
+        $secondary:pat => $tok:ident $cascade:tt
+    )* } ) => ({
+        match $tokenizer.source.peek() {
             $(
-                $ch => $cascade
-            ),*
-            ;_   => $op
-        })
-    };
+                Some(&$secondary) => {
+                    $tokenizer.source.next();
+                    match_descend!( $tokenizer $tok $cascade )
+                },
+            )*
+            _ => return Some(Operator($matched))
+        }
+    });
+    ( $tokenizer:ident $matched:expr , ) => {
+        return Some(Operator($matched))
+    }
 }
+
+
 
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,
@@ -224,17 +234,13 @@ impl<'a> Tokenizer<'a> {
     fn read_block_comment(&mut self) {
         let mut asterisk = false;
 
-        while let Some(&ch) = self.source.peek() {
+        while let Some(ch) = self.source.next() {
             if ch == '/' && asterisk {
-                self.source.next();
                 return;
             }
             if ch == '*' {
                 asterisk = true;
-                self.source.next();
-                continue;
             }
-            self.source.next();
         }
     }
 
@@ -297,6 +303,55 @@ impl<'a> Iterator for Tokenizer<'a> {
 
     fn next(&mut self) -> Option<Token> {
         'lex: while let Some(ch) = self.source.next() {
+
+            match_operators! { self ch
+                '.' => Accessor {
+                    '.' => Invalid {
+                        '.' => Spread,
+                    }
+                }
+                '=' => Assign {
+                    '>' => FatArrow,
+                    '=' => Equality {
+                        '=' => StrictEquality,
+                    }
+                }
+                '!' => LogicalNot {
+                    '=' => Inequality {
+                        '=' => StrictInequality,
+                    }
+                }
+                '<' => Lesser {
+                    '<' => BitShiftLeft,
+                    '=' => LesserEquals,
+                }
+                '>' => Greater {
+                    '>' => BitShiftRight {
+                        '>' => UBitShiftRight,
+                    }
+                    '=' => GreaterEquals,
+                }
+                '?' => Conditional,
+                '~' => BitwiseNot,
+                '^' => BitwiseXor,
+                '&' => BitwiseAnd {
+                    '&' => LogicalAnd,
+                }
+                '|' => BitwiseOr {
+                    '|' => LogicalOr,
+                }
+                '+' => Addition {
+                    '+' => Increment,
+                }
+                '-' => Substraction {
+                    '-' => Decrement,
+                }
+                '*' => Multiplication {
+                    '*' => Exponent,
+                }
+                '%' => Remainder,
+            }
+
             return Some(match ch {
                 '\n' => LineTermination,
                 ';' => Semicolon,
@@ -308,51 +363,24 @@ impl<'a> Iterator for Tokenizer<'a> {
                 ']' => BracketOff,
                 '{' => BlockOn,
                 '}' => BlockOff,
-                '<' => operator!{ Lesser | self
-                    '=' => LesserEquals,
-                    '<' => BitShiftLeft
-                },
-                '>' => operator!{ Greater | self
-                    '=' => GreaterEquals,
-                    '>' => on!{ self
-                        '>' => UBitShiftRight;
-                        _   => BitShiftRight
-                    }
-                },
-                '.' => operator!{ Accessor },
                 '"' | '\'' => {
                     Literal(LiteralString( self.read_string(ch) ))
                 },
-                '=' => on!{ self
-                    '>' => FatArrow,
-                    '=' => operator!{ Equality | self '=' => StrictEquality };
-                    _   => operator!{ Assign }
-                },
-                '~' => operator!{ BitwiseNot },
-                '!' => operator!{ LogicalNot | self
-                    '=' => on!{ self
-                        '=' => StrictInequality;
-                        _   => Inequality
+                '/' => {
+                    match self.source.peek() {
+                        Some(&'/') => {
+                            self.source.next();
+                            self.read_comment();
+                            continue 'lex
+                        },
+                        Some(&'*') => {
+                            self.source.next();
+                            self.read_block_comment();
+                            continue 'lex
+                        }
+                        _    => return Some(Operator(Division))
                     }
                 },
-                '?' => operator!{ Conditional },
-                '^' => operator!{ BitwiseXor },
-                '&' => operator!{ BitwiseAnd   | self '&' => LogicalAnd },
-                '|' => operator!{ BitwiseOr    | self '|' => LogicalOr },
-                '+' => operator!{ Addition     | self '+' => Increment },
-                '-' => operator!{ Substraction | self '-' => Decrement },
-                '/' => operator!{ Division     | self
-                    '/' => {
-                        self.read_comment();
-                        continue 'lex
-                    },
-                    '*' => {
-                        self.read_block_comment();
-                        continue 'lex
-                    }
-                },
-                '*' => operator!{ Multiplication | self '*' => Exponent },
-                '%' => operator!{ Remainder },
                 '0'...'9' => Literal(self.read_number(ch)),
                 _ => {
                     if ch.is_alphabetic() || ch == '$' || ch == '_' {
