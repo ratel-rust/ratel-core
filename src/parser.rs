@@ -1,6 +1,5 @@
 use lexicon::Token;
 use lexicon::Token::*;
-use lexicon::KeywordKind::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
@@ -164,6 +163,9 @@ impl<'a> Parser<'a> {
     fn consume(&mut self) -> Option<Token> {
         self.handle_line_termination();
         let token = self.tokenizer.next();
+
+        // println!("Consume {:?}", token);
+
         self.allow_asi = false;
         token
     }
@@ -212,11 +214,13 @@ impl<'a> Parser<'a> {
         ObjectExpression(list!(self { self.object_member() }))
     }
 
-    fn soft_block(&mut self) -> SoftBlock {
+    fn soft_block(&mut self) -> Statement {
         if let Some(&BlockOn) = self.lookahead() {
-            SoftBlock::Block(self.block())
+            BlockStatement {
+                body: self.block()
+            }
         } else {
-            SoftBlock::Expression(Box::new(self.expression(0)))
+            ExpressionStatement(self.expression(0))
         }
     }
 
@@ -246,7 +250,7 @@ impl<'a> Parser<'a> {
 
         ArrowFunctionExpression {
             params: params,
-            body: self.soft_block()
+            body: Box::new(self.soft_block())
         }
     }
 
@@ -393,9 +397,13 @@ impl<'a> Parser<'a> {
 
     fn if_statement(&mut self) -> Statement {
         let test = surround!(self ( self.expression(0) ));
-        let consequent = self.soft_block();
-        let alternate = if allow!(self, Keyword(Else)) {
-            Some(self.soft_block())
+        let consequent = Box::new(self.soft_block());
+        let alternate = if allow!(self, Else) {
+            if allow!(self, If) {
+                Some(Box::new(self.if_statement()))
+            } else {
+                Some(Box::new(self.soft_block()))
+            }
         } else {
             None
         };
@@ -410,7 +418,7 @@ impl<'a> Parser<'a> {
     fn while_statement(&mut self) -> Statement {
         statement!(self, WhileStatement {
             test: surround!(self ( self.expression(0) )),
-            body: self.soft_block(),
+            body: Box::new(self.soft_block()),
         })
     }
 
@@ -459,7 +467,7 @@ impl<'a> Parser<'a> {
 
     fn class_statement(&mut self) -> Statement {
         let name = expect!(self, Identifier(id) => id);
-        let super_class = if allow!(self, Keyword(Extends)) {
+        let super_class = if allow!(self, Extends) {
             Some(expect!(self, Identifier(name) => name))
         } else {
             None
@@ -469,7 +477,7 @@ impl<'a> Parser<'a> {
         'members: loop {
             members.push(match self.consume() {
                 Some(Identifier(name)) => self.class_member(name, false),
-                Some(Keyword(Static))  => {
+                Some(Static)           => {
                     let name = expect!(self, Identifier(name) => name);
                     self.class_member(name, true)
                 },
@@ -488,21 +496,21 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) -> Option<Statement> {
         allow!{self
-            Keyword(Var)      => return Some(self.variable_declaration_statement(
+            Var       => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Var
             )),
-            Keyword(Let)      => return Some(self.variable_declaration_statement(
+            Let       => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Let
             )),
-            Keyword(Const)    => return Some(self.variable_declaration_statement(
+            Const     => return Some(self.variable_declaration_statement(
                 VariableDeclarationKind::Const
             )),
-            Keyword(Return)   => return Some(self.return_statement()),
-            Keyword(Function) => return Some(self.function_statement()),
-            Keyword(Class)    => return Some(self.class_statement()),
-            Keyword(If)       => return Some(self.if_statement()),
-            Keyword(While)    => return Some(self.while_statement()),
-            Semicolon         => return self.statement()
+            Return    => return Some(self.return_statement()),
+            Function  => return Some(self.function_statement()),
+            Class     => return Some(self.class_statement()),
+            If        => return Some(self.if_statement()),
+            While     => return Some(self.while_statement()),
+            Semicolon => return self.statement()
         };
 
         if self.lookahead().is_some() {

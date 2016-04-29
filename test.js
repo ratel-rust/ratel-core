@@ -60,6 +60,8 @@ let baz = true ? .5 : .25;
 
 if (Math.random() > 0.5) {
     console.log("Maybe");
+} else if (Math.random() > 0.5) {
+    console.log("Much maybe?");
 } else {
     console.log("Maybe not!");
 }

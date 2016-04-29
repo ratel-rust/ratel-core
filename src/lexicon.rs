@@ -2,7 +2,29 @@ use grammar::LiteralValue;
 use grammar::OperatorType;
 
 #[derive(Debug, PartialEq)]
-pub enum KeywordKind {
+pub enum ReservedKind {
+    Enum,
+    Implements,
+    Package,
+    Protected,
+    Interface,
+    Private,
+    Public,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    LineTermination,
+    Semicolon,
+    Comma,
+    Colon,
+    Operator(OperatorType),
+    ParenOn,
+    ParenOff,
+    BracketOn,
+    BracketOff,
+    BlockOn,
+    BlockOff,
     Break,
     Do,
     Case,
@@ -33,33 +55,6 @@ pub enum KeywordKind {
     Try,
     Await,
     Static,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ReservedKind {
-    Enum,
-    Implements,
-    Package,
-    Protected,
-    Interface,
-    Private,
-    Public,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Token {
-    LineTermination,
-    Semicolon,
-    Comma,
-    Colon,
-    Operator(OperatorType),
-    ParenOn,
-    ParenOff,
-    BracketOn,
-    BracketOff,
-    BlockOn,
-    BlockOff,
-    Keyword(KeywordKind),
     Reserved(ReservedKind),
     Identifier(String),
     Literal(LiteralValue),
