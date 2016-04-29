@@ -40,6 +40,9 @@ macro_rules! match_descend {
             _ => return Some(Operator($matched))
         }
     });
+    ( $tokenizer:ident return $matched:expr ) => {
+        return Some($matched)
+    };
     ( $tokenizer:ident $matched:expr , ) => {
         return Some(Operator($matched))
     }
@@ -185,7 +188,9 @@ impl<'a> Tokenizer<'a> {
         let mut value = first.to_string();
         let mut period = false;
 
-        if first == '0' {
+        if first == '.' {
+            period = true;
+        } else if first == '0' {
             if let Some(&peek) = self.source.peek() {
                 if peek == 'b' {
                     self.source.next();
@@ -305,11 +310,6 @@ impl<'a> Iterator for Tokenizer<'a> {
         'lex: while let Some(ch) = self.source.next() {
 
             match_operators! { self ch
-                '.' => Accessor {
-                    '.' => Invalid {
-                        '.' => Spread,
-                    }
-                }
                 '=' => Assign {
                     '>' => FatArrow,
                     '=' => Equality {
@@ -378,7 +378,24 @@ impl<'a> Iterator for Tokenizer<'a> {
                             self.read_block_comment();
                             continue 'lex
                         }
-                        _    => return Some(Operator(Division))
+                        _ => Operator(Division)
+                    }
+                },
+                '.' => {
+                    match self.source.peek() {
+                        Some(&'0'...'9') => {
+                            Literal(self.read_number('.'))
+                        },
+                        Some(&'.') => {
+                            self.source.next();
+                            match self.source.next() {
+                                Some('.') => Operator(Spread),
+                                ch        => {
+                                    panic!("Invalid character `{:?}`", ch);
+                                }
+                            }
+                        },
+                        _ => Operator(Accessor)
                     }
                 },
                 '0'...'9' => Literal(self.read_number(ch)),

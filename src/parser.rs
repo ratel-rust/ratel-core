@@ -226,18 +226,16 @@ impl<'a> Parser<'a> {
         let mut body = Vec::new();
         loop {
             allow!{ self BlockOff => break };
-            match self.statement() {
-                Some(statement) => body.push(statement),
-                None            => panic!("Unexpected end of statements block")
-            }
+
+            body.push(
+                self.statement().expect("Unexpected end of statements block")
+            )
         }
 
         body
     }
 
     fn arrow_function_expression(&mut self, p: Expression) -> Expression {
-        expect!(self, Operator(FatArrow));
-
         let params: Vec<Parameter> = match p {
             IdentifierExpression(name) => {
                 vec![Parameter { name: name }]
@@ -293,6 +291,8 @@ impl<'a> Parser<'a> {
                 }
             },
 
+            FatArrow => self.arrow_function_expression(left),
+
             _ => {
                 if !operator.infix() {
                     panic!("Unexpected operator {:?}", operator);
@@ -335,8 +335,6 @@ impl<'a> Parser<'a> {
             }
 
             left = match self.lookahead() {
-                Some(&Operator(FatArrow)) => self.arrow_function_expression(left),
-
                 Some(&Operator(_)) => self.infix_expression(left, rbp),
 
                 Some(&ParenOn)     => CallExpression {

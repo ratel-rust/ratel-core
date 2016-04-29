@@ -98,7 +98,6 @@ pub enum OperatorType {
     Conditional,      //   …  ?  …  :  …
     Assign,           //   …  =  …
     Spread,           //     ... …
-    Invalid,
 }
 use self::OperatorType::*;
 
@@ -152,8 +151,6 @@ impl OperatorType {
             Conditional      => 4,
             Assign           => 3,
             Spread           => 1,
-
-            _                => 0,
         }
     }
 

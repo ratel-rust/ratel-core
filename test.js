@@ -55,3 +55,5 @@ class Foo {
 let foo = 1 + 2 * 3 - 5 ** 2;
 
 var µDivs = µ( 'div' ) ;
+
+let baz = true ? .5 : .25;
