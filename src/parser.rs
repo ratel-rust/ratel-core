@@ -214,17 +214,17 @@ impl<'a> Parser<'a> {
         ObjectExpression(list!(self { self.object_member() }))
     }
 
-    fn soft_block(&mut self) -> Statement {
+    fn block_or_statement(&mut self) -> Statement {
         if let Some(&BlockOn) = self.lookahead() {
             BlockStatement {
-                body: self.block()
+                body: self.block_body()
             }
         } else {
             ExpressionStatement(self.expression(0))
         }
     }
 
-    fn block(&mut self) -> Vec<Statement> {
+    fn block_body(&mut self) -> Vec<Statement> {
         expect!(self, BlockOn);
 
         let mut body = Vec::new();
@@ -250,7 +250,7 @@ impl<'a> Parser<'a> {
 
         ArrowFunctionExpression {
             params: params,
-            body: Box::new(self.soft_block())
+            body: Box::new(self.block_or_statement())
         }
     }
 
@@ -397,12 +397,12 @@ impl<'a> Parser<'a> {
 
     fn if_statement(&mut self) -> Statement {
         let test = surround!(self ( self.expression(0) ));
-        let consequent = Box::new(self.soft_block());
+        let consequent = Box::new(self.block_or_statement());
         let alternate = if allow!(self, Else) {
             if allow!(self, If) {
                 Some(Box::new(self.if_statement()))
             } else {
-                Some(Box::new(self.soft_block()))
+                Some(Box::new(self.block_or_statement()))
             }
         } else {
             None
@@ -418,7 +418,7 @@ impl<'a> Parser<'a> {
     fn while_statement(&mut self) -> Statement {
         statement!(self, WhileStatement {
             test: surround!(self ( self.expression(0) )),
-            body: Box::new(self.soft_block()),
+            body: Box::new(self.block_or_statement()),
         })
     }
 
@@ -432,7 +432,7 @@ impl<'a> Parser<'a> {
         FunctionStatement {
             name: expect!(self, Identifier(name) => name),
             params: list!(self ( self.parameter() )),
-            body: self.block(),
+            body: self.block_body(),
         }
     }
 
@@ -442,14 +442,14 @@ impl<'a> Parser<'a> {
                 if !is_static && name == "constructor" {
                     ClassConstructor {
                         params: list!(self ( self.parameter() )),
-                        body: self.block(),
+                        body: self.block_body(),
                     }
                 } else {
                     ClassMethod {
                         is_static: is_static,
                         name: name,
                         params: list!(self ( self.parameter())),
-                        body: self.block(),
+                        body: self.block_body(),
                     }
                 }
             },
