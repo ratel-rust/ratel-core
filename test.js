@@ -57,3 +57,9 @@ let foo = 1 + 2 * 3 - 5 ** 2;
 var µDivs = µ( 'div' ) ;
 
 let baz = true ? .5 : .25;
+
+if (Math.random() > 0.5) {
+    console.log("Maybe");
+} else {
+    console.log("Maybe not!");
+}

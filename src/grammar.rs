@@ -54,7 +54,7 @@ pub struct Parameter {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum OptionalBlock {
+pub enum SoftBlock {
     Expression(Box<Expression>),
     Block(Vec<Statement>),
 }
@@ -242,7 +242,7 @@ pub enum Expression {
     },
     ArrowFunctionExpression {
         params: Vec<Parameter>,
-        body: OptionalBlock,
+        body: SoftBlock,
     },
     FunctionExpression {
         name: Option<String>,
@@ -288,9 +288,14 @@ pub enum Statement {
         extends: Option<String>,
         body: Vec<ClassMember>,
     },
+    IfStatement {
+        test: Expression,
+        consequent: SoftBlock,
+        alternate: Option<SoftBlock>,
+    },
     WhileStatement {
-        condition: Expression,
-        body: OptionalBlock,
+        test: Expression,
+        body: SoftBlock,
     }
 }
 

@@ -212,11 +212,11 @@ impl<'a> Parser<'a> {
         ObjectExpression(list!(self { self.object_member() }))
     }
 
-    fn optional_block(&mut self) -> OptionalBlock {
+    fn soft_block(&mut self) -> SoftBlock {
         if let Some(&BlockOn) = self.lookahead() {
-            OptionalBlock::Block(self.block())
+            SoftBlock::Block(self.block())
         } else {
-            OptionalBlock::Expression(Box::new(self.expression(0)))
+            SoftBlock::Expression(Box::new(self.expression(0)))
         }
     }
 
@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
 
         ArrowFunctionExpression {
             params: params,
-            body: self.optional_block()
+            body: self.soft_block()
         }
     }
 
@@ -391,10 +391,26 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    fn if_statement(&mut self) -> Statement {
+        let test = surround!(self ( self.expression(0) ));
+        let consequent = self.soft_block();
+        let alternate = if allow!(self, Keyword(Else)) {
+            Some(self.soft_block())
+        } else {
+            None
+        };
+
+        statement!(self, IfStatement {
+            test: test,
+            consequent: consequent,
+            alternate: alternate,
+        })
+    }
+
     fn while_statement(&mut self) -> Statement {
         statement!(self, WhileStatement {
-            condition: surround!(self ( self.expression(0) )),
-            body: self.optional_block(),
+            test: surround!(self ( self.expression(0) )),
+            body: self.soft_block(),
         })
     }
 
@@ -484,6 +500,7 @@ impl<'a> Parser<'a> {
             Keyword(Return)   => return Some(self.return_statement()),
             Keyword(Function) => return Some(self.function_statement()),
             Keyword(Class)    => return Some(self.class_statement()),
+            Keyword(If)       => return Some(self.if_statement()),
             Keyword(While)    => return Some(self.while_statement()),
             Semicolon         => return self.statement()
         };
