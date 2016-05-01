@@ -29,9 +29,21 @@ fn visit(statement: Statement) -> Result<String, String> {
 fn var_declaration(kind: VariableDeclarationKind, declarations: Vec<(String, Expression)>) -> Result<String, String> {
     match kind {
         VariableDeclarationKind::Var | VariableDeclarationKind::Const => {
-            let ref variable_name = declarations[0].0;
-            let value  = declarations[0].1.clone();
-            Ok(format!("var {} = {};", variable_name, literal_value(value).unwrap()))
+            if declarations.len() == 1 {
+                let ref variable_name = declarations[0].0;
+                let value  = declarations[0].1.clone();
+                Ok(format!("var {} = {};", variable_name, literal_value(value).unwrap()))
+            } else {
+                let mut declaration_str = String::new();
+                for declaration in declarations {
+                    let ref variable_name = declaration.0;
+                    let value  = declaration.1.clone();
+                    declaration_str = declaration_str + &format!("{} = {}, ", variable_name, literal_value(value).unwrap());
+                }
+                declaration_str.pop();
+                declaration_str.pop();
+                Ok(format!("var {};", declaration_str))
+            }
         },
         VariableDeclarationKind::Let => Err("Unsupported statement: let".into()),
     }
