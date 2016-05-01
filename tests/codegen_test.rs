@@ -43,3 +43,10 @@ fn convert_const_false_to_var() {
 fn convert_const_null_to_var() {
     assert_eq!(output_program("const foo = null;"), Ok("var foo = null;".into()));
 }
+
+#[test]
+fn convert_multiple_const_declarations() {
+    let program = "const binary = 42, octal = 42, hexal = 42;";
+    let expected = "var binary = 42, octal = 42, hexal = 42;";
+    assert_eq!(output_program(program), Ok(expected.into()));
+}
