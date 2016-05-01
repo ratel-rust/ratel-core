@@ -9,6 +9,7 @@ pub mod lexicon;
 pub mod tokenizer;
 pub mod parser;
 pub mod grammar;
+pub mod transformer;
 
 fn parse_file(path: &str) -> Result<(), Error> {
     let mut f = try!(File::open(path));
