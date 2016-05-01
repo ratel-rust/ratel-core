@@ -77,8 +77,10 @@ macro_rules! statement {
                 $parser.consume();
                 true
             },
-            None => true,
-            _    => false
+            Some(&ParenOff)  => true,
+            Some(&BlockOff)  => true,
+            None             => true,
+            _                => false
         };
 
         if !is_end && !$parser.allow_asi {
@@ -220,7 +222,7 @@ impl<'a> Parser<'a> {
                 body: self.block_body()
             }
         } else {
-            ExpressionStatement(self.expression(0))
+            self.expression_statement()
         }
     }
 

@@ -34,6 +34,16 @@ macro_rules! boxnum {
     ($num:expr) => (Box::new(num!($num)))
 }
 
+macro_rules! ident {
+    ($name:expr) => (IdentifierExpression($name.to_string()))
+}
+
+macro_rules! param {
+    ($name:expr) => (Parameter {
+        name: $name.to_string()
+    })
+}
+
 
 #[test]
 fn var_declare() {
@@ -85,7 +95,7 @@ fn var_muliple_declare() {
 
 #[test]
 fn identifier_expression() {
-    assert_expression!("foobar", IdentifierExpression("foobar".to_string()))
+    assert_expression!("foobar", ident!("foobar"))
 }
 
 #[test]
@@ -152,7 +162,7 @@ fn op_precedence_left() {
             operator: Multiplication,
             right: boxnum!(3.0),
         }),
-    })
+    });
 }
 
 #[test]
@@ -165,17 +175,273 @@ fn op_precedence_right() {
         }),
         operator: Addition,
         right: boxnum!(3.0),
-    })
+    });
 }
 
 #[test]
 fn function_statement() {
-    assert_statement!("function foo() { return bar; }", FunctionStatement {
+    assert_statement!("
+
+    function foo() {
+        return bar;
+    }
+
+    ", FunctionStatement {
         name: "foo".to_string(),
-        params: Vec::new(),
+        params: vec![],
         body: vec![
-            ReturnStatement(IdentifierExpression("bar".to_string()))
+            ReturnStatement(ident!("bar"))
         ]
+    });
+}
+
+#[test]
+fn function_with_params_statement() {
+    assert_statement!("
+
+    function foo(a, b, c) {
+        return bar;
+    }
+
+    ", FunctionStatement {
+        name: "foo".to_string(),
+        params: vec![
+            param!("a"),
+            param!("b"),
+            param!("c"),
+        ],
+        body: vec![
+            ReturnStatement(ident!("bar"))
+        ]
+    });
+}
+
+#[test]
+fn if_statement() {
+    assert_statement!("
+
+    if (true) {
+        foo;
+    }
+
+    ", IfStatement {
+        test: LiteralExpression(LiteralTrue),
+        consequent: Box::new(BlockStatement {
+            body: vec![ExpressionStatement(
+                ident!("foo")
+            )]
+        }),
+        alternate: None,
+    });
+}
+
+#[test]
+fn if_else_statement() {
+    assert_statement!("
+
+    if (true) {
+        foo;
+    } else {
+        bar;
+    }
+
+    ", IfStatement {
+        test: LiteralExpression(LiteralTrue),
+        consequent: Box::new(BlockStatement {
+            body: vec![ExpressionStatement(
+                ident!("foo")
+            )]
+        }),
+        alternate: Some(Box::new(BlockStatement {
+            body: vec![ExpressionStatement(
+                ident!("bar")
+            )]
+        })),
     })
+}
+
+#[test]
+fn if_else_if_else_statement() {
+    assert_statement!("
+
+    if (true) {
+        foo;
+    } else if(false) {
+        bar;
+    } else {
+        baz;
+    }
+
+    ", IfStatement {
+        test: LiteralExpression(LiteralTrue),
+        consequent: Box::new(BlockStatement {
+            body: vec![ExpressionStatement(
+                ident!("foo")
+            )]
+        }),
+        alternate: Some(Box::new(IfStatement {
+            test: LiteralExpression(LiteralFalse),
+            consequent: Box::new(BlockStatement {
+                body: vec![ExpressionStatement(
+                    ident!("bar")
+                )]
+            }),
+            alternate: Some(Box::new(BlockStatement {
+                body: vec![ExpressionStatement(
+                    ident!("baz")
+                )]
+            })),
+        })),
+    });
+}
+
+#[test]
+fn if_no_block_statement() {
+    assert_statement!("if (true) foo;", IfStatement {
+        test: LiteralExpression(LiteralTrue),
+        consequent: Box::new(ExpressionStatement(
+            ident!("foo")
+        )),
+        alternate: None,
+    });
+}
+
+#[test]
+fn if_else_no_block_statement() {
+    assert_statement!("if (true) foo; else bar;", IfStatement {
+        test: LiteralExpression(LiteralTrue),
+        consequent: Box::new(ExpressionStatement(
+            ident!("foo")
+        )),
+        alternate: Some(Box::new(ExpressionStatement(
+            ident!("bar")
+        ))),
+    })
+}
+
+#[test]
+fn while_statement() {
+    assert_statement!("
+
+    while (true) {
+        foo;
+    }
+
+    ", WhileStatement {
+        test: LiteralExpression(LiteralTrue),
+        body: Box::new(BlockStatement {
+            body: vec![ExpressionStatement(
+                ident!("foo")
+            )]
+        }),
+    });
+}
+
+#[test]
+fn while_no_block_statement() {
+    assert_statement!("while (true) foo;", WhileStatement {
+        test: LiteralExpression(LiteralTrue),
+        body: Box::new(ExpressionStatement(
+            ident!("foo")
+        )),
+    });
+}
+
+#[test]
+fn arrow_function() {
+    assert_expression!("
+
+    () => {
+        bar;
+    }
+
+    ", ArrowFunctionExpression {
+        params: vec![],
+        body: Box::new(BlockStatement {
+            body: vec![
+                ExpressionStatement(ident!("bar"))
+            ]
+        })
+    });
+}
+
+#[test]
+fn arrow_function_shorthand() {
+    assert_expression!("n => n * n", ArrowFunctionExpression {
+        params: vec![
+            param!("n")
+        ],
+        body: Box::new(ExpressionStatement(
+            BinaryExpression {
+                left: Box::new(ident!("n")),
+                operator: Multiplication,
+                right: Box::new(ident!("n")),
+            }
+        )),
+    });
+}
+
+#[test]
+fn arrow_function_with_params() {
+    assert_expression!("
+
+    (a, b, c) => {
+        bar;
+    }
+
+    ", ArrowFunctionExpression {
+        params: vec![
+            param!("a"),
+            param!("b"),
+            param!("c"),
+        ],
+        body: Box::new(BlockStatement {
+            body: vec![
+                ExpressionStatement(ident!("bar"))
+            ]
+        })
+    });
+}
+
+#[test]
+fn function_expression() {
+    assert_expression!("
+
+    foo = function () {
+        return bar;
+    }
+
+    ", BinaryExpression {
+        left: Box::new(ident!("foo")),
+        operator: Assign,
+        right: Box::new(FunctionExpression {
+            name: None,
+            params: vec![],
+            body: vec![
+                ReturnStatement(ident!("bar"))
+            ]
+        })
+    });
+}
+
+#[test]
+fn named_function_expression() {
+    assert_expression!("
+
+    foo = function foo() {
+        return bar;
+    }
+
+    ", BinaryExpression {
+        left: Box::new(ident!("foo")),
+        operator: Assign,
+        right: Box::new(FunctionExpression {
+            name: Some("foo".to_string()),
+            params: vec![],
+            body: vec![
+                ReturnStatement(ident!("bar"))
+            ]
+        })
+    });
 }
 
