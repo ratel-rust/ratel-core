@@ -79,7 +79,7 @@ mod tests {
     }
 
     #[test]
-    fn transform_let_inside_of_if() {
+    fn transform_const_inside_of_if() {
         let input_program = "
         if(true) {
             const pi = 3.14;
