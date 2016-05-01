@@ -1,0 +1,36 @@
+#[path="../src/grammar.rs"]
+mod grammar;
+#[path="../src/parser.rs"]
+mod parser;
+#[path="../src/codegen.rs"]
+mod codegen;
+#[path="../src/lexicon.rs"]
+mod lexicon;
+#[path="../src/tokenizer.rs"]
+mod tokenizer;
+#[path="../src/transformer.rs"]
+mod transformer;
+
+fn output_program(input_program: &str) -> Result<String, Vec<String>> {
+    let program = parser::parse(input_program.into());
+    let ast = transformer::traverse(program);
+    codegen::generate_code(ast)
+}
+
+#[test]
+fn convert_const_to_var_in_global_scope() {
+    assert_eq!(output_program("const pi = 3.14"),
+               Ok("var pi = 3.14;".into()));
+}
+
+#[test]
+fn convert_let_to_var_in_global_scope() {
+    assert_eq!(output_program("let pi = 3.14"),
+               Ok("var pi = 3.14;".into()));
+}
+
+#[test]
+fn dont_touch_var_in_global_scope() {
+    assert_eq!(output_program("var pi = 3.14"),
+               Ok("var pi = 3.14;".into()));
+}
