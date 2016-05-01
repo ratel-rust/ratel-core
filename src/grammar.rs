@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LiteralValue {
     LiteralUndefined,
     LiteralNull,
@@ -20,20 +20,20 @@ impl LiteralValue {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum VariableDeclarationKind {
     Var,
     Let,
     Const,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum MemberKey {
     Literal(String),
     Computed(Expression),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {
     Shorthand {
         key: String,
@@ -48,12 +48,12 @@ pub enum ObjectMember {
     },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub name: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum OperatorType {
     FatArrow,         //   …  => …
     Accessor,         //   …  .  …
@@ -202,7 +202,7 @@ impl OperatorType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     IdentifierExpression(String),
     LiteralExpression(LiteralValue),
@@ -245,7 +245,7 @@ pub enum Expression {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ClassMember {
     ClassConstructor {
         params: Vec<Parameter>,
@@ -264,7 +264,7 @@ pub enum ClassMember {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     VariableDeclarationStatement {
         kind: VariableDeclarationKind,
