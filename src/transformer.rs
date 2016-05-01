@@ -3,7 +3,7 @@ use grammar::*;
 fn visit(statement: Statement) -> Statement {
     match statement.clone() {
         Statement::VariableDeclarationStatement{kind: kind, declarations: declarations } => {
-            if kind == VariableDeclarationKind::Const {
+            if kind == VariableDeclarationKind::Const || kind == VariableDeclarationKind::Let {
                 Statement::VariableDeclarationStatement {
                     kind: VariableDeclarationKind::Var,
                     declarations: declarations
@@ -37,6 +37,20 @@ mod tests {
     #[test]
     fn transform_const_assignment() {
         let input_program = parse("const foo = 42;".into());
+        let output_program = traverse(input_program);
+        let statement = output_program.body.first().unwrap().clone();
+        let success = match statement {
+            Statement::VariableDeclarationStatement{kind: kind, declarations: _declarations } => {
+                kind == VariableDeclarationKind::Var
+            },
+            _ => false
+        };
+        assert!(success);
+    }
+
+    #[test]
+    fn transform_simple_let_assignment() {
+        let input_program = parse("let foo = 42;".into());
         let output_program = traverse(input_program);
         let statement = output_program.body.first().unwrap().clone();
         let success = match statement {
