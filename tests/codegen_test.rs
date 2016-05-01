@@ -9,18 +9,17 @@ mod lexicon;
 #[path="../src/tokenizer.rs"]
 mod tokenizer;
 
-#[test]
-fn convert_const_to_var() {
-    let program = parser::parse("const foo = \"bar\";".into());
-    let output_program = codegen::generate_code(program);
-    assert!(output_program.is_ok());
-    assert_eq!(output_program, Ok("var foo = \"bar\";".into()));
+fn output_program(input_program: &str) -> Result<String, Vec<String>> {
+    let program = parser::parse(input_program.into());
+    codegen::generate_code(program)
 }
 
 #[test]
-fn convert_var_to_var() {
-    let program = parser::parse("var foo = \"bar\";".into());
-    let output_program = codegen::generate_code(program);
-    assert!(output_program.is_ok());
-    assert_eq!(output_program, Ok("var foo = \"bar\";".into()));
+fn convert_const_str_to_var() {
+    assert_eq!(output_program("const foo = \"bar\";"), Ok("var foo = \"bar\";".into()));
+}
+
+#[test]
+fn convert_var_str_to_var() {
+    assert_eq!(output_program("var foo = \"bar\";"), Ok("var foo = \"bar\";".into()));
 }
