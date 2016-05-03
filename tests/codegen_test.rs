@@ -42,7 +42,7 @@ fn convert_let_to_var_in_block() {
     }
     ";
 
-    let expected = "if(true) {\n  var _pi = 3.14;\n}";
+    let expected = "if(true){var _pi = 3.14;}";
 
     assert_eq!(output_program(program), Ok(expected.into()));
 }

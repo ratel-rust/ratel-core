@@ -34,12 +34,12 @@ fn visit(statement: Statement) -> Result<String, String> {
         Statement::IfStatement{test: test, consequent: consequent, alternate: alternate} => {
             let mut if_statement = String::new();
             let generated_test = try!(expression(test));
-            if_statement = format!("if({}) {{\n", generated_test);
+            if_statement = format!("if({}){{", generated_test);
             let generated_consequent = try!(visit(*consequent));
-            if_statement.push_str(&format!("  {}\n", generated_consequent));
+            if_statement.push_str(&generated_consequent);
             if alternate.is_some() {
                 let generated_alternate = try!(visit(*alternate.unwrap()));
-                if_statement.push_str(&format!("  {}\n", generated_alternate));
+                if_statement.push_str(&generated_alternate);
             }
             if_statement.push_str("}");
 
