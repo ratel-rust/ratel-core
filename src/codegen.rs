@@ -17,10 +17,40 @@ pub fn generate_code(program: Program) -> Result<String, Vec<String>> {
     }
 }
 
+fn expression(expression: Expression) -> Result<String, String> {
+    match expression {
+        Expression::LiteralExpression(value) => {
+            literal_to_string(value)
+        },
+        _ => Err(format!("Not supported expression {:?}", expression))
+    }
+}
+
 fn visit(statement: Statement) -> Result<String, String> {
     match statement {
         Statement::VariableDeclarationStatement{kind: kind, declarations: declarations } => {
             var_declaration(kind, declarations)
+        },
+        Statement::IfStatement{test: test, consequent: consequent, alternate: alternate} => {
+            let mut if_statement = String::new();
+            let generated_test = try!(expression(test));
+            if_statement = format!("if({}) {{\n", generated_test);
+            let generated_consequent = try!(visit(*consequent));
+            if_statement.push_str(&format!("  {}\n", generated_consequent));
+            if alternate.is_some() {
+                let generated_alternate = try!(visit(*alternate.unwrap()));
+                if_statement.push_str(&format!("  {}\n", generated_alternate));
+            }
+            if_statement.push_str("}");
+
+            Ok(if_statement)
+        },
+        Statement::BlockStatement{body: body} => {
+            let mut blocks = String::new();
+            for statement in body {
+                blocks.push_str(&try!(visit(statement)));
+            }
+            Ok(blocks)
         },
         _ => Err(format!("Unknown tree node {:?}",statement))
     }

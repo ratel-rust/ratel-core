@@ -34,3 +34,15 @@ fn dont_touch_var_in_global_scope() {
     assert_eq!(output_program("var pi = 3.14"),
                Ok("var pi = 3.14;".into()));
 }
+
+#[test]
+fn convert_let_to_var_in_block() {
+    let program = "if(true) {
+      let pi = 3.14;
+    }
+    ";
+
+    let expected = "if(true) {\n  var _pi = 3.14;\n}";
+
+    assert_eq!(output_program(program), Ok(expected.into()));
+}
