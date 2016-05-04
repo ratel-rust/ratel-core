@@ -1,3 +1,5 @@
 target
 Cargo.lock
 out.js
+
+test.js

@@ -13,14 +13,14 @@ fn prefix_declarations(declarations: Vec<(String, Expression)>) -> Vec<(String, 
 
 fn visit(statement: Statement, previous: Option<Statement>) -> Statement {
     match statement.clone() {
-        Statement::IfStatement{test: t, consequent: consequent, alternate: alternate} => {
+        Statement::IfStatement { test: t, consequent, alternate } => {
             Statement::IfStatement{
                 test: t,
                 consequent: Box::new(visit(*consequent, Some(statement.clone()))),
                 alternate: alternate
             }
         },
-        Statement::BlockStatement{ body: body } => {
+        Statement::BlockStatement { body } => {
             let mut new_body = Vec::new();
             for block_child in body {
                 new_body.push(visit(block_child, Some(statement.clone())));
@@ -29,7 +29,7 @@ fn visit(statement: Statement, previous: Option<Statement>) -> Statement {
                 body: new_body
             }
         },
-        Statement::VariableDeclarationStatement{kind: kind, declarations: declarations } => {
+        Statement::VariableDeclarationStatement { kind, declarations } => {
             if kind == VariableDeclarationKind::Const || kind == VariableDeclarationKind::Let {
                 let has_enclosing_block = previous.is_some();
                 if has_enclosing_block {
@@ -75,7 +75,7 @@ mod tests {
         let output_program = traverse(input_program);
         let statement = output_program.body.first().unwrap().clone();
         let success = match statement {
-            Statement::VariableDeclarationStatement{kind: kind, declarations: _declarations } => {
+            Statement::VariableDeclarationStatement { kind, .. } => {
                 kind == VariableDeclarationKind::Var
             },
             _ => false
@@ -89,7 +89,7 @@ mod tests {
         let output_program = traverse(input_program);
         let statement = output_program.body.first().unwrap().clone();
         let success = match statement {
-            Statement::VariableDeclarationStatement{kind: kind, declarations: _declarations } => {
+            Statement::VariableDeclarationStatement { kind, .. } => {
                 kind == VariableDeclarationKind::Var
             },
             _ => false
@@ -107,12 +107,12 @@ mod tests {
         let output_program = traverse(parse(input_program.into()));
         let statement = output_program.body.first().unwrap().clone();
         match statement {
-            Statement::IfStatement{test: _exp, consequent: stmt, alternate: _stmt} => {
+            Statement::IfStatement { consequent: stmt, .. } => {
                 match *stmt.clone() {
-                    Statement::BlockStatement{body: body} => {
+                    Statement::BlockStatement { body } => {
                         let first_body_stmt = body.first().unwrap().clone();
                         match first_body_stmt {
-                            Statement::VariableDeclarationStatement{kind: kind, declarations: _declarations } => {
+                            Statement::VariableDeclarationStatement { kind, .. } => {
                                 assert_eq!(kind, VariableDeclarationKind::Var);
                             },
                             _ => assert!(false,
@@ -138,12 +138,12 @@ mod tests {
         let output_program = traverse(parse(input_program.into()));
         let statement = output_program.body.first().unwrap().clone();
         match statement {
-            Statement::IfStatement{test: _exp, consequent: stmt, alternate: _stmt} => {
+            Statement::IfStatement { consequent: stmt, .. } => {
                 match *stmt.clone() {
-                    Statement::BlockStatement{body: body} => {
+                    Statement::BlockStatement{ body } => {
                         let first_body_stmt = body.first().unwrap().clone();
                         match first_body_stmt {
-                            Statement::VariableDeclarationStatement{kind: kind, declarations: declarations } => {
+                            Statement::VariableDeclarationStatement{ kind, declarations } => {
                                 let decl = declarations.first().unwrap();
                                 let name = decl.0.clone();
                                 assert_eq!(kind, VariableDeclarationKind::Var);

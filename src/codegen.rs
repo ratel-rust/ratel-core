@@ -29,13 +29,12 @@ fn expression(expression: Expression) -> Result<String, String> {
 
 fn visit(statement: Statement) -> Result<String, String> {
     match statement {
-        Statement::VariableDeclarationStatement{kind: kind, declarations: declarations } => {
+        Statement::VariableDeclarationStatement { kind, declarations } => {
             var_declaration(kind, declarations)
         },
-        Statement::IfStatement{test: test, consequent: consequent, alternate: alternate} => {
-            let mut if_statement = String::new();
+        Statement::IfStatement { test, consequent, alternate } => {
             let generated_test = try!(expression(test));
-            if_statement = format!("if({}){{", generated_test);
+            let mut if_statement = format!("if({}){{", generated_test);
             let generated_consequent = try!(visit(*consequent));
             if_statement.push_str(&generated_consequent);
             if alternate.is_some() {
@@ -46,7 +45,7 @@ fn visit(statement: Statement) -> Result<String, String> {
 
             Ok(if_statement)
         },
-        Statement::BlockStatement{body: body} => {
+        Statement::BlockStatement { body } => {
             let mut blocks = String::new();
             for statement in body {
                 blocks.push_str(&try!(visit(statement)));

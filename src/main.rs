@@ -24,10 +24,11 @@ Usage:
   badger --version
 
 Options:
-  -h --help              Show this screen.
-  --version              Show version.
-  -f FILE, --file=FILE   Specifies the input file
-  --ast                  Print out the Abstract Syntax Tree
+  -h --help                 Show this screen.
+  --version                 Show version.
+  -f FILE, --file=FILE      Specifies the input file.
+  -o FILE, --output=FILE    Specifies the output file.
+  --ast                     Print out the Abstract Syntax Tree of the input.
 ";
 
 fn read_file(path: &str) -> Result<String, Error> {
@@ -49,7 +50,8 @@ fn write_file(filename: &str, program: String) -> Result<(), Error> {
 
 #[derive(Debug, RustcDecodable)]
 struct Args {
-    flag_file: String,
+    flag_file: Option<String>,
+    flag_output: Option<String>,
     flag_version: bool,
     flag_ast: bool,
 }
@@ -64,7 +66,12 @@ fn main() {
         process::exit(0);
     }
 
-    let file = match read_file(&args.flag_file) {
+    if args.flag_file.is_none() {
+        println!("{}", USAGE);
+        process::exit(0);
+    }
+
+    let file = match read_file(&args.flag_file.unwrap()) {
         Ok(file) => file,
         Err(err) => {
             println!("ERR Couldn't read file: {:?}", err);
@@ -90,7 +97,12 @@ fn main() {
         }
     };
 
-    match write_file("out.js", program) {
+    if args.flag_output.is_none() {
+        println!("{}", program);
+        process::exit(0);
+    }
+
+    match write_file(&args.flag_output.unwrap(), program) {
         Ok(()) => {},
         Err(err) => {
             println!("ERR Writing out.js {}", err);
