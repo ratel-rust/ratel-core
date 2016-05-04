@@ -1,102 +1,106 @@
 use grammar::*;
+use grammar::Statement::*;
+use grammar::Expression::*;
 
-pub fn generate_code(program: Program) -> Result<String, Vec<String>> {
+trait Codegen {
+    fn stringify(&self) -> String;
+}
+
+impl Codegen for LiteralValue {
+    fn stringify(&self) -> String {
+        match *self {
+            LiteralUndefined        => "undefined".into(),
+            LiteralNull             => "null".into(),
+            LiteralTrue             => "true".into(),
+            LiteralFalse            => "false".into(),
+            LiteralInteger(ref num) => num.to_string(),
+            LiteralFloat(ref num)   => num.to_string(),
+            LiteralString(ref st)   => format!("\"{}\"", st)
+        }
+    }
+}
+
+impl Codegen for Expression {
+    fn stringify(&self) -> String {
+        match *self {
+            IdentifierExpression(ref ident) => ident.clone(),
+            LiteralExpression(ref literal)  => literal.stringify(),
+            _ => '💀'.to_string(),
+        }
+    }
+}
+
+impl Codegen for VariableDeclarationKind {
+    fn stringify(&self) -> String {
+        match *self {
+            VariableDeclarationKind::Var   => "var".into(),
+            VariableDeclarationKind::Let   => "let".into(),
+            VariableDeclarationKind::Const => "const".into(),
+        }
+    }
+}
+
+impl Codegen for Statement {
+    fn stringify(&self) -> String {
+        match *self {
+
+            VariableDeclarationStatement {
+                ref kind,
+                ref declarations,
+            } => var_declaration(kind, declarations),
+
+            IfStatement {
+                ref test,
+                ref consequent,
+                ref alternate,
+            } => {
+                let mut code = format!("if ({}) {}",
+                    test.stringify(),
+                    consequent.stringify()
+                );
+
+                if let &Some(ref alternate) = alternate {
+                    code.push_str(&format!(" else {}", alternate.stringify()));
+                };
+
+                code
+            },
+
+            BlockStatement {
+                ref body
+            } => {
+                let mut code = '{'.to_string();
+                for stmt in body {
+                    code.push_str(&stmt.stringify());
+                    code.push('\n');
+                }
+                code.push('}');
+                code
+            },
+
+            _ => '💀'.to_string(),
+        }
+    }
+}
+
+pub fn generate_code(mut program: Program) -> Result<String, Vec<String>> {
     let mut resulting_program = String::new();
-    let mut errors = Vec::new();
+    // let mut errors = Vec::new();
 
     for stmt in program.body {
-        match visit(stmt) {
-            Ok(p) => resulting_program.push_str(&p),
-            Err(err) => errors.push(err)
-        };
+        resulting_program.push_str(&stmt.stringify());
         resulting_program.push('\n');
     }
-    if errors.len() > 0 {
-        Err(errors)
-    } else {
-        Ok(resulting_program)
-    }
+
+    Ok(resulting_program)
 }
 
-fn expression(expression: Expression) -> Result<String, String> {
-    match expression {
-        Expression::LiteralExpression(value) => {
-            literal_to_string(value)
-        },
-        _ => Err(format!("Not supported expression {:?}", expression))
-    }
-}
-
-fn visit(statement: Statement) -> Result<String, String> {
-    match statement {
-        Statement::VariableDeclarationStatement { kind, declarations } => {
-            var_declaration(kind, declarations)
-        },
-        Statement::IfStatement { test, consequent, alternate } => {
-            let generated_test = try!(expression(test));
-            let mut if_statement = format!("if({}){{", generated_test);
-            let generated_consequent = try!(visit(*consequent));
-            if_statement.push_str(&generated_consequent);
-            if alternate.is_some() {
-                let generated_alternate = try!(visit(*alternate.unwrap()));
-                if_statement.push_str(&generated_alternate);
-            }
-            if_statement.push_str("}");
-
-            Ok(if_statement)
-        },
-        Statement::BlockStatement { body } => {
-            let mut blocks = String::new();
-            for statement in body {
-                blocks.push_str(&try!(visit(statement)));
-            }
-            Ok(blocks)
-        },
-        _ => Err(format!("Unknown tree node {:?}",statement))
-    }
-}
-
-fn var_declaration(kind: VariableDeclarationKind, declarations: Vec<(String, Expression)>) -> Result<String, String> {
-    match kind {
-        VariableDeclarationKind::Var => {
-            if declarations.len() == 1 {
-                let ref variable_name = declarations[0].0;
-                let value  = declarations[0].1.clone();
-                Ok(format!("var {} = {};", variable_name, literal_value(value).unwrap()))
-            } else {
-                let mut declaration_str = String::new();
-                for declaration in declarations {
-                    let ref variable_name = declaration.0;
-                    let value  = declaration.1.clone();
-                    declaration_str = declaration_str + &format!("{} = {}, ", variable_name, literal_value(value).unwrap());
-                }
-                declaration_str.pop();
-                declaration_str.pop();
-                Ok(format!("var {};", declaration_str))
-            }
-        },
-        _ => Err("Unsupported statement: let".into()),
-    }
-}
-
-fn literal_value(expression: Expression) -> Result<String, String> {
-    match expression {
-        Expression::LiteralExpression(literal) => {
-            Ok(literal_to_string(literal).unwrap())
-        },
-        _ => Err(format!("unsupported expression type: {:?}", expression))
-    }
-}
-
-fn literal_to_string(literal: LiteralValue) -> Result<String, String> {
-    match literal {
-        LiteralUndefined => Ok("undefined".into()),
-        LiteralNull => Ok("null".into()),
-        LiteralTrue => Ok("true".into()),
-        LiteralFalse => Ok("false".into()),
-        LiteralInteger(num) => Ok(num.to_string()),
-        LiteralFloat(num) => Ok(num.to_string()),
-        LiteralString(st) => Ok(format!("\"{}\"", st)),
-        _ => Err("Invalid literal".into())
-    }
+fn var_declaration(kind: &VariableDeclarationKind, declarations: &Vec<(String, Expression)>) -> String {
+    format!("{} {};", kind.stringify(), declarations.into_iter()
+        .map(|&(ref name, ref value)| {
+            format!("{} = {}", name, value.stringify())
+        })
+        .collect::<Vec<String>>()
+        .join(", ")
+    )
 }

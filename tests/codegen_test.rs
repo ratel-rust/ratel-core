@@ -1,15 +1,6 @@
-#[path="../src/grammar.rs"]
-mod grammar;
-#[path="../src/parser.rs"]
-mod parser;
-#[path="../src/codegen.rs"]
-mod codegen;
-#[path="../src/lexicon.rs"]
-mod lexicon;
-#[path="../src/tokenizer.rs"]
-mod tokenizer;
-#[path="../src/transformer.rs"]
-mod transformer;
+extern crate badger;
+
+use badger::*;
 
 fn output_program(input_program: &str) -> Result<String, Vec<String>> {
     let program = parser::parse(input_program.into());
