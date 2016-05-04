@@ -27,6 +27,7 @@ Options:
   -h --help              Show this screen.
   --version              Show version.
   -f FILE, --file=FILE   Specifies the input file
+  --ast                  Print out the Abstract Syntax Tree
 ";
 
 fn read_file(path: &str) -> Result<String, Error> {
@@ -49,7 +50,8 @@ fn write_file(filename: &str, program: String) -> Result<(), Error> {
 #[derive(Debug, RustcDecodable)]
 struct Args {
     flag_file: String,
-    flag_version: bool
+    flag_version: bool,
+    flag_ast: bool,
 }
 
 fn main() {
@@ -71,6 +73,11 @@ fn main() {
     };
 
     let ast = parser::parse(file);
+
+    if args.flag_ast {
+        println!("{:#?}", ast);
+        process::exit(0);
+    }
 
     let transformed_ast = transformer::traverse(ast);
     let program = match codegen::generate_code(transformed_ast) {

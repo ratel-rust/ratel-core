@@ -8,7 +8,8 @@ pub fn generate_code(program: Program) -> Result<String, Vec<String>> {
         match visit(stmt) {
             Ok(p) => resulting_program.push_str(&p),
             Err(err) => errors.push(err)
-        }
+        };
+        resulting_program.push('\n');
     }
     if errors.len() > 0 {
         Err(errors)
