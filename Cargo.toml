@@ -1,7 +1,7 @@
 [package]
 name = "badger"
 version = "0.1.0"
-authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>", "Jan Schulte <hello@unexpected-co.de>"]
 
 [dependencies]
 docopt = "0.6.78"
