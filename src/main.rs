@@ -1,10 +1,13 @@
+extern crate docopt;
+extern crate rustc_serialize;
+
+use std::process;
 use std::io::prelude::*;
 use std::io::Error;
 use std::fs::File;
+use std::time::{ Instant, Duration };
 use parser::parse;
-use std::time::Instant;
 use docopt::Docopt;
-use std::process;
 
 pub mod lexicon;
 pub mod tokenizer;
@@ -12,8 +15,13 @@ pub mod parser;
 pub mod grammar;
 pub mod transformer;
 pub mod codegen;
-extern crate docopt;
-extern crate rustc_serialize;
+
+fn print_ms(label: &str, duration: &Duration) {
+    let delta = ((duration.as_secs() as f64) * 1000.0) +
+                (duration.subsec_nanos() as f64) / 1_000_000.0;
+
+    println!("{} {}ms", label, delta);
+}
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const USAGE: &'static str = "
@@ -79,18 +87,30 @@ fn main() {
         }
     };
 
+    let start = Instant::now();
     let ast = parser::parse(file);
+    let parse_duration = Instant::now().duration_since(start);
 
     if args.flag_ast {
         println!("{:#?}", ast);
+        print_ms("Parsing", &parse_duration);
         process::exit(0);
     }
 
+    let start = Instant::now();
     let transformed_ast = transformer::traverse(ast);
+    let transform_duration = Instant::now().duration_since(start);
+
+    let start = Instant::now();
     let program = codegen::generate_code(transformed_ast, false);
+    let codegen_duration = Instant::now().duration_since(start);
 
     if args.flag_output.is_none() {
         println!("{}", program);
+        print_ms("Parsing        ", &parse_duration);
+        print_ms("Transformation ", &transform_duration);
+        print_ms("Code generation", &codegen_duration);
+
         process::exit(0);
     }
 
