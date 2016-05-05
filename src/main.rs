@@ -36,6 +36,7 @@ Options:
   --version                 Show version.
   -f FILE, --file=FILE      Specifies the input file.
   -o FILE, --output=FILE    Specifies the output file.
+  --pretty                  Don't minify the output.
   --ast                     Print out the Abstract Syntax Tree of the input.
 ";
 
@@ -62,6 +63,7 @@ struct Args {
     flag_output: Option<String>,
     flag_version: bool,
     flag_ast: bool,
+    flag_pretty: bool,
 }
 
 fn main() {
@@ -102,7 +104,7 @@ fn main() {
     let transform_duration = Instant::now().duration_since(start);
 
     let start = Instant::now();
-    let program = codegen::generate_code(transformed_ast, false);
+    let program = codegen::generate_code(transformed_ast, !args.flag_pretty);
     let codegen_duration = Instant::now().duration_since(start);
 
     if args.flag_output.is_none() {

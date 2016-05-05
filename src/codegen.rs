@@ -3,13 +3,94 @@ use grammar::OperatorType::*;
 use grammar::Statement::*;
 use grammar::Expression::*;
 
-trait Codegen {
-    fn stringify(&self, minify: bool) -> String;
+struct Generator {
+    pub minify: bool,
+    code: String,
+    dent: u16,
 }
 
-impl Codegen for OperatorType {
-    fn stringify(&self, _: bool) -> String {
-        match *self {
+impl Generator {
+    pub fn new(minify: bool) -> Self {
+        Generator {
+            minify: minify,
+            code: String::new(),
+            dent: 0,
+        }
+    }
+
+    pub fn new_line(&mut self) {
+        if !self.minify {
+            self.code.push('\n');
+            for _ in 0..self.dent {
+                self.code.push_str("    ");
+            }
+        }
+    }
+
+    pub fn write(&mut self, slice: &str) {
+        self.code.push_str(slice);
+    }
+
+    pub fn write_min(&mut self, slice: &str, minslice: &str) {
+        if self.minify {
+            self.write(minslice);
+        } else {
+            self.write(slice);
+        }
+    }
+
+    pub fn write_char(&mut self, ch: char) {
+        self.code.push(ch);
+    }
+
+    pub fn write_list<T: Code>(&mut self, items: &Vec<T>) {
+        let mut first = true;
+        for item in items {
+            if first {
+                first = false;
+            } else {
+                self.write_min(", ", ",");
+            }
+            item.to_code(self);
+        }
+    }
+
+    pub fn write_block<T: Code>(&mut self, items: &Vec<T>) {
+        self.indent();
+        for item in items {
+            self.new_line();
+            item.to_code(self);
+        }
+        self.dedent();
+        self.new_line();
+    }
+
+    pub fn indent(&mut self) {
+        self.dent += 1;
+    }
+
+    pub fn dedent(&mut self) {
+        self.dent -= 1;
+    }
+
+    pub fn consume(self) -> String {
+        self.code
+    }
+}
+
+trait Code {
+    fn to_code(&self, gen: &mut Generator);
+}
+
+impl Code for String {
+    fn to_code(&self, gen: &mut Generator) {
+        gen.write(self);
+    }
+}
+
+impl Code for OperatorType {
+    fn to_code(&self, gen: &mut Generator) {
+        gen.write(match *self {
             FatArrow         => "=>",
             Accessor         => ".",
             New              => "new",
@@ -47,117 +128,118 @@ impl Codegen for OperatorType {
             Conditional      => "?",
             Assign           => "=",
             Spread           => "...",
-        }.to_string()
+        });
     }
 }
 
-impl Codegen for LiteralValue {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for LiteralValue {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
-            LiteralUndefined          => {
-                if minify { "void 0" } else { "undefined" }.to_string()
-            },
-            LiteralNull               => "null".to_string(),
-            LiteralTrue               => {
-                if minify { "!0" } else { "true" }.to_string()
-            },
-            LiteralFalse              => {
-                if minify { "!1" } else { "false" }.to_string()
-            },
-            LiteralInteger(ref num)   => num.to_string(),
-            LiteralFloat(ref num)     => num.to_string(),
-            LiteralString(ref string) => format!("{:?}", string)
+            LiteralUndefined          => gen.write_min("undefined", "void 0"),
+            LiteralNull               => gen.write("null"),
+            LiteralTrue               => gen.write_min("true", "!0",),
+            LiteralFalse              => gen.write_min("false", "!1"),
+            LiteralInteger(ref num)   => gen.write(&num.to_string()),
+            LiteralFloat(ref num)     => gen.write(&num.to_string()),
+            LiteralString(ref string) => gen.write(&format!("{:?}", string))
         }
     }
 }
 
-impl Codegen for ObjectMember {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for ObjectMember {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
             ObjectMember::Shorthand {
                 ref key
-            } => key.clone(),
+            } => gen.write(key),
 
             ObjectMember::Literal {
                 ref key,
                 ref value,
-            } => format!("{}: {}",
-                key,
-                value.stringify(minify)
-            ),
+            } => {
+                gen.write(key);
+                gen.write_min(": ", ":");
+                value.to_code(gen);
+            },
 
             ObjectMember::Computed {
                 ref key,
                 ref value,
-            } => format!("[{}]: {}",
-                key.stringify(minify),
-                value.stringify(minify)
-            )
+            } => {
+                gen.write_char('[');
+                key.to_code(gen);
+                gen.write_min("]: ", "]:");
+                value.to_code(gen);
+            }
         }
     }
 }
 
-impl Codegen for MemberKey {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for MemberKey {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
-            MemberKey::Literal(ref string) => string.clone(),
-            MemberKey::Computed(ref expr)  => expr.stringify(minify),
+            MemberKey::Literal(ref string) => gen.write(string),
+            MemberKey::Computed(ref expr)  => expr.to_code(gen),
         }
     }
 }
 
-impl Codegen for Parameter {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for Parameter {
+    fn to_code(&self, gen: &mut Generator) {
         let Parameter { ref name } = *self;
-        name.clone()
+        gen.write(name);
     }
 }
 
-impl Codegen for Expression {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for Expression {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
 
-            IdentifierExpression(ref ident) => ident.clone(),
+            IdentifierExpression(ref ident) => gen.write(ident),
 
-            LiteralExpression(ref literal)  => literal.stringify(minify),
+            LiteralExpression(ref literal)  => literal.to_code(gen),
 
             ArrayExpression(ref items) => {
-                format!("[{}]", items.into_iter()
-                    .map(|item| item.stringify(minify))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                )
+                gen.write_char('[');
+                gen.write_list(items);
+                gen.write_char(']');
             },
 
             ObjectExpression(ref members) => {
-                format!("{{{}}}", members.into_iter()
-                    .map(|member| member.stringify(minify))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                )
+                gen.write_char('{');
+                gen.indent();
+                let mut first = true;
+                for member in members {
+                    if first {
+                        first = false;
+                    } else {
+                        gen.write_char(',');
+                    }
+                    gen.new_line();
+                    member.to_code(gen);
+                }
+                gen.dedent();
+                gen.new_line();
+                gen.write_char('}');
             },
 
             MemberExpression {
                 ref object,
                 ref property,
             } => {
-                format!("{}.{}",
-                    object.stringify(minify),
-                    property.stringify(minify),
-                )
+                object.to_code(gen);
+                gen.write_char('.');
+                property.to_code(gen);
             },
 
             CallExpression {
                 ref callee,
                 ref arguments,
             } => {
-                format!("{}({})",
-                    callee.stringify(minify),
-                    arguments.into_iter()
-                        .map(|argument| argument.stringify(minify))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
+                callee.to_code(gen);
+                gen.write_char('(');
+                gen.write_list(arguments);
+                gen.write_char(')');
             },
 
             BinaryExpression {
@@ -165,21 +247,27 @@ impl Codegen for Expression {
                 ref operator,
                 ref right,
             } => {
-                format!("{} {} {}",
-                    left.stringify(minify),
-                    operator.stringify(minify),
-                    right.stringify(minify)
-                )
+                left.to_code(gen);
+                gen.write_min(" ", "");
+                operator.to_code(gen);
+                gen.write_min(" ", "");
+                right.to_code(gen);
             },
 
             PrefixExpression {
                 ref operator,
                 ref operand,
             } => {
-                format!("{}{}",
-                    operator.stringify(minify),
-                    operand.stringify(minify)
-                )
+                operator.to_code(gen);
+                operand.to_code(gen);
+            },
+
+            PostfixExpression {
+                ref operator,
+                ref operand,
+            } => {
+                operand.to_code(gen);
+                operator.to_code(gen);
             },
 
             ConditionalExpression {
@@ -187,74 +275,56 @@ impl Codegen for Expression {
                 ref consequent,
                 ref alternate,
             } => {
-                format!("{} ? {} : {}",
-                    test.stringify(minify),
-                    consequent.stringify(minify),
-                    alternate.stringify(minify),
-                )
+                test.to_code(gen);
+                gen.write_min(" ? ", "?");
+                consequent.to_code(gen);
+                gen.write_min(" : ", ":");
+                alternate.to_code(gen);
             },
 
             ArrowFunctionExpression {
                 ref params,
                 ref body,
             } => {
-                let params = if params.len() == 1 {
-                    params[0].stringify(minify)
+                if params.len() == 1 {
+                    params[0].to_code(gen);
                 } else {
-                    format!("({})", params.into_iter()
-                        .map(|parameter| parameter.stringify(minify))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                    )
-                };
-
-                format!("{} => {}", params, body.stringify(minify))
+                    gen.write_char('(');
+                    gen.write_list(params);
+                    gen.write_char(')');
+                }
+                gen.write_min(" => ", "=>");
+                body.to_code(gen);
             },
 
-            PostfixExpression {
-                ref operator,
-                ref operand,
-            } => {
-                format!("{}{}",
-                    operand.stringify(minify),
-                    operator.stringify(minify)
-                )
-            },
-
-            _ => '💀'.to_string(),
+            _ => gen.write_char('💀'),
         }
     }
 }
 
-impl Codegen for VariableDeclarationKind {
-    fn stringify(&self, _: bool) -> String {
-        match *self {
+impl Code for VariableDeclarationKind {
+    fn to_code(&self, gen: &mut Generator) {
+        gen.write(match *self {
             VariableDeclarationKind::Var   => "var",
             VariableDeclarationKind::Let   => "let",
             VariableDeclarationKind::Const => "const",
-        }.to_string()
+        })
     }
 }
 
-impl Codegen for ClassMember {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for ClassMember {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
 
             ClassMember::ClassConstructor {
                 ref params,
                 ref body,
             } => {
-                let mut code = format!("constructor({}) {{", params.into_iter()
-                    .map(|parameter| parameter.stringify(minify))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                );
-                if !minify {
-                    code.push('\n');
-                }
-                statements(&mut code, &body, minify);
-                code.push('}');
-                code
+                gen.write("constructor(");
+                gen.write_list(params);
+                gen.write_min(") {", "){");
+                gen.write_block(body);
+                gen.write_char('}');
             },
 
             ClassMember::ClassMethod {
@@ -263,24 +333,15 @@ impl Codegen for ClassMember {
                 ref params,
                 ref body,
             } => {
-                let mut code = if is_static {
-                    "static ".to_string()
-                } else {
-                    String::new()
-                };
-
-                code.push_str(name);
-                code.push_str(&format!("({}) {{", params.into_iter()
-                    .map(|parameter| parameter.stringify(minify))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                ));
-                if !minify {
-                    code.push('\n');
+                if is_static {
+                    gen.write("static ");
                 }
-                statements(&mut code, &body, minify);
-                code.push('}');
-                code
+                gen.write(name);
+                gen.write_char('(');
+                gen.write_list(params);
+                gen.write_min(") {", "){");
+                gen.write_block(body);
+                gen.write_char('}');
             },
 
             ClassMember::ClassProperty {
@@ -288,40 +349,51 @@ impl Codegen for ClassMember {
                 ref name,
                 ref value,
             } => {
-                let mut code = if is_static {
-                    "static ".to_string()
-                } else {
-                    String::new()
-                };
-
-                code.push_str(&format!("{} = {};", name, value.stringify(minify)));
-                code
+                if is_static {
+                    gen.write("static ");
+                }
+                gen.write(name);
+                gen.write_min(" = ", "=");
+                value.to_code(gen);
+                gen.write_char(';');
             }
         }
     }
 }
 
-impl Codegen for Statement {
-    fn stringify(&self, minify: bool) -> String {
+impl Code for Statement {
+    fn to_code(&self, gen: &mut Generator) {
         match *self {
 
-            ExpressionStatement(ref expr) => expr.stringify(minify),
+            ExpressionStatement(ref expr) => {
+                expr.to_code(gen);
+                gen.write_char(';');
+            },
 
             ReturnStatement(ref expr) => {
-                format!("return {}", expr.stringify(minify))
+                gen.write("return ");
+                expr.to_code(gen);
+                gen.write_char(';');
             },
 
             VariableDeclarationStatement {
                 ref kind,
                 ref declarations,
             } => {
-                format!("{} {};", kind.stringify(minify), declarations.into_iter()
-                    .map(|&(ref name, ref value)| {
-                        format!("{} = {}", name, value.stringify(minify))
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                )
+                kind.to_code(gen);
+                gen.write_char(' ');
+                let mut first = true;
+                for &(ref key, ref value) in declarations {
+                    if first {
+                        first = false;
+                    } else {
+                        gen.write_min(", ", ",");
+                    }
+                    gen.write(key);
+                    gen.write_min(" = ", "=");
+                    value.to_code(gen);
+                }
+                gen.write_char(';');
             },
 
             FunctionStatement {
@@ -329,18 +401,13 @@ impl Codegen for Statement {
                 ref params,
                 ref body,
             } => {
-                let params = params.into_iter()
-                    .map(|parameter| parameter.stringify(minify))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                let mut code = format!("function {}({}) {{", name, params);
-                if !minify {
-                    code.push('\n');
-                }
-                statements(&mut code, &body, minify);
-                code.push('}');
-                code
+                gen.write("function ");
+                gen.write(name);
+                gen.write_char('(');
+                gen.write_list(params);
+                gen.write_min(" {", "{");
+                gen.write_block(body);
+                gen.write_char('}');
             },
 
             IfStatement {
@@ -348,41 +415,33 @@ impl Codegen for Statement {
                 ref consequent,
                 ref alternate,
             } => {
-                let mut code = format!("if ({}) {}",
-                    test.stringify(minify),
-                    consequent.stringify(minify)
-                );
+                gen.write_min("if (", "if(");
+                test.to_code(gen);
+                gen.write_min(") ", ")");
+                consequent.to_code(gen);
 
                 if let &Some(ref alternate) = alternate {
-                    code.push_str(
-                        &format!(" else {}", alternate.stringify(minify))
-                    );
+                    gen.write(" else ");
+                    alternate.to_code(gen);
                 };
-
-                code
             },
 
             WhileStatement {
                 ref test,
                 ref body,
             } => {
-                format!("while ({}) {}",
-                    test.stringify(minify),
-                    body.stringify(minify)
-                )
+                gen.write_min("while (", "while(");
+                test.to_code(gen);
+                gen.write_min(") ", ")");
+                body.to_code(gen);
             },
 
             BlockStatement {
                 ref body
             } => {
-                let mut code = '{'.to_string();
-                if !minify {
-                    code.push('\n');
-                }
-
-                statements(&mut code, body, minify);
-                code.push('}');
-                code
+                gen.write_char('{');
+                gen.write_block(body);
+                gen.write_char('}');
             },
 
             ClassStatement {
@@ -390,36 +449,27 @@ impl Codegen for Statement {
                 ref extends,
                 ref body,
             } => {
-                let mut code = format!("class {} ", name);
+                gen.write("class ");
+                gen.write(name);
                 if let &Some(ref super_class) = extends {
-                    code.push_str(&format!("extends {} ", super_class));
+                    gen.write(" extends ");
+                    gen.write(super_class);
                 }
-                code.push_str("{\n");
-                for member in body {
-                    code.push_str(&member.stringify(minify));
-                    code.push('\n');
-                }
-                code.push('}');
-                code
+                gen.write_min(" {", "{");
+                gen.write_block(body);
+                gen.write_char('}');
             },
         }
     }
 }
 
-#[inline(always)]
-fn statements(code: &mut String, body: &Vec<Statement>, minify: bool) {
-    for statement in body {
-        code.push_str(&statement.stringify(minify));
-        if !minify {
-            code.push('\n');
-        }
-    }
-}
-
 pub fn generate_code(program: Program, minify: bool) -> String {
-    let mut code = String::new();
+    let mut gen = Generator::new(minify);
 
-    statements(&mut code, &program.body, minify);
+    for statement in program.body {
+        statement.to_code(&mut gen);
+        gen.new_line();
+    }
 
-    code
+    gen.consume()
 }
