@@ -87,15 +87,7 @@ fn main() {
     }
 
     let transformed_ast = transformer::traverse(ast);
-    let program = match codegen::generate_code(transformed_ast) {
-        Ok(program) => program,
-        Err(errs) => {
-            for err in errs {
-                println!("ERR {}", err);
-            }
-            process::exit(1);
-        }
-    };
+    let program = codegen::generate_code(transformed_ast, false);
 
     if args.flag_output.is_none() {
         println!("{}", program);

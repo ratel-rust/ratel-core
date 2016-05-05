@@ -2,6 +2,7 @@
 name = "badger"
 version = "0.1.0"
 authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>", "Jan Schulte <hello@unexpected-co.de>"]
+license = "MIT"
 
 [dependencies]
 docopt = "0.6.78"
