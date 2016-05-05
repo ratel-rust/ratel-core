@@ -106,6 +106,13 @@ impl Codegen for MemberKey {
     }
 }
 
+impl Codegen for Parameter {
+    fn stringify(&self, minify: bool) -> String {
+        let Parameter { ref name } = *self;
+        name.clone()
+    }
+}
+
 impl Codegen for Expression {
     fn stringify(&self, minify: bool) -> String {
         match *self {
@@ -175,6 +182,35 @@ impl Codegen for Expression {
                 )
             },
 
+            ConditionalExpression {
+                ref test,
+                ref consequent,
+                ref alternate,
+            } => {
+                format!("{} ? {} : {}",
+                    test.stringify(minify),
+                    consequent.stringify(minify),
+                    alternate.stringify(minify),
+                )
+            },
+
+            ArrowFunctionExpression {
+                ref params,
+                ref body,
+            } => {
+                let params = if params.len() == 1 {
+                    params[0].stringify(minify)
+                } else {
+                    format!("({})", params.into_iter()
+                        .map(|parameter| parameter.stringify(minify))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                    )
+                };
+
+                format!("{} => {}", params, body.stringify(minify))
+            },
+
             PostfixExpression {
                 ref operator,
                 ref operand,
@@ -200,6 +236,71 @@ impl Codegen for VariableDeclarationKind {
     }
 }
 
+impl Codegen for ClassMember {
+    fn stringify(&self, minify: bool) -> String {
+        match *self {
+
+            ClassMember::ClassConstructor {
+                ref params,
+                ref body,
+            } => {
+                let mut code = format!("constructor({}) {{", params.into_iter()
+                    .map(|parameter| parameter.stringify(minify))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                );
+                if !minify {
+                    code.push('\n');
+                }
+                statements(&mut code, &body, minify);
+                code.push('}');
+                code
+            },
+
+            ClassMember::ClassMethod {
+                is_static,
+                ref name,
+                ref params,
+                ref body,
+            } => {
+                let mut code = if is_static {
+                    "static ".to_string()
+                } else {
+                    String::new()
+                };
+
+                code.push_str(name);
+                code.push_str(&format!("({}) {{", params.into_iter()
+                    .map(|parameter| parameter.stringify(minify))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                ));
+                if !minify {
+                    code.push('\n');
+                }
+                statements(&mut code, &body, minify);
+                code.push('}');
+                code
+            },
+
+            ClassMember::ClassProperty {
+                is_static,
+                ref name,
+                ref value,
+            } => {
+                let mut code = if is_static {
+                    "static ".to_string()
+                } else {
+                    String::new()
+                };
+
+                code.push_str(&format!("{} = {};", name, value.stringify(minify)));
+                code
+            }
+        }
+    }
+}
+
 impl Codegen for Statement {
     fn stringify(&self, minify: bool) -> String {
         match *self {
@@ -215,7 +316,7 @@ impl Codegen for Statement {
                 ref declarations,
             } => {
                 format!("{} {};", kind.stringify(minify), declarations.into_iter()
-                    .map(| &(ref name, ref value) | {
+                    .map(|&(ref name, ref value)| {
                         format!("{} = {}", name, value.stringify(minify))
                     })
                     .collect::<Vec<String>>()
@@ -229,7 +330,7 @@ impl Codegen for Statement {
                 ref body,
             } => {
                 let params = params.into_iter()
-                    .map(| &Parameter { ref name } | name.clone())
+                    .map(|parameter| parameter.stringify(minify))
                     .collect::<Vec<String>>()
                     .join(", ");
 
@@ -261,6 +362,16 @@ impl Codegen for Statement {
                 code
             },
 
+            WhileStatement {
+                ref test,
+                ref body,
+            } => {
+                format!("while ({}) {}",
+                    test.stringify(minify),
+                    body.stringify(minify)
+                )
+            },
+
             BlockStatement {
                 ref body
             } => {
@@ -274,7 +385,23 @@ impl Codegen for Statement {
                 code
             },
 
-            _ => '💀'.to_string(),
+            ClassStatement {
+                ref name,
+                ref extends,
+                ref body,
+            } => {
+                let mut code = format!("class {} ", name);
+                if let &Some(ref super_class) = extends {
+                    code.push_str(&format!("extends {} ", super_class));
+                }
+                code.push_str("{\n");
+                for member in body {
+                    code.push_str(&member.stringify(minify));
+                    code.push('\n');
+                }
+                code.push('}');
+                code
+            },
         }
     }
 }

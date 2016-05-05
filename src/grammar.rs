@@ -276,11 +276,6 @@ pub enum Statement {
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
-    ClassStatement {
-        name: String,
-        extends: Option<String>,
-        body: Vec<ClassMember>,
-    },
     IfStatement {
         test: Expression,
         consequent: Box<Statement>,
@@ -292,6 +287,11 @@ pub enum Statement {
     },
     BlockStatement {
         body: Vec<Statement>,
+    },
+    ClassStatement {
+        name: String,
+        extends: Option<String>,
+        body: Vec<ClassMember>,
     },
 }
 
