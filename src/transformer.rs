@@ -106,7 +106,7 @@ fn bind_this(function: Expression) -> Expression {
             object: Box::new(function),
             property: Box::new(MemberKey::Literal("bind".to_string())),
         }),
-        arguments: vec![IdentifierExpression("this".to_string())]
+        arguments: vec![ThisExpression]
     }
 }
 

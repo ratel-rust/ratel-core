@@ -326,6 +326,7 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self, lbp: u8) -> Expression {
         let mut left = match self.consume() {
+            This              => ThisExpression,
             Identifier(value) => IdentifierExpression(value),
             Literal(value)    => LiteralExpression(value),
             Operator(optype)  => self.prefix_expression(optype),

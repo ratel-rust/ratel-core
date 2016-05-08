@@ -203,6 +203,7 @@ impl OperatorType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
+    ThisExpression,
     IdentifierExpression(String),
     LiteralExpression(LiteralValue),
     ArrayExpression(Vec<Expression>),

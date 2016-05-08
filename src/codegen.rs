@@ -200,6 +200,8 @@ impl Code for Expression {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
+            ThisExpression => gen.write("this"),
+
             IdentifierExpression(ref ident) => gen.write(ident),
 
             LiteralExpression(ref literal)  => literal.to_code(gen),
