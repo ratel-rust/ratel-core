@@ -297,7 +297,26 @@ impl Code for Expression {
                 body.to_code(gen);
             },
 
-            _ => gen.write_char('💀'),
+            FunctionExpression {
+                ref name,
+                ref params,
+                ref body,
+            } => {
+                gen.write("function");
+                if let Some(ref name) = *name {
+                    gen.write_char(' ');
+                    gen.write(name);
+                } else {
+                    gen.write_min(" ", "");
+                }
+                gen.write_char('(');
+                gen.write_list(params);
+                gen.write_min(") {", "){");
+                gen.write_block(body);
+                gen.write_char('}');
+            },
+
+            // _ => gen.write_char('💀'),
         }
     }
 }

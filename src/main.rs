@@ -117,7 +117,11 @@ fn main() {
     }
 
     match write_file(&args.flag_output.unwrap(), program) {
-        Ok(()) => {},
+        Ok(()) => {
+            print_ms("Parsing        ", &parse_duration);
+            print_ms("Transformation ", &transform_duration);
+            print_ms("Code generation", &codegen_duration);
+        },
         Err(err) => {
             println!("ERR Writing out.js {}", err);
             process::exit(1);

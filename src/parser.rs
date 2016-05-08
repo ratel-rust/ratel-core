@@ -315,6 +315,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn function_expression(&mut self) -> Expression {
+        self.consume();
+
+        let name = if let Some(&Identifier(_)) = self.lookahead() {
+            Some(expect!(self, Identifier(name) => name))
+        } else {
+            None
+        };
+
+        FunctionExpression {
+            name: name,
+            params: list!(self ( self.parameter() )),
+            body: self.block_body(),
+        }
+    }
+
     fn expression(&mut self, lbp: u8) -> Expression {
         let mut left = match self.lookahead() {
             Some(&Identifier(_)) => {
@@ -327,6 +343,7 @@ impl<'a> Parser<'a> {
             Some(&ParenOn)     => surround!(self ( self.expression(19) )),
             Some(&BracketOn)   => self.array_expression(),
             Some(&BlockOn)     => self.object_expression(),
+            Some(&Function)    => self.function_expression(),
             _                  => unexpected_token!(self)
         };
 
