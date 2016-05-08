@@ -342,17 +342,22 @@ impl<'a> Parser<'a> {
     }
 
     fn sequence_expression(&mut self) -> Expression {
-        let mut list = list!(self, self.expression(0), ParenOff);
-        match list.len() {
-            0 => {
-                expect!(self, Operator(FatArrow));
-                self.arrow_function_expression(None)
-            },
-            1 => {
-                list.pop().unwrap()
-            },
-            _ => SequenceExpression(list)
+        if allow!(self, ParenOff) {
+            expect!(self, Operator(FatArrow));
+            return self.arrow_function_expression(None);
         }
+
+        let first = self.expression(0);
+        allow!{ self ParenOff => return first };
+
+        let mut list = vec![first];
+        loop {
+            allow!{ self ParenOff => break };
+            expect!(self, Comma);
+            list.push(self.expression(0));
+        }
+
+        SequenceExpression(list)
     }
 
     fn expression(&mut self, lbp: u8) -> Expression {
