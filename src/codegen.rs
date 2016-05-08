@@ -288,7 +288,13 @@ impl Code for Expression {
                 ref operator,
                 ref right,
             } => {
-                left.to_code(gen);
+                if left.binding_power() < self.binding_power() {
+                    gen.write_char('(');
+                    left.to_code(gen);
+                    gen.write_char(')');
+                } else {
+                    left.to_code(gen);
+                }
                 gen.write_min(" ", "");
                 operator.to_code(gen);
                 gen.write_min(" ", "");
@@ -466,7 +472,7 @@ impl Code for Statement {
                 gen.write(name);
                 gen.write_char('(');
                 gen.write_list(params);
-                gen.write_min(" {", "{");
+                gen.write_min(") {", "){");
                 gen.write_block(body);
                 gen.write_char('}');
             },

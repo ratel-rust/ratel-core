@@ -230,6 +230,29 @@ pub enum Expression {
         body: Vec<Statement>,
     }
 }
+use self::Expression::*;
+
+impl Expression {
+    pub fn binding_power(&self) -> u8 {
+        match *self {
+            MemberExpression { .. }                |
+            ArrowFunctionExpression { .. }         => 18,
+
+            CallExpression { .. }                  => 17,
+
+            PrefixExpression { ref operator, .. }  => operator.binding_power(true),
+
+            BinaryExpression { ref operator, .. }  |
+            PostfixExpression { ref operator, .. } => {
+                operator.binding_power(false)
+            },
+
+            ConditionalExpression { .. }           => 4,
+
+            _                                      => 100,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {

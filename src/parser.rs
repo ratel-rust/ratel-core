@@ -342,7 +342,7 @@ impl<'a> Parser<'a> {
     }
 
     fn sequence_expression(&mut self) -> Expression {
-        let mut list = list!(self, self.expression(19), ParenOff);
+        let mut list = list!(self, self.expression(0), ParenOff);
         match list.len() {
             0 => {
                 expect!(self, Operator(FatArrow));
