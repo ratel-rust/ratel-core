@@ -151,6 +151,24 @@ impl Code for LiteralValue {
     }
 }
 
+fn is_identifier(label: &String) -> bool {
+    let mut chars = label.chars();
+
+    // All identifiers have to have at least one char, so unwrap is safe here.
+    let first = chars.next().unwrap();
+    if !first.is_alphabetic() && first != '_' && first != '$' {
+        return false;
+    }
+
+    for ch in chars {
+        if !ch.is_alphanumeric() && ch != '_' && ch != '$' {
+            return false;
+        }
+    }
+
+    true
+}
+
 impl Code for ObjectMember {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -162,7 +180,11 @@ impl Code for ObjectMember {
                 ref key,
                 ref value,
             } => {
-                gen.write(key);
+                if is_identifier(key) {
+                    gen.write(key);
+                } else {
+                    gen.write(&format!("{:?}", key));
+                }
                 gen.write_min(": ", ":");
                 value.to_code(gen);
             },
@@ -390,6 +412,14 @@ impl Code for ClassMember {
     }
 }
 
+impl Code for VariableDeclarator {
+    fn to_code(&self, gen: &mut Generator) {
+        gen.write(&self.name);
+        gen.write_min(" = ", "=");
+        self.value.to_code(gen);
+    }
+}
+
 impl Code for Statement {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -407,21 +437,11 @@ impl Code for Statement {
 
             VariableDeclarationStatement {
                 ref kind,
-                ref declarations,
+                ref declarators,
             } => {
                 kind.to_code(gen);
                 gen.write_char(' ');
-                let mut first = true;
-                for &(ref key, ref value) in declarations {
-                    if first {
-                        first = false;
-                    } else {
-                        gen.write_min(", ", ",");
-                    }
-                    gen.write(key);
-                    gen.write_min(" = ", "=");
-                    value.to_code(gen);
-                }
+                gen.write_list(declarators);
                 gen.write_char(';');
             },
 

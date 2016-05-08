@@ -30,12 +30,12 @@ impl Transformable for Expression {
                 // return on feature switch
                 // return;
 
-                let body = match *body.clone() {
-                    BlockStatement { body }   => body,
-                    ExpressionStatement(expr) => vec![
-                        ReturnStatement(expr)
+                let body = match **body {
+                    BlockStatement { ref body }   => body.clone(),
+                    ExpressionStatement(ref expr) => vec![
+                        ReturnStatement(expr.clone())
                     ],
-                    statement => {
+                    ref statement => {
                         panic!("Invalid arrow function body {:#?}", statement);
                     }
                 };
@@ -55,6 +55,16 @@ impl Transformable for Expression {
                 }
             },
 
+            ArrayExpression(ref mut items) => {
+                items.transform();
+                return;
+            },
+
+            ObjectExpression(ref mut members) => {
+                members.transform();
+                return;
+            },
+
             CallExpression {
                 ref mut callee,
                 ref mut arguments,
@@ -72,6 +82,10 @@ impl Transformable for Expression {
         match *self {
             ThisExpression => true,
 
+            ArrayExpression(ref items) => items.contains_this(),
+
+            ObjectExpression(ref members) => members.contains_this(),
+
             MemberExpression {
                 ref object,
                 ..
@@ -81,6 +95,55 @@ impl Transformable for Expression {
                 ref callee,
                 ref arguments,
             } => callee.contains_this() || arguments.contains_this(),
+
+            _ => false,
+        }
+    }
+}
+
+impl Transformable for ObjectMember {
+    fn transform(&mut self) {
+        *self = match *self {
+
+            ObjectMember::Shorthand {
+                ref key,
+            } => {
+                ObjectMember::Literal {
+                    key: key.clone(),
+                    value: IdentifierExpression(key.clone()),
+                }
+            },
+
+            ObjectMember::Literal {
+                ref mut value,
+                ..
+            } => {
+                value.transform();
+                return;
+            },
+
+            ObjectMember::Computed {
+                ref mut key,
+                ref mut value,
+            } => {
+                key.transform();
+                value.transform();
+                return;
+            },
+        }
+    }
+
+    fn contains_this(&self) -> bool {
+        match *self {
+            ObjectMember::Literal {
+                ref value,
+                ..
+            } => value.contains_this(),
+
+            ObjectMember::Computed {
+                ref key,
+                ref value,
+            } => key.contains_this() || value.contains_this(),
 
             _ => false,
         }
@@ -117,14 +180,25 @@ impl Transformable for ClassMember {
     }
 }
 
+impl Transformable for VariableDeclarator {
+    fn transform(&mut self) {
+        self.value.transform();
+    }
+
+    fn contains_this(&self) -> bool {
+        self.value.contains_this()
+    }
+}
+
 impl Transformable for Statement {
     fn transform(&mut self) {
         *self = match *self {
             VariableDeclarationStatement {
                 ref mut kind,
-                ..
+                ref mut declarators,
             } => {
                 *kind = VariableDeclarationKind::Var;
+                declarators.transform();
                 return;
             },
 
@@ -168,6 +242,11 @@ impl Transformable for Statement {
 
     fn contains_this(&self) -> bool {
         match *self {
+            VariableDeclarationStatement {
+                ref declarators,
+                ..
+            } => declarators.contains_this(),
+
             ExpressionStatement(ref expression) => expression.contains_this(),
 
             ReturnStatement(ref expression) => expression.contains_this(),

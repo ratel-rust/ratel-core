@@ -376,15 +376,15 @@ impl<'a> Parser<'a> {
     fn variable_declaration_statement(
         &mut self, kind: VariableDeclarationKind
     ) -> Statement {
-        let mut declarations = Vec::new();
+        let mut declarators = Vec::new();
 
         loop {
             let name = expect!(self, Identifier(name) => name);
             expect!(self, Operator(Assign));
-            declarations.push((
-                name,
-                self.expression(0)
-            ));
+            declarators.push(VariableDeclarator {
+                name: name,
+                value: self.expression(0),
+            });
 
             allow!{ self Comma => continue };
             break;
@@ -392,7 +392,7 @@ impl<'a> Parser<'a> {
 
         statement!(self, VariableDeclarationStatement {
             kind: kind,
-            declarations: declarations,
+            declarators: declarators,
         })
     }
 

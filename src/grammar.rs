@@ -33,21 +33,6 @@ pub enum MemberKey {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ObjectMember {
-    Shorthand {
-        key: String,
-    },
-    Literal {
-        key: String,
-        value: Expression,
-    },
-    Computed {
-        key: Expression,
-        value: Expression,
-    },
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub name: String,
 }
@@ -246,6 +231,21 @@ pub enum Expression {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum ObjectMember {
+    Shorthand {
+        key: String,
+    },
+    Literal {
+        key: String,
+        value: Expression,
+    },
+    Computed {
+        key: Expression,
+        value: Expression,
+    },
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ClassMember {
     ClassConstructor {
         params: Vec<Parameter>,
@@ -265,10 +265,16 @@ pub enum ClassMember {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct VariableDeclarator {
+    pub name: String,
+    pub value: Expression,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     VariableDeclarationStatement {
         kind: VariableDeclarationKind,
-        declarations: Vec<(String, Expression)>,
+        declarators: Vec<VariableDeclarator>,
     },
     ExpressionStatement(Expression),
     ReturnStatement(Expression),
