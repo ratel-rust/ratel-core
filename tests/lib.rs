@@ -49,10 +49,10 @@ macro_rules! param {
 fn var_declare() {
     assert_statement!("var foo = 100;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Var,
-        declarations: vec![(
-            "foo".to_string(),
-            num!(100.0)
-        )]
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: num!(100.0)
+        }]
     });
 }
 
@@ -60,10 +60,10 @@ fn var_declare() {
 fn let_declare() {
     assert_statement!("let foo = 100;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Let,
-        declarations: vec![(
-            "foo".to_string(),
-            num!(100.0)
-        )]
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: num!(100.0)
+        }]
     });
 }
 
@@ -72,10 +72,10 @@ fn let_declare() {
 fn const_declare() {
     assert_statement!("const foo = 100;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Const,
-        declarations: vec![(
-            "foo".to_string(),
-            num!(100.0)
-        )]
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: num!(100.0)
+        }]
     });
 }
 
@@ -83,13 +83,13 @@ fn const_declare() {
 fn var_muliple_declare() {
     assert_statement!("var foo = 100, bar = 200;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Var,
-        declarations: vec![(
-            "foo".to_string(),
-            num!(100.0)
-        ), (
-            "bar".to_string(),
-            num!(200.0)
-        )]
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: num!(100.0)
+        }, VariableDeclarator {
+            name: "bar".to_string(),
+            value: num!(200.0)
+        }]
     });
 }
 

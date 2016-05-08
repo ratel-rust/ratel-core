@@ -241,6 +241,12 @@ impl Code for Expression {
                 gen.write_char(']');
             },
 
+            SequenceExpression(ref items) => {
+                gen.write_char('(');
+                gen.write_list(items);
+                gen.write_char(')');
+            },
+
             ObjectExpression(ref members) => {
                 gen.write_char('{');
                 gen.indent();

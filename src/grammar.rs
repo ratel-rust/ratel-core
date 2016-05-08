@@ -192,6 +192,7 @@ pub enum Expression {
     IdentifierExpression(String),
     LiteralExpression(LiteralValue),
     ArrayExpression(Vec<Expression>),
+    SequenceExpression(Vec<Expression>),
     ObjectExpression(Vec<ObjectMember>),
     MemberExpression {
         object: Box<Expression>,

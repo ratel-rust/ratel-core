@@ -237,18 +237,35 @@ impl<'a> Parser<'a> {
         body
     }
 
-    fn arrow_function_expression(&mut self, p: Expression) -> Expression {
+    fn arrow_function_expression(&mut self, p: Option<Expression>) -> Expression {
         let params: Vec<Parameter> = match p {
-            IdentifierExpression(name) => {
+            None => Vec::new(),
+            Some(IdentifierExpression(name)) => {
                 vec![Parameter { name: name }]
             },
+            Some(SequenceExpression(mut list)) => {
+                list.drain(..).map(|expression| {
+                    match expression {
+                        IdentifierExpression(name) => Parameter { name: name },
+                        _ => panic!("Cannot cast {:?} to a parameter", expression),
+                    }
+                }).collect()
+            },
             _ =>
-                panic!("Can cast {:?} to parameters", p),
+                panic!("Cannot cast {:?} to parameters", p),
+        };
+
+        let body = if let Some(&BlockOn) = self.lookahead() {
+            BlockStatement {
+                body: self.block_body()
+            }
+        } else {
+            ExpressionStatement(self.expression(0))
         };
 
         ArrowFunctionExpression {
             params: params,
-            body: Box::new(self.block_or_statement())
+            body: Box::new(body)
         }
     }
 
@@ -292,7 +309,7 @@ impl<'a> Parser<'a> {
                 }
             },
 
-            FatArrow => self.arrow_function_expression(left),
+            FatArrow => self.arrow_function_expression(Some(left)),
 
             _ => {
                 if !operator.infix() {
@@ -324,17 +341,27 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn sequence_expression(&mut self) -> Expression {
+        let mut list = list!(self, self.expression(19), ParenOff);
+        match list.len() {
+            0 => {
+                expect!(self, Operator(FatArrow));
+                self.arrow_function_expression(None)
+            },
+            1 => {
+                list.pop().unwrap()
+            },
+            _ => SequenceExpression(list)
+        }
+    }
+
     fn expression(&mut self, lbp: u8) -> Expression {
         let mut left = match self.consume() {
             This              => ThisExpression,
             Identifier(value) => IdentifierExpression(value),
             Literal(value)    => LiteralExpression(value),
             Operator(optype)  => self.prefix_expression(optype),
-            ParenOn           => {
-                let left = self.expression(19);
-                expect!(self, ParenOff);
-                left
-            }
+            ParenOn           => self.sequence_expression(),
             BracketOn         => self.array_expression(),
             BlockOn           => self.object_expression(),
             Function          => self.function_expression(),
