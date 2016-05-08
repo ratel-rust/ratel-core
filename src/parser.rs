@@ -37,30 +37,24 @@ macro_rules! allow {
 macro_rules! expect {
     ($parser:ident, $p:pat => $value:ident) => (
         match $parser.consume() {
-            Some($p) => $value,
-            None     => panic!("Unexpected end of program"),
-            token    => unexpected_token!($parser, token),
+            $p    => $value,
+            token => unexpected_token!($parser, token),
         }
     );
     ($parser:ident, $p:pat) => (
         match $parser.consume() {
-            Some($p) => {},
-            None     => panic!("Unexpected end of program"),
-            token    => unexpected_token!($parser, token),
+            $p    => {},
+            token => unexpected_token!($parser, token),
         }
     )
 }
 
 macro_rules! unexpected_token {
     ($parser:ident) => ({
-        if let Some(token) = $parser.consume() {
-            unexpected_token!($parser, token);
-        } else {
-            panic!("Unexpected end of program");
-        }
+        unexpected_token!($parser, $parser.consume());
     });
     ($parser:ident, $token:expr) => {
-        panic!("Unexpected token {:?}", $token)
+        panic!("Unexpected token {:?}", $token);
     }
 }
 
@@ -95,9 +89,7 @@ macro_rules! statement {
 /// `$separator` tokens and an `$item` expression that is then
 /// pushed onto a vector.
 macro_rules! list {
-    ($parser:ident, $item:expr, $start:pat, $end:pat) => ({
-        expect!($parser, $start);
-
+    ($parser:ident, $item:expr, $end:pat) => ({
         let mut list = Vec::new();
         loop {
             if allow!($parser, $end) {
@@ -106,13 +98,17 @@ macro_rules! list {
             list.push($item);
 
             match $parser.consume() {
-                Some(Comma) => allow!{ $parser $end => break },
-                Some($end)  => break,
-                _           => {},
+                Comma => allow!{ $parser $end => break },
+                $end  => break,
+                _     => {},
             }
         }
 
         list
+    });
+    ($parser:ident, $item:expr, $start:pat, $end:pat) => ({
+        expect!($parser, $start);
+        list!($parser, $item, $end)
     });
     ($parser:ident ( $item:expr )) => {
         list!($parser, $item, ParenOn, ParenOff)
@@ -162,9 +158,9 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    fn consume(&mut self) -> Option<Token> {
+    fn consume(&mut self) -> Token {
         self.handle_line_termination();
-        let token = self.tokenizer.next();
+        let token = self.tokenizer.next().expect("Unexpected end of program");
 
         // println!("Consume {:?}", token);
 
@@ -179,13 +175,13 @@ impl<'a> Parser<'a> {
     }
 
     fn array_expression(&mut self) -> Expression {
-        ArrayExpression(list!(self [ self.expression(0) ]))
+        ArrayExpression(list!(self, self.expression(0), BracketOff))
     }
 
     #[inline(always)]
     fn object_member(&mut self) -> ObjectMember {
         match self.consume() {
-            Some(Identifier(key)) | Some(Literal(LiteralString(key))) => {
+            Identifier(key) | Literal(LiteralString(key)) => {
                 if allow!(self, Colon) {
                     ObjectMember::Literal {
                         key: key,
@@ -197,7 +193,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             },
-            Some(BracketOn) => {
+            BracketOn => {
                 let key = self.expression(0);
                 expect!(self, BracketOff);
                 expect!(self, Colon);
@@ -213,7 +209,7 @@ impl<'a> Parser<'a> {
     }
 
     fn object_expression(&mut self) -> Expression {
-        ObjectExpression(list!(self { self.object_member() }))
+        ObjectExpression(list!(self, self.object_member(), BlockOff))
     }
 
     fn block_or_statement(&mut self) -> Statement {
@@ -257,8 +253,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    fn prefix_expression(&mut self) -> Expression {
-        let operator = expect!(self, Operator(op) => op);
+    fn prefix_expression(&mut self, operator: OperatorType) -> Expression {
         let bp = operator.binding_power(true);
 
         if !operator.prefix() {
@@ -316,8 +311,6 @@ impl<'a> Parser<'a> {
     }
 
     fn function_expression(&mut self) -> Expression {
-        self.consume();
-
         let name = if let Some(&Identifier(_)) = self.lookahead() {
             Some(expect!(self, Identifier(name) => name))
         } else {
@@ -332,19 +325,19 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self, lbp: u8) -> Expression {
-        let mut left = match self.lookahead() {
-            Some(&Identifier(_)) => {
-                IdentifierExpression(expect!(self, Identifier(v) => v))
-            },
-            Some(&Literal(_))    => {
-                LiteralExpression(expect!(self, Literal(v) => v))
-            },
-            Some(&Operator(_)) => self.prefix_expression(),
-            Some(&ParenOn)     => surround!(self ( self.expression(19) )),
-            Some(&BracketOn)   => self.array_expression(),
-            Some(&BlockOn)     => self.object_expression(),
-            Some(&Function)    => self.function_expression(),
-            _                  => unexpected_token!(self)
+        let mut left = match self.consume() {
+            Identifier(value) => IdentifierExpression(value),
+            Literal(value)    => LiteralExpression(value),
+            Operator(optype)  => self.prefix_expression(optype),
+            ParenOn           => {
+                let left = self.expression(19);
+                expect!(self, ParenOff);
+                left
+            }
+            BracketOn         => self.array_expression(),
+            BlockOn           => self.object_expression(),
+            Function          => self.function_expression(),
+            token             => unexpected_token!(self, token)
         };
 
         'right: loop {
@@ -495,14 +488,14 @@ impl<'a> Parser<'a> {
         let mut members = Vec::new();
         'members: loop {
             members.push(match self.consume() {
-                Some(Identifier(name)) => self.class_member(name, false),
-                Some(Static)           => {
+                Identifier(name) => self.class_member(name, false),
+                Static           => {
                     let name = expect!(self, Identifier(name) => name);
                     self.class_member(name, true)
                 },
-                Some(Semicolon)        => continue 'members,
-                Some(BlockOff)         => break 'members,
-                token                  => unexpected_token!(self, token)
+                Semicolon        => continue 'members,
+                BlockOff         => break 'members,
+                token            => unexpected_token!(self, token)
             });
         }
 
