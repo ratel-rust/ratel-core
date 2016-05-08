@@ -23,6 +23,7 @@ impl Transformable for Expression {
                 body.transform();
 
                 // return on feature switch
+                // return;
 
                 bind_this(FunctionExpression {
                     name: None,

@@ -299,7 +299,10 @@ impl Code for Expression {
                     gen.write_char(')');
                 }
                 gen.write_min(" => ", "=>");
-                body.to_code(gen);
+                match **body {
+                    ExpressionStatement(ref expr) => expr.to_code(gen),
+                    _                             => body.to_code(gen),
+                }
             },
 
             FunctionExpression {
