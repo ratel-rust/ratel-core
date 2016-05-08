@@ -1,163 +1,114 @@
 use grammar::*;
+use grammar::Statement::*;
+use grammar::Expression::*;
 
-fn prefix_declarations(declarations: Vec<(String, Expression)>) -> Vec<(String, Expression)> {
-    let mut new_declarations = Vec::new();
-    for old_decl in declarations {
-        let name = format!("_{}", old_decl.0.clone());
-        let expr = old_decl.1.clone();
-        new_declarations.push((name, expr));
-    }
-
-    new_declarations
+/// The `Transformable` trait provides an interace for instances of grammar
+/// to alter the AST, either by mutating self, or by returning a new node.
+///
+/// NOTE: Returning `None` means no changes are necessary!
+trait Transformable {
+    fn transform(&mut self) {}
 }
 
-fn visit(statement: Statement, previous: Option<Statement>) -> Statement {
-    match statement.clone() {
-        Statement::IfStatement { test: t, consequent, alternate } => {
-            Statement::IfStatement{
-                test: t,
-                consequent: Box::new(visit(*consequent, Some(statement.clone()))),
-                alternate: alternate
-            }
-        },
-        Statement::BlockStatement { body } => {
-            let mut new_body = Vec::new();
-            for block_child in body {
-                new_body.push(visit(block_child, Some(statement.clone())));
-            }
-            Statement::BlockStatement {
-                body: new_body
-            }
-        },
-        Statement::VariableDeclarationStatement { kind, declarations } => {
-            if kind == VariableDeclarationKind::Const || kind == VariableDeclarationKind::Let {
-                let has_enclosing_block = previous.is_some();
-                if has_enclosing_block {
-                    Statement::VariableDeclarationStatement {
-                        kind: VariableDeclarationKind::Var,
-                        declarations: prefix_declarations(declarations)
-                    }
-                } else {
-                    Statement::VariableDeclarationStatement {
-                        kind: VariableDeclarationKind::Var,
-                        declarations: declarations
-                    }
-                }
-            } else {
-                statement
-            }
-        },
-        _ => statement
-    }
-}
+impl Transformable for Parameter {}
 
-pub fn traverse(program: Program) -> Program {
-    let mut new_statements = Vec::new();
+impl Transformable for Expression {
+    fn transform(&mut self) {
+        *self = match *self {
+            ArrowFunctionExpression {
+                ref mut params,
+                ref mut body,
+            } => {
+                params.transform();
+                body.transform();
 
-    for statement in program.body {
-        new_statements.push(visit(statement, None));
-    }
+                // return on feature switch
 
-    Program {
-        body: new_statements
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use parser::*;
-    use grammar::*;
-
-    #[test]
-    fn transform_const_assignment() {
-        let input_program = parse("const foo = 42;".into());
-        let output_program = traverse(input_program);
-        let statement = output_program.body.first().unwrap().clone();
-        let success = match statement {
-            Statement::VariableDeclarationStatement { kind, .. } => {
-                kind == VariableDeclarationKind::Var
-            },
-            _ => false
-        };
-        assert!(success);
-    }
-
-    #[test]
-    fn transform_simple_let_assignment() {
-        let input_program = parse("let foo = 42;".into());
-        let output_program = traverse(input_program);
-        let statement = output_program.body.first().unwrap().clone();
-        let success = match statement {
-            Statement::VariableDeclarationStatement { kind, .. } => {
-                kind == VariableDeclarationKind::Var
-            },
-            _ => false
-        };
-        assert!(success);
-    }
-
-    #[test]
-    fn transform_const_inside_of_if() {
-        let input_program = "
-        if(true) {
-            const pi = 3.14;
-        }
-        ";
-        let output_program = traverse(parse(input_program.into()));
-        let statement = output_program.body.first().unwrap().clone();
-        match statement {
-            Statement::IfStatement { consequent: stmt, .. } => {
-                match *stmt.clone() {
-                    Statement::BlockStatement { body } => {
-                        let first_body_stmt = body.first().unwrap().clone();
-                        match first_body_stmt {
-                            Statement::VariableDeclarationStatement { kind, .. } => {
-                                assert_eq!(kind, VariableDeclarationKind::Var);
-                            },
-                            _ => assert!(false,
-                                    format!("Expected Variable Declaration, Received {:?}", first_body_stmt))
+                bind_this(FunctionExpression {
+                    name: None,
+                    params: params.clone(),
+                    body: match *body.clone() {
+                        BlockStatement { body }   => body,
+                        ExpressionStatement(expr) => vec![
+                            ReturnStatement(expr)
+                        ],
+                        statement => {
+                            panic!("Invalid arrow function body {:#?}", statement);
                         }
                     },
-                    _ => assert!(false,
-                                 format!("Expected Block statement, Got {:?}", *stmt))
-                }
+                })
             },
-            _ => assert!(false, "received invalid statement. Expected if")
-        }
-    }
 
-    #[test]
-    fn transform_let_inside_of_if_with_usage_after() {
-        let input_program = "
-        if(true) {
-            let pi = 3.14;
-        }
-        pi = 3.1;
-        ";
-        let output_program = traverse(parse(input_program.into()));
-        let statement = output_program.body.first().unwrap().clone();
-        match statement {
-            Statement::IfStatement { consequent: stmt, .. } => {
-                match *stmt.clone() {
-                    Statement::BlockStatement{ body } => {
-                        let first_body_stmt = body.first().unwrap().clone();
-                        match first_body_stmt {
-                            Statement::VariableDeclarationStatement{ kind, declarations } => {
-                                let decl = declarations.first().unwrap();
-                                let name = decl.0.clone();
-                                assert_eq!(kind, VariableDeclarationKind::Var);
-                                assert_eq!(name, "_pi");
-                            },
-                            _ => assert!(false,
-                                    format!("Expected Variable Declaration, Received {:?}", first_body_stmt))
-                        }
-                    },
-                    _ => assert!(false,
-                                 format!("Expected Block statement, Got {:?}", *stmt))
-                }
+            CallExpression {
+                ref mut callee,
+                ref mut arguments,
+            } => {
+                callee.transform();
+                arguments.transform();
+                return;
             },
-            _ => assert!(false, "received invalid statement. Expected if")
+
+            _ => return,
         }
     }
+}
+
+impl<T: Transformable> Transformable for Vec<T> {
+    fn transform(&mut self) {
+        for item in self.iter_mut() {
+            item.transform();
+        }
+    }
+}
+
+impl Transformable for Statement {
+    fn transform(&mut self) {
+        match *self {
+            VariableDeclarationStatement {
+                ref mut kind,
+                ..
+            } => {
+                *kind = VariableDeclarationKind::Var;
+            },
+
+            ExpressionStatement(ref mut expression) => {
+                expression.transform();
+            },
+
+            IfStatement {
+                ref mut test,
+                ref mut consequent,
+                ref mut alternate,
+                ..
+            } => {
+                test.transform();
+                consequent.transform();
+                if let Some(ref mut alternate) = *alternate {
+                    alternate.transform();
+                }
+            },
+
+            BlockStatement {
+                ref mut body,
+            } => {
+                body.transform();
+            },
+
+            _ => {},
+        }
+    }
+}
+
+fn bind_this(function: Expression) -> Expression {
+    CallExpression {
+        callee: Box::new(MemberExpression {
+            object: Box::new(function),
+            property: Box::new(MemberKey::Literal("bind".to_string())),
+        }),
+        arguments: vec![IdentifierExpression("this".to_string())]
+    }
+}
+
+pub fn transform(program: &mut Program) {
+    program.body.transform();
 }

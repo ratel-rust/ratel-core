@@ -3,6 +3,9 @@ use grammar::OperatorType::*;
 use grammar::Statement::*;
 use grammar::Expression::*;
 
+/// The `Generator` is a wrapper around an owned `String` that's used to
+/// stringify the AST. There is a bunch of useful methods here to manage
+/// things like indentation and automatically producing minified code.
 struct Generator {
     pub minify: bool,
     code: String,
@@ -78,6 +81,8 @@ impl Generator {
     }
 }
 
+/// The `Code` trait provides an interface to pieces of grammar, that allows
+/// to efficiently write characters and string slices to the code `Generator`.
 trait Code {
     fn to_code(&self, gen: &mut Generator);
 }

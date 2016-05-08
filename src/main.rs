@@ -6,7 +6,6 @@ use std::io::prelude::*;
 use std::io::Error;
 use std::fs::File;
 use std::time::{ Instant, Duration };
-use parser::parse;
 use docopt::Docopt;
 
 pub mod lexicon;
@@ -90,7 +89,7 @@ fn main() {
     };
 
     let start = Instant::now();
-    let ast = parser::parse(file);
+    let mut ast = parser::parse(file);
     let parse_duration = Instant::now().duration_since(start);
 
     if args.flag_ast {
@@ -100,11 +99,11 @@ fn main() {
     }
 
     let start = Instant::now();
-    let transformed_ast = transformer::traverse(ast);
+    transformer::transform(&mut ast);
     let transform_duration = Instant::now().duration_since(start);
 
     let start = Instant::now();
-    let program = codegen::generate_code(transformed_ast, !args.flag_pretty);
+    let program = codegen::generate_code(ast, !args.flag_pretty);
     let codegen_duration = Instant::now().duration_since(start);
 
     if args.flag_output.is_none() {
