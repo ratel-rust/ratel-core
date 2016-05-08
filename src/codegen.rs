@@ -205,8 +205,15 @@ impl Code for ObjectMember {
 impl Code for MemberKey {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            MemberKey::Literal(ref string) => gen.write(string),
-            MemberKey::Computed(ref expr)  => expr.to_code(gen),
+            MemberKey::Literal(ref string) => {
+                gen.write_char('.');
+                gen.write(string);
+            },
+            MemberKey::Computed(ref expr)  => {
+                gen.write_char('[');
+                expr.to_code(gen);
+                gen.write_char(']');
+            },
         }
     }
 }
@@ -257,7 +264,6 @@ impl Code for Expression {
                 ref property,
             } => {
                 object.to_code(gen);
-                gen.write_char('.');
                 property.to_code(gen);
             },
 

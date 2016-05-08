@@ -2,6 +2,7 @@ use grammar::*;
 use grammar::Statement::*;
 use grammar::Expression::*;
 use grammar::ClassMember::*;
+use grammar::OperatorType::*;
 
 /// The `Transformable` trait provides an interace for instances of grammar
 /// to alter the AST, either by mutating self, or by returning a new node.
@@ -62,7 +63,61 @@ impl Transformable for Expression {
 
             ObjectExpression(ref mut members) => {
                 members.transform();
-                return;
+
+                let (mut computed, literal): (Vec<ObjectMember>, Vec<ObjectMember>) =
+                members.drain(..).partition(|member| {
+                    match *member {
+                        ObjectMember::Computed { .. } => true,
+                        _                             => false,
+                    }
+                });
+
+                if computed.is_empty() {
+                    *members = literal;
+                    return;
+                }
+
+                let mut body = Vec::new();
+
+                body.push(VariableDeclarationStatement {
+                    kind: VariableDeclarationKind::Var,
+                    declarators: vec![
+                        VariableDeclarator {
+                            name: "___".to_string(),
+                            value: ObjectExpression(literal),
+                        }
+                    ]
+                });
+
+                for member in computed.drain(..) {
+                    if let ObjectMember::Computed { key, value } = member {
+                        body.push(ExpressionStatement(BinaryExpression {
+                            left: Box::new(MemberExpression {
+                                object: Box::new(
+                                    IdentifierExpression("___".to_string()
+                                )),
+                                property: Box::new(
+                                    MemberKey::Computed(key)
+                                )
+                            }),
+                            operator: Assign,
+                            right: Box::new(value),
+                        }));
+                    }
+                }
+
+                body.push(ReturnStatement(
+                    IdentifierExpression("___".to_string())
+                ));
+
+                CallExpression {
+                    callee: Box::new(FunctionExpression {
+                        name: None,
+                        params: Vec::new(),
+                        body: body,
+                    }),
+                    arguments: Vec::new(),
+                }
             },
 
             CallExpression {
