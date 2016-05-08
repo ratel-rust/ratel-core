@@ -20,25 +20,21 @@ To compile to a file:
 $ cargo run -- -f input.js -o output.js
 ```
 
+## Things that work:
 
-## The MIT License (MIT)
+* A basic pipeline for parsing, transofrmation and code generation.
+* Can parse and code gen a large chunk of ES2015+ syntax (not all yet, but
+  getting there).
+* The transformer can turn arrow functions into regular function expressions,
+  adding `.bind(this)` when necessary.
+* Object shorthand as well as computed properties get transmuted to ES5.
 
-Copyright (c) 2016 HoneyBadger
+## Things that are missing:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+* Keep track of location of tokens and later on AST constructs in the original
+  source code.
+* Meaningful parse error reporting.
+* Any sort of bundling.
+* A way to configure which transformations to do, and which to skip.
+* Interface with external compilers (Sass, Less, Handlebars), maybe use Neon?
+* Think of ways to analize function scopes (necessary for variable name scramling).

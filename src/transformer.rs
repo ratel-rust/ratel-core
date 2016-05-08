@@ -64,8 +64,8 @@ impl Transformable for Expression {
             ObjectExpression(ref mut members) => {
                 members.transform();
 
-                let (mut computed, literal): (Vec<ObjectMember>, Vec<ObjectMember>) =
-                members.drain(..).partition(|member| {
+                let (mut computed, literal): (Vec<ObjectMember>, Vec<ObjectMember>)
+                = members.drain(..).partition(|member| {
                     match *member {
                         ObjectMember::Computed { .. } => true,
                         _                             => false,
