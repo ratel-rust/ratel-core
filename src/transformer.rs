@@ -1,6 +1,7 @@
 use grammar::*;
 use grammar::Statement::*;
 use grammar::Expression::*;
+use grammar::ClassMember::*;
 
 /// The `Transformable` trait provides an interace for instances of grammar
 /// to alter the AST, either by mutating self, or by returning a new node.
@@ -8,6 +9,10 @@ use grammar::Expression::*;
 /// NOTE: Returning `None` means no changes are necessary!
 trait Transformable {
     fn transform(&mut self) {}
+
+    fn contains_this(&self) -> bool {
+        false
+    }
 }
 
 impl Transformable for Parameter {}
@@ -25,19 +30,29 @@ impl Transformable for Expression {
                 // return on feature switch
                 // return;
 
-                bind_this(FunctionExpression {
+                let body = match *body.clone() {
+                    BlockStatement { body }   => body,
+                    ExpressionStatement(expr) => vec![
+                        ReturnStatement(expr)
+                    ],
+                    statement => {
+                        panic!("Invalid arrow function body {:#?}", statement);
+                    }
+                };
+
+                let bind = body.contains_this();
+
+                let function = FunctionExpression {
                     name: None,
                     params: params.clone(),
-                    body: match *body.clone() {
-                        BlockStatement { body }   => body,
-                        ExpressionStatement(expr) => vec![
-                            ReturnStatement(expr)
-                        ],
-                        statement => {
-                            panic!("Invalid arrow function body {:#?}", statement);
-                        }
-                    },
-                })
+                    body: body,
+                };
+
+                if bind {
+                    bind_this(function)
+                } else {
+                    function
+                }
             },
 
             CallExpression {
@@ -52,28 +67,70 @@ impl Transformable for Expression {
             _ => return,
         }
     }
+
+    fn contains_this(&self) -> bool {
+        match *self {
+            ThisExpression => true,
+
+            MemberExpression {
+                ref object,
+                ..
+            } => object.contains_this(),
+
+            CallExpression {
+                ref callee,
+                ref arguments,
+            } => callee.contains_this() || arguments.contains_this(),
+
+            _ => false,
+        }
+    }
 }
 
-impl<T: Transformable> Transformable for Vec<T> {
+impl Transformable for ClassMember {
     fn transform(&mut self) {
-        for item in self.iter_mut() {
-            item.transform();
+        match *self {
+            ClassConstructor {
+                ref mut params,
+                ref mut body,
+            } => {
+                params.transform();
+                body.transform();
+            },
+
+            ClassMethod {
+                ref mut params,
+                ref mut body,
+                ..
+            } => {
+                params.transform();
+                body.transform();
+            },
+
+            ClassProperty {
+                ref mut value,
+                ..
+            } => {
+                value.transform();
+            }
         }
     }
 }
 
 impl Transformable for Statement {
     fn transform(&mut self) {
-        match *self {
+        *self = match *self {
             VariableDeclarationStatement {
                 ref mut kind,
                 ..
             } => {
                 *kind = VariableDeclarationKind::Var;
+                return;
             },
 
             ExpressionStatement(ref mut expression) => {
                 expression.transform();
+                return;
             },
 
             IfStatement {
@@ -87,16 +144,53 @@ impl Transformable for Statement {
                 if let Some(ref mut alternate) = *alternate {
                     alternate.transform();
                 }
+                return;
             },
 
             BlockStatement {
                 ref mut body,
             } => {
                 body.transform();
+                return;
             },
 
-            _ => {},
+            ClassStatement {
+                ref mut body,
+                ..
+            } => {
+                body.transform();
+                return;
+            }
+
+            _ => return,
         }
+    }
+
+    fn contains_this(&self) -> bool {
+        match *self {
+            ExpressionStatement(ref expression) => expression.contains_this(),
+
+            ReturnStatement(ref expression) => expression.contains_this(),
+
+            _ => false,
+        }
+    }
+}
+
+impl<T: Transformable> Transformable for Vec<T> {
+    fn transform(&mut self) {
+        for item in self.iter_mut() {
+            item.transform();
+        }
+    }
+
+    fn contains_this(&self) -> bool {
+        for item in self {
+            if item.contains_this() {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
