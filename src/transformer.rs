@@ -4,7 +4,7 @@ use grammar::Expression::*;
 use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
-/// The `Transformable` trait provides an interace for instances of grammar
+/// The `Transformable` trait provides an interface for instances of grammar
 /// to alter the AST, either by mutating self, or by returning a new node.
 ///
 /// NOTE: Returning `None` means no changes are necessary!

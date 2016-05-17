@@ -468,6 +468,7 @@ impl Code for Statement {
                 ref params,
                 ref body,
             } => {
+                gen.new_line();
                 gen.write("function ");
                 gen.write(name);
                 gen.write_char('(');
@@ -475,6 +476,7 @@ impl Code for Statement {
                 gen.write_min(") {", "){");
                 gen.write_block(body);
                 gen.write_char('}');
+                gen.new_line();
             },
 
             IfStatement {
@@ -516,6 +518,7 @@ impl Code for Statement {
                 ref extends,
                 ref body,
             } => {
+                gen.new_line();
                 gen.write("class ");
                 gen.write(name);
                 if let &Some(ref super_class) = extends {
@@ -525,6 +528,7 @@ impl Code for Statement {
                 gen.write_min(" {", "{");
                 gen.write_block(body);
                 gen.write_char('}');
+                gen.new_line();
             },
         }
     }

@@ -14,16 +14,9 @@ impl LiteralValue {
     pub fn float_from_string(string: String) -> Self {
         match string.parse::<f64>() {
             Ok(float) => LiteralFloat(float),
-            _         => panic!("Coudln't parse float from {}", string),
+            _         => panic!("Couldn't parse float from {}", string),
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum VariableDeclarationKind {
-    Var,
-    Let,
-    Const,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -286,6 +279,13 @@ pub enum ClassMember {
         name: String,
         value: Expression,
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum VariableDeclarationKind {
+    Var,
+    Let,
+    Const,
 }
 
 #[derive(Debug, PartialEq, Clone)]
