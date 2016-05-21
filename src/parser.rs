@@ -341,23 +341,31 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn sequence_expression(&mut self) -> Expression {
+    fn paren_expression(&mut self) -> Expression {
         if allow!(self, ParenOff) {
             expect!(self, Operator(FatArrow));
             return self.arrow_function_expression(None);
         }
 
+        let expression = self.sequence_or_expression();
+        expect!(self, ParenOff);
+
+        expression
+    }
+
+    fn sequence_or_expression(&mut self) -> Expression {
         let first = self.expression(0);
-        allow!{ self ParenOff => return first };
+        if allow!(self, Comma) {
+            let mut list = vec![first, self.expression(0)];
 
-        let mut list = vec![first];
-        loop {
-            allow!{ self ParenOff => break };
-            expect!(self, Comma);
-            list.push(self.expression(0));
+            while allow!(self, Comma) {
+                list.push(self.expression(0));
+            }
+
+            SequenceExpression(list)
+        } else {
+            first
         }
-
-        SequenceExpression(list)
     }
 
     fn expression(&mut self, lbp: u8) -> Expression {
@@ -366,7 +374,7 @@ impl<'a> Parser<'a> {
             Identifier(value) => IdentifierExpression(value),
             Literal(value)    => LiteralExpression(value),
             Operator(optype)  => self.prefix_expression(optype),
-            ParenOn           => self.sequence_expression(),
+            ParenOn           => self.paren_expression(),
             BracketOn         => self.array_expression(),
             BlockOn           => self.object_expression(),
             Function          => self.function_expression(),
@@ -394,7 +402,7 @@ impl<'a> Parser<'a> {
                 Some(&BracketOn)   => MemberExpression {
                     object: Box::new(left),
                     property: Box::new(MemberKey::Computed(
-                        surround!(self [ self.expression(0) ])
+                        surround!(self [ self.sequence_or_expression() ])
                     ))
                 },
 
@@ -430,7 +438,7 @@ impl<'a> Parser<'a> {
 
     fn expression_statement(&mut self) -> Statement {
         statement!(self, ExpressionStatement(
-            self.expression(0)
+            self.sequence_or_expression()
         ))
     }
 

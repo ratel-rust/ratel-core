@@ -445,3 +445,32 @@ fn named_function_expression() {
     });
 }
 
+#[test]
+fn expression_statement() {
+    assert_statement!("foo", ExpressionStatement(ident!("foo")));
+}
+
+#[test]
+fn sequence_expression_statement() {
+    assert_statement!("foo, bar, baz", ExpressionStatement(
+        SequenceExpression(vec![
+            ident!("foo"),
+            ident!("bar"),
+            ident!("baz"),
+        ])
+    ));
+}
+
+#[test]
+fn sequence_in_accessor() {
+    assert_expression!("foo[1, 2, 3]", MemberExpression {
+        object: Box::new(ident!("foo")),
+        property: Box::new(MemberKey::Computed(
+            SequenceExpression(vec![
+                num!(1.0),
+                num!(2.0),
+                num!(3.0),
+            ])
+        ))
+    });
+}
