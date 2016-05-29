@@ -197,7 +197,34 @@ impl Code for ObjectMember {
                 key.to_code(gen);
                 gen.write_min("]: ", "]:");
                 value.to_code(gen);
-            }
+            },
+
+            ObjectMember::Method {
+                ref name,
+                ref params,
+                ref body,
+            } => {
+                gen.write(name);
+                gen.write_char('(');
+                gen.write_list(params);
+                gen.write_min(") {", "){");
+                gen.write_block(body);
+                gen.write_char('}');
+            },
+
+            ObjectMember::ComputedMethod {
+                ref name,
+                ref params,
+                ref body,
+            } => {
+                gen.write_char('[');
+                name.to_code(gen);
+                gen.write("](");
+                gen.write_list(params);
+                gen.write_min(") {", "){");
+                gen.write_block(body);
+                gen.write_char('}');
+            },
         }
     }
 }

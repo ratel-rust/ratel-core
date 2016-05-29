@@ -260,6 +260,16 @@ pub enum ObjectMember {
         key: Expression,
         value: Expression,
     },
+    Method {
+        name: String,
+        params: Vec<Parameter>,
+        body: Vec<Statement>,
+    },
+    ComputedMethod {
+        name: Expression,
+        params: Vec<Parameter>,
+        body: Vec<Statement>,
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

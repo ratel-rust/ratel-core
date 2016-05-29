@@ -474,3 +474,54 @@ fn sequence_in_accessor() {
         ))
     });
 }
+
+#[test]
+fn object_literal_member() {
+    assert_expression!("({foo:100})", ObjectExpression(vec![
+        ObjectMember::Literal {
+            key: "foo".to_string(),
+            value: num!(100.0),
+        }
+    ]));
+}
+
+#[test]
+fn object_computed_member() {
+    assert_expression!("({[100]:100})", ObjectExpression(vec![
+        ObjectMember::Computed {
+            key: num!(100.0),
+            value: num!(100.0),
+        }
+    ]));
+}
+
+#[test]
+fn object_shorthand_member() {
+    assert_expression!("({foo})", ObjectExpression(vec![
+        ObjectMember::Shorthand {
+            key: "foo".to_string(),
+        }
+    ]));
+}
+
+#[test]
+fn object_method_member() {
+    assert_expression!("({foo() {} })", ObjectExpression(vec![
+        ObjectMember::Method {
+            name: "foo".to_string(),
+            params: vec![],
+            body: vec![],
+        }
+    ]));
+}
+
+#[test]
+fn object_computed_method_member() {
+    assert_expression!("({[100]() {} })", ObjectExpression(vec![
+        ObjectMember::ComputedMethod {
+            name: num!(100.0),
+            params: vec![],
+            body: vec![],
+        }
+    ]));
+}

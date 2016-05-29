@@ -182,13 +182,20 @@ impl<'a> Parser<'a> {
     fn object_member(&mut self) -> ObjectMember {
         match self.consume() {
             Identifier(key) | Literal(LiteralString(key)) => {
-                if allow!(self, Colon) {
-                    ObjectMember::Literal {
-                        key: key,
-                        value: self.expression(0),
-                    }
-                } else {
-                    ObjectMember::Shorthand {
+                match self.lookahead() {
+                    Some(&Colon)   => {
+                        self.consume();
+                        ObjectMember::Literal {
+                            key: key,
+                            value: self.expression(0),
+                        }
+                    },
+                    Some(&ParenOn) => ObjectMember::Method {
+                        name: key,
+                        params: list!(self ( self.parameter() )),
+                        body: self.block_body()
+                    },
+                    _ => ObjectMember::Shorthand {
                         key: key,
                     }
                 }
@@ -196,10 +203,17 @@ impl<'a> Parser<'a> {
             BracketOn => {
                 let key = self.expression(0);
                 expect!(self, BracketOff);
-                expect!(self, Colon);
-                ObjectMember::Computed {
-                    key: key,
-                    value: self.expression(0),
+                match self.consume() {
+                    Colon => ObjectMember::Computed {
+                        key: key,
+                        value: self.expression(0),
+                    },
+                    ParenOn => ObjectMember::ComputedMethod {
+                        name: key,
+                        params: list!(self, self.parameter(), ParenOff),
+                        body: self.block_body(),
+                    },
+                    token => unexpected_token!(self, token),
                 }
             },
             token => {

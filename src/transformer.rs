@@ -185,6 +185,42 @@ impl Transformable for ObjectMember {
                 value.transform();
                 return;
             },
+
+            ObjectMember::Method {
+                ref mut name,
+                ref mut params,
+                ref mut body,
+            } => {
+                body.transform();
+                params.transform();
+
+                ObjectMember::Literal {
+                    key: name.clone(),
+                    value: FunctionExpression {
+                        name: Some(name.clone()),
+                        params: params.clone(),
+                        body: body.clone(),
+                    }
+                }
+            },
+
+            ObjectMember::ComputedMethod {
+                ref mut name,
+                ref mut params,
+                ref mut body,
+            } => {
+                body.transform();
+                params.transform();
+
+                ObjectMember::Computed {
+                    key: name.clone(),
+                    value: FunctionExpression {
+                        name: None,
+                        params: params.clone(),
+                        body: body.clone(),
+                    }
+                }
+            },
         }
     }
 
