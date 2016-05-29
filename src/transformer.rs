@@ -4,12 +4,42 @@ use grammar::Expression::*;
 use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
+pub struct Settings {
+    pub block_scope: bool,
+    pub arrow: bool,
+    pub object: bool,
+}
+
+impl Settings {
+    pub fn target_es5() -> Settings {
+        let mut settings = Settings::target_es2015();
+
+        settings.block_scope = true;
+        settings.arrow = true;
+        settings.object = true;
+
+        settings
+    }
+
+    pub fn target_es2015() -> Settings {
+        Settings::no_transform()
+    }
+
+    pub fn no_transform() -> Settings {
+        Settings {
+            block_scope: false,
+            arrow: false,
+            object: false,
+        }
+    }
+}
+
 /// The `Transformable` trait provides an interface for instances of grammar
 /// to alter the AST, either by mutating self, or by returning a new node.
 ///
 /// NOTE: Returning `None` means no changes are necessary!
 trait Transformable {
-    fn transform(&mut self) {}
+    fn transform(&mut self, _: &Settings) {}
 
     fn contains_this(&self) -> bool {
         false
@@ -19,17 +49,19 @@ trait Transformable {
 impl Transformable for Parameter {}
 
 impl Transformable for Expression {
-    fn transform(&mut self) {
+    fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             ArrowFunctionExpression {
                 ref mut params,
                 ref mut body,
             } => {
-                params.transform();
-                body.transform();
+                params.transform(settings);
+                body.transform(settings);
 
-                // return on feature switch
-                // return;
+                // transformation flag check
+                if !settings.arrow {
+                    return;
+                }
 
                 let body = match **body {
                     BlockStatement { ref body }   => body.clone(),
@@ -57,12 +89,17 @@ impl Transformable for Expression {
             },
 
             ArrayExpression(ref mut items) => {
-                items.transform();
+                items.transform(settings);
                 return;
             },
 
             ObjectExpression(ref mut members) => {
-                members.transform();
+                members.transform(settings);
+
+                // transformation flag check
+                if !settings.object {
+                    return;
+                }
 
                 let (mut computed, literal): (Vec<ObjectMember>, Vec<ObjectMember>)
                 = members.drain(..).partition(|member| {
@@ -124,8 +161,8 @@ impl Transformable for Expression {
                 ref mut callee,
                 ref mut arguments,
             } => {
-                callee.transform();
-                arguments.transform();
+                callee.transform(settings);
+                arguments.transform(settings);
                 return;
             },
 
@@ -157,12 +194,17 @@ impl Transformable for Expression {
 }
 
 impl Transformable for ObjectMember {
-    fn transform(&mut self) {
+    fn transform(&mut self, settings: &Settings) {
         *self = match *self {
 
             ObjectMember::Shorthand {
                 ref key,
             } => {
+                // transformation flag check
+                if !settings.object {
+                    return;
+                }
+
                 ObjectMember::Literal {
                     key: key.clone(),
                     value: IdentifierExpression(key.clone()),
@@ -173,7 +215,7 @@ impl Transformable for ObjectMember {
                 ref mut value,
                 ..
             } => {
-                value.transform();
+                value.transform(settings);
                 return;
             },
 
@@ -181,8 +223,8 @@ impl Transformable for ObjectMember {
                 ref mut key,
                 ref mut value,
             } => {
-                key.transform();
-                value.transform();
+                key.transform(settings);
+                value.transform(settings);
                 return;
             },
 
@@ -191,8 +233,13 @@ impl Transformable for ObjectMember {
                 ref mut params,
                 ref mut body,
             } => {
-                body.transform();
-                params.transform();
+                body.transform(settings);
+                params.transform(settings);
+
+                // transformation flag check
+                if !settings.object {
+                    return;
+                }
 
                 ObjectMember::Literal {
                     key: name.clone(),
@@ -209,8 +256,13 @@ impl Transformable for ObjectMember {
                 ref mut params,
                 ref mut body,
             } => {
-                body.transform();
-                params.transform();
+                body.transform(settings);
+                params.transform(settings);
+
+                // transformation flag check
+                if !settings.object {
+                    return;
+                }
 
                 ObjectMember::Computed {
                     key: name.clone(),
@@ -242,14 +294,14 @@ impl Transformable for ObjectMember {
 }
 
 impl Transformable for ClassMember {
-    fn transform(&mut self) {
+    fn transform(&mut self, settings: &Settings) {
         match *self {
             ClassConstructor {
                 ref mut params,
                 ref mut body,
             } => {
-                params.transform();
-                body.transform();
+                params.transform(settings);
+                body.transform(settings);
             },
 
             ClassMethod {
@@ -257,23 +309,23 @@ impl Transformable for ClassMember {
                 ref mut body,
                 ..
             } => {
-                params.transform();
-                body.transform();
+                params.transform(settings);
+                body.transform(settings);
             },
 
             ClassProperty {
                 ref mut value,
                 ..
             } => {
-                value.transform();
+                value.transform(settings);
             }
         }
     }
 }
 
 impl Transformable for VariableDeclarator {
-    fn transform(&mut self) {
-        self.value.transform();
+    fn transform(&mut self, settings: &Settings) {
+        self.value.transform(settings);
     }
 
     fn contains_this(&self) -> bool {
@@ -282,19 +334,25 @@ impl Transformable for VariableDeclarator {
 }
 
 impl Transformable for Statement {
-    fn transform(&mut self) {
+    fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             VariableDeclarationStatement {
                 ref mut kind,
                 ref mut declarators,
             } => {
+                declarators.transform(settings);
+
+                // transformation flag check
+                if !settings.block_scope {
+                    return;
+                }
+
                 *kind = VariableDeclarationKind::Var;
-                declarators.transform();
                 return;
             },
 
             ExpressionStatement(ref mut expression) => {
-                expression.transform();
+                expression.transform(settings);
                 return;
             },
 
@@ -304,10 +362,10 @@ impl Transformable for Statement {
                 ref mut alternate,
                 ..
             } => {
-                test.transform();
-                consequent.transform();
+                test.transform(settings);
+                consequent.transform(settings);
                 if let Some(ref mut alternate) = *alternate {
-                    alternate.transform();
+                    alternate.transform(settings);
                 }
                 return;
             },
@@ -315,7 +373,7 @@ impl Transformable for Statement {
             BlockStatement {
                 ref mut body,
             } => {
-                body.transform();
+                body.transform(settings);
                 return;
             },
 
@@ -323,7 +381,7 @@ impl Transformable for Statement {
                 ref mut body,
                 ..
             } => {
-                body.transform();
+                body.transform(settings);
                 return;
             }
 
@@ -348,9 +406,9 @@ impl Transformable for Statement {
 }
 
 impl<T: Transformable> Transformable for Vec<T> {
-    fn transform(&mut self) {
+    fn transform(&mut self, settings: &Settings) {
         for item in self.iter_mut() {
-            item.transform();
+            item.transform(settings);
         }
     }
 
@@ -374,6 +432,6 @@ fn bind_this(function: Expression) -> Expression {
     }
 }
 
-pub fn transform(program: &mut Program) {
-    program.body.transform();
+pub fn transform(program: &mut Program, settings: Settings) {
+    program.body.transform(&settings);
 }

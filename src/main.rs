@@ -99,7 +99,7 @@ fn main() {
     }
 
     let start = Instant::now();
-    transformer::transform(&mut ast);
+    transformer::transform(&mut ast, transformer::Settings::target_es5());
     let transform_duration = Instant::now().duration_since(start);
 
     let start = Instant::now();
