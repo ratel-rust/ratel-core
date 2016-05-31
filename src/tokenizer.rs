@@ -310,10 +310,10 @@ impl<'a> Iterator for Tokenizer<'a> {
 
             match_operators! { self ch
                 '=' => Assign {
-                    '>' => FatArrow,
                     '=' => Equality {
                         '=' => StrictEquality,
                     }
+                    '>' => FatArrow,
                 }
                 '!' => LogicalNot {
                     '=' => Inequality {
@@ -321,34 +321,50 @@ impl<'a> Iterator for Tokenizer<'a> {
                     }
                 }
                 '<' => Lesser {
-                    '<' => BitShiftLeft,
+                    '<' => BitShiftLeft {
+                        '=' => BSLAssign,
+                    }
                     '=' => LesserEquals,
                 }
                 '>' => Greater {
                     '>' => BitShiftRight {
-                        '>' => UBitShiftRight,
+                        '>' => UBitShiftRight {
+                            '=' => UBSRAssign,
+                        }
+                        '=' => BSRAssign,
                     }
                     '=' => GreaterEquals,
                 }
                 '?' => Conditional,
                 '~' => BitwiseNot,
-                '^' => BitwiseXor,
+                '^' => BitwiseXor {
+                    '=' => BitXorAssign,
+                }
                 '&' => BitwiseAnd {
                     '&' => LogicalAnd,
+                    '=' => BitAndAssign,
                 }
                 '|' => BitwiseOr {
                     '|' => LogicalOr,
+                    '=' => BitOrAssign,
                 }
                 '+' => Addition {
                     '+' => Increment,
+                    '=' => AddAssign,
                 }
                 '-' => Substraction {
                     '-' => Decrement,
+                    '=' => SubstractAssign,
                 }
                 '*' => Multiplication {
-                    '*' => Exponent,
+                    '*' => Exponent {
+                        '=' => ExponentAssign,
+                    }
+                    '=' => MultiplyAssign,
                 }
-                '%' => Remainder,
+                '%' => Remainder {
+                    '=' => RemainderAssign,
+                }
             }
 
             return Some(match ch {
@@ -376,7 +392,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                             self.source.next();
                             self.read_block_comment();
                             continue 'lex
-                        }
+                        },
+                        Some(&'=') => {
+                            self.source.next();
+                            Operator(DivideAssign)
+                        },
                         _ => Operator(Division)
                     }
                 },

@@ -25,7 +25,7 @@ macro_rules! allow {
             $(
                 Some(&$p) => {
                     $parser.consume();
-                    $then;
+                    $then
                 }
             )*
             _ => {}
@@ -330,12 +330,16 @@ impl<'a> Parser<'a> {
                     panic!("Unexpected operator {:?}", operator);
                 }
 
+                if operator.assignment() {
+                    // TODO: verify that left is assignable
+                }
+
                 BinaryExpression {
                     left: Box::new(left),
                     operator: operator,
                     right: Box::new(
                         self.expression(bp)
-                    )
+                    ),
                 }
             }
         }

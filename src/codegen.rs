@@ -132,6 +132,18 @@ impl Code for OperatorType {
             LogicalOr        => "||",
             Conditional      => "?",
             Assign           => "=",
+            AddAssign        => "+=",
+            SubstractAssign  => "-=",
+            ExponentAssign   => "**=",
+            MultiplyAssign   => "*=",
+            DivideAssign     => "/=",
+            RemainderAssign  => "%=",
+            BSLAssign        => "<<=",
+            BSRAssign        => ">>=",
+            UBSRAssign       => ">>>=",
+            BitAndAssign     => "&=",
+            BitXorAssign     => "^=",
+            BitOrAssign      => "|=",
             Spread           => "...",
         });
     }

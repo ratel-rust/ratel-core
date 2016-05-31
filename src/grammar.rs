@@ -68,6 +68,18 @@ pub enum OperatorType {
     LogicalOr,        //   …  || …
     Conditional,      //   …  ?  …  :  …
     Assign,           //   …  =  …
+    AddAssign,        //   …  += …
+    SubstractAssign,  //   …  -= …
+    ExponentAssign,   //   … **= …
+    MultiplyAssign,   //   …  *= …
+    DivideAssign,     //   …  /= …
+    RemainderAssign,  //   …  %= …
+    BSLAssign,        //   … <<= …
+    BSRAssign,        //   … >>= …
+    UBSRAssign,       //   … >>>= …
+    BitAndAssign,     //   …  &= …
+    BitXorAssign,     //   …  ^= …
+    BitOrAssign,      //   …  |= …
     Spread,           //     ... …
 }
 use self::OperatorType::*;
@@ -120,7 +132,21 @@ impl OperatorType {
             LogicalAnd       => 6,
             LogicalOr        => 5,
             Conditional      => 4,
-            Assign           => 3,
+
+            Assign           |
+            AddAssign        |
+            SubstractAssign  |
+            ExponentAssign   |
+            MultiplyAssign   |
+            DivideAssign     |
+            RemainderAssign  |
+            BSLAssign        |
+            BSRAssign        |
+            UBSRAssign       |
+            BitAndAssign     |
+            BitXorAssign     |
+            BitOrAssign      => 3,
+
             Spread           => 1,
         }
     }
@@ -146,7 +172,6 @@ impl OperatorType {
     pub fn infix(&self) -> bool {
         match *self {
             FatArrow         |
-            Assign           |
             Accessor         |
             Multiplication   |
             Division         |
@@ -172,7 +197,40 @@ impl OperatorType {
             LogicalOr        |
             Conditional      |
             Addition         |
-            Substraction     => true,
+            Substraction     |
+            Assign           |
+            AddAssign        |
+            SubstractAssign  |
+            ExponentAssign   |
+            MultiplyAssign   |
+            DivideAssign     |
+            RemainderAssign  |
+            BSLAssign        |
+            BSRAssign        |
+            UBSRAssign       |
+            BitAndAssign     |
+            BitXorAssign     |
+            BitOrAssign      => true,
+
+            _                => false
+        }
+    }
+
+    pub fn assignment(&self) -> bool {
+        match *self {
+            Assign           |
+            AddAssign        |
+            SubstractAssign  |
+            ExponentAssign   |
+            MultiplyAssign   |
+            DivideAssign     |
+            RemainderAssign  |
+            BSLAssign        |
+            BSRAssign        |
+            UBSRAssign       |
+            BitAndAssign     |
+            BitXorAssign     |
+            BitOrAssign      => true,
 
             _                => false
         }
@@ -243,6 +301,29 @@ impl Expression {
             ConditionalExpression { .. }           => 4,
 
             _                                      => 100,
+        }
+    }
+
+    #[inline(always)]
+    pub fn ident(name: &str) -> Self {
+        IdentifierExpression(name.to_string())
+    }
+
+    #[inline(always)]
+    pub fn member(object: Expression, property: &str) -> Self {
+        MemberExpression {
+            object: Box::new(object),
+            property: Box::new(
+                MemberKey::Literal(property.to_string())
+            )
+        }
+    }
+
+    #[inline(always)]
+    pub fn call(callee: Expression, arguments: Vec<Expression>) -> Self {
+        CallExpression {
+            callee: Box::new(callee),
+            arguments: arguments,
         }
     }
 }

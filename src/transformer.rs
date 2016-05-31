@@ -8,6 +8,12 @@ pub struct Settings {
     pub block_scope: bool,
     pub arrow: bool,
     pub object: bool,
+    pub exponentation: bool,
+}
+
+#[inline(always)]
+fn bind_this(function: Expression) -> Expression {
+    Expression::call(Expression::member(function, "bind"), vec![ThisExpression])
 }
 
 impl Settings {
@@ -22,7 +28,11 @@ impl Settings {
     }
 
     pub fn target_es2015() -> Settings {
-        Settings::no_transform()
+        let mut settings = Settings::no_transform();
+
+        settings.exponentation = true;
+
+        settings
     }
 
     pub fn no_transform() -> Settings {
@@ -30,6 +40,7 @@ impl Settings {
             block_scope: false,
             arrow: false,
             object: false,
+            exponentation: false,
         }
     }
 }
@@ -130,9 +141,7 @@ impl Transformable for Expression {
                     if let ObjectMember::Computed { key, value } = member {
                         body.push(ExpressionStatement(BinaryExpression {
                             left: Box::new(MemberExpression {
-                                object: Box::new(
-                                    IdentifierExpression("___".to_string()
-                                )),
+                                object: Box::new(Expression::ident("___")),
                                 property: Box::new(
                                     MemberKey::Computed(key)
                                 )
@@ -143,18 +152,13 @@ impl Transformable for Expression {
                     }
                 }
 
-                body.push(ReturnStatement(
-                    IdentifierExpression("___".to_string())
-                ));
+                body.push(ReturnStatement(Expression::ident("___")));
 
-                CallExpression {
-                    callee: Box::new(FunctionExpression {
-                        name: None,
-                        params: Vec::new(),
-                        body: body,
-                    }),
-                    arguments: Vec::new(),
-                }
+                Expression::call(FunctionExpression {
+                    name: None,
+                    params: Vec::new(),
+                    body: body,
+                }, Vec::new())
             },
 
             CallExpression {
@@ -165,6 +169,37 @@ impl Transformable for Expression {
                 arguments.transform(settings);
                 return;
             },
+
+            BinaryExpression {
+                ref mut left,
+                ref mut operator,
+                ref mut right,
+            } => {
+                left.transform(settings);
+                right.transform(settings);
+
+                if !settings.exponentation {
+                    return;
+                }
+
+                match *operator {
+                    Exponent => Expression::call(
+                        Expression::member(Expression::ident("Math"), "pow"),
+                        vec![*left.clone(), *right.clone()]
+                    ),
+
+                    ExponentAssign => {
+                        *operator = Assign;
+                        *right = Box::new(Expression::call(
+                            Expression::member(Expression::ident("Math"), "pow"),
+                            vec![*left.clone(), *right.clone()]
+                        ));
+                        return;
+                    },
+
+                    _ => return,
+                }
+            }
 
             _ => return,
         }
@@ -187,6 +222,12 @@ impl Transformable for Expression {
                 ref callee,
                 ref arguments,
             } => callee.contains_this() || arguments.contains_this(),
+
+            BinaryExpression {
+                ref left,
+                ref right,
+                ..
+            } => left.contains_this() || right.contains_this(),
 
             _ => false,
         }
@@ -419,16 +460,6 @@ impl<T: Transformable> Transformable for Vec<T> {
             }
         }
         return false;
-    }
-}
-
-fn bind_this(function: Expression) -> Expression {
-    CallExpression {
-        callee: Box::new(MemberExpression {
-            object: Box::new(function),
-            property: Box::new(MemberKey::Literal("bind".to_string())),
-        }),
-        arguments: vec![ThisExpression]
     }
 }
 
