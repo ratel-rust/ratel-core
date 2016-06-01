@@ -480,6 +480,22 @@ impl Code for VariableDeclarator {
 impl Code for Statement {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
+            LabeledStatement {
+                ref label,
+                ref body,
+            } => {
+                gen.write(label);
+                gen.write_min(": ", ":");
+                body.to_code(gen);
+            },
+
+            BlockStatement {
+                ref body,
+            } => {
+                gen.write_char('{');
+                gen.write_block(body);
+                gen.write_char('}');
+            },
 
             ExpressionStatement(ref expr) => {
                 expr.to_code(gen);
@@ -542,14 +558,6 @@ impl Code for Statement {
                 test.to_code(gen);
                 gen.write_min(") ", ")");
                 body.to_code(gen);
-            },
-
-            BlockStatement {
-                ref body
-            } => {
-                gen.write_char('{');
-                gen.write_block(body);
-                gen.write_char('}');
             },
 
             ClassStatement {

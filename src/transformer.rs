@@ -377,6 +377,21 @@ impl Transformable for VariableDeclarator {
 impl Transformable for Statement {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
+            BlockStatement {
+                ref mut body,
+            } => {
+                body.transform(settings);
+                return;
+            },
+
+            LabeledStatement {
+                ref mut body,
+                ..
+            } => {
+                body.transform(settings);
+                return;
+            },
+
             VariableDeclarationStatement {
                 ref mut kind,
                 ref mut declarators,
@@ -408,13 +423,6 @@ impl Transformable for Statement {
                 if let Some(ref mut alternate) = *alternate {
                     alternate.transform(settings);
                 }
-                return;
-            },
-
-            BlockStatement {
-                ref mut body,
-            } => {
-                body.transform(settings);
                 return;
             },
 

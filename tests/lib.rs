@@ -44,6 +44,22 @@ macro_rules! param {
     })
 }
 
+#[test]
+fn block_statement() {
+    assert_statement!("{}", BlockStatement {
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn labeled_block_statement() {
+    assert_statement!("foo: {}", LabeledStatement {
+        label: "foo".to_string(),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
 
 #[test]
 fn var_declare() {

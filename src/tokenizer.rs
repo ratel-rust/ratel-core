@@ -376,8 +376,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 ')' => ParenOff,
                 '[' => BracketOn,
                 ']' => BracketOff,
-                '{' => BlockOn,
-                '}' => BlockOff,
+                '{' => BraceOn,
+                '}' => BraceOff,
                 '"' | '\'' => {
                     Literal(LiteralString( self.read_string(ch) ))
                 },

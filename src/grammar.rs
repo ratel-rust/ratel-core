@@ -387,6 +387,13 @@ pub struct VariableDeclarator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
+    BlockStatement {
+        body: Vec<Statement>,
+    },
+    LabeledStatement {
+        label: String,
+        body: Box<Statement>,
+    },
     VariableDeclarationStatement {
         kind: VariableDeclarationKind,
         declarators: Vec<VariableDeclarator>,
@@ -406,9 +413,6 @@ pub enum Statement {
     WhileStatement {
         test: Expression,
         body: Box<Statement>,
-    },
-    BlockStatement {
-        body: Vec<Statement>,
     },
     ClassStatement {
         name: String,

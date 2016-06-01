@@ -72,7 +72,7 @@ macro_rules! statement {
                 true
             },
             Some(&ParenOff)  => true,
-            Some(&BlockOff)  => true,
+            Some(&BraceOff)  => true,
             None             => true,
             _                => false
         };
@@ -117,7 +117,7 @@ macro_rules! list {
         list!($parser, $item, BracketOn, BracketOff)
     };
     ($parser:ident { $item:expr }) => {
-        list!($parser, $item, BlockOn, BlockOff)
+        list!($parser, $item, BraceOn, BraceOff)
     };
 }
 
@@ -223,11 +223,11 @@ impl<'a> Parser<'a> {
     }
 
     fn object_expression(&mut self) -> Expression {
-        ObjectExpression(list!(self, self.object_member(), BlockOff))
+        ObjectExpression(list!(self, self.object_member(), BraceOff))
     }
 
     fn block_or_statement(&mut self) -> Statement {
-        if let Some(&BlockOn) = self.lookahead() {
+        if let Some(&BraceOn) = self.lookahead() {
             BlockStatement {
                 body: self.block_body()
             }
@@ -236,12 +236,18 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn block_statement(&mut self) -> Statement {
+        BlockStatement {
+            body: self.block_body(),
+        }
+    }
+
     fn block_body(&mut self) -> Vec<Statement> {
-        expect!(self, BlockOn);
+        expect!(self, BraceOn);
 
         let mut body = Vec::new();
         loop {
-            allow!{ self BlockOff => break };
+            allow!{ self BraceOff => break };
 
             body.push(
                 self.statement().expect("Unexpected end of statements block")
@@ -269,7 +275,7 @@ impl<'a> Parser<'a> {
                 panic!("Cannot cast {:?} to parameters", p),
         };
 
-        let body = if let Some(&BlockOn) = self.lookahead() {
+        let body = if let Some(&BraceOn) = self.lookahead() {
             BlockStatement {
                 body: self.block_body()
             }
@@ -371,8 +377,7 @@ impl<'a> Parser<'a> {
         expression
     }
 
-    fn sequence_or_expression(&mut self) -> Expression {
-        let first = self.expression(0);
+    fn sequence_or_expression_with(&mut self, first: Expression) -> Expression {
         if allow!(self, Comma) {
             let mut list = vec![first, self.expression(0)];
 
@@ -386,19 +391,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expression(&mut self, lbp: u8) -> Expression {
-        let mut left = match self.consume() {
-            This              => ThisExpression,
-            Identifier(value) => IdentifierExpression(value),
-            Literal(value)    => LiteralExpression(value),
-            Operator(optype)  => self.prefix_expression(optype),
-            ParenOn           => self.paren_expression(),
-            BracketOn         => self.array_expression(),
-            BlockOn           => self.object_expression(),
-            Function          => self.function_expression(),
-            token             => unexpected_token!(self, token)
-        };
+    fn sequence_or_expression(&mut self) -> Expression {
+        let first = self.expression(0);
+        self.sequence_or_expression_with(first)
+    }
 
+    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
         'right: loop {
             let rbp = match self.lookahead() {
                 Some(&Operator(ref op)) => op.binding_power(false),
@@ -431,9 +429,30 @@ impl<'a> Parser<'a> {
         left
     }
 
-    fn variable_declaration_statement(
-        &mut self, kind: VariableDeclarationKind
-    ) -> Statement {
+    fn expression(&mut self, lbp: u8) -> Expression {
+        let left = match self.consume() {
+            This              => ThisExpression,
+            Identifier(value) => IdentifierExpression(value),
+            Literal(value)    => LiteralExpression(value),
+            Operator(optype)  => self.prefix_expression(optype),
+            ParenOn           => self.paren_expression(),
+            BracketOn         => self.array_expression(),
+            BraceOn           => self.object_expression(),
+            Function          => self.function_expression(),
+            token             => unexpected_token!(self, token)
+        };
+
+        self.complex_expression(left, lbp)
+    }
+
+    fn variable_declaration_statement(&mut self) -> Statement {
+        let kind = match self.consume() {
+            Var   => VariableDeclarationKind::Var,
+            Let   => VariableDeclarationKind::Let,
+            Const => VariableDeclarationKind::Const,
+            token => unexpected_token!(self, token),
+        };
+
         let mut declarators = Vec::new();
 
         loop {
@@ -452,6 +471,24 @@ impl<'a> Parser<'a> {
             kind: kind,
             declarators: declarators,
         })
+    }
+
+    fn labeled_or_expression_statement(&mut self) -> Statement {
+        let label = expect!(self, Identifier(label) => label);
+
+        if allow!(self, Colon) {
+            LabeledStatement {
+                label: label,
+                body: Box::new(
+                    self.statement().expect("Expected statement")
+                ),
+            }
+        } else {
+            let first = self.complex_expression(IdentifierExpression(label), 0);
+            statement!(self, ExpressionStatement(
+                self.sequence_or_expression_with(first)
+            ))
+        }
     }
 
     fn expression_statement(&mut self) -> Statement {
@@ -543,7 +580,7 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
-        expect!(self, BlockOn);
+        expect!(self, BraceOn);
         let mut members = Vec::new();
         'members: loop {
             members.push(match self.consume() {
@@ -553,7 +590,7 @@ impl<'a> Parser<'a> {
                     self.class_member(name, true)
                 },
                 Semicolon        => continue 'members,
-                BlockOff         => break 'members,
+                BraceOff         => break 'members,
                 token            => unexpected_token!(self, token)
             });
         }
@@ -566,29 +603,46 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        allow!{self
-            Var       => return Some(self.variable_declaration_statement(
-                VariableDeclarationKind::Var
-            )),
-            Let       => return Some(self.variable_declaration_statement(
-                VariableDeclarationKind::Let
-            )),
-            Const     => return Some(self.variable_declaration_statement(
-                VariableDeclarationKind::Const
-            )),
-            Return    => return Some(self.return_statement()),
-            Function  => return Some(self.function_statement()),
-            Class     => return Some(self.class_statement()),
-            If        => return Some(self.if_statement()),
-            While     => return Some(self.while_statement()),
-            Semicolon => return self.statement()
-        };
+        Some(match self.lookahead() {
+            // intentional returns here!
+            None                 => return None,
+            Some(&Semicolon)     => return self.statement(),
 
-        if self.lookahead().is_some() {
-            Some(self.expression_statement())
-        } else {
-            None
-        }
+            Some(&BraceOn)       => self.block_statement(),
+
+            Some(&Var)           |
+            Some(&Let)           |
+            Some(&Const)         => self.variable_declaration_statement(),
+
+            Some(&Return)        => {
+                self.consume();
+                self.return_statement()
+            },
+
+            Some(&Function)      => {
+                self.consume();
+                self.function_statement()
+            },
+
+            Some(&Class)         => {
+                self.consume();
+                self.class_statement()
+            },
+
+            Some(&If)            => {
+                self.consume();
+                self.if_statement()
+            },
+
+            Some(&While)         => {
+                self.consume();
+                self.while_statement()
+            },
+
+            Some(&Identifier(_)) => self.labeled_or_expression_statement(),
+
+            Some(_)              => self.expression_statement(),
+        })
     }
 }
 
