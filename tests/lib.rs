@@ -398,6 +398,18 @@ fn if_else_no_block_statement() {
 }
 
 #[test]
+fn for_empty_statement() {
+    assert_statement!("for(;;){}", ForStatement {
+        init: None,
+        test: None,
+        update: None,
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
 fn while_statement() {
     assert_statement!("
 

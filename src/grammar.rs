@@ -419,6 +419,12 @@ pub enum Statement {
         test: Expression,
         body: Box<Statement>,
     },
+    ForStatement {
+        init: Option<Box<Statement>>,
+        test: Option<Expression>,
+        update: Option<Expression>,
+        body: Box<Statement>,
+    },
     ClassStatement {
         name: String,
         extends: Option<String>,

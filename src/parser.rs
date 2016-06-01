@@ -506,7 +506,7 @@ impl<'a> Parser<'a> {
                     if self.allow_asi {
                         None
                     } else {
-                        Some(self.expression(0))
+                        Some(self.sequence_or_expression())
                     }
                 }
             }
@@ -554,6 +554,53 @@ impl<'a> Parser<'a> {
             test: surround!(self ( self.expression(0) )),
             body: Box::new(self.block_or_statement()),
         })
+    }
+
+    fn for_statement(&mut self) -> Statement {
+        expect!(self, ParenOn);
+
+        let init = match self.lookahead() {
+            Some(&Semicolon) => {
+                self.consume();
+                None
+            },
+            _                => {
+                let expr = ExpressionStatement(self.sequence_or_expression());
+                expect!(self, Semicolon);
+                Some(Box::new(expr))
+            },
+        };
+
+        let test = match self.lookahead() {
+            Some(&Semicolon) => {
+                self.consume();
+                None
+            },
+            _                => {
+                let expr = self.sequence_or_expression();
+                expect!(self, Semicolon);
+                Some(expr)
+            }
+        };
+
+        let update = match self.lookahead() {
+            Some(&ParenOff) => {
+                self.consume();
+                None
+            },
+            _                => {
+                let expr = self.sequence_or_expression();
+                expect!(self, ParenOff);
+                Some(expr)
+            }
+        };
+
+        ForStatement {
+            init: init,
+            test: test,
+            update: update,
+            body: Box::new(self.block_or_statement()),
+        }
     }
 
     fn parameter(&mut self) -> Parameter {
@@ -668,6 +715,11 @@ impl<'a> Parser<'a> {
             Some(&While)         => {
                 self.consume();
                 self.while_statement()
+            },
+
+            Some(&For)           => {
+                self.consume();
+                self.for_statement()
             },
 
             Some(&Identifier(_)) => self.labeled_or_expression_statement(),

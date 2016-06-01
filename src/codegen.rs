@@ -93,6 +93,15 @@ impl Code for String {
     }
 }
 
+impl<T: Code> Code for Option<T> {
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            Some(ref value) => value.to_code(gen),
+            None            => {}
+        }
+    }
+}
+
 impl Code for OperatorType {
     fn to_code(&self, gen: &mut Generator) {
         gen.write(match *self {
@@ -560,7 +569,7 @@ impl Code for Statement {
                 gen.write_min(") ", ")");
                 consequent.to_code(gen);
 
-                if let &Some(ref alternate) = alternate {
+                if let Some(ref alternate) = *alternate {
                     gen.write(" else ");
                     alternate.to_code(gen);
                 };
@@ -572,6 +581,24 @@ impl Code for Statement {
             } => {
                 gen.write_min("while (", "while(");
                 test.to_code(gen);
+                gen.write_min(") ", ")");
+                body.to_code(gen);
+            },
+
+            ForStatement {
+                ref init,
+                ref test,
+                ref update,
+                ref body,
+            } => {
+                gen.write_min("for (", "for(");
+                if let Some(ref init) = *init {
+                    init.to_code(gen);
+                }
+                gen.write_min("; ", ";");
+                test.to_code(gen);
+                gen.write_min("; ", ";");
+                update.to_code(gen);
                 gen.write_min(") ", ")");
                 body.to_code(gen);
             },
