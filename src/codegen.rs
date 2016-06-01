@@ -502,9 +502,25 @@ impl Code for Statement {
                 gen.write_char(';');
             },
 
-            ReturnStatement(ref expr) => {
-                gen.write("return ");
-                expr.to_code(gen);
+            ReturnStatement {
+                ref value,
+            } => {
+                gen.write("return");
+                if let Some(ref value) = *value {
+                    gen.write_char(' ');
+                    value.to_code(gen);
+                }
+                gen.write_char(';');
+            },
+
+            BreakStatement {
+                ref label,
+            } => {
+                gen.write("break");
+                if let Some(ref label) = *label {
+                    gen.write_char(' ');
+                    gen.write(label);
+                }
                 gen.write_char(';');
             },
 

@@ -52,13 +52,71 @@ fn block_statement() {
 }
 
 #[test]
-fn labeled_block_statement() {
+fn labeled_statement() {
     assert_statement!("foo: {}", LabeledStatement {
         label: "foo".to_string(),
         body: Box::new(BlockStatement {
             body: Vec::new(),
         }),
     });
+}
+
+#[test]
+fn break_statement() {
+    assert_statement!("break;", BreakStatement {
+        label: None
+    });
+}
+
+#[test]
+fn break_label_statement() {
+    assert_statement!("break foo;", BreakStatement {
+        label: Some("foo".to_string())
+    });
+}
+
+#[test]
+fn break_asi_statement() {
+    assert_parse!("
+
+    break
+    foo
+
+    ", vec![
+        BreakStatement {
+            label: None
+        },
+        ExpressionStatement(ident!("foo"))
+    ]);
+}
+
+#[test]
+fn return_statement() {
+    assert_statement!("return;", ReturnStatement {
+        value: None,
+    });
+}
+
+#[test]
+fn return_value_statement() {
+    assert_statement!("return foo;", ReturnStatement {
+        value: Some(ident!("foo")),
+    });
+}
+
+#[test]
+fn return_asi_statement() {
+    assert_parse!("
+
+    return
+    foo
+
+    ", vec![
+        ReturnStatement {
+            value: None
+        },
+        ExpressionStatement(ident!("foo"))
+    ]);
 }
 
 #[test]
@@ -206,7 +264,9 @@ fn function_statement() {
         name: "foo".to_string(),
         params: vec![],
         body: vec![
-            ReturnStatement(ident!("bar"))
+            ReturnStatement {
+                value: Some(ident!("bar"))
+            }
         ]
     });
 }
@@ -227,7 +287,9 @@ fn function_with_params_statement() {
             param!("c"),
         ],
         body: vec![
-            ReturnStatement(ident!("bar"))
+            ReturnStatement {
+                value: Some(ident!("bar"))
+            }
         ]
     });
 }
@@ -434,7 +496,9 @@ fn function_expression() {
             name: None,
             params: vec![],
             body: vec![
-                ReturnStatement(ident!("bar"))
+                ReturnStatement {
+                    value: Some(ident!("bar"))
+                }
             ]
         })
     });
@@ -455,7 +519,9 @@ fn named_function_expression() {
             name: Some("foo".to_string()),
             params: vec![],
             body: vec![
-                ReturnStatement(ident!("bar"))
+                ReturnStatement {
+                    value: Some(ident!("bar"))
+                }
             ]
         })
     });

@@ -399,7 +399,12 @@ pub enum Statement {
         declarators: Vec<VariableDeclarator>,
     },
     ExpressionStatement(Expression),
-    ReturnStatement(Expression),
+    ReturnStatement {
+        value: Option<Expression>,
+    },
+    BreakStatement {
+        label: Option<String>,
+    },
     FunctionStatement {
         name: String,
         params: Vec<Parameter>,

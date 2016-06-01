@@ -498,9 +498,40 @@ impl<'a> Parser<'a> {
     }
 
     fn return_statement(&mut self) -> Statement {
-        statement!(self, ReturnStatement(
-            self.expression(0)
-        ))
+        self.handle_line_termination();
+
+        let value = if self.allow_asi {
+            None
+        } else {
+            if let Some(&Semicolon) = self.lookahead() {
+                None
+            } else {
+                Some(self.expression(0))
+            }
+        };
+
+        statement!(self, ReturnStatement {
+            value: value
+        })
+    }
+
+    fn break_statement(&mut self) -> Statement {
+        self.handle_line_termination();
+
+        let label = if self.allow_asi {
+            None
+        } else {
+            match self.lookahead() {
+                Some(&Identifier(_)) => Some(
+                    expect!(self, Identifier(name) => name)
+                ),
+                _                    => None,
+            }
+        };
+
+        statement!(self, BreakStatement {
+            label: label
+        })
     }
 
     fn if_statement(&mut self) -> Statement {
@@ -617,6 +648,11 @@ impl<'a> Parser<'a> {
             Some(&Return)        => {
                 self.consume();
                 self.return_statement()
+            },
+
+            Some(&Break)         => {
+                self.consume();
+                self.break_statement()
             },
 
             Some(&Function)      => {

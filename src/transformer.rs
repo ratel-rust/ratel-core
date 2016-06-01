@@ -77,7 +77,9 @@ impl Transformable for Expression {
                 let body = match **body {
                     BlockStatement { ref body }   => body.clone(),
                     ExpressionStatement(ref expr) => vec![
-                        ReturnStatement(expr.clone())
+                        ReturnStatement {
+                            value: Some(expr.clone())
+                        }
                     ],
                     ref statement => {
                         panic!("Invalid arrow function body {:#?}", statement);
@@ -152,7 +154,9 @@ impl Transformable for Expression {
                     }
                 }
 
-                body.push(ReturnStatement(Expression::ident("___")));
+                body.push(ReturnStatement {
+                    value: Some(Expression::ident("___"))
+                });
 
                 Expression::call(FunctionExpression {
                     name: None,
@@ -447,7 +451,9 @@ impl Transformable for Statement {
 
             ExpressionStatement(ref expression) => expression.contains_this(),
 
-            ReturnStatement(ref expression) => expression.contains_this(),
+            ReturnStatement {
+                value: Some(ref expression)
+            } => expression.contains_this(),
 
             _ => false,
         }
