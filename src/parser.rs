@@ -445,7 +445,8 @@ impl<'a> Parser<'a> {
         self.complex_expression(left, lbp)
     }
 
-    fn variable_declaration_statement(&mut self) -> Statement {
+    /// Helper for the `for` loops that doesn't consume semicolons
+    fn variable_declaration(&mut self) -> Statement {
         let kind = match self.consume() {
             Var   => VariableDeclarationKind::Var,
             Let   => VariableDeclarationKind::Let,
@@ -467,10 +468,14 @@ impl<'a> Parser<'a> {
             break;
         }
 
-        statement!(self, VariableDeclarationStatement {
+        VariableDeclarationStatement {
             kind: kind,
             declarators: declarators,
-        })
+        }
+    }
+
+    fn variable_declaration_statement(&mut self) -> Statement {
+        statement!(self, self.variable_declaration())
     }
 
     fn labeled_or_expression_statement(&mut self) -> Statement {
@@ -564,10 +569,19 @@ impl<'a> Parser<'a> {
                 self.consume();
                 None
             },
-            _                => {
-                let expr = ExpressionStatement(self.sequence_or_expression());
+
+            Some(&Var)       |
+            Some(&Let)       |
+            Some(&Const)     => {
+                let statement = self.variable_declaration();
                 expect!(self, Semicolon);
-                Some(Box::new(expr))
+                Some(Box::new(statement))
+            },
+
+            _                => {
+                let statement = ExpressionStatement(self.sequence_or_expression());
+                expect!(self, Semicolon);
+                Some(Box::new(statement))
             },
         };
 
@@ -677,9 +691,12 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) -> Option<Statement> {
         Some(match self.lookahead() {
-            // intentional returns here!
             None                 => return None,
-            Some(&Semicolon)     => return self.statement(),
+
+            Some(&Semicolon)     => {
+                self.consume();
+                return self.statement()
+            },
 
             Some(&BraceOn)       => self.block_statement(),
 

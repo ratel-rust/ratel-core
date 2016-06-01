@@ -595,7 +595,8 @@ impl Code for Statement {
                 if let Some(ref init) = *init {
                     init.to_code(gen);
                 }
-                gen.write_min("; ", ";");
+                // init is a statement, semicolon included
+                gen.write_min(" ", "");
                 test.to_code(gen);
                 gen.write_min("; ", ";");
                 update.to_code(gen);

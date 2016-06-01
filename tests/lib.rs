@@ -398,8 +398,60 @@ fn if_else_no_block_statement() {
 }
 
 #[test]
+fn for_statement() {
+    assert_statement!("for(i = 0; i < 10; i++) {}", ForStatement {
+        init: Some(Box::new(ExpressionStatement(
+            BinaryExpression {
+                left: Box::new(ident!("i")),
+                operator: OperatorType::Assign,
+                right: Box::new(num!(0.0)),
+            }
+        ))),
+        test: Some(BinaryExpression {
+            left: Box::new(ident!("i")),
+            operator: OperatorType::Lesser,
+            right: Box::new(num!(10.0)),
+        }),
+        update: Some(PostfixExpression {
+            operator: OperatorType::Increment,
+            operand: Box::new(ident!("i")),
+        }),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
+fn for_declare_statement() {
+    assert_statement!("for(let i = 0; i < 10; i++) {}", ForStatement {
+        init: Some(Box::new(VariableDeclarationStatement {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "i".to_string(),
+                    value: num!(0.0),
+                }
+            ],
+        })),
+        test: Some(BinaryExpression {
+            left: Box::new(ident!("i")),
+            operator: OperatorType::Lesser,
+            right: Box::new(num!(10.0)),
+        }),
+        update: Some(PostfixExpression {
+            operator: OperatorType::Increment,
+            operand: Box::new(ident!("i")),
+        }),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
 fn for_empty_statement() {
-    assert_statement!("for(;;){}", ForStatement {
+    assert_statement!("for(;;) {}", ForStatement {
         init: None,
         test: None,
         update: None,
