@@ -1,5 +1,6 @@
 use grammar::LiteralValue;
 use grammar::OperatorType;
+use grammar::VariableDeclarationKind;
 
 #[derive(Debug, PartialEq)]
 pub enum ReservedKind {
@@ -19,6 +20,7 @@ pub enum Token {
     Comma,
     Colon,
     Operator(OperatorType),
+    Declaration(VariableDeclarationKind),
     ParenOn,
     ParenOff,
     BracketOn,
@@ -29,15 +31,12 @@ pub enum Token {
     Do,
     Case,
     Else,
-    Var,
-    Let,
     Catch,
     Export,
     Class,
     Extends,
     Return,
     While,
-    Const,
     Finally,
     Super,
     With,

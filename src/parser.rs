@@ -158,14 +158,19 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    fn consume(&mut self) -> Token {
+    fn next(&mut self) -> Option<Token> {
         self.handle_line_termination();
-        let token = self.tokenizer.next().expect("Unexpected end of program");
+        let token = self.tokenizer.next();
 
         // println!("Consume {:?}", token);
 
         self.allow_asi = false;
         token
+    }
+
+    #[inline(always)]
+    fn consume(&mut self) -> Token {
+        self.next().expect("Unexpected end of program")
     }
 
     #[inline(always)]
@@ -232,19 +237,18 @@ impl<'a> Parser<'a> {
                 body: self.block_body()
             }
         } else {
-            self.expression_statement()
+            let token = self.consume();
+            self.expression_statement(token)
         }
     }
 
     fn block_statement(&mut self) -> Statement {
         BlockStatement {
-            body: self.block_body(),
+            body: self.block_body_tail(),
         }
     }
 
-    fn block_body(&mut self) -> Vec<Statement> {
-        expect!(self, BraceOn);
-
+    fn block_body_tail(&mut self) -> Vec<Statement> {
         let mut body = Vec::new();
         loop {
             allow!{ self BraceOff => break };
@@ -255,6 +259,11 @@ impl<'a> Parser<'a> {
         }
 
         body
+    }
+
+    fn block_body(&mut self) -> Vec<Statement> {
+        expect!(self, BraceOn);
+        self.block_body_tail()
     }
 
     fn arrow_function_expression(&mut self, p: Option<Expression>) -> Expression {
@@ -377,7 +386,9 @@ impl<'a> Parser<'a> {
         expression
     }
 
-    fn sequence_or_expression_with(&mut self, first: Expression) -> Expression {
+    fn sequence_or_expression_from_token(&mut self, token: Token) -> Expression {
+        let first = self.expression_from_token(token, 0);
+
         if allow!(self, Comma) {
             let mut list = vec![first, self.expression(0)];
 
@@ -391,12 +402,26 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline(always)]
     fn sequence_or_expression(&mut self) -> Expression {
-        let first = self.expression(0);
-        self.sequence_or_expression_with(first)
+        let token = self.consume();
+        self.sequence_or_expression_from_token(token)
     }
 
-    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
+    #[inline(always)]
+    fn expression_from_token(&mut self, token: Token, lbp: u8) -> Expression {
+        let mut left = match token {
+            This              => ThisExpression,
+            Identifier(value) => IdentifierExpression(value),
+            Literal(value)    => LiteralExpression(value),
+            Operator(optype)  => self.prefix_expression(optype),
+            ParenOn           => self.paren_expression(),
+            BracketOn         => self.array_expression(),
+            BraceOn           => self.object_expression(),
+            Function          => self.function_expression(),
+            token             => unexpected_token!(self, token)
+        };
+
         'right: loop {
             let rbp = match self.lookahead() {
                 Some(&Operator(ref op)) => op.binding_power(false),
@@ -430,30 +455,14 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self, lbp: u8) -> Expression {
-        let left = match self.consume() {
-            This              => ThisExpression,
-            Identifier(value) => IdentifierExpression(value),
-            Literal(value)    => LiteralExpression(value),
-            Operator(optype)  => self.prefix_expression(optype),
-            ParenOn           => self.paren_expression(),
-            BracketOn         => self.array_expression(),
-            BraceOn           => self.object_expression(),
-            Function          => self.function_expression(),
-            token             => unexpected_token!(self, token)
-        };
-
-        self.complex_expression(left, lbp)
+        let token = self.consume();
+        self.expression_from_token(token, lbp)
     }
 
     /// Helper for the `for` loops that doesn't consume semicolons
-    fn variable_declaration(&mut self) -> Statement {
-        let kind = match self.consume() {
-            Var   => VariableDeclarationKind::Var,
-            Let   => VariableDeclarationKind::Let,
-            Const => VariableDeclarationKind::Const,
-            token => unexpected_token!(self, token),
-        };
-
+    fn variable_declaration(
+        &mut self, kind: VariableDeclarationKind
+    ) -> Statement {
         let mut declarators = Vec::new();
 
         loop {
@@ -474,13 +483,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn variable_declaration_statement(&mut self) -> Statement {
-        statement!(self, self.variable_declaration())
+    fn variable_declaration_statement(
+        &mut self, kind: VariableDeclarationKind
+    ) -> Statement {
+        statement!(self, self.variable_declaration(kind))
     }
 
-    fn labeled_or_expression_statement(&mut self) -> Statement {
-        let label = expect!(self, Identifier(label) => label);
-
+    fn labeled_or_expression_statement(&mut self, label: String) -> Statement {
         if allow!(self, Colon) {
             LabeledStatement {
                 label: label,
@@ -489,16 +498,15 @@ impl<'a> Parser<'a> {
                 ),
             }
         } else {
-            let first = self.complex_expression(IdentifierExpression(label), 0);
             statement!(self, ExpressionStatement(
-                self.sequence_or_expression_with(first)
+                self.sequence_or_expression_from_token(Identifier(label))
             ))
         }
     }
 
-    fn expression_statement(&mut self) -> Statement {
+    fn expression_statement(&mut self, token: Token) -> Statement {
         statement!(self, ExpressionStatement(
-            self.sequence_or_expression()
+            self.sequence_or_expression_from_token(token)
         ))
     }
 
@@ -547,67 +555,49 @@ impl<'a> Parser<'a> {
             None
         };
 
-        statement!(self, IfStatement {
+        IfStatement {
             test: test,
             consequent: consequent,
             alternate: alternate,
-        })
+        }
     }
 
     fn while_statement(&mut self) -> Statement {
-        statement!(self, WhileStatement {
+        WhileStatement {
             test: surround!(self ( self.expression(0) )),
             body: Box::new(self.block_or_statement()),
-        })
+        }
     }
 
     fn for_statement(&mut self) -> Statement {
         expect!(self, ParenOn);
 
-        let init = match self.lookahead() {
-            Some(&Semicolon) => {
-                self.consume();
-                None
-            },
+        let init = match self.consume() {
+            Semicolon         => None,
 
-            Some(&Var)       |
-            Some(&Let)       |
-            Some(&Const)     => {
-                let statement = self.variable_declaration();
-                expect!(self, Semicolon);
-                Some(Box::new(statement))
-            },
+            Declaration(kind) => Some(Box::new(
+                self.variable_declaration(kind)
+            )),
 
-            _                => {
-                let statement = ExpressionStatement(self.sequence_or_expression());
-                expect!(self, Semicolon);
-                Some(Box::new(statement))
-            },
+            token             => Some(Box::new(
+                ExpressionStatement(
+                    self.sequence_or_expression_from_token(token)
+                )
+            )),
         };
+        if !init.is_none() { expect!(self, Semicolon) }
 
-        let test = match self.lookahead() {
-            Some(&Semicolon) => {
-                self.consume();
-                None
-            },
-            _                => {
-                let expr = self.sequence_or_expression();
-                expect!(self, Semicolon);
-                Some(expr)
-            }
+        let test = match self.consume() {
+            Semicolon => None,
+            token     => Some(self.sequence_or_expression_from_token(token)),
         };
+        if !test.is_none() { expect!(self, Semicolon) }
 
-        let update = match self.lookahead() {
-            Some(&ParenOff) => {
-                self.consume();
-                None
-            },
-            _                => {
-                let expr = self.sequence_or_expression();
-                expect!(self, ParenOff);
-                Some(expr)
-            }
+        let update = match self.consume() {
+            ParenOff => None,
+            token    => Some(self.sequence_or_expression_from_token(token)),
         };
+        if !update.is_none() { expect!(self, ParenOff) }
 
         ForStatement {
             init: init,
@@ -690,58 +680,24 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        Some(match self.lookahead() {
-            None                 => return None,
+        let token = match self.next() {
+            Some(token) => token,
+            _           => return None,
+        };
 
-            Some(&Semicolon)     => {
-                self.consume();
-                return self.statement()
-            },
-
-            Some(&BraceOn)       => self.block_statement(),
-
-            Some(&Var)           |
-            Some(&Let)           |
-            Some(&Const)         => self.variable_declaration_statement(),
-
-            Some(&Return)        => {
-                self.consume();
-                self.return_statement()
-            },
-
-            Some(&Break)         => {
-                self.consume();
-                self.break_statement()
-            },
-
-            Some(&Function)      => {
-                self.consume();
-                self.function_statement()
-            },
-
-            Some(&Class)         => {
-                self.consume();
-                self.class_statement()
-            },
-
-            Some(&If)            => {
-                self.consume();
-                self.if_statement()
-            },
-
-            Some(&While)         => {
-                self.consume();
-                self.while_statement()
-            },
-
-            Some(&For)           => {
-                self.consume();
-                self.for_statement()
-            },
-
-            Some(&Identifier(_)) => self.labeled_or_expression_statement(),
-
-            Some(_)              => self.expression_statement(),
+        Some(match token {
+            Semicolon         => return self.statement(),
+            BraceOn           => self.block_statement(),
+            Declaration(kind) => self.variable_declaration_statement(kind),
+            Return            => self.return_statement(),
+            Break             => self.break_statement(),
+            Function          => self.function_statement(),
+            Class             => self.class_statement(),
+            If                => self.if_statement(),
+            While             => self.while_statement(),
+            For               => self.for_statement(),
+            Identifier(label) => self.labeled_or_expression_statement(label),
+            token             => self.expression_statement(token),
         })
     }
 }

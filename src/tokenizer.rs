@@ -4,6 +4,7 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use grammar::OperatorType::*;
+use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 
@@ -256,19 +257,19 @@ impl<'a> Tokenizer<'a> {
             "void"       => Operator(Void),
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
+            "var"        => Declaration(Var),
+            "let"        => Declaration(Let),
+            "const"      => Declaration(Const),
             "break"      => Break,
             "do"         => Do,
             "case"       => Case,
             "else"       => Else,
-            "var"        => Var,
-            "let"        => Let,
             "catch"      => Catch,
             "export"     => Export,
             "class"      => Class,
             "extends"    => Extends,
             "return"     => Return,
             "while"      => While,
-            "const"      => Const,
             "finally"    => Finally,
             "super"      => Super,
             "with"       => With,
