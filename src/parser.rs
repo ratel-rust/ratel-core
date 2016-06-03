@@ -150,22 +150,14 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    fn handle_line_termination(&mut self) {
-        while let Some(&LineTermination) = self.tokenizer.peek() {
-            self.tokenizer.next();
-            self.allow_asi = true;
-        }
-    }
-
-    #[inline(always)]
     fn next(&mut self) -> Option<Token> {
-        self.handle_line_termination();
-        let token = self.tokenizer.next();
-
-        // println!("Consume {:?}", token);
-
         self.allow_asi = false;
-        token
+        loop {
+            match self.tokenizer.next() {
+                Some(LineTermination) => continue,
+                token                 => return token
+            }
+        }
     }
 
     #[inline(always)]
@@ -175,7 +167,10 @@ impl<'a> Parser<'a> {
 
     #[inline(always)]
     fn lookahead(&mut self) -> Option<&Token> {
-        self.handle_line_termination();
+        while let Some(&LineTermination) = self.tokenizer.peek() {
+            self.tokenizer.next();
+            self.allow_asi = true;
+        }
         self.tokenizer.peek()
     }
 
@@ -388,7 +383,10 @@ impl<'a> Parser<'a> {
 
     fn sequence_or_expression_from_token(&mut self, token: Token) -> Expression {
         let first = self.expression_from_token(token, 0);
+        self.sequence_or(first)
+    }
 
+    fn sequence_or(&mut self, first: Expression) -> Expression {
         if allow!(self, Comma) {
             let mut list = vec![first, self.expression(0)];
 
@@ -408,9 +406,14 @@ impl<'a> Parser<'a> {
         self.sequence_or_expression_from_token(token)
     }
 
+    fn expression(&mut self, lbp: u8) -> Expression {
+        let token = self.consume();
+        self.expression_from_token(token, lbp)
+    }
+
     #[inline(always)]
     fn expression_from_token(&mut self, token: Token, lbp: u8) -> Expression {
-        let mut left = match token {
+        let left = match token {
             This              => ThisExpression,
             Identifier(value) => IdentifierExpression(value),
             Literal(value)    => LiteralExpression(value),
@@ -422,6 +425,10 @@ impl<'a> Parser<'a> {
             token             => unexpected_token!(self, token)
         };
 
+        self.complex_expression(left, lbp)
+    }
+
+    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
         'right: loop {
             let rbp = match self.lookahead() {
                 Some(&Operator(ref op)) => op.binding_power(false),
@@ -452,11 +459,6 @@ impl<'a> Parser<'a> {
         }
 
         left
-    }
-
-    fn expression(&mut self, lbp: u8) -> Expression {
-        let token = self.consume();
-        self.expression_from_token(token, lbp)
     }
 
     /// Helper for the `for` loops that doesn't consume semicolons
@@ -501,8 +503,9 @@ impl<'a> Parser<'a> {
                 ),
             }
         } else {
+            let first = self.complex_expression(IdentifierExpression(label), 0);
             statement!(self, ExpressionStatement(
-                self.sequence_or_expression_from_token(Identifier(label))
+                self.sequence_or(first)
             ))
         }
     }
@@ -582,13 +585,35 @@ impl<'a> Parser<'a> {
                 self.variable_declaration(kind)
             )),
 
-            token             => Some(Box::new(
-                ExpressionStatement(
-                    self.sequence_or_expression_from_token(token)
-                )
-            )),
+            token             => {
+                let expression = self.sequence_or_expression_from_token(token);
+
+                if let BinaryExpression {
+                    left,
+                    operator: In,
+                    right,
+                } = expression {
+                    return self.for_in_statement_from_expressions(*left, *right);
+                }
+
+                Some(Box::new(
+                    ExpressionStatement(expression)
+                ))
+            },
         };
-        if !init.is_none() { expect!(self, Semicolon) }
+        if init.is_some() {
+            match self.consume() {
+                Operator(In)      => return self.for_in_statement(init),
+                Identifier(ident) => {
+                    if ident != "of" {
+                        panic!("Unexpected identifier in for statement {}", ident);
+                    }
+                    return self.for_of_statement(init.unwrap());
+                },
+                Semicolon         => {},
+                token             => unexpected_token!(self, token),
+            }
+        }
 
         let test = match self.consume() {
             Semicolon => None,
@@ -606,6 +631,42 @@ impl<'a> Parser<'a> {
             init: init,
             test: test,
             update: update,
+            body: Box::new(self.block_or_statement()),
+        }
+    }
+
+    fn for_in_statement_from_expressions(
+        &mut self, left: Expression, right: Expression
+    ) -> Statement {
+        let left = Box::new(ExpressionStatement(left));
+        expect!(self, ParenOff);
+
+        ForInStatement {
+            left: left,
+            right: right,
+            body: Box::new(self.block_or_statement()),
+        }
+    }
+
+    fn for_in_statement(&mut self, left: Option<Box<Statement>>) -> Statement {
+        let left = left.unwrap();
+        let right = self.sequence_or_expression();
+        expect!(self, ParenOff);
+
+        ForInStatement {
+            left: left,
+            right: right,
+            body: Box::new(self.block_or_statement()),
+        }
+    }
+
+    fn for_of_statement(&mut self, left: Box<Statement>) -> Statement {
+        let right = self.sequence_or_expression();
+        expect!(self, ParenOff);
+
+        ForOfStatement {
+            left: left,
+            right: right,
             body: Box::new(self.block_or_statement()),
         }
     }

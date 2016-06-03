@@ -68,6 +68,25 @@ impl Generator {
         self.new_line();
     }
 
+    pub fn write_declaration_or_expression(&mut self, statement: &Statement) {
+        match *statement {
+            VariableDeclarationStatement {
+                ref kind,
+                ref declarators,
+            } => {
+                kind.to_code(self);
+                self.write_char(' ');
+                self.write_list(declarators);
+            },
+
+            ExpressionStatement(ref expr) => {
+                expr.to_code(self);
+            },
+
+            _ => panic!("Invalid AST structure!"),
+        }
+    }
+
     pub fn indent(&mut self) {
         self.dent += 1;
     }
@@ -481,8 +500,10 @@ impl Code for ClassMember {
 impl Code for VariableDeclarator {
     fn to_code(&self, gen: &mut Generator) {
         gen.write(&self.name);
-        gen.write_min(" = ", "=");
-        self.value.to_code(gen);
+        if self.value.is_some() {
+            gen.write_min(" = ", "=");
+            self.value.to_code(gen);
+        }
     }
 }
 
@@ -593,10 +614,9 @@ impl Code for Statement {
             } => {
                 gen.write_min("for (", "for(");
                 if let Some(ref init) = *init {
-                    init.to_code(gen);
+                    gen.write_declaration_or_expression(init);
                 }
-                // init is a statement, semicolon included
-                gen.write_min(" ", "");
+                gen.write_min("; ", ";");
                 test.to_code(gen);
                 gen.write_min("; ", ";");
                 update.to_code(gen);
@@ -610,7 +630,7 @@ impl Code for Statement {
                 ref body,
             } => {
                 gen.write_min("for (", "for(");
-                left.to_code(gen);
+                gen.write_declaration_or_expression(left);
                 gen.write(" in ");
                 right.to_code(gen);
                 gen.write_min(") ", ")");
@@ -623,7 +643,7 @@ impl Code for Statement {
                 ref body,
             } => {
                 gen.write_min("for (", "for(");
-                left.to_code(gen);
+                gen.write_declaration_or_expression(left);
                 gen.write(" of ");
                 right.to_code(gen);
                 gen.write_min(") ", ")");

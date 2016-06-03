@@ -1,11 +1,12 @@
 extern crate badger;
 
-use badger::grammar::*;
-use badger::parser::parse;
-use badger::grammar::Statement::*;
-use badger::grammar::Expression::*;
-use badger::grammar::ClassMember::*;
-use badger::grammar::OperatorType::*;
+pub use badger::*;
+pub use badger::grammar::*;
+pub use badger::parser::parse;
+pub use badger::grammar::Statement::*;
+pub use badger::grammar::Expression::*;
+pub use badger::grammar::ClassMember::*;
+pub use badger::grammar::OperatorType::*;
 
 macro_rules! assert_parse {
     ($string:expr, $body:expr) => {
@@ -101,6 +102,17 @@ fn return_statement() {
 fn return_value_statement() {
     assert_statement!("return foo;", ReturnStatement {
         value: Some(ident!("foo")),
+    });
+}
+
+#[test]
+fn return_sequence_statement() {
+    assert_statement!("return 1, 2, 3;", ReturnStatement {
+        value: Some(SequenceExpression(vec![
+            num!(1.0),
+            num!(2.0),
+            num!(3.0),
+        ])),
     });
 }
 

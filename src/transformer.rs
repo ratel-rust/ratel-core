@@ -5,10 +5,10 @@ use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
 pub struct Settings {
-    pub block_scope: bool,
-    pub arrow: bool,
-    pub object: bool,
-    pub exponentation: bool,
+    pub transform_block_scope: bool,
+    pub transform_arrow: bool,
+    pub transform_object: bool,
+    pub transform_exponentation: bool,
 }
 
 #[inline(always)]
@@ -20,9 +20,9 @@ impl Settings {
     pub fn target_es5() -> Settings {
         let mut settings = Settings::target_es2015();
 
-        settings.block_scope = true;
-        settings.arrow = true;
-        settings.object = true;
+        settings.transform_block_scope = true;
+        settings.transform_arrow = true;
+        settings.transform_object = true;
 
         settings
     }
@@ -30,17 +30,17 @@ impl Settings {
     pub fn target_es2015() -> Settings {
         let mut settings = Settings::no_transform();
 
-        settings.exponentation = true;
+        settings.transform_exponentation = true;
 
         settings
     }
 
     pub fn no_transform() -> Settings {
         Settings {
-            block_scope: false,
-            arrow: false,
-            object: false,
-            exponentation: false,
+            transform_block_scope: false,
+            transform_arrow: false,
+            transform_object: false,
+            transform_exponentation: false,
         }
     }
 }
@@ -70,7 +70,7 @@ impl Transformable for Expression {
                 body.transform(settings);
 
                 // transformation flag check
-                if !settings.arrow {
+                if !settings.transform_arrow {
                     return;
                 }
 
@@ -110,7 +110,7 @@ impl Transformable for Expression {
                 members.transform(settings);
 
                 // transformation flag check
-                if !settings.object {
+                if !settings.transform_object {
                     return;
                 }
 
@@ -182,7 +182,7 @@ impl Transformable for Expression {
                 left.transform(settings);
                 right.transform(settings);
 
-                if !settings.exponentation {
+                if !settings.transform_exponentation {
                     return;
                 }
 
@@ -246,7 +246,7 @@ impl Transformable for ObjectMember {
                 ref key,
             } => {
                 // transformation flag check
-                if !settings.object {
+                if !settings.transform_object {
                     return;
                 }
 
@@ -282,7 +282,7 @@ impl Transformable for ObjectMember {
                 params.transform(settings);
 
                 // transformation flag check
-                if !settings.object {
+                if !settings.transform_object {
                     return;
                 }
 
@@ -305,7 +305,7 @@ impl Transformable for ObjectMember {
                 params.transform(settings);
 
                 // transformation flag check
-                if !settings.object {
+                if !settings.transform_object {
                     return;
                 }
 
@@ -409,7 +409,7 @@ impl Transformable for Statement {
                 declarators.transform(settings);
 
                 // transformation flag check
-                if !settings.block_scope {
+                if !settings.transform_block_scope {
                     return;
                 }
 

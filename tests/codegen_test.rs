@@ -1,10 +1,10 @@
-// extern crate badger;
+// // extern crate badger;
 
-// use badger::*;
+// use super::badger::*;
 
 // fn output_program(input_program: &str) -> String {
-//     let program = parser::parse(input_program.to_string());
-//     let ast = transformer::traverse(program);
+//     let mut ast = parser::parse(input_program.to_string());
+//     transformer::transform(&mut ast, transformer::Settings::target_es5());
 //     codegen::generate_code(ast, false)
 // }
 
