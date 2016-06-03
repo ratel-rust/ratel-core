@@ -784,3 +784,127 @@ fn object_computed_method_member() {
         }
     ]));
 }
+
+#[test]
+fn class_statement() {
+    assert_statement!("class Foo {}", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn class_extends_statement() {
+    assert_statement!("class Foo extends Bar {}", ClassStatement {
+        name: "Foo".to_string(),
+        extends: Some("Bar".to_string()),
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn class_with_constructor_statement() {
+    assert_statement!("
+
+    class Foo {
+        constructor() {}
+    }
+
+    ", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: vec![
+            ClassConstructor {
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_method_statement() {
+    assert_statement!("
+
+    class Foo {
+        bar() {}
+    }
+
+    ", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: vec![
+            ClassMethod {
+                is_static: false,
+                name: "bar".to_string(),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_static_method_statement() {
+    assert_statement!("
+
+    class Foo {
+        static bar() {}
+    }
+
+    ", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: vec![
+            ClassMethod {
+                is_static: true,
+                name: "bar".to_string(),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_property_statement() {
+    assert_statement!("
+
+    class Foo {
+        bar = 100;
+    }
+
+    ", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: vec![
+            ClassProperty {
+                is_static: false,
+                name: "bar".to_string(),
+                value: num!(100.0),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_static_property_statement() {
+    assert_statement!("
+
+    class Foo {
+        static bar = 100;
+    }
+
+    ", ClassStatement {
+        name: "Foo".to_string(),
+        extends: None,
+        body: vec![
+            ClassProperty {
+                is_static: true,
+                name: "bar".to_string(),
+                value: num!(100.0),
+            }
+        ],
+    });
+}
