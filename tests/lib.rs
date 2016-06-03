@@ -658,22 +658,18 @@ fn arrow_function_with_params() {
 fn function_expression() {
     assert_expression!("
 
-    foo = function () {
+    (function () {
         return bar;
-    }
+    })
 
-    ", BinaryExpression {
-        left: Box::new(ident!("foo")),
-        operator: Assign,
-        right: Box::new(FunctionExpression {
-            name: None,
-            params: vec![],
-            body: vec![
-                ReturnStatement {
-                    value: Some(ident!("bar"))
-                }
-            ]
-        })
+    ", FunctionExpression {
+        name: None,
+        params: vec![],
+        body: vec![
+            ReturnStatement {
+                value: Some(ident!("bar"))
+            }
+        ]
     });
 }
 
@@ -681,22 +677,18 @@ fn function_expression() {
 fn named_function_expression() {
     assert_expression!("
 
-    foo = function foo() {
+    (function foo() {
         return bar;
-    }
+    })
 
-    ", BinaryExpression {
-        left: Box::new(ident!("foo")),
-        operator: Assign,
-        right: Box::new(FunctionExpression {
-            name: Some("foo".to_string()),
-            params: vec![],
-            body: vec![
-                ReturnStatement {
-                    value: Some(ident!("bar"))
-                }
-            ]
-        })
+    ", FunctionExpression {
+        name: Some("foo".to_string()),
+        params: vec![],
+        body: vec![
+            ReturnStatement {
+                value: Some(ident!("bar"))
+            }
+        ]
     });
 }
 
