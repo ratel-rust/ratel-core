@@ -121,48 +121,95 @@ fn return_asi_statement() {
 
 #[test]
 fn var_declare() {
+    assert_statement!("var foo;", VariableDeclarationStatement {
+        kind: VariableDeclarationKind::Var,
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: None,
+        }]
+    });
+}
+
+#[test]
+fn var_declare_value() {
     assert_statement!("var foo = 100;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
             name: "foo".to_string(),
-            value: num!(100.0)
+            value: Some(num!(100.0)),
         }]
     });
 }
 
 #[test]
 fn let_declare() {
-    assert_statement!("let foo = 100;", VariableDeclarationStatement {
+    assert_statement!("let foo;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Let,
         declarators: vec![VariableDeclarator {
             name: "foo".to_string(),
-            value: num!(100.0)
+            value: None,
         }]
     });
 }
 
+#[test]
+fn let_declare_value() {
+    assert_statement!("let foo = 100;", VariableDeclarationStatement {
+        kind: VariableDeclarationKind::Let,
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: Some(num!(100.0)),
+        }]
+    });
+}
 
 #[test]
 fn const_declare() {
+    assert_statement!("const foo;", VariableDeclarationStatement {
+        kind: VariableDeclarationKind::Const,
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: None,
+        }]
+    });
+}
+
+#[test]
+fn const_declare_value() {
     assert_statement!("const foo = 100;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Const,
         declarators: vec![VariableDeclarator {
             name: "foo".to_string(),
-            value: num!(100.0)
+            value: Some(num!(100.0)),
         }]
     });
 }
 
 #[test]
 fn var_muliple_declare() {
+    assert_statement!("var foo, bar;", VariableDeclarationStatement {
+        kind: VariableDeclarationKind::Var,
+        declarators: vec![VariableDeclarator {
+            name: "foo".to_string(),
+            value: None,
+        }, VariableDeclarator {
+            name: "bar".to_string(),
+            value: None,
+        }]
+    });
+}
+
+
+#[test]
+fn var_muliple_declare_value() {
     assert_statement!("var foo = 100, bar = 200;", VariableDeclarationStatement {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
             name: "foo".to_string(),
-            value: num!(100.0)
+            value: Some(num!(100.0)),
         }, VariableDeclarator {
             name: "bar".to_string(),
-            value: num!(200.0)
+            value: Some(num!(200.0)),
         }]
     });
 }
@@ -399,7 +446,7 @@ fn if_else_no_block_statement() {
 
 #[test]
 fn for_statement() {
-    assert_statement!("for(i = 0; i < 10; i++) {}", ForStatement {
+    assert_statement!("for (i = 0; i < 10; i++) {}", ForStatement {
         init: Some(Box::new(ExpressionStatement(
             BinaryExpression {
                 left: Box::new(ident!("i")),
@@ -424,13 +471,13 @@ fn for_statement() {
 
 #[test]
 fn for_declare_statement() {
-    assert_statement!("for(let i = 0; i < 10; i++) {}", ForStatement {
+    assert_statement!("for (let i = 0; i < 10; i++) {}", ForStatement {
         init: Some(Box::new(VariableDeclarationStatement {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
                     name: "i".to_string(),
-                    value: num!(0.0),
+                    value: Some(num!(0.0)),
                 }
             ],
         })),
@@ -451,10 +498,72 @@ fn for_declare_statement() {
 
 #[test]
 fn for_empty_statement() {
-    assert_statement!("for(;;) {}", ForStatement {
+    assert_statement!("for (;;) {}", ForStatement {
         init: None,
         test: None,
         update: None,
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
+fn for_in_statement() {
+    assert_statement!("for (item in object) {}", ForInStatement {
+        left: Box::new(ExpressionStatement(ident!("item"))),
+        right: ident!("object"),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+
+#[test]
+fn for_in_declare_statement() {
+    assert_statement!("for (let item in object) {}", ForInStatement {
+        left: Box::new(VariableDeclarationStatement {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".to_string(),
+                    value: None,
+                }
+            ],
+        }),
+        right: ident!("object"),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
+fn for_of_statement() {
+    assert_statement!("for (item of array) {}", ForOfStatement {
+        left: Box::new(ExpressionStatement(ident!("item"))),
+        right: ident!("array"),
+        body: Box::new(BlockStatement {
+            body: Vec::new(),
+        }),
+    });
+}
+
+
+#[test]
+fn for_of_declare_statement() {
+    assert_statement!("for (let item of array) {}", ForOfStatement {
+        left: Box::new(VariableDeclarationStatement {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".to_string(),
+                    value: None,
+                }
+            ],
+        }),
+        right: ident!("array"),
         body: Box::new(BlockStatement {
             body: Vec::new(),
         }),

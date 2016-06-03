@@ -604,6 +604,32 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
+            ForInStatement {
+                ref left,
+                ref right,
+                ref body,
+            } => {
+                gen.write_min("for (", "for(");
+                left.to_code(gen);
+                gen.write(" in ");
+                right.to_code(gen);
+                gen.write_min(") ", ")");
+                body.to_code(gen);
+            },
+
+            ForOfStatement {
+                ref left,
+                ref right,
+                ref body,
+            } => {
+                gen.write_min("for (", "for(");
+                left.to_code(gen);
+                gen.write(" of ");
+                right.to_code(gen);
+                gen.write_min(") ", ")");
+                body.to_code(gen);
+            },
+
             ClassStatement {
                 ref name,
                 ref extends,

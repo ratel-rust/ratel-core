@@ -134,7 +134,7 @@ impl Transformable for Expression {
                     declarators: vec![
                         VariableDeclarator {
                             name: "___".to_string(),
-                            value: ObjectExpression(literal),
+                            value: Some(ObjectExpression(literal)),
                         }
                     ]
                 });
@@ -370,11 +370,17 @@ impl Transformable for ClassMember {
 
 impl Transformable for VariableDeclarator {
     fn transform(&mut self, settings: &Settings) {
-        self.value.transform(settings);
+        match self.value {
+            Some(ref mut expression) => expression.transform(settings),
+            _                        => {},
+        }
     }
 
     fn contains_this(&self) -> bool {
-        self.value.contains_this()
+        match self.value {
+            Some(ref expression) => expression.contains_this(),
+            _                    => false,
+        }
     }
 }
 

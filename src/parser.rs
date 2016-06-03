@@ -467,10 +467,13 @@ impl<'a> Parser<'a> {
 
         loop {
             let name = expect!(self, Identifier(name) => name);
-            expect!(self, Operator(Assign));
             declarators.push(VariableDeclarator {
                 name: name,
-                value: self.expression(0),
+                value: if allow!(self, Operator(Assign)) {
+                    Some(self.expression(0))
+                } else {
+                    None
+                },
             });
 
             allow!{ self Comma => continue };

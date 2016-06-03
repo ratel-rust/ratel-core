@@ -382,7 +382,7 @@ pub enum VariableDeclarationKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
     pub name: String,
-    pub value: Expression,
+    pub value: Option<Expression>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -423,6 +423,16 @@ pub enum Statement {
         init: Option<Box<Statement>>,
         test: Option<Expression>,
         update: Option<Expression>,
+        body: Box<Statement>,
+    },
+    ForInStatement {
+        left: Box<Statement>,
+        right: Expression,
+        body: Box<Statement>,
+    },
+    ForOfStatement {
+        left: Box<Statement>,
+        right: Expression,
         body: Box<Statement>,
     },
     ClassStatement {
