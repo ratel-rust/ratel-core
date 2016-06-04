@@ -355,17 +355,17 @@ pub enum ObjectMember {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ClassMember {
-    ClassConstructor {
+    Constructor {
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
-    ClassMethod {
+    Method {
         is_static: bool,
         name: String,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
-    ClassProperty {
+    Property {
         is_static: bool,
         name: String,
         value: Expression,

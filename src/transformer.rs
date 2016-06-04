@@ -341,7 +341,7 @@ impl Transformable for ObjectMember {
 impl Transformable for ClassMember {
     fn transform(&mut self, settings: &Settings) {
         match *self {
-            ClassConstructor {
+            Constructor {
                 ref mut params,
                 ref mut body,
             } => {
@@ -349,7 +349,7 @@ impl Transformable for ClassMember {
                 body.transform(settings);
             },
 
-            ClassMethod {
+            Method {
                 ref mut params,
                 ref mut body,
                 ..
@@ -358,7 +358,7 @@ impl Transformable for ClassMember {
                 body.transform(settings);
             },
 
-            ClassProperty {
+            Property {
                 ref mut value,
                 ..
             } => {

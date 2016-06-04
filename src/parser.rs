@@ -5,7 +5,6 @@ use std::iter::Peekable;
 use grammar::*;
 use grammar::Statement::*;
 use grammar::Expression::*;
-use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
 /// If the next token matches `$p`, consume that token and return
@@ -689,12 +688,12 @@ impl<'a> Parser<'a> {
         match self.lookahead() {
             Some(&ParenOn) => {
                 if !is_static && name == "constructor" {
-                    ClassConstructor {
+                    ClassMember::Constructor {
                         params: list!(self ( self.parameter() )),
                         body: self.block_body(),
                     }
                 } else {
-                    ClassMethod {
+                    ClassMember::Method {
                         is_static: is_static,
                         name: name,
                         params: list!(self ( self.parameter())),
@@ -704,7 +703,7 @@ impl<'a> Parser<'a> {
             },
             Some(&Operator(Assign)) => {
                 self.consume();
-                ClassProperty {
+                ClassMember::Property {
                     is_static: is_static,
                     name: name,
                     value: self.expression(0),

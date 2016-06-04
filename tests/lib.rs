@@ -5,7 +5,6 @@ pub use badger::grammar::*;
 pub use badger::parser::parse;
 pub use badger::grammar::Statement::*;
 pub use badger::grammar::Expression::*;
-pub use badger::grammar::ClassMember::*;
 pub use badger::grammar::OperatorType::*;
 
 macro_rules! assert_parse {
@@ -815,7 +814,7 @@ fn class_with_constructor_statement() {
         name: "Foo".to_string(),
         extends: None,
         body: vec![
-            ClassConstructor {
+            ClassMember::Constructor {
                 params: Vec::new(),
                 body: Vec::new(),
             }
@@ -835,7 +834,7 @@ fn class_with_method_statement() {
         name: "Foo".to_string(),
         extends: None,
         body: vec![
-            ClassMethod {
+            ClassMember::Method {
                 is_static: false,
                 name: "bar".to_string(),
                 params: Vec::new(),
@@ -857,7 +856,7 @@ fn class_with_static_method_statement() {
         name: "Foo".to_string(),
         extends: None,
         body: vec![
-            ClassMethod {
+            ClassMember::Method {
                 is_static: true,
                 name: "bar".to_string(),
                 params: Vec::new(),
@@ -879,7 +878,7 @@ fn class_with_property_statement() {
         name: "Foo".to_string(),
         extends: None,
         body: vec![
-            ClassProperty {
+            ClassMember::Property {
                 is_static: false,
                 name: "bar".to_string(),
                 value: num!(100.0),
@@ -900,7 +899,7 @@ fn class_with_static_property_statement() {
         name: "Foo".to_string(),
         extends: None,
         body: vec![
-            ClassProperty {
+            ClassMember::Property {
                 is_static: true,
                 name: "bar".to_string(),
                 value: num!(100.0),

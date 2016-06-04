@@ -452,7 +452,7 @@ impl Code for ClassMember {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
-            ClassMember::ClassConstructor {
+            ClassMember::Constructor {
                 ref params,
                 ref body,
             } => {
@@ -463,7 +463,7 @@ impl Code for ClassMember {
                 gen.write_char('}');
             },
 
-            ClassMember::ClassMethod {
+            ClassMember::Method {
                 is_static,
                 ref name,
                 ref params,
@@ -480,7 +480,7 @@ impl Code for ClassMember {
                 gen.write_char('}');
             },
 
-            ClassMember::ClassProperty {
+            ClassMember::Property {
                 is_static,
                 ref name,
                 ref value,
