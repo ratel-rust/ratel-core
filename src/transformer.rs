@@ -75,8 +75,8 @@ impl Transformable for Expression {
                 }
 
                 let body = match **body {
-                    BlockStatement { ref body }   => body.clone(),
-                    ExpressionStatement(ref expr) => vec![
+                    BlockStatement { ref mut body } => body.split_off(0),
+                    ExpressionStatement(ref expr)   => vec![
                         ReturnStatement {
                             value: Some(expr.clone())
                         }
@@ -90,7 +90,7 @@ impl Transformable for Expression {
 
                 let function = FunctionExpression {
                     name: None,
-                    params: params.clone(),
+                    params: params.split_off(0),
                     body: body,
                 };
 
@@ -290,8 +290,8 @@ impl Transformable for ObjectMember {
                     key: name.clone(),
                     value: FunctionExpression {
                         name: Some(name.clone()),
-                        params: params.clone(),
-                        body: body.clone(),
+                        params: params.split_off(0),
+                        body: body.split_off(0),
                     }
                 }
             },
@@ -313,8 +313,8 @@ impl Transformable for ObjectMember {
                     key: name.clone(),
                     value: FunctionExpression {
                         name: None,
-                        params: params.clone(),
-                        body: body.clone(),
+                        params: params.split_off(0),
+                        body: body.split_off(0),
                     }
                 }
             },
