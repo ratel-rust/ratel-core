@@ -9,6 +9,7 @@ pub struct Settings {
     pub transform_arrow: bool,
     pub transform_object: bool,
     pub transform_exponentation: bool,
+    pub transform_class_properties: bool,
 }
 
 #[inline(always)]
@@ -31,6 +32,7 @@ impl Settings {
         let mut settings = Settings::no_transform();
 
         settings.transform_exponentation = true;
+        settings.transform_class_properties = true;
 
         settings
     }
@@ -41,6 +43,7 @@ impl Settings {
             transform_arrow: false,
             transform_object: false,
             transform_exponentation: false,
+            transform_class_properties: false,
         }
     }
 }
@@ -441,6 +444,25 @@ impl Transformable for Statement {
                 ..
             } => {
                 body.transform(settings);
+
+                if !settings.transform_class_properties {
+                    return;
+                }
+
+                let (mut props, methods): (Vec<ClassMember>, Vec<ClassMember>)
+                = body.drain(..).partition(|member| {
+                    match *member {
+                        ClassMember::Property { .. } => true,
+                        _                            => false,
+                    }
+                });
+
+                *body = methods;
+
+                if !props.is_empty() {
+                    // copy the props into the class constructor
+                }
+
                 return;
             }
 
