@@ -1,7 +1,5 @@
 use grammar::*;
 use grammar::OperatorType::*;
-use grammar::Statement::*;
-use grammar::Expression::*;
 
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
@@ -70,7 +68,7 @@ impl Generator {
 
     pub fn write_declaration_or_expression(&mut self, statement: &Statement) {
         match *statement {
-            VariableDeclarationStatement {
+            Statement::VariableDeclaration {
                 ref kind,
                 ref declarators,
             } => {
@@ -79,8 +77,10 @@ impl Generator {
                 self.write_list(declarators);
             },
 
-            ExpressionStatement(ref expr) => {
-                expr.to_code(self);
+            Statement::Expression {
+                ref value,
+            } => {
+                value.to_code(self);
             },
 
             _ => panic!("Invalid AST structure!"),
@@ -296,25 +296,25 @@ impl Code for Expression {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
-            ThisExpression => gen.write("this"),
+            Expression::This => gen.write("this"),
 
-            IdentifierExpression(ref ident) => gen.write(ident),
+            Expression::Identifier(ref ident) => gen.write(ident),
 
-            LiteralExpression(ref literal)  => literal.to_code(gen),
+            Expression::Literal(ref literal)  => literal.to_code(gen),
 
-            ArrayExpression(ref items) => {
+            Expression::Array(ref items) => {
                 gen.write_char('[');
                 gen.write_list(items);
                 gen.write_char(']');
             },
 
-            SequenceExpression(ref items) => {
+            Expression::Sequence(ref items) => {
                 gen.write_char('(');
                 gen.write_list(items);
                 gen.write_char(')');
             },
 
-            ObjectExpression(ref members) => {
+            Expression::Object(ref members) => {
                 gen.write_char('{');
                 gen.indent();
                 let mut first = true;
@@ -332,7 +332,7 @@ impl Code for Expression {
                 gen.write_char('}');
             },
 
-            MemberExpression {
+            Expression::Member {
                 ref object,
                 ref property,
             } => {
@@ -340,7 +340,7 @@ impl Code for Expression {
                 property.to_code(gen);
             },
 
-            CallExpression {
+            Expression::Call {
                 ref callee,
                 ref arguments,
             } => {
@@ -350,7 +350,7 @@ impl Code for Expression {
                 gen.write_char(')');
             },
 
-            BinaryExpression {
+            Expression::Binary {
                 ref left,
                 ref operator,
                 ref right,
@@ -368,7 +368,7 @@ impl Code for Expression {
                 right.to_code(gen);
             },
 
-            PrefixExpression {
+            Expression::Prefix {
                 ref operator,
                 ref operand,
             } => {
@@ -376,7 +376,7 @@ impl Code for Expression {
                 operand.to_code(gen);
             },
 
-            PostfixExpression {
+            Expression::Postfix {
                 ref operator,
                 ref operand,
             } => {
@@ -384,7 +384,7 @@ impl Code for Expression {
                 operator.to_code(gen);
             },
 
-            ConditionalExpression {
+            Expression::Conditional {
                 ref test,
                 ref consequent,
                 ref alternate,
@@ -396,7 +396,7 @@ impl Code for Expression {
                 alternate.to_code(gen);
             },
 
-            ArrowFunctionExpression {
+            Expression::ArrowFunction {
                 ref params,
                 ref body,
             } => {
@@ -409,12 +409,14 @@ impl Code for Expression {
                 }
                 gen.write_min(" => ", "=>");
                 match **body {
-                    ExpressionStatement(ref expr) => expr.to_code(gen),
-                    _                             => body.to_code(gen),
+                    Statement::Expression {
+                        ref value,
+                    } => value.to_code(gen),
+                    _ => body.to_code(gen),
                 }
             },
 
-            FunctionExpression {
+            Expression::Function {
                 ref name,
                 ref params,
                 ref body,
@@ -510,7 +512,7 @@ impl Code for VariableDeclarator {
 impl Code for Statement {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            LabeledStatement {
+            Statement::Labeled {
                 ref label,
                 ref body,
             } => {
@@ -519,7 +521,7 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
-            BlockStatement {
+            Statement::Block {
                 ref body,
             } => {
                 gen.write_char('{');
@@ -527,12 +529,14 @@ impl Code for Statement {
                 gen.write_char('}');
             },
 
-            ExpressionStatement(ref expr) => {
-                expr.to_code(gen);
+            Statement::Expression {
+                ref value,
+            } => {
+                value.to_code(gen);
                 gen.write_char(';');
             },
 
-            ReturnStatement {
+            Statement::Return {
                 ref value,
             } => {
                 gen.write("return");
@@ -543,7 +547,7 @@ impl Code for Statement {
                 gen.write_char(';');
             },
 
-            BreakStatement {
+            Statement::Break {
                 ref label,
             } => {
                 gen.write("break");
@@ -554,7 +558,7 @@ impl Code for Statement {
                 gen.write_char(';');
             },
 
-            VariableDeclarationStatement {
+            Statement::VariableDeclaration {
                 ref kind,
                 ref declarators,
             } => {
@@ -564,7 +568,7 @@ impl Code for Statement {
                 gen.write_char(';');
             },
 
-            FunctionStatement {
+            Statement::Function {
                 ref name,
                 ref params,
                 ref body,
@@ -580,7 +584,7 @@ impl Code for Statement {
                 gen.new_line();
             },
 
-            IfStatement {
+            Statement::If {
                 ref test,
                 ref consequent,
                 ref alternate,
@@ -596,7 +600,7 @@ impl Code for Statement {
                 };
             },
 
-            WhileStatement {
+            Statement::While {
                 ref test,
                 ref body,
             } => {
@@ -606,7 +610,7 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
-            ForStatement {
+            Statement::For {
                 ref init,
                 ref test,
                 ref update,
@@ -624,7 +628,7 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
-            ForInStatement {
+            Statement::ForIn {
                 ref left,
                 ref right,
                 ref body,
@@ -637,7 +641,7 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
-            ForOfStatement {
+            Statement::ForOf {
                 ref left,
                 ref right,
                 ref body,
@@ -650,7 +654,7 @@ impl Code for Statement {
                 body.to_code(gen);
             },
 
-            ClassStatement {
+            Statement::Class {
                 ref name,
                 ref extends,
                 ref body,

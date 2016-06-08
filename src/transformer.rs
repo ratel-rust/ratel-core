@@ -1,6 +1,4 @@
 use grammar::*;
-use grammar::Statement::*;
-use grammar::Expression::*;
 use grammar::ClassMember::*;
 use grammar::OperatorType::*;
 
@@ -14,7 +12,7 @@ pub struct Settings {
 
 #[inline(always)]
 fn bind_this(function: Expression) -> Expression {
-    Expression::call(Expression::member(function, "bind"), vec![ThisExpression])
+    Expression::call(Expression::member(function, "bind"), vec![Expression::This])
 }
 
 impl Settings {
@@ -65,7 +63,7 @@ impl Transformable for Parameter {}
 impl Transformable for Expression {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
-            ArrowFunctionExpression {
+            Expression::ArrowFunction {
                 ref mut params,
                 ref mut body,
             } => {
@@ -78,10 +76,10 @@ impl Transformable for Expression {
                 }
 
                 let body = match **body {
-                    BlockStatement { ref mut body } => body.split_off(0),
-                    ExpressionStatement(ref expr)   => vec![
-                        ReturnStatement {
-                            value: Some(expr.clone())
+                    Statement::Block { ref mut body }   => body.split_off(0),
+                    Statement::Expression { ref value } => vec![
+                        Statement::Return {
+                            value: Some(value.clone())
                         }
                     ],
                     ref statement => {
@@ -91,7 +89,7 @@ impl Transformable for Expression {
 
                 let bind = body.contains_this();
 
-                let function = FunctionExpression {
+                let function = Expression::Function {
                     name: None,
                     params: params.split_off(0),
                     body: body,
@@ -104,12 +102,12 @@ impl Transformable for Expression {
                 }
             },
 
-            ArrayExpression(ref mut items) => {
+            Expression::Array(ref mut items) => {
                 items.transform(settings);
                 return;
             },
 
-            ObjectExpression(ref mut members) => {
+            Expression::Object(ref mut members) => {
                 members.transform(settings);
 
                 // transformation flag check
@@ -132,43 +130,45 @@ impl Transformable for Expression {
 
                 let mut body = Vec::new();
 
-                body.push(VariableDeclarationStatement {
+                body.push(Statement::VariableDeclaration {
                     kind: VariableDeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
                             name: "___".to_string(),
-                            value: Some(ObjectExpression(literal)),
+                            value: Some(Expression::Object(literal)),
                         }
                     ]
                 });
 
                 for member in computed.drain(..) {
                     if let ObjectMember::Computed { key, value } = member {
-                        body.push(ExpressionStatement(BinaryExpression {
-                            left: Box::new(MemberExpression {
-                                object: Box::new(Expression::ident("___")),
-                                property: Box::new(
-                                    MemberKey::Computed(key)
-                                )
-                            }),
-                            operator: Assign,
-                            right: Box::new(value),
-                        }));
+                        body.push(Statement::Expression {
+                            value: Expression::Binary {
+                                left: Box::new(Expression::Member {
+                                    object: Box::new(Expression::ident("___")),
+                                    property: Box::new(
+                                        MemberKey::Computed(key)
+                                    )
+                                }),
+                                operator: Assign,
+                                right: Box::new(value),
+                            }
+                        });
                     }
                 }
 
-                body.push(ReturnStatement {
+                body.push(Statement::Return {
                     value: Some(Expression::ident("___"))
                 });
 
-                Expression::call(FunctionExpression {
+                Expression::call(Expression::Function {
                     name: None,
                     params: Vec::new(),
                     body: body,
                 }, Vec::new())
             },
 
-            CallExpression {
+            Expression::Call {
                 ref mut callee,
                 ref mut arguments,
             } => {
@@ -177,7 +177,7 @@ impl Transformable for Expression {
                 return;
             },
 
-            BinaryExpression {
+            Expression::Binary {
                 ref mut left,
                 ref mut operator,
                 ref mut right,
@@ -214,23 +214,23 @@ impl Transformable for Expression {
 
     fn contains_this(&self) -> bool {
         match *self {
-            ThisExpression => true,
+            Expression::This => true,
 
-            ArrayExpression(ref items) => items.contains_this(),
+            Expression::Array(ref items) => items.contains_this(),
 
-            ObjectExpression(ref members) => members.contains_this(),
+            Expression::Object(ref members) => members.contains_this(),
 
-            MemberExpression {
+            Expression::Member {
                 ref object,
                 ..
             } => object.contains_this(),
 
-            CallExpression {
+            Expression::Call {
                 ref callee,
                 ref arguments,
             } => callee.contains_this() || arguments.contains_this(),
 
-            BinaryExpression {
+            Expression::Binary {
                 ref left,
                 ref right,
                 ..
@@ -255,7 +255,7 @@ impl Transformable for ObjectMember {
 
                 ObjectMember::Literal {
                     key: key.clone(),
-                    value: IdentifierExpression(key.clone()),
+                    value: Expression::Identifier(key.clone()),
                 }
             },
 
@@ -291,7 +291,7 @@ impl Transformable for ObjectMember {
 
                 ObjectMember::Literal {
                     key: name.clone(),
-                    value: FunctionExpression {
+                    value: Expression::Function {
                         name: Some(name.clone()),
                         params: params.split_off(0),
                         body: body.split_off(0),
@@ -314,7 +314,7 @@ impl Transformable for ObjectMember {
 
                 ObjectMember::Computed {
                     key: name.clone(),
-                    value: FunctionExpression {
+                    value: Expression::Function {
                         name: None,
                         params: params.split_off(0),
                         body: body.split_off(0),
@@ -387,17 +387,30 @@ impl Transformable for VariableDeclarator {
     }
 }
 
+fn add_props_to_body(body: &mut Vec<Statement>, props: &mut Vec<ClassMember>) {
+    // for prop in props {
+    //     match prop {
+    //         ClassMember::Property {
+    //             ref is_static,
+    //             ref name,
+    //         } => {
+
+    //         }
+    //     }
+    // }
+}
+
 impl Transformable for Statement {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
-            BlockStatement {
+            Statement::Block {
                 ref mut body,
             } => {
                 body.transform(settings);
                 return;
             },
 
-            LabeledStatement {
+            Statement::Labeled {
                 ref mut body,
                 ..
             } => {
@@ -405,7 +418,7 @@ impl Transformable for Statement {
                 return;
             },
 
-            VariableDeclarationStatement {
+            Statement::VariableDeclaration {
                 ref mut kind,
                 ref mut declarators,
             } => {
@@ -420,12 +433,14 @@ impl Transformable for Statement {
                 return;
             },
 
-            ExpressionStatement(ref mut expression) => {
-                expression.transform(settings);
+            Statement::Expression {
+                ref mut value,
+            } => {
+                value.transform(settings);
                 return;
             },
 
-            IfStatement {
+            Statement::If {
                 ref mut test,
                 ref mut consequent,
                 ref mut alternate,
@@ -439,7 +454,7 @@ impl Transformable for Statement {
                 return;
             },
 
-            ClassStatement {
+            Statement::Class {
                 ref mut body,
                 ..
             } => {
@@ -449,7 +464,7 @@ impl Transformable for Statement {
                     return;
                 }
 
-                let (mut props, methods): (Vec<ClassMember>, Vec<ClassMember>)
+                let (mut props, mut methods): (Vec<ClassMember>, Vec<ClassMember>)
                 = body.drain(..).partition(|member| {
                     match *member {
                         ClassMember::Property { .. } => true,
@@ -457,11 +472,23 @@ impl Transformable for Statement {
                     }
                 });
 
-                *body = methods;
-
                 if !props.is_empty() {
                     // copy the props into the class constructor
+                    for method in methods.iter_mut() {
+                        match *method {
+                            ClassMember::Constructor {
+                                ref mut body,
+                                ..
+                            } => {
+                                add_props_to_body(body, &mut props);
+                                break
+                            }
+                            _ => continue
+                        }
+                    }
                 }
+
+                *body = methods;
 
                 return;
             }
@@ -472,14 +499,16 @@ impl Transformable for Statement {
 
     fn contains_this(&self) -> bool {
         match *self {
-            VariableDeclarationStatement {
+            Statement::VariableDeclaration {
                 ref declarators,
                 ..
             } => declarators.contains_this(),
 
-            ExpressionStatement(ref expression) => expression.contains_this(),
+            Statement::Expression {
+                ref value,
+            } => value.contains_this(),
 
-            ReturnStatement {
+            Statement::Return {
                 value: Some(ref expression)
             } => expression.contains_this(),
 

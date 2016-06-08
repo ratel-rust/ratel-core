@@ -3,8 +3,6 @@ use lexicon::Token::*;
 use tokenizer::Tokenizer;
 use std::iter::Peekable;
 use grammar::*;
-use grammar::Statement::*;
-use grammar::Expression::*;
 use grammar::OperatorType::*;
 
 /// If the next token matches `$p`, consume that token and return
@@ -174,7 +172,7 @@ impl<'a> Parser<'a> {
     }
 
     fn array_expression(&mut self) -> Expression {
-        ArrayExpression(list!(self, self.expression(0), BracketOff))
+        Expression::Array(list!(self, self.expression(0), BracketOff))
     }
 
     #[inline(always)]
@@ -222,12 +220,12 @@ impl<'a> Parser<'a> {
     }
 
     fn object_expression(&mut self) -> Expression {
-        ObjectExpression(list!(self, self.object_member(), BraceOff))
+        Expression::Object(list!(self, self.object_member(), BraceOff))
     }
 
     fn block_or_statement(&mut self) -> Statement {
         if let Some(&BraceOn) = self.lookahead() {
-            BlockStatement {
+            Statement::Block {
                 body: self.block_body()
             }
         } else {
@@ -237,7 +235,7 @@ impl<'a> Parser<'a> {
     }
 
     fn block_statement(&mut self) -> Statement {
-        BlockStatement {
+        Statement::Block {
             body: self.block_body_tail(),
         }
     }
@@ -263,13 +261,13 @@ impl<'a> Parser<'a> {
     fn arrow_function_expression(&mut self, p: Option<Expression>) -> Expression {
         let params: Vec<Parameter> = match p {
             None => Vec::new(),
-            Some(IdentifierExpression(name)) => {
+            Some(Expression::Identifier(name)) => {
                 vec![Parameter { name: name }]
             },
-            Some(SequenceExpression(mut list)) => {
+            Some(Expression::Sequence(mut list)) => {
                 list.drain(..).map(|expression| {
                     match expression {
-                        IdentifierExpression(name) => Parameter { name: name },
+                        Expression::Identifier(name) => Parameter { name: name },
                         _ => panic!("Cannot cast {:?} to a parameter", expression),
                     }
                 }).collect()
@@ -279,14 +277,14 @@ impl<'a> Parser<'a> {
         };
 
         let body = if let Some(&BraceOn) = self.lookahead() {
-            BlockStatement {
+            Statement::Block {
                 body: self.block_body()
             }
         } else {
-            ExpressionStatement(self.expression(0))
+            Statement::Expression { value: self.expression(0) }
         };
 
-        ArrowFunctionExpression {
+        Expression::ArrowFunction {
             params: params,
             body: Box::new(body)
         }
@@ -300,7 +298,7 @@ impl<'a> Parser<'a> {
             panic!("Unexpected operator {:?}", operator);
         }
 
-        PrefixExpression {
+        Expression::Prefix {
             operator: operator,
             operand: Box::new(self.expression(bp)),
         }
@@ -311,19 +309,19 @@ impl<'a> Parser<'a> {
         let operator = expect!(self, Operator(op) => op);
 
         match operator {
-            Increment | Decrement => PostfixExpression {
+            Increment | Decrement => Expression::Postfix {
                 operator: operator,
                 operand: Box::new(left),
             },
 
-            Accessor => MemberExpression {
+            Accessor => Expression::Member {
                 object: Box::new(left),
                 property: Box::new(MemberKey::Literal(
                     expect!(self, Identifier(key) => key)
                 )),
             },
 
-            Conditional => ConditionalExpression {
+            Conditional => Expression::Conditional {
                 test: Box::new(left),
                 consequent: Box::new(self.expression(bp)),
                 alternate: {
@@ -343,7 +341,7 @@ impl<'a> Parser<'a> {
                     // TODO: verify that left is assignable
                 }
 
-                BinaryExpression {
+                Expression::Binary {
                     left: Box::new(left),
                     operator: operator,
                     right: Box::new(
@@ -361,7 +359,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        FunctionExpression {
+        Expression::Function {
             name: name,
             params: list!(self ( self.parameter() )),
             body: self.block_body(),
@@ -393,7 +391,7 @@ impl<'a> Parser<'a> {
                 list.push(self.expression(0));
             }
 
-            SequenceExpression(list)
+            Expression::Sequence(list)
         } else {
             first
         }
@@ -413,9 +411,9 @@ impl<'a> Parser<'a> {
     #[inline(always)]
     fn expression_from_token(&mut self, token: Token, lbp: u8) -> Expression {
         let left = match token {
-            This              => ThisExpression,
-            Identifier(value) => IdentifierExpression(value),
-            Literal(value)    => LiteralExpression(value),
+            This              => Expression::This,
+            Identifier(value) => Expression::Identifier(value),
+            Literal(value)    => Expression::Literal(value),
             Operator(optype)  => self.prefix_expression(optype),
             ParenOn           => self.paren_expression(),
             BracketOn         => self.array_expression(),
@@ -441,12 +439,12 @@ impl<'a> Parser<'a> {
             left = match self.lookahead() {
                 Some(&Operator(_)) => self.infix_expression(left, rbp),
 
-                Some(&ParenOn)     => CallExpression {
+                Some(&ParenOn)     => Expression::Call {
                     callee: Box::new(left),
                     arguments: list!(self ( self.expression(0) ))
                 },
 
-                Some(&BracketOn)   => MemberExpression {
+                Some(&BracketOn)   => Expression::Member {
                     object: Box::new(left),
                     property: Box::new(MemberKey::Computed(
                         surround!(self [ self.sequence_or_expression() ])
@@ -481,7 +479,7 @@ impl<'a> Parser<'a> {
             break;
         }
 
-        VariableDeclarationStatement {
+        Statement::VariableDeclaration {
             kind: kind,
             declarators: declarators,
         }
@@ -495,28 +493,28 @@ impl<'a> Parser<'a> {
 
     fn labeled_or_expression_statement(&mut self, label: String) -> Statement {
         if allow!(self, Colon) {
-            LabeledStatement {
+            Statement::Labeled {
                 label: label,
                 body: Box::new(
                     self.statement().expect("Expected statement")
                 ),
             }
         } else {
-            let first = self.complex_expression(IdentifierExpression(label), 0);
-            statement!(self, ExpressionStatement(
-                self.sequence_or(first)
-            ))
+            let first = self.complex_expression(Expression::Identifier(label), 0);
+            statement!(self, Statement::Expression {
+                value: self.sequence_or(first)
+            })
         }
     }
 
     fn expression_statement(&mut self, token: Token) -> Statement {
-        statement!(self, ExpressionStatement(
-            self.sequence_or_expression_from_token(token)
-        ))
+        statement!(self, Statement::Expression {
+            value: self.sequence_or_expression_from_token(token)
+        })
     }
 
     fn return_statement(&mut self) -> Statement {
-        statement!(self, ReturnStatement {
+        statement!(self, Statement::Return {
             value: match self.lookahead() {
                 None             => None,
                 Some(&Semicolon) => None,
@@ -532,7 +530,7 @@ impl<'a> Parser<'a> {
     }
 
     fn break_statement(&mut self) -> Statement {
-        statement!(self, BreakStatement {
+        statement!(self, Statement::Break {
             label: match self.lookahead() {
                 None             => None,
                 Some(&Semicolon) => None,
@@ -560,7 +558,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        IfStatement {
+        Statement::If {
             test: test,
             consequent: consequent,
             alternate: alternate,
@@ -568,7 +566,7 @@ impl<'a> Parser<'a> {
     }
 
     fn while_statement(&mut self) -> Statement {
-        WhileStatement {
+        Statement::While {
             test: surround!(self ( self.expression(0) )),
             body: Box::new(self.block_or_statement()),
         }
@@ -587,7 +585,7 @@ impl<'a> Parser<'a> {
             token             => {
                 let expression = self.sequence_or_expression_from_token(token);
 
-                if let BinaryExpression {
+                if let Expression::Binary {
                     left,
                     operator: In,
                     right,
@@ -596,7 +594,9 @@ impl<'a> Parser<'a> {
                 }
 
                 Some(Box::new(
-                    ExpressionStatement(expression)
+                    Statement::Expression {
+                        value: expression
+                    }
                 ))
             },
         };
@@ -605,7 +605,7 @@ impl<'a> Parser<'a> {
                 Operator(In)      => return self.for_in_statement(init),
                 Identifier(ident) => {
                     if ident != "of" {
-                        panic!("Unexpected identifier in for statement {}", ident);
+                        panic!("Unexpected identifier {}", ident);
                     }
                     return self.for_of_statement(init.unwrap());
                 },
@@ -626,7 +626,7 @@ impl<'a> Parser<'a> {
         };
         if !update.is_none() { expect!(self, ParenOff) }
 
-        ForStatement {
+        Statement::For {
             init: init,
             test: test,
             update: update,
@@ -637,10 +637,10 @@ impl<'a> Parser<'a> {
     fn for_in_statement_from_expressions(
         &mut self, left: Expression, right: Expression
     ) -> Statement {
-        let left = Box::new(ExpressionStatement(left));
+        let left = Box::new(Statement::Expression { value: left });
         expect!(self, ParenOff);
 
-        ForInStatement {
+        Statement::ForIn {
             left: left,
             right: right,
             body: Box::new(self.block_or_statement()),
@@ -652,7 +652,7 @@ impl<'a> Parser<'a> {
         let right = self.sequence_or_expression();
         expect!(self, ParenOff);
 
-        ForInStatement {
+        Statement::ForIn {
             left: left,
             right: right,
             body: Box::new(self.block_or_statement()),
@@ -663,7 +663,7 @@ impl<'a> Parser<'a> {
         let right = self.sequence_or_expression();
         expect!(self, ParenOff);
 
-        ForOfStatement {
+        Statement::ForOf {
             left: left,
             right: right,
             body: Box::new(self.block_or_statement()),
@@ -677,7 +677,7 @@ impl<'a> Parser<'a> {
     }
 
     fn function_statement(&mut self) -> Statement {
-        FunctionStatement {
+        Statement::Function {
             name: expect!(self, Identifier(name) => name),
             params: list!(self ( self.parameter() )),
             body: self.block_body(),
@@ -735,7 +735,7 @@ impl<'a> Parser<'a> {
             });
         }
 
-        ClassStatement {
+        Statement::Class {
             name: name,
             extends: super_class,
             body: members,

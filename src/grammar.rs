@@ -1,3 +1,13 @@
+pub struct Location {
+    pub line: u32,
+    pub column: u32,
+}
+
+pub struct Locator {
+    pub start: Location,
+    pub end: Location,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum LiteralValue {
     LiteralUndefined,
@@ -239,79 +249,95 @@ impl OperatorType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    ThisExpression,
-    IdentifierExpression(String),
-    LiteralExpression(LiteralValue),
-    ArrayExpression(Vec<Expression>),
-    SequenceExpression(Vec<Expression>),
-    ObjectExpression(Vec<ObjectMember>),
-    MemberExpression {
+    This,
+    Identifier(String),
+    Literal(LiteralValue),
+    Array(Vec<Expression>),
+    Sequence(Vec<Expression>),
+    Object(Vec<ObjectMember>),
+    Member {
         object: Box<Expression>,
         property: Box<MemberKey>,
     },
-    CallExpression {
+    Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
-    BinaryExpression {
+    Binary {
         left: Box<Expression>,
         operator: OperatorType,
         right: Box<Expression>,
     },
-    PrefixExpression {
+    Prefix {
         operator: OperatorType,
         operand: Box<Expression>,
     },
-    PostfixExpression {
+    Postfix {
         operator: OperatorType,
         operand: Box<Expression>,
     },
-    ConditionalExpression {
+    Conditional {
         test: Box<Expression>,
         consequent: Box<Expression>,
         alternate: Box<Expression>,
     },
-    ArrowFunctionExpression {
+    ArrowFunction {
         params: Vec<Parameter>,
         body: Box<Statement>,
     },
-    FunctionExpression {
+    Function {
         name: Option<String>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     }
 }
-use self::Expression::*;
 
 impl Expression {
     pub fn binding_power(&self) -> u8 {
         match *self {
-            MemberExpression { .. }                |
-            ArrowFunctionExpression { .. }         => 18,
+            Expression::Member {
+                ..
+            }
+            |
+            Expression::ArrowFunction {
+                ..
+            } => 18,
 
-            CallExpression { .. }                  => 17,
+            Expression::Call {
+                ..
+            } => 17,
 
-            PrefixExpression { ref operator, .. }  => operator.binding_power(true),
+            Expression::Prefix {
+                ref operator,
+                ..
+            } => operator.binding_power(true),
 
-            BinaryExpression { ref operator, .. }  |
-            PostfixExpression { ref operator, .. } => {
-                operator.binding_power(false)
-            },
+            Expression::Binary {
+                ref operator,
+                ..
+            }
+            |
+            Expression::Postfix {
+                ref operator,
+                ..
+            } => operator.binding_power(false),
 
-            ConditionalExpression { .. }           => 4,
+            Expression::Conditional {
+                ..
+            } => 4,
 
-            _                                      => 100,
+            _  => 100,
         }
     }
 
     #[inline(always)]
     pub fn ident(name: &str) -> Self {
-        IdentifierExpression(name.to_string())
+        Expression::Identifier(name.to_string())
     }
 
     #[inline(always)]
     pub fn member(object: Expression, property: &str) -> Self {
-        MemberExpression {
+        Expression::Member {
             object: Box::new(object),
             property: Box::new(
                 MemberKey::Literal(property.to_string())
@@ -321,7 +347,7 @@ impl Expression {
 
     #[inline(always)]
     pub fn call(callee: Expression, arguments: Vec<Expression>) -> Self {
-        CallExpression {
+        Expression::Call {
             callee: Box::new(callee),
             arguments: arguments,
         }
@@ -387,55 +413,57 @@ pub struct VariableDeclarator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
-    BlockStatement {
+    Block {
         body: Vec<Statement>,
     },
-    LabeledStatement {
+    Labeled {
         label: String,
         body: Box<Statement>,
     },
-    VariableDeclarationStatement {
+    VariableDeclaration {
         kind: VariableDeclarationKind,
         declarators: Vec<VariableDeclarator>,
     },
-    ExpressionStatement(Expression),
-    ReturnStatement {
+    Expression {
+        value: Expression
+    },
+    Return {
         value: Option<Expression>,
     },
-    BreakStatement {
+    Break {
         label: Option<String>,
     },
-    FunctionStatement {
+    Function {
         name: String,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
-    IfStatement {
+    If {
         test: Expression,
         consequent: Box<Statement>,
         alternate: Option<Box<Statement>>,
     },
-    WhileStatement {
+    While {
         test: Expression,
         body: Box<Statement>,
     },
-    ForStatement {
+    For {
         init: Option<Box<Statement>>,
         test: Option<Expression>,
         update: Option<Expression>,
         body: Box<Statement>,
     },
-    ForInStatement {
+    ForIn {
         left: Box<Statement>,
         right: Expression,
         body: Box<Statement>,
     },
-    ForOfStatement {
+    ForOf {
         left: Box<Statement>,
         right: Expression,
         body: Box<Statement>,
     },
-    ClassStatement {
+    Class {
         name: String,
         extends: Option<String>,
         body: Vec<ClassMember>,
