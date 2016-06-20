@@ -52,55 +52,54 @@ macro_rules! match_descend {
 
 pub struct Tokenizer<'a> {
     source: Peekable<Chars<'a>>,
+    buffer: String,
 }
 
 impl<'a> Tokenizer<'a> {
     pub fn new(source: &'a String) -> Self {
         Tokenizer {
             source: source.chars().peekable(),
+            buffer: String::with_capacity(512),
         }
     }
 
-    fn read_label(&mut self, first: char) -> String {
-        let mut label = first.to_string();
+    fn read_label(&mut self, first: char) {
+        self.buffer.clear();
+        self.buffer.push(first);
 
         while let Some(&ch) = self.source.peek() {
             if ch.is_alphanumeric() || ch == '_' || ch == '$' {
-                label.push(ch);
+                self.buffer.push(ch);
                 self.source.next();
             } else {
-                return label;
+                return;
             }
         }
-
-        return label;
     }
 
-    fn read_string(&mut self, first: char) -> String {
-        let mut value = String::new();
+    fn read_string(&mut self, first: char) {
+        self.buffer.clear();
         let mut escape = false;
 
         while let Some(ch) = self.source.next() {
             if ch == first && escape == false {
-                return value;
+                return;
             }
             match ch {
                 '\\' => {
                     if escape {
                         escape = false;
-                        value.push(ch);
+                        self.buffer.push(ch);
                     } else {
                         escape = true;
                     }
                 },
                 _ => {
-                    value.push(ch);
+                    self.buffer.push(ch);
                     escape = false;
                 },
             }
         }
-
-        return value;
     }
 
     fn read_binary(&mut self) -> LiteralValue {
@@ -185,7 +184,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn read_number(&mut self, first: char) -> LiteralValue {
-        let mut value = first.to_string();
+        self.buffer.clear();
+        self.buffer.push(first);
         let mut period = false;
 
         if first == '.' {
@@ -208,23 +208,23 @@ impl<'a> Tokenizer<'a> {
         while let Some(&ch) = self.source.peek() {
             match ch {
                 '0'...'9' => {
-                    value.push(ch);
+                    self.buffer.push(ch);
                     self.source.next();
                 },
                 '.' => {
                     if !period {
                         period = true;
-                        value.push(ch);
+                        self.buffer.push(ch);
                         self.source.next();
                     } else {
-                        return LiteralValue::float_from_string(value);
+                        return LiteralValue::float_from_string(&self.buffer);
                     }
                 },
-                _ => return LiteralValue::float_from_string(value),
+                _ => return LiteralValue::float_from_string(&self.buffer),
             }
         }
 
-        return LiteralValue::float_from_string(value);
+        return LiteralValue::float_from_string(&self.buffer);
     }
 
     fn read_comment(&mut self) {
@@ -249,8 +249,8 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn label_to_token(&mut self, label: String) -> Token {
-        match label.as_ref() {
+    fn label_to_token(&mut self) -> Token {
+        match self.buffer.as_ref() {
             "new"        => Operator(New),
             "typeof"     => Operator(Typeof),
             "delete"     => Operator(Delete),
@@ -298,7 +298,7 @@ impl<'a> Tokenizer<'a> {
             "interface"  => Reserved(Interface),
             "private"    => Reserved(Private),
             "public"     => Reserved(Public),
-            _            => Identifier(label),
+            _            => Identifier(self.buffer.clone()),
         }
     }
 }
@@ -380,7 +380,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 '{' => BraceOn,
                 '}' => BraceOff,
                 '"' | '\'' => {
-                    Literal(LiteralString( self.read_string(ch) ))
+                    self.read_string(ch);
+                    Literal(LiteralString( self.buffer.clone() ))
                 },
                 '/' => {
                     match self.source.peek() {
@@ -421,8 +422,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 '0'...'9' => Literal(self.read_number(ch)),
                 _ => {
                     if ch.is_alphabetic() || ch == '$' || ch == '_' {
-                       let label = self.read_label(ch);
-                        self.label_to_token(label)
+                        self.read_label(ch);
+                        self.label_to_token()
                     } else if ch.is_whitespace() {
                         continue 'lex
                     } else {

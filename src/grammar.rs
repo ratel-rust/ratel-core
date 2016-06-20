@@ -21,7 +21,7 @@ pub enum LiteralValue {
 pub use self::LiteralValue::*;
 
 impl LiteralValue {
-    pub fn float_from_string(string: String) -> Self {
+    pub fn float_from_string(string: &String) -> Self {
         match string.parse::<f64>() {
             Ok(float) => LiteralFloat(float),
             _         => panic!("Couldn't parse float from {}", string),
