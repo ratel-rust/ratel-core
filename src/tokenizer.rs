@@ -1,4 +1,5 @@
-use std::str::Chars;
+use std::str;
+use std::str::Bytes;
 use std::iter::{ Peekable, Iterator };
 use lexicon::Token;
 use lexicon::Token::*;
@@ -51,42 +52,28 @@ macro_rules! match_descend {
 
 
 pub struct Tokenizer<'a> {
-    source: Peekable<Chars<'a>>,
-    buffer: String,
+    source: Peekable<Bytes<'a>>,
+    buffer: Vec<u8>,
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(source: &'a String) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Tokenizer {
-            source: source.chars().peekable(),
-            buffer: String::with_capacity(512),
+            source: source.bytes().peekable(),
+            buffer: Vec::with_capacity(128),
         }
     }
 
-    fn read_label(&mut self, first: char) {
-        self.buffer.clear();
-        self.buffer.push(first);
-
-        while let Some(&ch) = self.source.peek() {
-            if ch.is_alphanumeric() || ch == '_' || ch == '$' {
-                self.buffer.push(ch);
-                self.source.next();
-            } else {
-                return;
-            }
-        }
-    }
-
-    fn read_string(&mut self, first: char) {
+    fn read_string(&mut self, first: u8) -> String {
         self.buffer.clear();
         let mut escape = false;
 
         while let Some(ch) = self.source.next() {
             if ch == first && escape == false {
-                return;
+                break;
             }
             match ch {
-                '\\' => {
+                b'\\' => {
                     if escape {
                         escape = false;
                         self.buffer.push(ch);
@@ -100,6 +87,8 @@ impl<'a> Tokenizer<'a> {
                 },
             }
         }
+
+        unsafe { str::from_utf8_unchecked(self.buffer.as_ref()) }.to_owned()
     }
 
     fn read_binary(&mut self) -> LiteralValue {
@@ -107,9 +96,9 @@ impl<'a> Tokenizer<'a> {
 
         while let Some(&peek) = self.source.peek() {
             match peek {
-                '0' | '1' => {
+                b'0' | b'1' => {
                     value <<= 1;
-                    if peek == '1' {
+                    if peek == b'1' {
                         value += 1;
                     }
                     self.source.next();
@@ -126,15 +115,15 @@ impl<'a> Tokenizer<'a> {
 
         while let Some(&peek) = self.source.peek() {
             let digit = match peek {
-                '0' => 0,
-                '1' => 1,
-                '2' => 2,
-                '3' => 3,
-                '4' => 4,
-                '5' => 5,
-                '6' => 6,
-                '7' => 7,
-                _   => -1,
+                b'0' => 0,
+                b'1' => 1,
+                b'2' => 2,
+                b'3' => 3,
+                b'4' => 4,
+                b'5' => 5,
+                b'6' => 6,
+                b'7' => 7,
+                _    => -1,
             };
             if digit == -1 {
                 return LiteralInteger(value);
@@ -153,23 +142,23 @@ impl<'a> Tokenizer<'a> {
 
         while let Some(&peek) = self.source.peek() {
             let digit = match peek {
-                '0'       => 0,
-                '1'       => 1,
-                '2'       => 2,
-                '3'       => 3,
-                '4'       => 4,
-                '5'       => 5,
-                '6'       => 6,
-                '7'       => 7,
-                '8'       => 8,
-                '9'       => 9,
-                'a' | 'A' => 10,
-                'b' | 'B' => 11,
-                'c' | 'C' => 12,
-                'd' | 'D' => 13,
-                'e' | 'E' => 14,
-                'f' | 'F' => 15,
-                _         => -1,
+                b'0'        => 0,
+                b'1'        => 1,
+                b'2'        => 2,
+                b'3'        => 3,
+                b'4'        => 4,
+                b'5'        => 5,
+                b'6'        => 6,
+                b'7'        => 7,
+                b'8'        => 8,
+                b'9'        => 9,
+                b'a' | b'A' => 10,
+                b'b' | b'B' => 11,
+                b'c' | b'C' => 12,
+                b'd' | b'D' => 13,
+                b'e' | b'E' => 14,
+                b'f' | b'F' => 15,
+                _           => -1,
             };
             if digit == -1 {
                 return LiteralInteger(value);
@@ -183,22 +172,22 @@ impl<'a> Tokenizer<'a> {
         return LiteralInteger(value);
     }
 
-    fn read_number(&mut self, first: char) -> LiteralValue {
+    fn read_number(&mut self, first: u8) -> LiteralValue {
         self.buffer.clear();
         self.buffer.push(first);
         let mut period = false;
 
-        if first == '.' {
+        if first == b'.' {
             period = true;
-        } else if first == '0' {
+        } else if first == b'0' {
             if let Some(&peek) = self.source.peek() {
-                if peek == 'b' {
+                if peek == b'b' {
                     self.source.next();
                     return self.read_binary();
-                } else if peek == 'o' {
+                } else if peek == b'o' {
                     self.source.next();
                     return self.read_octal();
-                } else if peek == 'x' {
+                } else if peek == b'x' {
                     self.source.next();
                     return self.read_hexadec();
                 }
@@ -207,11 +196,11 @@ impl<'a> Tokenizer<'a> {
 
         while let Some(&ch) = self.source.peek() {
             match ch {
-                '0'...'9' => {
+                b'0'...b'9' => {
                     self.buffer.push(ch);
                     self.source.next();
                 },
-                '.' => {
+                b'.' => {
                     if !period {
                         period = true;
                         self.buffer.push(ch);
@@ -229,7 +218,7 @@ impl<'a> Tokenizer<'a> {
 
     fn read_comment(&mut self) {
         while let Some(&ch) = self.source.peek() {
-            if ch == '\n' {
+            if ch == b'\n' {
                 return;
             }
             self.source.next();
@@ -240,65 +229,83 @@ impl<'a> Tokenizer<'a> {
         let mut asterisk = false;
 
         while let Some(ch) = self.source.next() {
-            if ch == '/' && asterisk {
+            if ch == b'/' && asterisk {
                 return;
             }
-            if ch == '*' {
+            if ch == b'*' {
                 asterisk = true;
             }
         }
     }
 
-    fn label_to_token(&mut self) -> Token {
-        match self.buffer.as_ref() {
-            "new"        => Operator(New),
-            "typeof"     => Operator(Typeof),
-            "delete"     => Operator(Delete),
-            "void"       => Operator(Void),
-            "in"         => Operator(In),
-            "instanceof" => Operator(Instanceof),
-            "var"        => Declaration(Var),
-            "let"        => Declaration(Let),
-            "const"      => Declaration(Const),
-            "break"      => Break,
-            "do"         => Do,
-            "case"       => Case,
-            "else"       => Else,
-            "catch"      => Catch,
-            "export"     => Export,
-            "class"      => Class,
-            "extends"    => Extends,
-            "return"     => Return,
-            "while"      => While,
-            "finally"    => Finally,
-            "super"      => Super,
-            "with"       => With,
-            "continue"   => Continue,
-            "for"        => For,
-            "switch"     => Switch,
-            "yield"      => Yield,
-            "debugger"   => Debugger,
-            "function"   => Function,
-            "this"       => This,
-            "default"    => Default,
-            "if"         => If,
-            "throw"      => Throw,
-            "import"     => Import,
-            "try"        => Try,
-            "await"      => Await,
-            "static"     => Static,
-            "true"       => Literal(LiteralTrue),
-            "false"      => Literal(LiteralFalse),
-            "undefined"  => Literal(LiteralUndefined),
-            "null"       => Literal(LiteralNull),
-            "enum"       => Reserved(Enum),
-            "implements" => Reserved(Implements),
-            "package"    => Reserved(Package),
-            "protected"  => Reserved(Protected),
-            "interface"  => Reserved(Interface),
-            "private"    => Reserved(Private),
-            "public"     => Reserved(Public),
-            _            => Identifier(self.buffer.clone()),
+    fn read_label(&mut self, first: u8) -> Token {
+        self.buffer.clear();
+        self.buffer.push(first);
+
+        while let Some(&ch) = self.source.peek() {
+            match ch {
+                b'a'...b'z' |
+                b'A'...b'Z' |
+                b'0'...b'9' |
+                b'_' | b'$' => {
+                    self.buffer.push(ch);
+                    self.source.next();
+                }
+                _ => break
+            }
+        }
+
+        let slice: &[u8] = &self.buffer;
+
+        match slice {
+            b"new"        => Operator(New),
+            b"typeof"     => Operator(Typeof),
+            b"delete"     => Operator(Delete),
+            b"void"       => Operator(Void),
+            b"in"         => Operator(In),
+            b"instanceof" => Operator(Instanceof),
+            b"var"        => Declaration(Var),
+            b"let"        => Declaration(Let),
+            b"const"      => Declaration(Const),
+            b"break"      => Break,
+            b"do"         => Do,
+            b"case"       => Case,
+            b"else"       => Else,
+            b"catch"      => Catch,
+            b"export"     => Export,
+            b"class"      => Class,
+            b"extends"    => Extends,
+            b"return"     => Return,
+            b"while"      => While,
+            b"finally"    => Finally,
+            b"super"      => Super,
+            b"with"       => With,
+            b"continue"   => Continue,
+            b"for"        => For,
+            b"switch"     => Switch,
+            b"yield"      => Yield,
+            b"debugger"   => Debugger,
+            b"function"   => Function,
+            b"this"       => This,
+            b"default"    => Default,
+            b"if"         => If,
+            b"throw"      => Throw,
+            b"import"     => Import,
+            b"try"        => Try,
+            b"await"      => Await,
+            b"static"     => Static,
+            b"true"       => Literal(LiteralTrue),
+            b"false"      => Literal(LiteralFalse),
+            b"undefined"  => Literal(LiteralUndefined),
+            b"null"       => Literal(LiteralNull),
+            b"enum"       => Reserved(Enum),
+            b"implements" => Reserved(Implements),
+            b"package"    => Reserved(Package),
+            b"protected"  => Reserved(Protected),
+            b"interface"  => Reserved(Interface),
+            b"private"    => Reserved(Private),
+            b"public"     => Reserved(Public),
+            _             => Identifier(unsafe { str::from_utf8_unchecked(slice) }.to_owned()),
         }
     }
 }
@@ -310,107 +317,106 @@ impl<'a> Iterator for Tokenizer<'a> {
         'lex: while let Some(ch) = self.source.next() {
 
             match_operators! { self ch
-                '=' => Assign {
-                    '=' => Equality {
-                        '=' => StrictEquality,
+                b'=' => Assign {
+                    b'=' => Equality {
+                        b'=' => StrictEquality,
                     }
-                    '>' => FatArrow,
+                    b'>' => FatArrow,
                 }
-                '!' => LogicalNot {
-                    '=' => Inequality {
-                        '=' => StrictInequality,
+                b'!' => LogicalNot {
+                    b'=' => Inequality {
+                        b'=' => StrictInequality,
                     }
                 }
-                '<' => Lesser {
-                    '<' => BitShiftLeft {
-                        '=' => BSLAssign,
+                b'<' => Lesser {
+                    b'<' => BitShiftLeft {
+                        b'=' => BSLAssign,
                     }
-                    '=' => LesserEquals,
+                    b'=' => LesserEquals,
                 }
-                '>' => Greater {
-                    '>' => BitShiftRight {
-                        '>' => UBitShiftRight {
-                            '=' => UBSRAssign,
+                b'>' => Greater {
+                    b'>' => BitShiftRight {
+                        b'>' => UBitShiftRight {
+                            b'=' => UBSRAssign,
                         }
-                        '=' => BSRAssign,
+                        b'=' => BSRAssign,
                     }
-                    '=' => GreaterEquals,
+                    b'=' => GreaterEquals,
                 }
-                '?' => Conditional,
-                '~' => BitwiseNot,
-                '^' => BitwiseXor {
-                    '=' => BitXorAssign,
+                b'?' => Conditional,
+                b'~' => BitwiseNot,
+                b'^' => BitwiseXor {
+                    b'=' => BitXorAssign,
                 }
-                '&' => BitwiseAnd {
-                    '&' => LogicalAnd,
-                    '=' => BitAndAssign,
+                b'&' => BitwiseAnd {
+                    b'&' => LogicalAnd,
+                    b'=' => BitAndAssign,
                 }
-                '|' => BitwiseOr {
-                    '|' => LogicalOr,
-                    '=' => BitOrAssign,
+                b'|' => BitwiseOr {
+                    b'|' => LogicalOr,
+                    b'=' => BitOrAssign,
                 }
-                '+' => Addition {
-                    '+' => Increment,
-                    '=' => AddAssign,
+                b'+' => Addition {
+                    b'+' => Increment,
+                    b'=' => AddAssign,
                 }
-                '-' => Substraction {
-                    '-' => Decrement,
-                    '=' => SubstractAssign,
+                b'-' => Substraction {
+                    b'-' => Decrement,
+                    b'=' => SubstractAssign,
                 }
-                '*' => Multiplication {
-                    '*' => Exponent {
-                        '=' => ExponentAssign,
+                b'*' => Multiplication {
+                    b'*' => Exponent {
+                        b'=' => ExponentAssign,
                     }
-                    '=' => MultiplyAssign,
+                    b'=' => MultiplyAssign,
                 }
-                '%' => Remainder {
-                    '=' => RemainderAssign,
+                b'%' => Remainder {
+                    b'=' => RemainderAssign,
                 }
             }
 
             return Some(match ch {
-                '\n' => LineTermination,
-                ';' => Semicolon,
-                ',' => Comma,
-                ':' => Colon,
-                '(' => ParenOn,
-                ')' => ParenOff,
-                '[' => BracketOn,
-                ']' => BracketOff,
-                '{' => BraceOn,
-                '}' => BraceOff,
-                '"' | '\'' => {
-                    self.read_string(ch);
-                    Literal(LiteralString( self.buffer.clone() ))
+                b'\n' => LineTermination,
+                b';' => Semicolon,
+                b',' => Comma,
+                b':' => Colon,
+                b'(' => ParenOn,
+                b')' => ParenOff,
+                b'[' => BracketOn,
+                b']' => BracketOff,
+                b'{' => BraceOn,
+                b'}' => BraceOff,
+                b'"' | b'\'' => {
+                    Literal(LiteralString( self.read_string(ch) ))
                 },
-                '/' => {
+                b'/' => {
                     match self.source.peek() {
-                        Some(&'/') => {
+                        Some(&b'/') => {
                             self.source.next();
                             self.read_comment();
                             continue 'lex
                         },
-                        Some(&'*') => {
+                        Some(&b'*') => {
                             self.source.next();
                             self.read_block_comment();
                             continue 'lex
                         },
-                        Some(&'=') => {
+                        Some(&b'=') => {
                             self.source.next();
                             Operator(DivideAssign)
                         },
                         _ => Operator(Division)
                     }
                 },
-                '.' => {
+                b'.' => {
                     match self.source.peek() {
-                        Some(&'0'...'9') => {
-                            Literal(self.read_number('.'))
+                        Some(&b'0'...b'9') => {
+                            Literal(self.read_number(b'.'))
                         },
-                        Some(&'.') => {
+                        Some(&b'.') => {
                             self.source.next();
                             match self.source.next() {
-                                Some('.') => Operator(Spread),
+                                Some(b'.') => Operator(Spread),
                                 ch        => {
                                     panic!("Invalid character `{:?}`", ch);
                                 }
@@ -419,15 +425,20 @@ impl<'a> Iterator for Tokenizer<'a> {
                         _ => Operator(Accessor)
                     }
                 },
-                '0'...'9' => Literal(self.read_number(ch)),
+                b'0'...b'9' => Literal(self.read_number(ch)),
                 _ => {
-                    if ch.is_alphabetic() || ch == '$' || ch == '_' {
-                        self.read_label(ch);
-                        self.label_to_token()
-                    } else if ch.is_whitespace() {
-                        continue 'lex
-                    } else {
-                        panic!("Invalid character `{:?}`", ch);
+                    match ch {
+                        b'a'...b'z' |
+                        b'A'...b'Z' |
+                        b'$' | b'_' => {
+                            self.read_label(ch)
+                        },
+
+                        b' ' | b'\t' => continue 'lex,
+
+                        _ => {
+                            panic!("Invalid character `{:?}`", ch);
+                        }
                     }
                 }
             });

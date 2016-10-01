@@ -1,3 +1,5 @@
+use std::str;
+
 pub struct Location {
     pub line: u32,
     pub column: u32,
@@ -21,7 +23,8 @@ pub enum LiteralValue {
 pub use self::LiteralValue::*;
 
 impl LiteralValue {
-    pub fn float_from_string(string: &String) -> Self {
+    pub fn float_from_string(string: &[u8]) -> Self {
+        let string = unsafe { str::from_utf8_unchecked(string) };
         match string.parse::<f64>() {
             Ok(float) => LiteralFloat(float),
             _         => panic!("Couldn't parse float from {}", string),
