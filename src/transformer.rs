@@ -1,3 +1,5 @@
+use std::mem;
+
 use grammar::*;
 use grammar::ClassMember::*;
 use grammar::OperatorType::*;
@@ -47,12 +49,11 @@ impl Settings {
 }
 
 /// The `Transformable` trait provides an interface for instances of grammar
-/// to alter the AST, either by mutating self, or by returning a new node.
-///
-/// NOTE: Returning `None` means no changes are necessary!
+/// to alter the AST.
 trait Transformable {
     fn transform(&mut self, _: &Settings) {}
 
+    #[inline]
     fn contains_this(&self) -> bool {
         false
     }
@@ -115,20 +116,26 @@ impl Transformable for Expression {
                     return;
                 }
 
-                let (mut computed, literal): (Vec<ObjectMember>, Vec<ObjectMember>)
-                = members.drain(..).partition(|member| {
-                    match *member {
-                        ObjectMember::Computed { .. } => true,
-                        _                             => false,
+                let mut computed = Vec::new();
+                let indexes = 0 .. members.len();
+
+                for index in indexes.rev() {
+                    match members[index] {
+                        ObjectMember::Computed { .. } => {
+                            let member = members.remove(index);
+                            computed.push(member);
+                        },
+                        _ => {}
                     }
-                });
+                }
 
                 if computed.is_empty() {
-                    *members = literal;
                     return;
                 }
 
-                let mut body = Vec::new();
+                let literal = mem::replace(members, Vec::new());
+
+                let mut body = Vec::with_capacity(computed.len() + 2);
 
                 body.push(Statement::VariableDeclaration {
                     kind: VariableDeclarationKind::Var,
@@ -246,7 +253,7 @@ impl Transformable for ObjectMember {
         *self = match *self {
 
             ObjectMember::Shorthand {
-                ref key,
+                ref mut key,
             } => {
                 // transformation flag check
                 if !settings.transform_object {
@@ -255,7 +262,7 @@ impl Transformable for ObjectMember {
 
                 ObjectMember::Literal {
                     key: key.clone(),
-                    value: Expression::Identifier(key.clone()),
+                    value: Expression::Identifier(mem::replace(key, String::new())),
                 }
             },
 
@@ -518,12 +525,14 @@ impl Transformable for Statement {
 }
 
 impl<T: Transformable> Transformable for Vec<T> {
+    #[inline]
     fn transform(&mut self, settings: &Settings) {
         for item in self.iter_mut() {
             item.transform(settings);
         }
     }
 
+    #[inline]
     fn contains_this(&self) -> bool {
         for item in self {
             if item.contains_this() {
