@@ -1,5 +1,4 @@
 use std::str;
-use std::iter::Iterator;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
@@ -70,7 +69,10 @@ pub struct Tokenizer<'a> {
     // Lenght of the source
     length: usize,
 
-    // Auxiliary index informing when last token begun
+    // Current token
+    token: Option<Token>,
+
+    // Index of current token in source
     pub token_start: usize,
 }
 
@@ -81,8 +83,9 @@ impl<'a> Tokenizer<'a> {
             source: source,
             byte_ptr: source.as_ptr(),
             index: 0,
-            token_start: 0,
             length: source.len(),
+            token: None,
+            token_start: 0,
         }
     }
 
@@ -155,18 +158,19 @@ impl<'a> Tokenizer<'a> {
         while !self.is_eof() {
             let peek = self.read_byte();
             match peek {
-                b'0' | b'1' => {
+                b'0' => {
                     value <<= 1;
-                    if peek == b'1' {
-                        value += 1;
-                    }
                     self.bump();
                 },
-                _ => return LiteralInteger(value),
+                b'1' => {
+                    value = (value << 1) + 1;
+                    self.bump();
+                },
+                _ => break
             }
         }
 
-        return LiteralInteger(value);
+        LiteralInteger(value)
     }
 
     fn read_octal(&mut self) -> LiteralValue {
@@ -174,28 +178,16 @@ impl<'a> Tokenizer<'a> {
 
         while !self.is_eof() {
             let peek = self.read_byte();
-
             let digit = match peek {
-                b'0' => 0,
-                b'1' => 1,
-                b'2' => 2,
-                b'3' => 3,
-                b'4' => 4,
-                b'5' => 5,
-                b'6' => 6,
-                b'7' => 7,
-                _    => -1,
+                b'0'...b'7' => peek - b'0',
+                _           => break
             };
-            if digit == -1 {
-                return LiteralInteger(value);
-            } else {
-                value <<= 3;
-                value += digit;
-                self.bump();
-            }
+
+            value = (value << 3) + digit as u64;
+            self.bump();
         }
 
-        return LiteralInteger(value);
+        LiteralInteger(value)
     }
 
     fn read_hexadec(&mut self) -> LiteralValue {
@@ -204,84 +196,74 @@ impl<'a> Tokenizer<'a> {
         while !self.is_eof() {
             let peek = self.read_byte();
             let digit = match peek {
-                b'0'        => 0,
-                b'1'        => 1,
-                b'2'        => 2,
-                b'3'        => 3,
-                b'4'        => 4,
-                b'5'        => 5,
-                b'6'        => 6,
-                b'7'        => 7,
-                b'8'        => 8,
-                b'9'        => 9,
-                b'a' | b'A' => 10,
-                b'b' | b'B' => 11,
-                b'c' | b'C' => 12,
-                b'd' | b'D' => 13,
-                b'e' | b'E' => 14,
-                b'f' | b'F' => 15,
-                _           => -1,
+                b'0'...b'9' => peek - b'0',
+                b'a'...b'f' => peek - b'a' + 10,
+                b'A'...b'F' => peek - b'A' + 10,
+                _           => break
             };
-            if digit == -1 {
-                return LiteralInteger(value);
-            } else {
-                value <<= 4;
-                value += digit;
-                self.bump();
-            }
+
+            value = (value << 4) + digit as u64;
+            self.bump();
         }
 
         return LiteralInteger(value);
     }
 
-    fn read_number(&mut self, first: u8) -> LiteralValue {
-        self.buffer.clear();
-        self.buffer.push(first);
-        let mut period = false;
-
-        if first == b'.' {
-            period = true;
-        } else if first == b'0' {
-            if !self.is_eof() {
-                match self.read_byte() {
-                    b'b' => {
-                        self.bump();
-                        return self.read_binary();
-                    },
-                    b'o' => {
-                        self.bump();
-                        return self.read_octal();
-                    },
-                    b'x' => {
-                        self.bump();
-                        return self.read_hexadec();
-                    },
-                    _ => {}
-                }
+    fn read_float(&mut self, start: usize) -> LiteralValue {
+        while !self.is_eof() {
+            let ch = self.read_byte();
+            match ch {
+                b'0'...b'9' => self.bump(),
+                _           => break
             }
         }
+
+        LiteralValue::float_from_string(&self.source[start .. self.index])
+    }
+
+    fn read_number(&mut self, first: u8) -> LiteralValue {
+        let start = self.index - 1;
+
+        if first == b'.' {
+            return self.read_float(start);
+        } else if first == b'0' {
+            if self.is_eof() {
+                return LiteralValue::LiteralInteger(0);
+            }
+            match self.read_byte() {
+                b'b' => {
+                    self.bump();
+                    return self.read_binary();
+                },
+                b'o' => {
+                    self.bump();
+                    return self.read_octal();
+                },
+                b'x' => {
+                    self.bump();
+                    return self.read_hexadec();
+                },
+                _ => {}
+            }
+        }
+
+        let mut value = (first - b'0') as u64;
 
         while !self.is_eof() {
             let ch = self.read_byte();
             match ch {
                 b'0'...b'9' => {
-                    self.buffer.push(ch);
+                    value = value * 10 + (ch - b'0') as u64;
                     self.bump();
                 },
                 b'.' => {
-                    if !period {
-                        period = true;
-                        self.buffer.push(ch);
-                        self.bump();
-                    } else {
-                        return LiteralValue::float_from_string(&self.buffer);
-                    }
+                    return self.read_float(start);
                 },
-                _ => return LiteralValue::float_from_string(&self.buffer),
+                _ => break,
             }
         }
 
-        return LiteralValue::float_from_string(&self.buffer);
+        LiteralValue::LiteralInteger(value)
     }
 
     fn read_comment(&mut self) {
@@ -367,12 +349,26 @@ impl<'a> Tokenizer<'a> {
             _            => Identifier(slice.to_owned()),
         }
     }
-}
 
-impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Token;
+    #[inline]
+    pub fn peek(&mut self) -> Option<&Token> {
+        if self.token.is_none() {
+            self.token = self.get_token();
+        }
 
-    fn next(&mut self) -> Option<Token> {
+        self.token.as_ref()
+    }
+
+    #[inline]
+    pub fn next(&mut self) -> Option<Token> {
+        if self.token.is_some() {
+            return self.token.take();
+        }
+
+        self.get_token()
+    }
+
+    fn get_token(&mut self) -> Option<Token> {
         while !self.is_eof() {
             self.token_start = self.index;
 

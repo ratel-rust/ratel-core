@@ -1,7 +1,6 @@
 use lexicon::Token;
 use lexicon::Token::*;
 use tokenizer::Tokenizer;
-use std::iter::Peekable;
 use grammar::*;
 use grammar::OperatorType::*;
 
@@ -134,14 +133,14 @@ macro_rules! surround {
 }
 
 pub struct Parser<'a> {
-    tokenizer: Peekable<Tokenizer<'a>>,
+    tokenizer: Tokenizer<'a>,
     allow_asi: bool,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a String) -> Self {
         Parser {
-            tokenizer: Tokenizer::new(source).peekable(),
+            tokenizer: Tokenizer::new(source),
             allow_asi: false,
         }
     }

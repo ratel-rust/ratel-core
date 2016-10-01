@@ -16,15 +16,14 @@ pub enum LiteralValue {
     LiteralNull,
     LiteralTrue,
     LiteralFalse,
-    LiteralInteger(i32),
+    LiteralInteger(u64),
     LiteralFloat(f64),
     LiteralString(String),
 }
 pub use self::LiteralValue::*;
 
 impl LiteralValue {
-    pub fn float_from_string(string: &[u8]) -> Self {
-        let string = unsafe { str::from_utf8_unchecked(string) };
+    pub fn float_from_string(string: &str) -> Self {
         match string.parse::<f64>() {
             Ok(float) => LiteralFloat(float),
             _         => panic!("Couldn't parse float from {}", string),
