@@ -81,53 +81,17 @@ macro_rules! statement {
     })
 }
 
-/// Read a list of items with predefined `$start`, `$end` and
-/// `$separator` tokens and an `$item` expression that is then
-/// pushed onto a vector.
-macro_rules! list {
-    ($parser:ident, $item:expr, $end:pat) => ({
-        let mut list = Vec::new();
-        loop {
-            if allow!($parser, $end) {
-                break;
-            }
-            list.push($item);
-
-            match $parser.consume() {
-                Comma => allow!{ $parser $end => break },
-                $end  => break,
-                _     => {},
-            }
-        }
-
-        list
-    });
-    ($parser:ident, $item:expr, $start:pat, $end:pat) => ({
-        expect!($parser, $start);
-        list!($parser, $item, $end)
-    });
-    ($parser:ident ( $item:expr )) => {
-        list!($parser, $item, ParenOn, ParenOff)
-    };
-    ($parser:ident [ $item:expr ]) => {
-        list!($parser, $item, BracketOn, BracketOff)
-    };
-    ($parser:ident { $item:expr }) => {
-        list!($parser, $item, BraceOn, BraceOff)
-    };
-}
-
 macro_rules! surround {
     ($parser:ident ( $eval:expr )) => ({
-        expect!($parser, ParenOn);
+        $parser.tokenizer.expect_byte(b'(');
         let value = $eval;
-        expect!($parser, ParenOff);
+        $parser.tokenizer.expect_byte(b')');
         value
     });
     ($parser:ident [ $eval:expr ]) => ({
-        expect!($parser, BracketOn);
+        $parser.tokenizer.expect_byte(b'[');
         let value = $eval;
-        expect!($parser, BracketOff);
+        $parser.tokenizer.expect_byte(b']');
         value
     });
 }
@@ -145,7 +109,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Token> {
         self.allow_asi = false;
         loop {
@@ -156,12 +120,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn consume(&mut self) -> Token {
         self.next().expect("Unexpected end of program")
     }
 
-    #[inline(always)]
+    #[inline]
     fn lookahead(&mut self) -> Option<&Token> {
         while let Some(&LineTermination) = self.tokenizer.peek() {
             self.tokenizer.next();
@@ -170,26 +134,52 @@ impl<'a> Parser<'a> {
         self.tokenizer.peek()
     }
 
+    #[inline]
     fn array_expression(&mut self) -> Expression {
-        Expression::Array(list!(self, self.expression(0), BracketOff))
+        Expression::Array(self.expression_list(b']'))
     }
 
-    #[inline(always)]
+    fn object_member_list(&mut self) -> Vec<ObjectMember> {
+        let mut list = Vec::new();
+
+        loop {
+            if self.tokenizer.allow_byte(b'}') {
+                break;
+            }
+
+            list.push(self.object_member());
+
+            if self.tokenizer.allow_byte(b'}') {
+                break;
+            }
+
+            self.tokenizer.expect_byte(b',');
+        }
+
+        list
+    }
+
+    #[inline]
     fn object_member(&mut self) -> ObjectMember {
         match self.consume() {
             Identifier(key) | Literal(LiteralString(key)) => {
                 match self.lookahead() {
                     Some(&Colon)   => {
                         self.consume();
+
                         ObjectMember::Literal {
                             key: key,
                             value: self.expression(0),
                         }
                     },
-                    Some(&ParenOn) => ObjectMember::Method {
-                        name: key,
-                        params: list!(self ( self.parameter() )),
-                        body: self.block_body()
+                    Some(&ParenOn) => {
+                        self.consume();
+
+                        ObjectMember::Method {
+                            name: key,
+                            params: self.parameter_list(),
+                            body: self.block_body(),
+                        }
                     },
                     _ => ObjectMember::Shorthand {
                         key: key,
@@ -198,7 +188,7 @@ impl<'a> Parser<'a> {
             },
             BracketOn => {
                 let key = self.expression(0);
-                expect!(self, BracketOff);
+                self.tokenizer.expect_byte(b']');
                 match self.consume() {
                     Colon => ObjectMember::Computed {
                         key: key,
@@ -206,7 +196,7 @@ impl<'a> Parser<'a> {
                     },
                     ParenOn => ObjectMember::ComputedMethod {
                         name: key,
-                        params: list!(self, self.parameter(), ParenOff),
+                        params: self.parameter_list(),
                         body: self.block_body(),
                     },
                     token => unexpected_token!(self, token),
@@ -218,8 +208,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     fn object_expression(&mut self) -> Expression {
-        Expression::Object(list!(self, self.object_member(), BraceOff))
+        Expression::Object(self.object_member_list())
     }
 
     fn block_or_statement(&mut self) -> Statement {
@@ -242,7 +233,9 @@ impl<'a> Parser<'a> {
     fn block_body_tail(&mut self) -> Vec<Statement> {
         let mut body = Vec::new();
         loop {
-            allow!{ self BraceOff => break };
+            if self.tokenizer.allow_byte(b'}') {
+                break;
+            }
 
             body.push(
                 self.statement().expect("Unexpected end of statements block")
@@ -252,8 +245,9 @@ impl<'a> Parser<'a> {
         body
     }
 
+    #[inline]
     fn block_body(&mut self) -> Vec<Statement> {
-        expect!(self, BraceOn);
+        self.tokenizer.expect_byte(b'{');
         self.block_body_tail()
     }
 
@@ -289,7 +283,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn prefix_expression(&mut self, operator: OperatorType) -> Expression {
         let bp = operator.binding_power(true);
 
@@ -303,7 +297,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn infix_expression(&mut self, left: Expression, bp: u8) -> Expression {
         let operator = expect!(self, Operator(op) => op);
 
@@ -316,7 +310,7 @@ impl<'a> Parser<'a> {
             Accessor => Expression::Member {
                 object: Box::new(left),
                 property: Box::new(MemberKey::Literal(
-                    expect!(self, Identifier(key) => key)
+                    self.tokenizer.expect_identifier()
                 )),
             },
 
@@ -324,7 +318,7 @@ impl<'a> Parser<'a> {
                 test: Box::new(left),
                 consequent: Box::new(self.expression(bp)),
                 alternate: {
-                    expect!(self, Colon);
+                    self.tokenizer.expect_byte(b':');
                     Box::new(self.expression(bp))
                 }
             },
@@ -353,26 +347,28 @@ impl<'a> Parser<'a> {
 
     fn function_expression(&mut self) -> Expression {
         let name = if let Some(&Identifier(_)) = self.lookahead() {
-            Some(expect!(self, Identifier(name) => name))
+            Some(self.tokenizer.expect_identifier())
         } else {
             None
         };
 
+        self.tokenizer.expect_byte(b'(');
+
         Expression::Function {
             name: name,
-            params: list!(self ( self.parameter() )),
+            params: self.parameter_list(),
             body: self.block_body(),
         }
     }
 
     fn paren_expression(&mut self) -> Expression {
-        if allow!(self, ParenOff) {
-            expect!(self, Operator(FatArrow));
+        if self.tokenizer.allow_byte(b')') {
+            self.tokenizer.expect_str("=>");
             return self.arrow_function_expression(None);
         }
 
         let expression = self.sequence_or_expression();
-        expect!(self, ParenOff);
+        self.tokenizer.expect_byte(b')');
 
         expression
     }
@@ -383,10 +379,10 @@ impl<'a> Parser<'a> {
     }
 
     fn sequence_or(&mut self, first: Expression) -> Expression {
-        if allow!(self, Comma) {
+        if self.tokenizer.allow_byte(b',') {
             let mut list = vec![first, self.expression(0)];
 
-            while allow!(self, Comma) {
+            while self.tokenizer.allow_byte(b',') {
                 list.push(self.expression(0));
             }
 
@@ -396,18 +392,39 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn sequence_or_expression(&mut self) -> Expression {
         let token = self.consume();
         self.sequence_or_expression_from_token(token)
     }
 
+    fn expression_list(&mut self, terminator: u8) -> Vec<Expression> {
+        let mut list = Vec::new();
+
+        loop {
+            if self.tokenizer.allow_byte(terminator) {
+                break;
+            }
+
+            list.push(self.expression(0));
+
+            if self.tokenizer.allow_byte(terminator) {
+                break;
+            }
+
+            self.tokenizer.expect_byte(b',');
+        }
+
+        list
+    }
+
+    #[inline]
     fn expression(&mut self, lbp: u8) -> Expression {
         let token = self.consume();
         self.expression_from_token(token, lbp)
     }
 
-    #[inline(always)]
+    #[inline]
     fn expression_from_token(&mut self, token: Token, lbp: u8) -> Expression {
         let left = match token {
             This              => Expression::This,
@@ -425,22 +442,27 @@ impl<'a> Parser<'a> {
     }
 
     fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
-        'right: loop {
+        loop {
             let rbp = match self.lookahead() {
                 Some(&Operator(ref op)) => op.binding_power(false),
                 _                       => 0,
             };
 
             if lbp > rbp {
-                break 'right;
+                break;
             }
 
             left = match self.lookahead() {
                 Some(&Operator(_)) => self.infix_expression(left, rbp),
 
-                Some(&ParenOn)     => Expression::Call {
-                    callee: Box::new(left),
-                    arguments: list!(self ( self.expression(0) ))
+                Some(&ParenOn)     => {
+                    self.tokenizer.next();
+                    // println!("Start complex {}", self.tokenizer.read_byte());
+
+                    Expression::Call {
+                        callee: Box::new(left),
+                        arguments: self.expression_list(b')'),
+                    }
                 },
 
                 Some(&BracketOn)   => Expression::Member {
@@ -450,7 +472,7 @@ impl<'a> Parser<'a> {
                     ))
                 },
 
-                _                  => break 'right,
+                _ => break
             }
         }
 
@@ -464,17 +486,18 @@ impl<'a> Parser<'a> {
         let mut declarators = Vec::new();
 
         loop {
-            let name = expect!(self, Identifier(name) => name);
             declarators.push(VariableDeclarator {
-                name: name,
-                value: if allow!(self, Operator(Assign)) {
+                name: self.tokenizer.expect_identifier(),
+                value: if self.tokenizer.allow_byte(b'=') {
                     Some(self.expression(0))
                 } else {
                     None
                 },
             });
 
-            allow!{ self Comma => continue };
+            if self.tokenizer.allow_byte(b',') {
+                continue;
+            }
             break;
         }
 
@@ -491,7 +514,7 @@ impl<'a> Parser<'a> {
     }
 
     fn labeled_or_expression_statement(&mut self, label: String) -> Statement {
-        if allow!(self, Colon) {
+        if self.tokenizer.allow_byte(b':') {
             Statement::Labeled {
                 label: label,
                 body: Box::new(
@@ -537,7 +560,7 @@ impl<'a> Parser<'a> {
                     if self.allow_asi {
                         None
                     } else {
-                        Some(expect!(self, Identifier(name) => name))
+                        Some(self.tokenizer.expect_identifier())
                     }
                 }
             }
@@ -572,7 +595,7 @@ impl<'a> Parser<'a> {
     }
 
     fn for_statement(&mut self) -> Statement {
-        expect!(self, ParenOn);
+        self.tokenizer.expect_byte(b'(');
 
         let init = match self.consume() {
             Semicolon         => None,
@@ -617,13 +640,17 @@ impl<'a> Parser<'a> {
             Semicolon => None,
             token     => Some(self.sequence_or_expression_from_token(token)),
         };
-        if !test.is_none() { expect!(self, Semicolon) }
+        if !test.is_none() {
+            self.tokenizer.expect_byte(b';')
+        }
 
         let update = match self.consume() {
             ParenOff => None,
             token    => Some(self.sequence_or_expression_from_token(token)),
         };
-        if !update.is_none() { expect!(self, ParenOff) }
+        if !update.is_none() {
+            self.tokenizer.expect_byte(b')');
+        }
 
         Statement::For {
             init: init,
@@ -637,7 +664,7 @@ impl<'a> Parser<'a> {
         &mut self, left: Expression, right: Expression
     ) -> Statement {
         let left = Box::new(Statement::Expression { value: left });
-        expect!(self, ParenOff);
+        self.tokenizer.expect_byte(b')');
 
         Statement::ForIn {
             left: left,
@@ -649,7 +676,7 @@ impl<'a> Parser<'a> {
     fn for_in_statement(&mut self, left: Option<Box<Statement>>) -> Statement {
         let left = left.unwrap();
         let right = self.sequence_or_expression();
-        expect!(self, ParenOff);
+        self.tokenizer.expect_byte(b')');
 
         Statement::ForIn {
             left: left,
@@ -660,7 +687,7 @@ impl<'a> Parser<'a> {
 
     fn for_of_statement(&mut self, left: Box<Statement>) -> Statement {
         let right = self.sequence_or_expression();
-        expect!(self, ParenOff);
+        self.tokenizer.expect_byte(b')');
 
         Statement::ForOf {
             left: left,
@@ -669,16 +696,41 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parameter_list(&mut self) -> Vec<Parameter> {
+        let mut list = Vec::new();
+
+        loop {
+            if self.tokenizer.allow_byte(b')') {
+                break;
+            }
+
+            list.push(self.parameter());
+
+            if self.tokenizer.allow_byte(b')') {
+                break;
+            }
+
+            self.tokenizer.expect_byte(b',');
+        }
+
+        list
+    }
+
+    #[inline]
     fn parameter(&mut self) -> Parameter {
         Parameter {
-            name: expect!(self, Identifier(name) => name)
+            name: self.tokenizer.expect_identifier()
         }
     }
 
     fn function_statement(&mut self) -> Statement {
+        let name = self.tokenizer.expect_identifier();
+
+        self.tokenizer.expect_byte(b'(');
+
         Statement::Function {
-            name: expect!(self, Identifier(name) => name),
-            params: list!(self ( self.parameter() )),
+            name: name,
+            params: self.parameter_list(),
             body: self.block_body(),
         }
     }
@@ -686,16 +738,18 @@ impl<'a> Parser<'a> {
     fn class_member(&mut self, name: String, is_static: bool) -> ClassMember {
         match self.lookahead() {
             Some(&ParenOn) => {
+                self.tokenizer.next();
+
                 if !is_static && name == "constructor" {
                     ClassMember::Constructor {
-                        params: list!(self ( self.parameter() )),
+                        params: self.parameter_list(),
                         body: self.block_body(),
                     }
                 } else {
                     ClassMember::Method {
                         is_static: is_static,
                         name: name,
-                        params: list!(self ( self.parameter())),
+                        params: self.parameter_list(),
                         body: self.block_body(),
                     }
                 }
@@ -713,23 +767,24 @@ impl<'a> Parser<'a> {
     }
 
     fn class_statement(&mut self) -> Statement {
-        let name = expect!(self, Identifier(id) => id);
+        let name = self.tokenizer.expect_identifier();
         let super_class = if allow!(self, Extends) {
-            Some(expect!(self, Identifier(name) => name))
+            Some(self.tokenizer.expect_identifier())
         } else {
             None
         };
-        expect!(self, BraceOn);
+        self.tokenizer.expect_byte(b'{');
         let mut members = Vec::new();
-        'members: loop {
+
+        loop {
             members.push(match self.consume() {
                 Identifier(name) => self.class_member(name, false),
                 Static           => {
-                    let name = expect!(self, Identifier(name) => name);
+                    let name = self.tokenizer.expect_identifier();
                     self.class_member(name, true)
                 },
-                Semicolon        => continue 'members,
-                BraceOff         => break 'members,
+                Semicolon        => continue,
+                BraceOff         => break,
                 token            => unexpected_token!(self, token)
             });
         }

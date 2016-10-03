@@ -50,7 +50,52 @@ macro_rules! match_descend {
     }
 }
 
+// Look up table that marks which ASCII characters are allowed in identifiers
+const NU: bool = true; // digit
+const AL: bool = true; // alphabet
+const DO: bool = true; // dollar sign $
+const UN: bool = true; // underscore
+const __: bool = false;
 
+static IDENT_ALLOWED: [bool; 256] = [
+// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
+  __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
+  NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
+  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
+  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
+  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
+  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
+];
+
+static IDENT_START_ALLOWED: [bool; 256] = [
+// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
+  __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
+  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
+  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
+  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
+  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
+  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
+];
 
 pub struct Tokenizer<'a> {
     // Helper buffer for parsing strings that can't be just memcopied from
@@ -114,7 +159,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn expect_byte(&mut self) -> u8 {
+    fn read_byte_bump(&mut self) -> u8 {
         if self.is_eof() {
             panic!("Unexpected end of source");
         }
@@ -129,7 +174,7 @@ impl<'a> Tokenizer<'a> {
         let mut escape = false;
 
         while !self.is_eof() {
-            let ch = self.expect_byte();
+            let ch = self.read_byte_bump();
             if ch == first && escape == false {
                 break;
             }
@@ -277,7 +322,7 @@ impl<'a> Tokenizer<'a> {
 
     fn read_block_comment(&mut self) {
         loop {
-            if self.expect_byte() == b'*' && self.expect_byte() == b'/' {
+            if self.read_byte_bump() == b'*' && self.read_byte_bump() == b'/' {
                 return;
             }
         }
@@ -287,13 +332,11 @@ impl<'a> Tokenizer<'a> {
         let start = self.index - 1;
 
         while !self.is_eof() {
-            match self.read_byte() {
-                b'a'...b'z' |
-                b'A'...b'Z' |
-                b'0'...b'9' |
-                b'_' | b'$' => self.bump(),
-                _ => break
+            if !IDENT_ALLOWED[self.read_byte() as usize] {
+                break;
             }
+
+            self.bump();
         }
 
         let slice = &self.source[start..self.index];
@@ -372,7 +415,11 @@ impl<'a> Tokenizer<'a> {
         while !self.is_eof() {
             self.token_start = self.index;
 
-            let ch = self.expect_byte();
+            let ch = self.read_byte_bump();
+
+            if IDENT_START_ALLOWED[ch as usize] {
+                return Some(self.read_label());
+            }
 
             match_operators! { self ch
                 b'=' => Assign {
@@ -480,7 +527,7 @@ impl<'a> Tokenizer<'a> {
                             },
                             b'.' => {
                                 self.bump();
-                                match self.expect_byte() {
+                                match self.read_byte_bump() {
                                     b'.' => Operator(Spread),
                                     ch   => {
                                         panic!("Invalid character `{:?}`", ch);
@@ -492,10 +539,6 @@ impl<'a> Tokenizer<'a> {
                     }
                 },
                 b'0'...b'9' => Literal(self.read_number(ch)),
-                b'a'...b'z' |
-                b'A'...b'Z' |
-                b'$' | b'_' => self.read_label(),
-
                 b' ' | b'\t' => continue,
 
                 _ => {
@@ -504,5 +547,97 @@ impl<'a> Tokenizer<'a> {
             });
         }
         return None;
+    }
+
+    #[inline]
+    fn read_peeked_byte(&mut self) -> u8 {
+        unsafe { *self.byte_ptr.offset(self.token_start as isize) }
+    }
+
+    #[inline]
+    pub fn consume_whitespace(&mut self) {
+        while !self.is_eof() {
+            match self.read_byte() {
+                b' '  |
+                b'\t' |
+                b'\n' => self.bump(),
+                _     => break,
+            }
+        }
+    }
+
+    pub fn expect_identifier(&mut self) -> String {
+        if self.token.is_some() {
+            self.token = None;
+            self.index = self.token_start;
+        } else {
+            self.consume_whitespace();
+        }
+
+        let ch = self.read_byte_bump();
+
+        if !IDENT_START_ALLOWED[ch as usize] {
+            panic!("Invalid character `{:?}`", ch);
+        }
+
+        match self.read_label() {
+            Identifier(string) => string,
+            token              => panic!("Unexpected token `{:?}`", token)
+        }
+    }
+
+    #[inline]
+    pub fn expect_str(&mut self, bytes: &str) {
+        if self.token.is_some() {
+            self.token = None;
+            self.index = self.token_start;
+        } else {
+            self.consume_whitespace();
+        }
+
+        let end = self.index + bytes.len();
+
+        if &self.source[self.index..end] != bytes {
+            panic!("Invalid character `{:?}`", self.read_peeked_byte());
+        }
+
+        self.index = end;
+    }
+
+    #[inline]
+    pub fn expect_byte(&mut self, byte: u8) {
+        if self.token.is_some() {
+            self.token = None;
+            self.index = self.token_start;
+        } else {
+            self.consume_whitespace();
+        }
+
+        let ch = self.read_byte_bump();
+
+        if ch != byte {
+            panic!("Invalid character `{:?}`", ch);
+        }
+    }
+
+    #[inline]
+    pub fn allow_byte(&mut self, byte: u8) -> bool {
+        if self.token.is_some() {
+            if self.read_peeked_byte() == byte {
+                self.token = None;
+                true
+            } else {
+                false
+            }
+        } else {
+            self.consume_whitespace();
+
+            if self.read_byte() == byte {
+                self.bump();
+                true
+            } else {
+                false
+            }
+        }
     }
 }
