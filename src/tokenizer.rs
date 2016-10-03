@@ -566,6 +566,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    #[inline]
     pub fn expect_identifier(&mut self) -> String {
         if self.token.is_some() {
             self.token = None;
@@ -584,24 +585,6 @@ impl<'a> Tokenizer<'a> {
             Identifier(string) => string,
             token              => panic!("Unexpected token `{:?}`", token)
         }
-    }
-
-    #[inline]
-    pub fn expect_str(&mut self, bytes: &str) {
-        if self.token.is_some() {
-            self.token = None;
-            self.index = self.token_start;
-        } else {
-            self.consume_whitespace();
-        }
-
-        let end = self.index + bytes.len();
-
-        if &self.source[self.index..end] != bytes {
-            panic!("Invalid character `{:?}`", self.read_peeked_byte());
-        }
-
-        self.index = end;
     }
 
     #[inline]

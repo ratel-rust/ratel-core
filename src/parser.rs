@@ -29,22 +29,6 @@ macro_rules! allow {
     });
 }
 
-/// Expects next token to match `$p`, otherwise panics.
-macro_rules! expect {
-    ($parser:ident, $p:pat => $value:ident) => (
-        match $parser.consume() {
-            $p    => $value,
-            token => unexpected_token!($parser, token),
-        }
-    );
-    ($parser:ident, $p:pat) => (
-        match $parser.consume() {
-            $p    => {},
-            token => unexpected_token!($parser, token),
-        }
-    )
-}
-
 macro_rules! unexpected_token {
     ($parser:ident) => ({
         unexpected_token!($parser, $parser.consume());
@@ -299,7 +283,10 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn infix_expression(&mut self, left: Expression, bp: u8) -> Expression {
-        let operator = expect!(self, Operator(op) => op);
+        let operator = match self.consume() {
+            Operator(op) => op,
+            token        => unexpected_token!(self, token)
+        };
 
         match operator {
             Increment | Decrement => Expression::Postfix {
@@ -361,9 +348,13 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     fn paren_expression(&mut self) -> Expression {
         if self.tokenizer.allow_byte(b')') {
-            self.tokenizer.expect_str("=>");
+            match self.consume() {
+                Operator(FatArrow) => {},
+                token              => unexpected_token!(self, token)
+            }
             return self.arrow_function_expression(None);
         }
 
@@ -373,6 +364,7 @@ impl<'a> Parser<'a> {
         expression
     }
 
+    #[inline]
     fn sequence_or_expression_from_token(&mut self, token: Token) -> Expression {
         let first = self.expression_from_token(token, 0);
         self.sequence_or(first)
