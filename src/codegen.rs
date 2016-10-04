@@ -1,3 +1,5 @@
+extern crate itoa;
+
 use std::ptr;
 
 use grammar::*;
@@ -15,10 +17,11 @@ struct Generator<'a> {
 
 impl<'a> Generator<'a> {
     pub fn new(source: &'a str, minify: bool) -> Self {
+        let cap = source.len() + source.len() / 5;
         Generator {
             source: source,
             minify: minify,
-            code: Vec::with_capacity(128),
+            code: Vec::with_capacity(cap),
             dent: 0,
         }
     }
@@ -36,6 +39,11 @@ impl<'a> Generator<'a> {
     #[inline]
     pub fn write(&mut self, slice: &[u8]) {
         extend_from_slice(&mut self.code, slice);
+    }
+
+    #[inline]
+    pub fn write_int(&mut self, num: u64) {
+        itoa::write(&mut self.code, num).expect("Can't fail on a Vec");
     }
 
     #[inline]
@@ -205,7 +213,7 @@ impl Code for LiteralValue {
             LiteralNull               => gen.write(b"null"),
             LiteralTrue               => gen.write_min(b"true", b"!0",),
             LiteralFalse              => gen.write_min(b"false", b"!1"),
-            LiteralInteger(ref num)   => gen.write(&num.to_string().as_bytes()),
+            LiteralInteger(ref num)   => gen.write_int(*num),
             LiteralFloat(ref num)     => gen.write(&num.to_string().as_bytes()),
             LiteralString(ref string) => gen.write_string(string),
         }
