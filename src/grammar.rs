@@ -66,19 +66,10 @@ pub enum LiteralValue {
     LiteralTrue,
     LiteralFalse,
     LiteralInteger(u64),
-    LiteralFloat(f64),
+    LiteralFloat(SmartString),
     LiteralString(SmartString),
 }
 pub use self::LiteralValue::*;
-
-impl LiteralValue {
-    pub fn float_from_string(string: &str) -> Self {
-        match string.parse::<f64>() {
-            Ok(float) => LiteralFloat(float),
-            _         => panic!("Couldn't parse float from {}", string),
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MemberKey {

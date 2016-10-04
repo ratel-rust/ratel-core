@@ -249,7 +249,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralValue::float_from_string(&self.source[start .. self.index])
+        LiteralValue::LiteralFloat(SmartString::in_situ(start, self.index))
     }
 
     fn read_number(&mut self, first: u8) -> LiteralValue {
@@ -467,7 +467,6 @@ impl<'a> Tokenizer<'a> {
             }
 
             return Some(match ch {
-                b'\n' => LineTermination,
                 b';' => Semicolon,
                 b',' => Comma,
                 b':' => Colon,
@@ -525,7 +524,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 },
                 b'0'...b'9' => Literal(self.read_number(ch)),
-                b' ' | b'\t' => continue,
+                b' ' | b'\t' | b'\n' | b'\r' => continue,
 
                 _ => {
                     panic!("Invalid character `{:?}`", ch);
@@ -589,6 +588,27 @@ impl<'a> Tokenizer<'a> {
 
         if ch != byte {
             panic!("Invalid character `{:?}`", ch);
+        }
+    }
+
+    #[inline]
+    pub fn expect_semicolon(&mut self) {
+        if self.token.is_some() {
+            self.token = None;
+            self.index = self.token_start;
+        } else {
+            self.consume_whitespace();
+        }
+
+        if self.is_eof() {
+            return;
+        }
+
+        match self.read_byte() {
+            b';' => self.bump(),
+            b')' |
+            b'}' => return,
+            ch   => panic!("Unexpected character {:?}", ch)
         }
     }
 

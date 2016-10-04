@@ -8,25 +8,14 @@ use grammar::OperatorType::*;
 /// true, else do nothing and return false
 macro_rules! allow {
     ($parser:ident, $p:pat) => {
-        match $parser.lookahead() {
+        match $parser.tokenizer.peek() {
             Some(&$p) => {
-                $parser.consume();
+                $parser.tokenizer.next();
                 true
             },
             _ => false
         }
     };
-    {$parser:ident $( $p:pat => $then:expr ),* } => ({
-        match $parser.lookahead() {
-            $(
-                Some(&$p) => {
-                    $parser.consume();
-                    $then
-                }
-            )*
-            _ => {}
-        }
-    });
 }
 
 macro_rules! unexpected_token {
@@ -46,20 +35,7 @@ macro_rules! statement {
     ($parser:ident, $eval:expr) => ({
         let value = $eval;
 
-        let is_end = match $parser.lookahead() {
-            Some(&Semicolon) => {
-                $parser.consume();
-                true
-            },
-            Some(&ParenOff)  => true,
-            Some(&BraceOff)  => true,
-            None             => true,
-            _                => false
-        };
-
-        if !is_end && !$parser.allow_asi {
-            unexpected_token!($parser);
-        };
+        $parser.tokenizer.expect_semicolon();
 
         value
     })
@@ -94,28 +70,8 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn next(&mut self) -> Option<Token> {
-        self.allow_asi = false;
-        loop {
-            match self.tokenizer.next() {
-                Some(LineTermination) => continue,
-                token                 => return token
-            }
-        }
-    }
-
-    #[inline]
     fn consume(&mut self) -> Token {
-        self.next().expect("Unexpected end of program")
-    }
-
-    #[inline]
-    fn lookahead(&mut self) -> Option<&Token> {
-        while let Some(&LineTermination) = self.tokenizer.peek() {
-            self.tokenizer.next();
-            self.allow_asi = true;
-        }
-        self.tokenizer.peek()
+        self.tokenizer.next().expect("Unexpected end of program")
     }
 
     #[inline]
@@ -147,7 +103,7 @@ impl<'a> Parser<'a> {
     fn object_member(&mut self) -> ObjectMember {
         match self.consume() {
             Identifier(key) | Literal(LiteralString(key)) => {
-                match self.lookahead() {
+                match self.tokenizer.peek() {
                     Some(&Colon)   => {
                         self.consume();
 
@@ -198,7 +154,7 @@ impl<'a> Parser<'a> {
     }
 
     fn block_or_statement(&mut self) -> Statement {
-        if let Some(&BraceOn) = self.lookahead() {
+        if let Some(&BraceOn) = self.tokenizer.peek() {
             Statement::Block {
                 body: self.block_body()
             }
@@ -253,7 +209,7 @@ impl<'a> Parser<'a> {
                 panic!("Cannot cast {:?} to parameters", p),
         };
 
-        let body = if let Some(&BraceOn) = self.lookahead() {
+        let body = if let Some(&BraceOn) = self.tokenizer.peek() {
             Statement::Block {
                 body: self.block_body()
             }
@@ -433,7 +389,7 @@ impl<'a> Parser<'a> {
 
     fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
         loop {
-            let rbp = match self.lookahead() {
+            let rbp = match self.tokenizer.peek() {
                 Some(&Operator(ref op)) => op.binding_power(),
                 _                       => 0,
             };
@@ -442,7 +398,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            left = match self.lookahead() {
+            left = match self.tokenizer.peek() {
                 Some(&Operator(_)) => self.infix_expression(left, rbp),
 
                 Some(&ParenOn)     => {
@@ -497,6 +453,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     fn variable_declaration_statement(
         &mut self, kind: VariableDeclarationKind
     ) -> Statement {
@@ -519,6 +476,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     fn expression_statement(&mut self, token: Token) -> Statement {
         statement!(self, Statement::Expression {
             value: self.sequence_or_expression_from_token(token)
@@ -527,7 +485,7 @@ impl<'a> Parser<'a> {
 
     fn return_statement(&mut self) -> Statement {
         statement!(self, Statement::Return {
-            value: match self.lookahead() {
+            value: match self.tokenizer.peek() {
                 None             => None,
                 Some(&Semicolon) => None,
                 _                => {
@@ -543,7 +501,7 @@ impl<'a> Parser<'a> {
 
     fn break_statement(&mut self) -> Statement {
         statement!(self, Statement::Break {
-            label: match self.lookahead() {
+            label: match self.tokenizer.peek() {
                 None             => None,
                 Some(&Semicolon) => None,
                 _                => {
@@ -727,7 +685,7 @@ impl<'a> Parser<'a> {
     }
 
     fn class_member(&mut self, name: SmartString, is_static: bool) -> ClassMember {
-        match self.lookahead() {
+        match self.tokenizer.peek() {
             Some(&ParenOn) => {
                 self.tokenizer.next();
                 let slice = name.as_str(self.tokenizer.source);
@@ -793,7 +751,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Option<Statement> {
-        let token = match self.next() {
+        let token = match self.tokenizer.next() {
             Some(token) => token,
             _           => return None,
         };

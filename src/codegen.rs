@@ -214,7 +214,7 @@ impl Code for LiteralValue {
             LiteralTrue               => gen.write_min(b"true", b"!0",),
             LiteralFalse              => gen.write_min(b"false", b"!1"),
             LiteralInteger(ref num)   => gen.write_int(*num),
-            LiteralFloat(ref num)     => gen.write(&num.to_string().as_bytes()),
+            LiteralFloat(ref num)     => gen.write_string(num),
             LiteralString(ref string) => gen.write_string(string),
         }
     }
