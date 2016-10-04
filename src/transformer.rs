@@ -12,6 +12,24 @@ pub struct Settings {
     pub transform_class_properties: bool,
 }
 
+trait Take {
+    fn take(&mut self) -> Self;
+}
+
+impl<T> Take for Vec<T> {
+    #[inline]
+    fn take(&mut self) -> Self {
+        mem::replace(self, Vec::new())
+    }
+}
+
+impl Take for Expression {
+    #[inline]
+    fn take(&mut self) -> Self {
+        mem::replace(self, Expression::This)
+    }
+}
+
 #[inline(always)]
 fn bind_this(function: Expression) -> Expression {
     Expression::call(Expression::member(function, "bind"), vec![Expression::This])
@@ -133,7 +151,7 @@ impl Transformable for Expression {
                     return;
                 }
 
-                let literal = mem::replace(members, Vec::new());
+                let literal = members.take();
 
                 let mut body = Vec::with_capacity(computed.len() + 2);
 
@@ -300,8 +318,8 @@ impl Transformable for ObjectMember {
                     key: *name,
                     value: Expression::Function {
                         name: Some(*name),
-                        params: mem::replace(params, Vec::new()),
-                        body: mem::replace(body, Vec::new()),
+                        params: params.take(),
+                        body: body.take(),
                     }
                 }
             },
@@ -320,11 +338,11 @@ impl Transformable for ObjectMember {
                 }
 
                 ObjectMember::Computed {
-                    key: mem::replace(name, Expression::This),
+                    key: name.take(),
                     value: Expression::Function {
                         name: None,
-                        params: mem::replace(params, Vec::new()),
-                        body: mem::replace(body, Vec::new()),
+                        params: params.take(),
+                        body: body.take(),
                     }
                 }
             },
