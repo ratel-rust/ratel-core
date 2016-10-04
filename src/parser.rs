@@ -760,12 +760,16 @@ impl<'a> Parser<'a> {
 
     fn class_statement(&mut self) -> Statement {
         let name = self.tokenizer.expect_identifier();
-        let super_class = if allow!(self, Extends) {
-            Some(self.tokenizer.expect_identifier())
-        } else {
-            None
+        let super_class = match self.consume() {
+            Extends => {
+                let name = self.tokenizer.expect_identifier();
+                self.tokenizer.expect_byte(b'{');
+                Some(name)
+            },
+            BraceOn => None,
+            token   => unexpected_token!(self, token)
         };
-        self.tokenizer.expect_byte(b'{');
+
         let mut members = Vec::new();
 
         loop {
