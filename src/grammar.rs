@@ -147,7 +147,8 @@ use self::OperatorType::*;
 
 impl OperatorType {
     /// According to the Operator Precedence Table
-    pub fn binding_power(&self, prefix: bool) -> u8 {
+    /// Note: Unary opearotrs default to 15!
+    pub fn binding_power(&self) -> u8 {
         match *self {
             FatArrow         |
             Accessor         => 18,
@@ -155,7 +156,7 @@ impl OperatorType {
             New              => 17,
 
             Increment        |
-            Decrement        => if prefix { 15 } else { 16 },
+            Decrement        => 16,
 
             LogicalNot       |
             BitwiseNot       |
@@ -169,7 +170,7 @@ impl OperatorType {
             Exponent         => 14,
 
             Addition         |
-            Substraction     => if prefix { 15 } else { 13 },
+            Substraction     => 13,
 
             BitShiftLeft     |
             BitShiftRight    |
@@ -359,9 +360,8 @@ impl Expression {
             } => 17,
 
             Expression::Prefix {
-                ref operator,
                 ..
-            } => operator.binding_power(true),
+            } => 15,
 
             Expression::Binary {
                 ref operator,
@@ -371,7 +371,7 @@ impl Expression {
             Expression::Postfix {
                 ref operator,
                 ..
-            } => operator.binding_power(false),
+            } => operator.binding_power(),
 
             Expression::Conditional {
                 ..

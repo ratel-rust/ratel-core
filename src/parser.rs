@@ -269,15 +269,13 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn prefix_expression(&mut self, operator: OperatorType) -> Expression {
-        let bp = operator.binding_power(true);
-
         if !operator.prefix() {
             panic!("Unexpected operator {:?}", operator);
         }
 
         Expression::Prefix {
             operator: operator,
-            operand: Box::new(self.expression(bp)),
+            operand: Box::new(self.expression(15)),
         }
     }
 
@@ -436,7 +434,7 @@ impl<'a> Parser<'a> {
     fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
         loop {
             let rbp = match self.lookahead() {
-                Some(&Operator(ref op)) => op.binding_power(false),
+                Some(&Operator(ref op)) => op.binding_power(),
                 _                       => 0,
             };
 
