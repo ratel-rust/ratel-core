@@ -333,13 +333,13 @@ impl<'a> Parser<'a> {
     }
 
     fn function_expression(&mut self) -> Expression {
-        let name = if let Some(&Identifier(_)) = self.lookahead() {
-            Some(self.tokenizer.expect_identifier())
-        } else {
+        let name = if self.tokenizer.allow_byte(b'{') {
             None
+        } else {
+            let name = self.tokenizer.expect_identifier();
+            self.tokenizer.expect_byte(b'{');
+            Some(name)
         };
-
-        self.tokenizer.expect_byte(b'(');
 
         Expression::Function {
             name: name,

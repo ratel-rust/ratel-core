@@ -3,37 +3,6 @@ use std::ptr;
 use grammar::*;
 use grammar::OperatorType::*;
 
-const QU: u8 = b'"';
-const BS: u8 = b'\\';
-const BB: u8 = b'b';
-const TT: u8 = b't';
-const NN: u8 = b'n';
-const FF: u8 = b'f';
-const RR: u8 = b'r';
-const UU: u8 = b'u';
-const __: u8 = 0;
-
-// Look up table for characters that need escaping in a product string
-static ESCAPED: [u8; 256] = [
-// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-  UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
-  UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
-  __, __, QU, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
-  __, __, __, __, __, __, __, __, __, __, __, __, BS, __, __, __, // 5
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
-];
-
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
 /// things like indentation and automatically producing minified code.
@@ -68,7 +37,7 @@ impl Generator {
     }
 
     #[inline]
-    pub fn write_plain(&mut self, text: &str) {
+    pub fn write_string(&mut self, text: &str) {
         extend_from_slice(&mut self.code, text.as_bytes());
     }
 
@@ -84,41 +53,6 @@ impl Generator {
     #[inline]
     pub fn write_char(&mut self, ch: u8) {
         self.code.push(ch);
-    }
-
-    #[inline(never)]
-    fn write_string_complex(&mut self, string: &str, mut start: usize) {
-        self.write_plain(&string[ .. start]);
-
-        for (index, ch) in string.bytes().enumerate().skip(start) {
-            let escape = ESCAPED[ch as usize];
-            if escape > 0 {
-                self.write_plain(&string[start .. index]);
-                self.write(&[b'\\', escape]);
-                start = index + 1;
-            }
-            if escape == b'u' {
-                self.write_plain(&format!("{:04x}", ch));
-                // try!(write!(self.get_writer(), "{:04x}", ch));
-            }
-        }
-        self.write_plain(&string[start ..]);
-
-        self.write_char(b'"');
-    }
-
-    #[inline]
-    fn write_string(&mut self, string: &str) {
-        self.write_char(b'"');
-
-        for (index, ch) in string.bytes().enumerate() {
-            if ESCAPED[ch as usize] > 0 {
-                return self.write_string_complex(string, index)
-            }
-        }
-
-        self.write(string.as_bytes());
-        self.write_char(b'"');
     }
 
     #[inline]
@@ -191,7 +125,7 @@ trait Code {
 impl Code for String {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write_plain(self);
+        gen.write_string(self);
     }
 }
 
@@ -276,40 +210,18 @@ impl Code for LiteralValue {
     }
 }
 
-fn is_identifier(label: &String) -> bool {
-    let mut chars = label.chars();
-
-    // All identifiers have to have at least one char, so unwrap is safe here.
-    let first = chars.next().unwrap();
-    if !first.is_alphabetic() && first != '_' && first != '$' {
-        return false;
-    }
-
-    for ch in chars {
-        if !ch.is_alphanumeric() && ch != '_' && ch != '$' {
-            return false;
-        }
-    }
-
-    true
-}
-
 impl Code for ObjectMember {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             ObjectMember::Shorthand {
                 ref key
-            } => gen.write_plain(key),
+            } => gen.write_string(key),
 
             ObjectMember::Literal {
                 ref key,
                 ref value,
             } => {
-                if is_identifier(key) {
-                    gen.write_plain(key);
-                } else {
-                    gen.write_string(key);
-                }
+                gen.write_string(key);
                 gen.write_min(b": ", b":");
                 value.to_code(gen);
             },
@@ -329,7 +241,7 @@ impl Code for ObjectMember {
                 ref params,
                 ref body,
             } => {
-                gen.write_plain(name);
+                gen.write_string(name);
                 gen.write_char(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
@@ -360,7 +272,7 @@ impl Code for MemberKey {
         match *self {
             MemberKey::Literal(ref string) => {
                 gen.write_char(b'.');
-                gen.write_plain(string);
+                gen.write_string(string);
             },
             MemberKey::Computed(ref expr)  => {
                 gen.write_char(b'[');
@@ -375,7 +287,7 @@ impl Code for Parameter {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         let Parameter { ref name } = *self;
-        gen.write_plain(name);
+        gen.write_string(name);
     }
 }
 
@@ -385,7 +297,7 @@ impl Code for Expression {
 
             Expression::This => gen.write(b"this"),
 
-            Expression::Identifier(ref ident) => gen.write_plain(ident),
+            Expression::Identifier(ref ident) => gen.write_string(ident),
 
             Expression::Literal(ref literal)  => literal.to_code(gen),
 
@@ -511,7 +423,7 @@ impl Code for Expression {
                 gen.write(b"function");
                 if let Some(ref name) = *name {
                     gen.write_char(b' ');
-                    gen.write_plain(name);
+                    gen.write_string(name);
                 } else {
                     gen.write_min(b" ", b"");
                 }
@@ -562,7 +474,7 @@ impl Code for ClassMember {
                 if is_static {
                     gen.write(b"static ");
                 }
-                gen.write_plain(name);
+                gen.write_string(name);
                 gen.write_char(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
@@ -578,7 +490,7 @@ impl Code for ClassMember {
                 if is_static {
                     gen.write(b"static ");
                 }
-                gen.write_plain(name);
+                gen.write_string(name);
                 gen.write_min(b" = ", b"=");
                 value.to_code(gen);
                 gen.write_char(b';');
@@ -590,7 +502,7 @@ impl Code for ClassMember {
 impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write_plain(&self.name);
+        gen.write_string(&self.name);
         if self.value.is_some() {
             gen.write_min(b" = ", b"=");
             self.value.to_code(gen);
@@ -605,7 +517,7 @@ impl Code for Statement {
                 ref label,
                 ref body,
             } => {
-                gen.write_plain(label);
+                gen.write_string(label);
                 gen.write_min(b": ", b":");
                 body.to_code(gen);
             },
@@ -642,7 +554,7 @@ impl Code for Statement {
                 gen.write(b"break");
                 if let Some(ref label) = *label {
                     gen.write_char(b' ');
-                    gen.write_plain(label);
+                    gen.write_string(label);
                 }
                 gen.write_char(b';');
             },
@@ -664,7 +576,7 @@ impl Code for Statement {
             } => {
                 gen.new_line();
                 gen.write(b"function ");
-                gen.write_plain(name);
+                gen.write_string(name);
                 gen.write_char(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
@@ -750,10 +662,10 @@ impl Code for Statement {
             } => {
                 gen.new_line();
                 gen.write(b"class ");
-                gen.write_plain(name);
+                gen.write_string(name);
                 if let &Some(ref super_class) = extends {
                     gen.write(b" extends ");
-                    gen.write_plain(super_class);
+                    gen.write_string(super_class);
                 }
                 gen.write_min(b" {", b"{");
                 gen.write_block(body);

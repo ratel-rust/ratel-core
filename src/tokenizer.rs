@@ -98,10 +98,6 @@ static IDENT_START_ALLOWED: [bool; 256] = [
 ];
 
 pub struct Tokenizer<'a> {
-    // Helper buffer for parsing strings that can't be just memcopied from
-    // the original source (escaped characters)
-    buffer: Vec<u8>,
-
     // String slice to parse
     source: &'a str,
 
@@ -124,7 +120,6 @@ pub struct Tokenizer<'a> {
 impl<'a> Tokenizer<'a> {
     pub fn new(source: &'a str) -> Self {
         Tokenizer {
-            buffer: Vec::with_capacity(30),
             source: source,
             byte_ptr: source.as_ptr(),
             index: 0,
@@ -170,31 +165,21 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn read_string(&mut self, first: u8) -> String {
-        self.buffer.clear();
-        let mut escape = false;
+        let start = self.index - 1;
 
-        while !self.is_eof() {
+        loop {
             let ch = self.read_byte_bump();
-            if ch == first && escape == false {
+
+            if ch == first {
                 break;
             }
-            match ch {
-                b'\\' => {
-                    if escape {
-                        escape = false;
-                        self.buffer.push(ch);
-                    } else {
-                        escape = true;
-                    }
-                },
-                _ => {
-                    self.buffer.push(ch);
-                    escape = false;
-                },
+
+            if ch == b'\\' {
+                self.read_byte_bump();
             }
         }
 
-        unsafe { str::from_utf8_unchecked(self.buffer.as_ref()) }.to_owned()
+        self.source[start..self.index].to_owned()
     }
 
     fn read_binary(&mut self) -> LiteralValue {
