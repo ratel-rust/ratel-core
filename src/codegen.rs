@@ -6,15 +6,17 @@ use grammar::OperatorType::*;
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
 /// things like indentation and automatically producing minified code.
-struct Generator {
+struct Generator<'a> {
+    source: &'a str,
     pub minify: bool,
     code: Vec<u8>,
     dent: u16,
 }
 
-impl Generator {
-    pub fn new(minify: bool) -> Self {
+impl<'a> Generator<'a> {
+    pub fn new(source: &'a str, minify: bool) -> Self {
         Generator {
+            source: source,
             minify: minify,
             code: Vec::with_capacity(128),
             dent: 0,
@@ -37,8 +39,8 @@ impl Generator {
     }
 
     #[inline]
-    pub fn write_string(&mut self, text: &str) {
-        extend_from_slice(&mut self.code, text.as_bytes());
+    pub fn write_string(&mut self, text: &SmartString) {
+        extend_from_slice(&mut self.code, text.as_str(self.source).as_bytes());
     }
 
     #[inline]
@@ -122,12 +124,12 @@ trait Code {
     fn to_code(&self, gen: &mut Generator);
 }
 
-impl Code for String {
-    #[inline]
-    fn to_code(&self, gen: &mut Generator) {
-        gen.write_string(self);
-    }
-}
+// impl Code for String {
+//     #[inline]
+//     fn to_code(&self, gen: &mut Generator) {
+//         gen.write_string(self);
+//     }
+// }
 
 impl<T: Code> Code for Option<T> {
     fn to_code(&self, gen: &mut Generator) {
@@ -676,8 +678,8 @@ impl Code for Statement {
     }
 }
 
-pub fn generate_code(program: Program, minify: bool) -> String {
-    let mut gen = Generator::new(minify);
+pub fn generate_code(source: &str, program: Program, minify: bool) -> String {
+    let mut gen = Generator::new(source, minify);
 
     for statement in program.body {
         statement.to_code(&mut gen);

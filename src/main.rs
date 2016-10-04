@@ -89,7 +89,7 @@ fn main() {
     };
 
     let start = Instant::now();
-    let mut ast = parser::parse(file);
+    let mut ast = parser::parse(&file);
     let parse_duration = Instant::now().duration_since(start);
 
     if args.flag_ast {
@@ -103,7 +103,7 @@ fn main() {
     let transform_duration = Instant::now().duration_since(start);
 
     let start = Instant::now();
-    let program = codegen::generate_code(ast, !args.flag_pretty);
+    let program = codegen::generate_code(&file, ast, !args.flag_pretty);
     let codegen_duration = Instant::now().duration_since(start);
 
     if args.flag_output.is_none() {

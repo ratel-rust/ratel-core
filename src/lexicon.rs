@@ -1,3 +1,4 @@
+use grammar::SmartString;
 use grammar::LiteralValue;
 use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
@@ -55,6 +56,6 @@ pub enum Token {
     Await,
     Static,
     Reserved(ReservedKind),
-    Identifier(String),
+    Identifier(SmartString),
     Literal(LiteralValue),
 }

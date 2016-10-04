@@ -1,13 +1,62 @@
-use std::str;
+use std::{ str, ptr, slice };
 
-pub struct Location {
-    pub line: u32,
-    pub column: u32,
+const SMART_STRING_CAP: usize = 8;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum SmartString {
+    Literal {
+        buf: [u8; SMART_STRING_CAP],
+        len: usize,
+    },
+    InSitu {
+        start: usize,
+        end: usize,
+    }
 }
 
-pub struct Locator {
-    pub start: Location,
-    pub end: Location,
+impl SmartString {
+    #[inline]
+    pub fn in_situ(start: usize, end: usize) -> Self {
+        SmartString::InSitu {
+            start: start,
+            end: end,
+        }
+    }
+
+    pub fn from_str(source: &str) -> Self {
+        debug_assert!(
+            source.len() <= SMART_STRING_CAP,
+            "Tried to create smart string from literal that's too long!"
+        );
+
+        let mut buf = [0u8; SMART_STRING_CAP];
+        let len = source.len();
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                source.as_ptr(),
+                buf.as_mut_ptr(),
+                len
+            );
+        }
+
+        SmartString::Literal {
+            buf: buf,
+            len: len,
+        }
+    }
+
+    #[inline]
+    pub fn as_str<'a>(&self, source: &'a str) -> &'a str {
+        match *self {
+            SmartString::Literal { ref buf, len } => unsafe {
+                str::from_utf8_unchecked(
+                    slice::from_raw_parts(buf.as_ptr(), len)
+                )
+            },
+            SmartString::InSitu { start, end } => &source[start..end]
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -18,7 +67,7 @@ pub enum LiteralValue {
     LiteralFalse,
     LiteralInteger(u64),
     LiteralFloat(f64),
-    LiteralString(String),
+    LiteralString(SmartString),
 }
 pub use self::LiteralValue::*;
 
@@ -33,16 +82,16 @@ impl LiteralValue {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MemberKey {
-    Literal(String),
+    Literal(SmartString),
     Computed(Expression),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    pub name: String,
+    pub name: SmartString,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperatorType {
     FatArrow,         //   …  => …
     Accessor,         //   …  .  …
@@ -252,7 +301,7 @@ impl OperatorType {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     This,
-    Identifier(String),
+    Identifier(SmartString),
     Literal(LiteralValue),
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
@@ -288,7 +337,7 @@ pub enum Expression {
         body: Box<Statement>,
     },
     Function {
-        name: Option<String>,
+        name: Option<SmartString>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     }
@@ -334,7 +383,7 @@ impl Expression {
 
     #[inline(always)]
     pub fn ident(name: &str) -> Self {
-        Expression::Identifier(name.to_string())
+        Expression::Identifier(SmartString::from_str(name))
     }
 
     #[inline(always)]
@@ -342,7 +391,7 @@ impl Expression {
         Expression::Member {
             object: Box::new(object),
             property: Box::new(
-                MemberKey::Literal(property.to_string())
+                MemberKey::Literal(SmartString::from_str(property))
             )
         }
     }
@@ -359,10 +408,10 @@ impl Expression {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {
     Shorthand {
-        key: String,
+        key: SmartString,
     },
     Literal {
-        key: String,
+        key: SmartString,
         value: Expression,
     },
     Computed {
@@ -370,7 +419,7 @@ pub enum ObjectMember {
         value: Expression,
     },
     Method {
-        name: String,
+        name: SmartString,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
@@ -389,13 +438,13 @@ pub enum ClassMember {
     },
     Method {
         is_static: bool,
-        name: String,
+        name: SmartString,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
     Property {
         is_static: bool,
-        name: String,
+        name: SmartString,
         value: Expression,
     }
 }
@@ -409,7 +458,7 @@ pub enum VariableDeclarationKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
-    pub name: String,
+    pub name: SmartString,
     pub value: Option<Expression>,
 }
 
@@ -419,7 +468,7 @@ pub enum Statement {
         body: Vec<Statement>,
     },
     Labeled {
-        label: String,
+        label: SmartString,
         body: Box<Statement>,
     },
     VariableDeclaration {
@@ -433,10 +482,10 @@ pub enum Statement {
         value: Option<Expression>,
     },
     Break {
-        label: Option<String>,
+        label: Option<SmartString>,
     },
     Function {
-        name: String,
+        name: SmartString,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
@@ -466,8 +515,8 @@ pub enum Statement {
         body: Box<Statement>,
     },
     Class {
-        name: String,
-        extends: Option<String>,
+        name: SmartString,
+        extends: Option<SmartString>,
         body: Vec<ClassMember>,
     },
 }

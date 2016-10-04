@@ -141,7 +141,7 @@ impl Transformable for Expression {
                     kind: VariableDeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
-                            name: "___".to_string(),
+                            name: SmartString::from_str("___"),
                             value: Some(Expression::Object(literal)),
                         }
                     ]
@@ -261,8 +261,8 @@ impl Transformable for ObjectMember {
                 }
 
                 ObjectMember::Literal {
-                    key: key.clone(),
-                    value: Expression::Identifier(mem::replace(key, String::new())),
+                    key: *key,
+                    value: Expression::Identifier(*key),
                 }
             },
 
@@ -284,7 +284,7 @@ impl Transformable for ObjectMember {
             },
 
             ObjectMember::Method {
-                ref mut name,
+                ref name,
                 ref mut params,
                 ref mut body,
             } => {
@@ -297,11 +297,11 @@ impl Transformable for ObjectMember {
                 }
 
                 ObjectMember::Literal {
-                    key: name.clone(),
+                    key: *name,
                     value: Expression::Function {
-                        name: Some(name.clone()),
-                        params: params.split_off(0),
-                        body: body.split_off(0),
+                        name: Some(*name),
+                        params: mem::replace(params, Vec::new()),
+                        body: mem::replace(body, Vec::new()),
                     }
                 }
             },
@@ -320,11 +320,11 @@ impl Transformable for ObjectMember {
                 }
 
                 ObjectMember::Computed {
-                    key: name.clone(),
+                    key: mem::replace(name, Expression::This),
                     value: Expression::Function {
                         name: None,
-                        params: params.split_off(0),
-                        body: body.split_off(0),
+                        params: mem::replace(params, Vec::new()),
+                        body: mem::replace(body, Vec::new()),
                     }
                 }
             },

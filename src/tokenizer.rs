@@ -2,6 +2,7 @@ use std::str;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
+use grammar::SmartString;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
@@ -99,7 +100,7 @@ static IDENT_START_ALLOWED: [bool; 256] = [
 
 pub struct Tokenizer<'a> {
     // String slice to parse
-    source: &'a str,
+    pub source: &'a str,
 
     // Byte pointer to the slice above
     byte_ptr: *const u8,
@@ -164,7 +165,7 @@ impl<'a> Tokenizer<'a> {
         ch
     }
 
-    fn read_string(&mut self, first: u8) -> String {
+    fn read_string(&mut self, first: u8) -> SmartString {
         let start = self.index - 1;
 
         loop {
@@ -179,7 +180,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        self.source[start..self.index].to_owned()
+        SmartString::in_situ(start, self.index)
     }
 
     fn read_binary(&mut self) -> LiteralValue {
@@ -324,9 +325,9 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        let slice = &self.source[start..self.index];
+        let ident = SmartString::in_situ(start, self.index);
 
-        match slice {
+        match ident.as_str(self.source) {
             "new"        => Operator(New),
             "typeof"     => Operator(Typeof),
             "delete"     => Operator(Delete),
@@ -374,7 +375,7 @@ impl<'a> Tokenizer<'a> {
             "interface"  => Reserved(Interface),
             "private"    => Reserved(Private),
             "public"     => Reserved(Public),
-            _            => Identifier(slice.to_owned()),
+            _            => Identifier(ident),
         }
     }
 
@@ -552,13 +553,16 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn expect_identifier(&mut self) -> String {
+    pub fn expect_identifier(&mut self) -> SmartString {
         if self.token.is_some() {
-            self.token = None;
-            self.index = self.token_start;
-        } else {
-            self.consume_whitespace();
+            return match self.token.take() {
+                Some(Identifier(ident)) => ident,
+                Some(token)             => panic!("Unexpected token `{:?}`", token),
+                _                       => unreachable!(),
+            };
         }
+
+        self.consume_whitespace();
 
         let ch = self.read_byte_bump();
 
@@ -567,8 +571,8 @@ impl<'a> Tokenizer<'a> {
         }
 
         match self.read_label() {
-            Identifier(string) => string,
-            token              => panic!("Unexpected token `{:?}`", token)
+            Identifier(ident) => ident,
+            token             => panic!("Unexpected token `{:?}`", token)
         }
     }
 
