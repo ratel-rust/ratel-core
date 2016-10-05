@@ -8,20 +8,17 @@ use grammar::OperatorType::*;
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
 /// things like indentation and automatically producing minified code.
-struct Generator<'a> {
-    source: &'a str,
+struct Generator {
     pub minify: bool,
     code: Vec<u8>,
     dent: u16,
 }
 
-impl<'a> Generator<'a> {
-    pub fn new(source: &'a str, minify: bool) -> Self {
-        let cap = source.len() + source.len() / 5;
+impl Generator {
+    pub fn new(minify: bool) -> Self {
         Generator {
-            source: source,
             minify: minify,
-            code: Vec::with_capacity(cap),
+            code: Vec::with_capacity(128),
             dent: 0,
         }
     }
@@ -48,7 +45,7 @@ impl<'a> Generator<'a> {
 
     #[inline]
     pub fn write_string(&mut self, text: &OwnedSlice) {
-        extend_from_slice(&mut self.code, text.as_str().as_bytes());
+        extend_from_slice(&mut self.code, text.as_bytes());
     }
 
     #[inline]
@@ -686,8 +683,8 @@ impl Code for Statement {
     }
 }
 
-pub fn generate_code(source: &str, program: Program, minify: bool) -> String {
-    let mut gen = Generator::new(source, minify);
+pub fn generate_code(program: Program, minify: bool) -> String {
+    let mut gen = Generator::new(minify);
 
     for statement in program.body {
         statement.to_code(&mut gen);

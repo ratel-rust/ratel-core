@@ -1,8 +1,6 @@
-use std::{ str, ptr, slice };
+use std::{ str, slice, fmt };
 
-const SMART_STRING_CAP: usize = 8;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct OwnedSlice {
     ptr: *const u8,
     len: usize,
@@ -37,6 +35,27 @@ impl OwnedSlice {
         unsafe {
             slice::from_raw_parts(self.ptr, self.len)
         }
+    }
+}
+
+impl PartialEq for OwnedSlice {
+    #[inline]
+    fn eq(&self, other: &OwnedSlice) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl fmt::Debug for OwnedSlice {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
+impl fmt::Display for OwnedSlice {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 
@@ -495,5 +514,16 @@ pub enum Statement {
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
+    source: String,
     pub body: Vec<Statement>,
+}
+
+impl Program {
+    #[inline]
+    pub fn new(source: String, body: Vec<Statement>) -> Self {
+        Program {
+            source: source,
+            body: body,
+        }
+    }
 }

@@ -772,13 +772,16 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn parse(source: &str) -> Program {
-    let mut parser = Parser::new(source);
-    let mut program = Program { body: Vec::new() };
+pub fn parse(source: String) -> Program {
+    let mut body = Vec::new();
 
-    while let Some(statement) = parser.statement() {
-        program.body.push(statement);
+    {
+        let mut parser = Parser::new(&source);
+
+        while let Some(statement) = parser.statement() {
+            body.push(statement);
+        }
     }
 
-    return program;
+    Program::new(source, body)
 }

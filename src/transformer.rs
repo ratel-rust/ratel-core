@@ -30,7 +30,7 @@ impl Take for Expression {
     }
 }
 
-#[inline(always)]
+#[inline]
 fn bind_this(function: Expression) -> Expression {
     Expression::call(Expression::member(function, "bind"), vec![Expression::This])
 }
