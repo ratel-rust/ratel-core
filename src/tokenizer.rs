@@ -2,7 +2,7 @@ use std::str;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
-use grammar::SmartString;
+use grammar::OwnedSlice;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
@@ -165,7 +165,7 @@ impl<'a> Tokenizer<'a> {
         ch
     }
 
-    fn read_string(&mut self, first: u8) -> SmartString {
+    fn read_string(&mut self, first: u8) -> OwnedSlice {
         let start = self.index - 1;
 
         loop {
@@ -180,7 +180,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        SmartString::in_situ(start, self.index)
+        unsafe {
+            OwnedSlice::from_str(&self.source.slice_unchecked(start, self.index))
+        }
     }
 
     fn read_binary(&mut self) -> LiteralValue {
@@ -249,7 +251,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralValue::LiteralFloat(SmartString::in_situ(start, self.index))
+        LiteralValue::LiteralFloat(unsafe {
+            OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
+        })
     }
 
     fn read_number(&mut self, first: u8) -> LiteralValue {
@@ -325,9 +329,11 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        let ident = SmartString::in_situ(start, self.index);
+        let slice = unsafe {
+            self.source.slice_unchecked(start, self.index)
+        };
 
-        match ident.as_str(self.source) {
+        match slice {
             "new"        => Operator(New),
             "typeof"     => Operator(Typeof),
             "delete"     => Operator(Delete),
@@ -375,7 +381,7 @@ impl<'a> Tokenizer<'a> {
             "interface"  => Reserved(Interface),
             "private"    => Reserved(Private),
             "public"     => Reserved(Public),
-            _            => Identifier(ident),
+            _            => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         }
     }
 
@@ -552,7 +558,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn expect_identifier(&mut self) -> SmartString {
+    pub fn expect_identifier(&mut self) -> OwnedSlice {
         if self.token.is_some() {
             return match self.token.take() {
                 Some(Identifier(ident)) => ident,
@@ -608,7 +614,7 @@ impl<'a> Tokenizer<'a> {
             b';' => self.bump(),
             b')' |
             b'}' => return,
-            ch   => panic!("Unexpected character {:?}", ch)
+            ch   => panic!("Unexpected character {:?} {}", ch, self.index)
         }
     }
 

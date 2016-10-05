@@ -159,7 +159,7 @@ impl Transformable for Expression {
                     kind: VariableDeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
-                            name: SmartString::from_str("___"),
+                            name: OwnedSlice::from_static("___"),
                             value: Some(Expression::Object(literal)),
                         }
                     ]

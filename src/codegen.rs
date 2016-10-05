@@ -47,8 +47,8 @@ impl<'a> Generator<'a> {
     }
 
     #[inline]
-    pub fn write_string(&mut self, text: &SmartString) {
-        extend_from_slice(&mut self.code, text.as_str(self.source).as_bytes());
+    pub fn write_string(&mut self, text: &OwnedSlice) {
+        extend_from_slice(&mut self.code, text.as_str().as_bytes());
     }
 
     #[inline]

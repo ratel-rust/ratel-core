@@ -403,7 +403,6 @@ impl<'a> Parser<'a> {
 
                 Some(&ParenOn)     => {
                     self.tokenizer.next();
-                    // println!("Start complex {}", self.tokenizer.read_byte());
 
                     Expression::Call {
                         callee: Box::new(left),
@@ -460,7 +459,7 @@ impl<'a> Parser<'a> {
         statement!(self, self.variable_declaration(kind))
     }
 
-    fn labeled_or_expression_statement(&mut self, label: SmartString) -> Statement {
+    fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Statement {
         if self.tokenizer.allow_byte(b':') {
             Statement::Labeled {
                 label: label,
@@ -574,7 +573,7 @@ impl<'a> Parser<'a> {
             match self.consume() {
                 Operator(In)      => return self.for_in_statement(init),
                 Identifier(ident) => {
-                    let slice = ident.as_str(self.tokenizer.source);
+                    let slice = ident.as_str();
                     if slice != "of" {
                         panic!("Unexpected identifier {}", slice);
                     }
@@ -684,11 +683,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn class_member(&mut self, name: SmartString, is_static: bool) -> ClassMember {
+    fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> ClassMember {
         match self.tokenizer.peek() {
             Some(&ParenOn) => {
                 self.tokenizer.next();
-                let slice = name.as_str(self.tokenizer.source);
+                let slice = name.as_str();
 
                 if !is_static && slice == "constructor" {
                     ClassMember::Constructor {

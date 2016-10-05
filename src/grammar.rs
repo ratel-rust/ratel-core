@@ -3,58 +3,39 @@ use std::{ str, ptr, slice };
 const SMART_STRING_CAP: usize = 8;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum SmartString {
-    Literal {
-        buf: [u8; SMART_STRING_CAP],
-        len: usize,
-    },
-    InSitu {
-        start: usize,
-        end: usize,
-    }
+pub struct OwnedSlice {
+    ptr: *const u8,
+    len: usize,
 }
 
-impl SmartString {
+impl OwnedSlice {
     #[inline]
-    pub fn in_situ(start: usize, end: usize) -> Self {
-        SmartString::InSitu {
-            start: start,
-            end: end,
+    pub unsafe fn from_str(source: &str) -> Self {
+        OwnedSlice {
+            ptr: source.as_ptr(),
+            len: source.len(),
         }
     }
 
-    pub fn from_str(source: &str) -> Self {
-        debug_assert!(
-            source.len() <= SMART_STRING_CAP,
-            "Tried to create smart string from literal that's too long!"
-        );
+    #[inline]
+    pub fn from_static(source: &'static str) -> Self {
+        OwnedSlice {
+            ptr: source.as_ptr(),
+            len: source.len(),
+        }
+    }
 
-        let mut buf = [0u8; SMART_STRING_CAP];
-        let len = source.len();
-
+    #[inline]
+    pub fn as_str(&self) -> &str {
         unsafe {
-            ptr::copy_nonoverlapping(
-                source.as_ptr(),
-                buf.as_mut_ptr(),
-                len
-            );
-        }
-
-        SmartString::Literal {
-            buf: buf,
-            len: len,
+            str::from_utf8_unchecked(self.as_bytes())
         }
     }
 
     #[inline]
-    pub fn as_str<'a>(&self, source: &'a str) -> &'a str {
-        match *self {
-            SmartString::Literal { ref buf, len } => unsafe {
-                str::from_utf8_unchecked(
-                    slice::from_raw_parts(buf.as_ptr(), len)
-                )
-            },
-            SmartString::InSitu { start, end } => &source[start..end]
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            slice::from_raw_parts(self.ptr, self.len)
         }
     }
 }
@@ -66,20 +47,20 @@ pub enum LiteralValue {
     LiteralTrue,
     LiteralFalse,
     LiteralInteger(u64),
-    LiteralFloat(SmartString),
-    LiteralString(SmartString),
+    LiteralFloat(OwnedSlice),
+    LiteralString(OwnedSlice),
 }
 pub use self::LiteralValue::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MemberKey {
-    Literal(SmartString),
+    Literal(OwnedSlice),
     Computed(Expression),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    pub name: SmartString,
+    pub name: OwnedSlice,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -293,7 +274,7 @@ impl OperatorType {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     This,
-    Identifier(SmartString),
+    Identifier(OwnedSlice),
     Literal(LiteralValue),
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
@@ -329,7 +310,7 @@ pub enum Expression {
         body: Box<Statement>,
     },
     Function {
-        name: Option<SmartString>,
+        name: Option<OwnedSlice>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     }
@@ -373,16 +354,16 @@ impl Expression {
     }
 
     #[inline(always)]
-    pub fn ident(name: &str) -> Self {
-        Expression::Identifier(SmartString::from_str(name))
+    pub fn ident(name: &'static str) -> Self {
+        Expression::Identifier(OwnedSlice::from_static(name))
     }
 
     #[inline(always)]
-    pub fn member(object: Expression, property: &str) -> Self {
+    pub fn member(object: Expression, property: &'static str) -> Self {
         Expression::Member {
             object: Box::new(object),
             property: Box::new(
-                MemberKey::Literal(SmartString::from_str(property))
+                MemberKey::Literal(OwnedSlice::from_static(property))
             )
         }
     }
@@ -399,10 +380,10 @@ impl Expression {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {
     Shorthand {
-        key: SmartString,
+        key: OwnedSlice,
     },
     Literal {
-        key: SmartString,
+        key: OwnedSlice,
         value: Expression,
     },
     Computed {
@@ -410,7 +391,7 @@ pub enum ObjectMember {
         value: Expression,
     },
     Method {
-        name: SmartString,
+        name: OwnedSlice,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
@@ -429,13 +410,13 @@ pub enum ClassMember {
     },
     Method {
         is_static: bool,
-        name: SmartString,
+        name: OwnedSlice,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
     Property {
         is_static: bool,
-        name: SmartString,
+        name: OwnedSlice,
         value: Expression,
     }
 }
@@ -449,7 +430,7 @@ pub enum VariableDeclarationKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
-    pub name: SmartString,
+    pub name: OwnedSlice,
     pub value: Option<Expression>,
 }
 
@@ -459,7 +440,7 @@ pub enum Statement {
         body: Vec<Statement>,
     },
     Labeled {
-        label: SmartString,
+        label: OwnedSlice,
         body: Box<Statement>,
     },
     VariableDeclaration {
@@ -473,10 +454,10 @@ pub enum Statement {
         value: Option<Expression>,
     },
     Break {
-        label: Option<SmartString>,
+        label: Option<OwnedSlice>,
     },
     Function {
-        name: SmartString,
+        name: OwnedSlice,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
@@ -506,8 +487,8 @@ pub enum Statement {
         body: Box<Statement>,
     },
     Class {
-        name: SmartString,
-        extends: Option<SmartString>,
+        name: OwnedSlice,
+        extends: Option<OwnedSlice>,
         body: Vec<ClassMember>,
     },
 }
