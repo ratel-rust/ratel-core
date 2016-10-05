@@ -273,28 +273,10 @@ impl Code for ObjectMember {
     }
 }
 
-impl Code for MemberKey {
-    #[inline]
-    fn to_code(&self, gen: &mut Generator) {
-        match *self {
-            MemberKey::Literal(ref string) => {
-                gen.write_char(b'.');
-                gen.write_string(string);
-            },
-            MemberKey::Computed(ref expr)  => {
-                gen.write_char(b'[');
-                expr.to_code(gen);
-                gen.write_char(b']');
-            },
-        }
-    }
-}
-
 impl Code for Parameter {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        let Parameter { ref name } = *self;
-        gen.write_string(name);
+        gen.write_string(&self.name);
     }
 }
 
@@ -343,7 +325,18 @@ impl Code for Expression {
                 ref property,
             } => {
                 object.to_code(gen);
+                gen.write_char(b'.');
+                gen.write_string(property);
+            },
+
+            Expression::ComputedMember {
+                ref object,
+                ref property,
+            } => {
+                object.to_code(gen);
+                gen.write_char(b'[');
                 property.to_code(gen);
+                gen.write_char(b']');
             },
 
             Expression::Call {

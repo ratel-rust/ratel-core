@@ -72,12 +72,6 @@ pub enum LiteralValue {
 pub use self::LiteralValue::*;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum MemberKey {
-    Literal(OwnedSlice),
-    Computed(Expression),
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub name: OwnedSlice,
 }
@@ -300,7 +294,11 @@ pub enum Expression {
     Object(Vec<ObjectMember>),
     Member {
         object: Box<Expression>,
-        property: Box<MemberKey>,
+        property: OwnedSlice,
+    },
+    ComputedMember {
+        object: Box<Expression>,
+        property: Box<Expression>,
     },
     Call {
         callee: Box<Expression>,
@@ -372,22 +370,20 @@ impl Expression {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn ident(name: &'static str) -> Self {
         Expression::Identifier(OwnedSlice::from_static(name))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn member(object: Expression, property: &'static str) -> Self {
         Expression::Member {
             object: Box::new(object),
-            property: Box::new(
-                MemberKey::Literal(OwnedSlice::from_static(property))
-            )
+            property: OwnedSlice::from_static(property)
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn call(callee: Expression, arguments: Vec<Expression>) -> Self {
         Expression::Call {
             callee: Box::new(callee),

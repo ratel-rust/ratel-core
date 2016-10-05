@@ -96,9 +96,9 @@ impl Transformable for Expression {
 
                 let body = match **body {
                     Statement::Block { ref mut body }   => body.split_off(0),
-                    Statement::Expression { ref value } => vec![
+                    Statement::Expression { ref mut value } => vec![
                         Statement::Return {
-                            value: Some(value.clone())
+                            value: Some(value.take())
                         }
                     ],
                     ref statement => {
@@ -169,11 +169,9 @@ impl Transformable for Expression {
                     if let ObjectMember::Computed { key, value } = member {
                         body.push(Statement::Expression {
                             value: Expression::Binary {
-                                left: Box::new(Expression::Member {
+                                left: Box::new(Expression::ComputedMember {
                                     object: Box::new(Expression::ident("___")),
-                                    property: Box::new(
-                                        MemberKey::Computed(key)
-                                    )
+                                    property: Box::new(key),
                                 }),
                                 operator: Assign,
                                 right: Box::new(value),
@@ -217,14 +215,14 @@ impl Transformable for Expression {
                 match *operator {
                     Exponent => Expression::call(
                         Expression::member(Expression::ident("Math"), "pow"),
-                        vec![*left.clone(), *right.clone()]
+                        vec![left.take(), right.take()]
                     ),
 
                     ExponentAssign => {
                         *operator = Assign;
                         *right = Box::new(Expression::call(
                             Expression::member(Expression::ident("Math"), "pow"),
-                            vec![*left.clone(), *right.clone()]
+                            vec![left.take(), right.take()]
                         ));
                         return;
                     },

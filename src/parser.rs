@@ -42,16 +42,10 @@ macro_rules! statement {
 }
 
 macro_rules! surround {
-    ($parser:ident ( $eval:expr )) => ({
-        $parser.tokenizer.expect_byte(b'(');
+    ($parser:ident, $b1:expr, $eval:expr, $b2:expr) => ({
+        $parser.tokenizer.expect_byte($b1);
         let value = $eval;
-        $parser.tokenizer.expect_byte(b')');
-        value
-    });
-    ($parser:ident [ $eval:expr ]) => ({
-        $parser.tokenizer.expect_byte(b'[');
-        let value = $eval;
-        $parser.tokenizer.expect_byte(b']');
+        $parser.tokenizer.expect_byte($b2);
         value
     });
 }
@@ -250,9 +244,7 @@ impl<'a> Parser<'a> {
 
             Accessor => Expression::Member {
                 object: Box::new(left),
-                property: Box::new(MemberKey::Literal(
-                    self.tokenizer.expect_identifier()
-                )),
+                property: self.tokenizer.expect_identifier(),
             },
 
             Conditional => Expression::Conditional {
@@ -410,11 +402,11 @@ impl<'a> Parser<'a> {
                     }
                 },
 
-                Some(&BracketOn)   => Expression::Member {
+                Some(&BracketOn)   => Expression::ComputedMember {
                     object: Box::new(left),
-                    property: Box::new(MemberKey::Computed(
-                        surround!(self [ self.sequence_or_expression() ])
-                    ))
+                    property: Box::new(
+                        surround!(self, b'[', self.sequence_or_expression(), b']')
+                    )
                 },
 
                 _ => break
@@ -515,7 +507,7 @@ impl<'a> Parser<'a> {
     }
 
     fn if_statement(&mut self) -> Statement {
-        let test = surround!(self ( self.expression(0) ));
+        let test = surround!(self, b'(', self.expression(0), b')');
         let consequent = Box::new(self.block_or_statement());
         let alternate = if allow!(self, Else) {
             if allow!(self, If) {
@@ -536,7 +528,7 @@ impl<'a> Parser<'a> {
 
     fn while_statement(&mut self) -> Statement {
         Statement::While {
-            test: surround!(self ( self.expression(0) )),
+            test: surround!(self, b'(', self.expression(0), b')'),
             body: Box::new(self.block_or_statement()),
         }
     }
