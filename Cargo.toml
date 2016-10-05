@@ -1,8 +1,11 @@
 [package]
 name = "badger"
 version = "0.1.0"
-authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>", "Jan Schulte <hello@unexpected-co.de>"]
+authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
 license = "MIT"
+description = "JavaScript transpiler in Rust"
+repository = "https://github.com/HoneyBadger-rust/HoneyBadger"
+documentation = "https://github.com/HoneyBadger-rust/HoneyBadger"
 
 [dependencies]
 docopt = "0.6.78"
