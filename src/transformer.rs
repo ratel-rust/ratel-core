@@ -72,11 +72,41 @@ impl Settings {
 /// The `Transformable` trait provides an interface for instances of grammar
 /// to alter the AST.
 trait Transformable {
+    #[inline]
     fn transform(&mut self, _: &Settings) {}
 
     #[inline]
     fn contains_this(&self) -> bool {
         false
+    }
+}
+
+impl<T: Transformable> Transformable for Option<T> {
+    #[inline]
+    fn transform(&mut self, settings: &Settings) {
+        if let Some(ref mut value) = *self {
+            value.transform(settings);
+        }
+    }
+
+    #[inline]
+    fn contains_this(&self) -> bool {
+        match *self {
+            Some(ref value) => value.contains_this(),
+            _               => false,
+        }
+    }
+}
+
+impl<T: Transformable> Transformable for Box<T> {
+    #[inline]
+    fn transform(&mut self, settings: &Settings) {
+        self.as_mut().transform(settings)
+    }
+
+    #[inline]
+    fn contains_this(&self) -> bool {
+        self.as_ref().contains_this()
     }
 }
 
@@ -156,7 +186,7 @@ impl Transformable for Expression {
                     kind: VariableDeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
-                            name: OwnedSlice::from_static("___"),
+                            name: "___".into(),
                             value: Some(Expression::Object(literal)),
                         }
                     ]
@@ -164,21 +194,19 @@ impl Transformable for Expression {
 
                 for member in computed.drain(..) {
                     if let ObjectMember::Computed { key, value } = member {
-                        body.push(Statement::Expression {
-                            value: Expression::Binary {
-                                left: Box::new(Expression::ComputedMember {
-                                    object: Box::new(Expression::ident("___")),
-                                    property: Box::new(key),
-                                }),
-                                operator: Assign,
-                                right: Box::new(value),
-                            }
-                        });
+                        body.push(Expression::Binary {
+                            left: box Expression::ComputedMember {
+                                object: box "___".into(),
+                                property: box key,
+                            },
+                            operator: Assign,
+                            right: box value,
+                        }.into());
                     }
                 }
 
                 body.push(Statement::Return {
-                    value: Some(Expression::ident("___"))
+                    value: Some("___".into())
                 });
 
                 Expression::call(Expression::Function {
@@ -211,16 +239,16 @@ impl Transformable for Expression {
 
                 match *operator {
                     Exponent => Expression::call(
-                        Expression::member(Expression::ident("Math"), "pow"),
+                        Expression::member("Math", "pow"),
                         vec![left.take(), right.take()]
                     ),
 
                     ExponentAssign => {
                         *operator = Assign;
-                        *right = Box::new(Expression::call(
-                            Expression::member(Expression::ident("Math"), "pow"),
+                        *right = box Expression::call(
+                            Expression::member("Math", "pow"),
                             vec![left.take(), right.take()]
-                        ));
+                        );
                         return;
                     },
 
@@ -392,38 +420,34 @@ impl Transformable for ClassMember {
 }
 
 impl Transformable for VariableDeclarator {
+    #[inline]
     fn transform(&mut self, settings: &Settings) {
-        match self.value {
-            Some(ref mut expression) => expression.transform(settings),
-            _                        => {},
-        }
+        self.value.transform(settings);
     }
 
+    #[inline]
     fn contains_this(&self) -> bool {
-        match self.value {
-            Some(ref expression) => expression.contains_this(),
-            _                    => false,
-        }
+        self.value.contains_this()
     }
 }
 
 fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
-    for prop in props.iter_mut() {
+    body.reserve(props.len());
+
+    for prop in props.iter_mut().rev() {
         if let &mut ClassMember::Property {
             ref is_static,
             ref name,
             ref mut value,
         } = prop {
-            body.push(Statement::Expression {
-                value: Expression::Binary {
-                    left: Box::new(Expression::Member {
-                        object: Box::new(Expression::This),
-                        property: *name,
-                    }),
-                    operator: Assign,
-                    right: Box::new(value.take()),
-                }
-            });
+            body.insert(0, Expression::Binary {
+                left: box Expression::Member {
+                    object: box Expression::This,
+                    property: *name,
+                },
+                operator: Assign,
+                right: box value.take(),
+            }.into());
         }
     }
 }
@@ -476,9 +500,7 @@ impl Transformable for Statement {
             } => {
                 test.transform(settings);
                 consequent.transform(settings);
-                if let Some(ref mut alternate) = *alternate {
-                    alternate.transform(settings);
-                }
+                alternate.transform(settings);
                 return;
             },
 
@@ -557,23 +579,18 @@ impl Transformable for Statement {
                             body: ref mut method_body,
                             ..
                         } = method {
-                            body.push(Statement::Expression {
-                                value: Expression::Binary {
-                                    left: Box::new(Expression::Member {
-                                        object: Box::new(Expression::Member {
-                                            object: Box::new(Expression::Identifier(*name)),
-                                            property: OwnedSlice::from_static("prototype"),
-                                        }),
-                                        property: *method_name,
-                                    }),
-                                    operator: Assign,
-                                    right: Box::new(Expression::Function {
-                                        name: Some(*method_name),
-                                        params: method_params.take(),
-                                        body: method_body.take(),
-                                    }),
-                                }
-                            });
+                            body.push(Expression::Binary {
+                                left: box Expression::Member {
+                                    object: box Expression::member(name, "prototype"),
+                                    property: *method_name,
+                                },
+                                operator: Assign,
+                                right: box Expression::Function {
+                                    name: Some(*method_name),
+                                    params: method_params.take(),
+                                    body: method_body.take(),
+                                },
+                            }.into());
                         }
                     }
 

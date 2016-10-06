@@ -39,6 +39,16 @@ impl OwnedSlice {
     }
 }
 
+impl From<&'static str> for OwnedSlice {
+    #[inline]
+    fn from(source: &'static str) -> Self {
+        OwnedSlice {
+            ptr: source.as_ptr(),
+            len: source.len(),
+        }
+    }
+}
+
 impl Deref for OwnedSlice {
     type Target = str;
 
@@ -380,25 +390,46 @@ impl Expression {
         }
     }
 
-    #[inline]
-    pub fn ident(name: &'static str) -> Self {
-        Expression::Identifier(OwnedSlice::from_static(name))
-    }
+    // #[inline]
+    // pub fn ident(name: &'static str) -> Self {
+    //     Expression::Identifier(OwnedSlice::from_static(name))
+    // }
 
     #[inline]
-    pub fn member(object: Expression, property: &'static str) -> Self {
+    pub fn member<E: Into<Expression>>(object: E, property: &'static str) -> Self {
         Expression::Member {
-            object: Box::new(object),
-            property: OwnedSlice::from_static(property)
+            object: box object.into(),
+            property: property.into(),
         }
     }
 
     #[inline]
-    pub fn call(callee: Expression, arguments: Vec<Expression>) -> Self {
+    pub fn call<E: Into<Expression>>(callee: E, arguments: Vec<Expression>) -> Self {
         Expression::Call {
-            callee: Box::new(callee),
+            callee: box callee.into(),
             arguments: arguments,
         }
+    }
+}
+
+impl From<&'static str> for Expression {
+    #[inline]
+    fn from(ident: &'static str) -> Self {
+        Expression::Identifier(OwnedSlice::from_static(ident))
+    }
+}
+
+impl From<OwnedSlice> for Expression {
+    #[inline]
+    fn from(ident: OwnedSlice) -> Self {
+        Expression::Identifier(ident)
+    }
+}
+
+impl<'a> From<&'a OwnedSlice> for Expression {
+    #[inline]
+    fn from(ident: &'a OwnedSlice) -> Self {
+        Expression::Identifier(*ident)
     }
 }
 
@@ -522,6 +553,15 @@ pub enum Statement {
         extends: Option<OwnedSlice>,
         body: Vec<ClassMember>,
     },
+}
+
+impl From<Expression> for Statement {
+    #[inline]
+    fn from(expression: Expression) -> Self {
+        Statement::Expression {
+            value: expression
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

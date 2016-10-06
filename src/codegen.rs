@@ -59,13 +59,14 @@ impl Generator {
 
     #[inline]
     pub fn write_list<T: Code>(&mut self, items: &Vec<T>) {
-        let mut first = true;
-        for item in items {
-            if first {
-                first = false;
-            } else {
-                self.write_min(b", ", b",");
-            }
+        let mut iter = items.iter();
+
+        for item in iter.next() {
+            self.write(item);
+        }
+
+        for item in iter {
+            self.write_min(b", ", b",");
             self.write(item);
         }
     }
@@ -316,16 +317,20 @@ impl Code for Expression {
             Expression::Object(ref members) => {
                 gen.write_byte(b'{');
                 gen.indent();
-                let mut first = true;
-                for member in members {
-                    if first {
-                        first = false;
-                    } else {
-                        gen.write_byte(b',');
-                    }
+
+                let mut iter = members.iter();
+
+                for member in iter.next() {
                     gen.new_line();
                     gen.write(member);
                 }
+
+                for member in iter {
+                    gen.write_byte(b',');
+                    gen.new_line();
+                    gen.write(member);
+                }
+
                 gen.dedent();
                 gen.new_line();
                 gen.write_byte(b'}');
@@ -544,7 +549,13 @@ impl Code for Statement {
             Statement::Transparent {
                 ref body,
             } => {
-                for statement in body {
+                let mut iter = body.iter();
+
+                for statement in iter.next() {
+                    gen.write(statement);
+                }
+
+                for statement in iter {
                     gen.new_line();
                     gen.write(statement);
                 }
