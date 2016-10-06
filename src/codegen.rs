@@ -26,40 +26,35 @@ impl Generator {
     #[inline]
     pub fn new_line(&mut self) {
         if !self.minify {
-            self.write_char(b'\n');
+            self.write_byte(b'\n');
             for _ in 0..self.dent {
-                self.write(b"    ");
+                self.write_bytes(b"    ");
             }
         }
     }
 
     #[inline]
-    pub fn write(&mut self, slice: &[u8]) {
+    pub fn write<T: Code>(&mut self, item: &T) {
+        item.to_code(self);
+    }
+
+    #[inline]
+    pub fn write_byte(&mut self, ch: u8) {
+        self.code.push(ch);
+    }
+
+    #[inline]
+    pub fn write_bytes(&mut self, slice: &[u8]) {
         extend_from_slice(&mut self.code, slice);
-    }
-
-    #[inline]
-    pub fn write_int(&mut self, num: u64) {
-        itoa::write(&mut self.code, num).expect("Can't fail on a Vec");
-    }
-
-    #[inline]
-    pub fn write_string(&mut self, text: &OwnedSlice) {
-        extend_from_slice(&mut self.code, text.as_bytes());
     }
 
     #[inline]
     pub fn write_min(&mut self, slice: &[u8], minslice: &[u8]) {
         if self.minify {
-            self.write(minslice);
+            self.write_bytes(minslice);
         } else {
-            self.write(slice);
+            self.write_bytes(slice);
         }
-    }
-
-    #[inline]
-    pub fn write_char(&mut self, ch: u8) {
-        self.code.push(ch);
     }
 
     #[inline]
@@ -71,7 +66,7 @@ impl Generator {
             } else {
                 self.write_min(b", ", b",");
             }
-            item.to_code(self);
+            self.write(item);
         }
     }
 
@@ -80,7 +75,7 @@ impl Generator {
         self.indent();
         for item in items {
             self.new_line();
-            item.to_code(self);
+            self.write(item);
         }
         self.dedent();
         self.new_line();
@@ -92,8 +87,8 @@ impl Generator {
                 ref kind,
                 ref declarators,
             } => {
-                kind.to_code(self);
-                self.write_char(b' ');
+                self.write(kind);
+                self.write_byte(b' ');
                 self.write_list(declarators);
             },
 
@@ -129,14 +124,29 @@ trait Code {
     fn to_code(&self, gen: &mut Generator);
 }
 
-// impl Code for String {
-//     #[inline]
-//     fn to_code(&self, gen: &mut Generator) {
-//         gen.write_string(self);
-//     }
-// }
+impl Code for u64 {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        itoa::write(&mut gen.code, *self).expect("Can't fail on a Vec");
+    }
+}
+
+impl<T: Code> Code for Box<T> {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        gen.write(self.as_ref());
+    }
+}
+
+impl Code for OwnedSlice {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        extend_from_slice(&mut gen.code, self.as_bytes());
+    }
+}
 
 impl<T: Code> Code for Option<T> {
+    #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Some(ref value) => value.to_code(gen),
@@ -148,7 +158,7 @@ impl<T: Code> Code for Option<T> {
 impl Code for OperatorType {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write(match *self {
+        gen.write_bytes(match *self {
             FatArrow         => b"=>",
             Accessor         => b".",
             New              => b"new",
@@ -207,40 +217,41 @@ impl Code for LiteralValue {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             LiteralUndefined          => gen.write_min(b"undefined", b"void 0"),
-            LiteralNull               => gen.write(b"null"),
+            LiteralNull               => gen.write_bytes(b"null"),
             LiteralTrue               => gen.write_min(b"true", b"!0",),
             LiteralFalse              => gen.write_min(b"false", b"!1"),
-            LiteralInteger(ref num)   => gen.write_int(*num),
-            LiteralFloat(ref num)     => gen.write_string(num),
-            LiteralString(ref string) => gen.write_string(string),
+            LiteralInteger(ref num)   => gen.write(num),
+            LiteralFloat(ref num)     => gen.write(num),
+            LiteralString(ref string) => gen.write(string),
         }
     }
 }
 
 impl Code for ObjectMember {
+    #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             ObjectMember::Shorthand {
                 ref key
-            } => gen.write_string(key),
+            } => gen.write(key),
 
             ObjectMember::Literal {
                 ref key,
                 ref value,
             } => {
-                gen.write_string(key);
+                gen.write(key);
                 gen.write_min(b": ", b":");
-                value.to_code(gen);
+                gen.write(value);
             },
 
             ObjectMember::Computed {
                 ref key,
                 ref value,
             } => {
-                gen.write_char(b'[');
-                key.to_code(gen);
+                gen.write_byte(b'[');
+                gen.write(key);
                 gen.write_min(b"]: ", b"]:");
-                value.to_code(gen);
+                gen.write(value);
             },
 
             ObjectMember::Method {
@@ -248,12 +259,12 @@ impl Code for ObjectMember {
                 ref params,
                 ref body,
             } => {
-                gen.write_string(name);
-                gen.write_char(b'(');
+                gen.write(name);
+                gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
             ObjectMember::ComputedMethod {
@@ -261,13 +272,13 @@ impl Code for ObjectMember {
                 ref params,
                 ref body,
             } => {
-                gen.write_char(b'[');
-                name.to_code(gen);
-                gen.write(b"](");
+                gen.write_byte(b'[');
+                gen.write(name);
+                gen.write_bytes(b"](");
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
         }
     }
@@ -276,7 +287,7 @@ impl Code for ObjectMember {
 impl Code for Parameter {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write_string(&self.name);
+        gen.write_bytes(self.name.as_bytes());
     }
 }
 
@@ -284,69 +295,69 @@ impl Code for Expression {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
-            Expression::This => gen.write(b"this"),
+            Expression::This => gen.write_bytes(b"this"),
 
-            Expression::Identifier(ref ident) => gen.write_string(ident),
+            Expression::Identifier(ref ident) => gen.write(ident),
 
-            Expression::Literal(ref literal)  => literal.to_code(gen),
+            Expression::Literal(ref literal)  => gen.write(literal),
 
             Expression::Array(ref items) => {
-                gen.write_char(b'[');
+                gen.write_byte(b'[');
                 gen.write_list(items);
-                gen.write_char(b']');
+                gen.write_byte(b']');
             },
 
             Expression::Sequence(ref items) => {
-                gen.write_char(b'(');
+                gen.write_byte(b'(');
                 gen.write_list(items);
-                gen.write_char(b')');
+                gen.write_byte(b')');
             },
 
             Expression::Object(ref members) => {
-                gen.write_char(b'{');
+                gen.write_byte(b'{');
                 gen.indent();
                 let mut first = true;
                 for member in members {
                     if first {
                         first = false;
                     } else {
-                        gen.write_char(b',');
+                        gen.write_byte(b',');
                     }
                     gen.new_line();
-                    member.to_code(gen);
+                    gen.write(member);
                 }
                 gen.dedent();
                 gen.new_line();
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
             Expression::Member {
                 ref object,
                 ref property,
             } => {
-                object.to_code(gen);
-                gen.write_char(b'.');
-                gen.write_string(property);
+                gen.write(object);
+                gen.write_byte(b'.');
+                gen.write(property);
             },
 
             Expression::ComputedMember {
                 ref object,
                 ref property,
             } => {
-                object.to_code(gen);
-                gen.write_char(b'[');
-                property.to_code(gen);
-                gen.write_char(b']');
+                gen.write(object);
+                gen.write_byte(b'[');
+                gen.write(property);
+                gen.write_byte(b']');
             },
 
             Expression::Call {
                 ref callee,
                 ref arguments,
             } => {
-                callee.to_code(gen);
-                gen.write_char(b'(');
+                gen.write(callee);
+                gen.write_byte(b'(');
                 gen.write_list(arguments);
-                gen.write_char(b')');
+                gen.write_byte(b')');
             },
 
             Expression::Binary {
@@ -355,32 +366,32 @@ impl Code for Expression {
                 ref right,
             } => {
                 if left.binding_power() < self.binding_power() {
-                    gen.write_char(b'(');
-                    left.to_code(gen);
-                    gen.write_char(b')');
+                    gen.write_byte(b'(');
+                    gen.write(left);
+                    gen.write_byte(b')');
                 } else {
-                    left.to_code(gen);
+                    gen.write(left);
                 }
                 gen.write_min(b" ", b"");
-                operator.to_code(gen);
+                gen.write(operator);
                 gen.write_min(b" ", b"");
-                right.to_code(gen);
+                gen.write(right);
             },
 
             Expression::Prefix {
                 ref operator,
                 ref operand,
             } => {
-                operator.to_code(gen);
-                operand.to_code(gen);
+                gen.write(operator);
+                gen.write(operand);
             },
 
             Expression::Postfix {
                 ref operator,
                 ref operand,
             } => {
-                operand.to_code(gen);
-                operator.to_code(gen);
+                gen.write(operand);
+                gen.write(operator);
             },
 
             Expression::Conditional {
@@ -388,11 +399,11 @@ impl Code for Expression {
                 ref consequent,
                 ref alternate,
             } => {
-                test.to_code(gen);
+                gen.write(test);
                 gen.write_min(b" ? ", b"?");
-                consequent.to_code(gen);
+                gen.write(consequent);
                 gen.write_min(b" : ", b":");
-                alternate.to_code(gen);
+                gen.write(alternate);
             },
 
             Expression::ArrowFunction {
@@ -400,18 +411,18 @@ impl Code for Expression {
                 ref body,
             } => {
                 if params.len() == 1 {
-                    params[0].to_code(gen);
+                    gen.write(&params[0]);
                 } else {
-                    gen.write_char(b'(');
+                    gen.write_byte(b'(');
                     gen.write_list(params);
-                    gen.write_char(b')');
+                    gen.write_byte(b')');
                 }
                 gen.write_min(b" => ", b"=>");
                 match **body {
                     Statement::Expression {
                         ref value,
-                    } => value.to_code(gen),
-                    _ => body.to_code(gen),
+                    } => gen.write(value),
+                    _ => gen.write(body),
                 }
             },
 
@@ -420,21 +431,21 @@ impl Code for Expression {
                 ref params,
                 ref body,
             } => {
-                gen.write(b"function");
+                gen.write_bytes(b"function");
                 if let Some(ref name) = *name {
-                    gen.write_char(b' ');
-                    gen.write_string(name);
+                    gen.write_byte(b' ');
+                    gen.write(name);
                 } else {
                     gen.write_min(b" ", b"");
                 }
-                gen.write_char(b'(');
+                gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
-            // _ => gen.write_char('💀'),
+            // _ => gen.write_byte('💀'),
         }
     }
 }
@@ -442,7 +453,7 @@ impl Code for Expression {
 impl Code for VariableDeclarationKind {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write(match *self {
+        gen.write_bytes(match *self {
             VariableDeclarationKind::Var   => b"var",
             VariableDeclarationKind::Let   => b"let",
             VariableDeclarationKind::Const => b"const",
@@ -458,11 +469,11 @@ impl Code for ClassMember {
                 ref params,
                 ref body,
             } => {
-                gen.write(b"constructor(");
+                gen.write_bytes(b"constructor(");
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
             ClassMember::Method {
@@ -472,14 +483,14 @@ impl Code for ClassMember {
                 ref body,
             } => {
                 if is_static {
-                    gen.write(b"static ");
+                    gen.write_bytes(b"static ");
                 }
-                gen.write_string(name);
-                gen.write_char(b'(');
+                gen.write(name);
+                gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
             ClassMember::Property {
@@ -488,12 +499,12 @@ impl Code for ClassMember {
                 ref value,
             } => {
                 if is_static {
-                    gen.write(b"static ");
+                    gen.write_bytes(b"static ");
                 }
-                gen.write_string(name);
+                gen.write(name);
                 gen.write_min(b" = ", b"=");
-                value.to_code(gen);
-                gen.write_char(b';');
+                gen.write(value);
+                gen.write_byte(b';');
             }
         }
     }
@@ -502,10 +513,10 @@ impl Code for ClassMember {
 impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write_string(&self.name);
-        if self.value.is_some() {
+        gen.write(&self.name);
+        if let Some(ref value) = self.value {
             gen.write_min(b" = ", b"=");
-            self.value.to_code(gen);
+            gen.write(value);
         }
     }
 }
@@ -517,56 +528,56 @@ impl Code for Statement {
                 ref label,
                 ref body,
             } => {
-                gen.write_string(label);
+                gen.write(label);
                 gen.write_min(b": ", b":");
-                body.to_code(gen);
+                gen.write(body);
             },
 
             Statement::Block {
                 ref body,
             } => {
-                gen.write_char(b'{');
+                gen.write_byte(b'{');
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
             },
 
             Statement::Expression {
                 ref value,
             } => {
-                value.to_code(gen);
-                gen.write_char(b';');
+                gen.write(value);
+                gen.write_byte(b';');
             },
 
             Statement::Return {
                 ref value,
             } => {
-                gen.write(b"return");
+                gen.write_bytes(b"return");
                 if let Some(ref value) = *value {
-                    gen.write_char(b' ');
-                    value.to_code(gen);
+                    gen.write_byte(b' ');
+                    gen.write(value);
                 }
-                gen.write_char(b';');
+                gen.write_byte(b';');
             },
 
             Statement::Break {
                 ref label,
             } => {
-                gen.write(b"break");
+                gen.write_bytes(b"break");
                 if let Some(ref label) = *label {
-                    gen.write_char(b' ');
-                    gen.write_string(label);
+                    gen.write_byte(b' ');
+                    gen.write(label);
                 }
-                gen.write_char(b';');
+                gen.write_byte(b';');
             },
 
             Statement::VariableDeclaration {
                 ref kind,
                 ref declarators,
             } => {
-                kind.to_code(gen);
-                gen.write_char(b' ');
+                gen.write(kind);
+                gen.write_byte(b' ');
                 gen.write_list(declarators);
-                gen.write_char(b';');
+                gen.write_byte(b';');
             },
 
             Statement::Function {
@@ -575,13 +586,13 @@ impl Code for Statement {
                 ref body,
             } => {
                 gen.new_line();
-                gen.write(b"function ");
-                gen.write_string(name);
-                gen.write_char(b'(');
+                gen.write_bytes(b"function ");
+                gen.write(name);
+                gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
                 gen.new_line();
             },
 
@@ -591,13 +602,13 @@ impl Code for Statement {
                 ref alternate,
             } => {
                 gen.write_min(b"if (", b"if(");
-                test.to_code(gen);
+                gen.write(test);
                 gen.write_min(b") ", b")");
-                consequent.to_code(gen);
+                gen.write(consequent);
 
                 if let Some(ref alternate) = *alternate {
-                    gen.write(b" else ");
-                    alternate.to_code(gen);
+                    gen.write_bytes(b" else ");
+                    gen.write(alternate);
                 };
             },
 
@@ -606,9 +617,9 @@ impl Code for Statement {
                 ref body,
             } => {
                 gen.write_min(b"while (", b"while(");
-                test.to_code(gen);
+                gen.write(test);
                 gen.write_min(b") ", b")");
-                body.to_code(gen);
+                gen.write(body);
             },
 
             Statement::For {
@@ -622,11 +633,11 @@ impl Code for Statement {
                     gen.write_declaration_or_expression(init);
                 }
                 gen.write_min(b"; ", b";");
-                test.to_code(gen);
+                gen.write(test);
                 gen.write_min(b"; ", b";");
-                update.to_code(gen);
+                gen.write(update);
                 gen.write_min(b") ", b")");
-                body.to_code(gen);
+                gen.write(body);
             },
 
             Statement::ForIn {
@@ -636,10 +647,10 @@ impl Code for Statement {
             } => {
                 gen.write_min(b"for (", b"for(");
                 gen.write_declaration_or_expression(left);
-                gen.write(b" in ");
-                right.to_code(gen);
+                gen.write_bytes(b" in ");
+                gen.write(right);
                 gen.write_min(b") ", b")");
-                body.to_code(gen);
+                gen.write(body);
             },
 
             Statement::ForOf {
@@ -649,10 +660,10 @@ impl Code for Statement {
             } => {
                 gen.write_min(b"for (", b"for(");
                 gen.write_declaration_or_expression(left);
-                gen.write(b" of ");
-                right.to_code(gen);
+                gen.write_bytes(b" of ");
+                gen.write(right);
                 gen.write_min(b") ", b")");
-                body.to_code(gen);
+                gen.write(body);
             },
 
             Statement::Class {
@@ -661,15 +672,15 @@ impl Code for Statement {
                 ref body,
             } => {
                 gen.new_line();
-                gen.write(b"class ");
-                gen.write_string(name);
+                gen.write_bytes(b"class ");
+                gen.write(name);
                 if let &Some(ref super_class) = extends {
-                    gen.write(b" extends ");
-                    gen.write_string(super_class);
+                    gen.write_bytes(b" extends ");
+                    gen.write(super_class);
                 }
                 gen.write_min(b" {", b"{");
                 gen.write_block(body);
-                gen.write_char(b'}');
+                gen.write_byte(b'}');
                 gen.new_line();
             },
         }
@@ -680,7 +691,7 @@ pub fn generate_code(program: Program, minify: bool) -> String {
     let mut gen = Generator::new(minify);
 
     for statement in program.body {
-        statement.to_code(&mut gen);
+        gen.write(&statement);
         gen.new_line();
     }
 

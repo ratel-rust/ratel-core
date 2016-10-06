@@ -1,4 +1,5 @@
 use std::{ str, slice, fmt };
+use std::ops::Deref;
 
 #[derive(Clone, Copy)]
 pub struct OwnedSlice {
@@ -35,6 +36,15 @@ impl OwnedSlice {
         unsafe {
             slice::from_raw_parts(self.ptr, self.len)
         }
+    }
+}
+
+impl Deref for OwnedSlice {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &str {
+        self.as_str()
     }
 }
 
