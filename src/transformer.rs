@@ -134,18 +134,12 @@ impl Transformable for Expression {
                     return;
                 }
 
-                let mut computed = Vec::new();
-                let indexes = 0 .. members.len();
-
-                for index in indexes.rev() {
-                    match members[index] {
-                        ObjectMember::Computed { .. } => {
-                            let member = members.remove(index);
-                            computed.push(member);
-                        },
-                        _ => {}
+                let mut computed = partition_vec(members, |member| {
+                    match member {
+                        &ObjectMember::Computed { .. } => false,
+                        _                              => true,
                     }
-                }
+                });
 
                 if computed.is_empty() {
                     return;
@@ -410,17 +404,25 @@ impl Transformable for VariableDeclarator {
     }
 }
 
-fn add_props_to_body(body: &mut Vec<Statement>, props: &mut Vec<ClassMember>) {
-    // for prop in props {
-    //     match prop {
-    //         ClassMember::Property {
-    //             ref is_static,
-    //             ref name,
-    //         } => {
-
-    //         }
-    //     }
-    // }
+fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
+    for prop in props.iter_mut() {
+        if let &mut ClassMember::Property {
+            ref is_static,
+            ref name,
+            ref mut value,
+        } = prop {
+            body.push(Statement::Expression {
+                value: Expression::Binary {
+                    left: Box::new(Expression::Member {
+                        object: Box::new(Expression::This),
+                        property: *name,
+                    }),
+                    operator: Assign,
+                    right: Box::new(value.take()),
+                }
+            });
+        }
+    }
 }
 
 impl Transformable for Statement {
@@ -487,29 +489,45 @@ impl Transformable for Statement {
                     return;
                 }
 
-                let (mut props, mut methods): (Vec<ClassMember>, Vec<ClassMember>)
-                = body.drain(..).partition(|member| {
-                    match *member {
-                        ClassMember::Property { .. } => true,
-                        _                            => false,
-                    }
-                });
+                let prop_count = body.iter().filter(|member| match **member {
+                    ClassMember::Property { .. } => true,
+                    _                            => false,
+                }).count();
 
-                if !props.is_empty() {
-                    // copy the props into the class constructor
-                    for method in methods.iter_mut() {
-                        match *method {
-                            ClassMember::Constructor {
-                                ref mut body,
-                                ..
-                            } => {
-                                add_props_to_body(body, &mut props);
-                                break
-                            }
-                            _ => continue
-                        }
+                if prop_count == 0 {
+                    return;
+                }
+
+                let mut constructor = None;
+                let mut methods = Vec::with_capacity(body.len());
+                let mut props = Vec::with_capacity(prop_count);
+
+                for member in body.drain(..) {
+                    match member {
+                        ClassMember::Property {
+                            ..
+                        } => props.push(member),
+
+                        ClassMember::Constructor {
+                            params,
+                            body,
+                        } => constructor = Some((params, body)),
+
+                        _ => methods.push(member),
                     }
                 }
+
+                let (cnst_params, mut cnst_body) = match constructor {
+                    Some(constructor) => constructor,
+                    _                 => (Vec::new(), Vec::new())
+                };
+
+                add_props_to_body(&mut cnst_body, props);
+
+                methods.insert(0, ClassMember::Constructor {
+                    params: cnst_params,
+                    body: cnst_body,
+                });
 
                 *body = methods;
 
@@ -557,6 +575,23 @@ impl<T: Transformable> Transformable for Vec<T> {
         }
         return false;
     }
+}
+
+#[inline]
+fn partition_vec<T, F: Fn(&T) -> bool>(source: &mut Vec<T>, f: F) -> Vec<T> {
+    let mut other = Vec::new();
+    let indexes = 0 .. source.len();
+
+    for index in indexes.rev() {
+        unsafe {
+            if !f(source.get_unchecked(index)) {
+                let item = source.remove(index);
+                other.push(item)
+            }
+        }
+    }
+
+    other
 }
 
 pub fn transform(program: &mut Program, settings: Settings) {
