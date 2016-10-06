@@ -398,7 +398,7 @@ impl Expression {
     #[inline]
     pub fn member<E: Into<Expression>>(object: E, property: &'static str) -> Self {
         Expression::Member {
-            object: box object.into(),
+            object: Box::new(object.into()),
             property: property.into(),
         }
     }
@@ -406,7 +406,7 @@ impl Expression {
     #[inline]
     pub fn call<E: Into<Expression>>(callee: E, arguments: Vec<Expression>) -> Self {
         Expression::Call {
-            callee: box callee.into(),
+            callee: Box::new(callee.into()),
             arguments: arguments,
         }
     }

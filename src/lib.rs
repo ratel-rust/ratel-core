@@ -1,5 +1,3 @@
-#![feature(box_syntax)]
-
 pub mod lexicon;
 pub mod tokenizer;
 pub mod parser;

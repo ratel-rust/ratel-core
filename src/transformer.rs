@@ -195,12 +195,12 @@ impl Transformable for Expression {
                 for member in computed.drain(..) {
                     if let ObjectMember::Computed { key, value } = member {
                         body.push(Expression::Binary {
-                            left: box Expression::ComputedMember {
-                                object: box "___".into(),
-                                property: box key,
-                            },
+                            left: Box::new(Expression::ComputedMember {
+                                object: Box::new("___".into()),
+                                property: Box::new(key),
+                            }),
                             operator: Assign,
-                            right: box value,
+                            right: Box::new(value),
                         }.into());
                     }
                 }
@@ -245,10 +245,10 @@ impl Transformable for Expression {
 
                     ExponentAssign => {
                         *operator = Assign;
-                        *right = box Expression::call(
+                        *right = Box::new(Expression::call(
                             Expression::member("Math", "pow"),
                             vec![left.take(), right.take()]
-                        );
+                        ));
                         return;
                     },
 
@@ -436,17 +436,18 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
 
     for prop in props.iter_mut().rev() {
         if let &mut ClassMember::Property {
-            ref is_static,
+            // ref is_static,
             ref name,
             ref mut value,
+            ..
         } = prop {
             body.insert(0, Expression::Binary {
-                left: box Expression::Member {
-                    object: box Expression::This,
+                left: Box::new(Expression::Member {
+                    object: Box::new(Expression::This),
                     property: *name,
-                },
+                }),
                 operator: Assign,
-                right: box value.take(),
+                right: Box::new(value.take()),
             }.into());
         }
     }
@@ -580,16 +581,16 @@ impl Transformable for Statement {
                             ..
                         } = method {
                             body.push(Expression::Binary {
-                                left: box Expression::Member {
-                                    object: box Expression::member(name, "prototype"),
+                                left: Box::new(Expression::Member {
+                                    object: Box::new(Expression::member(name, "prototype")),
                                     property: *method_name,
-                                },
+                                }),
                                 operator: Assign,
-                                right: box Expression::Function {
+                                right: Box::new(Expression::Function {
                                     name: Some(*method_name),
                                     params: method_params.take(),
                                     body: method_body.take(),
-                                },
+                                }),
                             }.into());
                         }
                     }

@@ -213,7 +213,7 @@ impl<'a> Parser<'a> {
 
         Expression::ArrowFunction {
             params: params,
-            body: box body
+            body: Box::new(body)
         }
     }
 
@@ -225,7 +225,7 @@ impl<'a> Parser<'a> {
 
         Expression::Prefix {
             operator: operator,
-            operand: box self.expression(15),
+            operand: Box::new(self.expression(15)),
         }
     }
 
@@ -239,20 +239,20 @@ impl<'a> Parser<'a> {
         match operator {
             Increment | Decrement => Expression::Postfix {
                 operator: operator,
-                operand: box left,
+                operand: Box::new(left),
             },
 
             Accessor => Expression::Member {
-                object: box left,
+                object: Box::new(left),
                 property: self.tokenizer.expect_identifier(),
             },
 
             Conditional => Expression::Conditional {
-                test: box left,
-                consequent: box self.expression(bp),
+                test: Box::new(left),
+                consequent: Box::new(self.expression(bp)),
                 alternate: {
                     self.tokenizer.expect_byte(b':');
-                    box self.expression(bp)
+                    Box::new(self.expression(bp))
                 }
             },
 
@@ -268,9 +268,9 @@ impl<'a> Parser<'a> {
                 }
 
                 Expression::Binary {
-                    left: box left,
+                    left: Box::new(left),
                     operator: operator,
-                    right: box self.expression(bp),
+                    right: Box::new(self.expression(bp)),
                 }
             }
         }
@@ -395,14 +395,16 @@ impl<'a> Parser<'a> {
                     self.tokenizer.next();
 
                     Expression::Call {
-                        callee: box left,
+                        callee: Box::new(left),
                         arguments: self.expression_list(b')'),
                     }
                 },
 
                 Some(&BracketOn)   => Expression::ComputedMember {
-                    object: box left,
-                    property: box surround!(self, b'[', self.sequence_or_expression(), b']')
+                    object: Box::new(left),
+                    property: Box::new(
+                        surround!(self, b'[', self.sequence_or_expression(), b']')
+                    )
                 },
 
                 _ => break
@@ -451,7 +453,7 @@ impl<'a> Parser<'a> {
         if self.tokenizer.allow_byte(b':') {
             Statement::Labeled {
                 label: label,
-                body: box self.statement().expect("Expected statement"),
+                body: Box::new(self.statement().expect("Expected statement")),
             }
         } else {
             let first = self.complex_expression(label.into(), 0);
@@ -499,12 +501,12 @@ impl<'a> Parser<'a> {
 
     fn if_statement(&mut self) -> Statement {
         let test = surround!(self, b'(', self.expression(0), b')');
-        let consequent = box self.block_or_statement();
+        let consequent = Box::new(self.block_or_statement());
         let alternate = if allow!(self, Else) {
             if allow!(self, If) {
-                Some(box self.if_statement())
+                Some(Box::new(self.if_statement()))
             } else {
-                Some(box self.block_or_statement())
+                Some(Box::new(self.block_or_statement()))
             }
         } else {
             None
@@ -520,7 +522,7 @@ impl<'a> Parser<'a> {
     fn while_statement(&mut self) -> Statement {
         Statement::While {
             test: surround!(self, b'(', self.expression(0), b')'),
-            body: box self.block_or_statement(),
+            body: Box::new(self.block_or_statement()),
         }
     }
 
@@ -530,7 +532,7 @@ impl<'a> Parser<'a> {
         let init = match self.consume() {
             Semicolon         => None,
 
-            Declaration(kind) => Some(box self.variable_declaration(kind)),
+            Declaration(kind) => Some(Box::new(self.variable_declaration(kind))),
 
             token             => {
                 let expression = self.sequence_or_expression_from_token(token);
@@ -543,7 +545,7 @@ impl<'a> Parser<'a> {
                     return self.for_in_statement_from_expressions(*left, *right);
                 }
 
-                Some(box expression.into())
+                Some(Box::new(expression.into()))
             },
         };
         if init.is_some() {
@@ -581,20 +583,20 @@ impl<'a> Parser<'a> {
             init: init,
             test: test,
             update: update,
-            body: box self.block_or_statement(),
+            body: Box::new(self.block_or_statement()),
         }
     }
 
     fn for_in_statement_from_expressions(
         &mut self, left: Expression, right: Expression
     ) -> Statement {
-        let left = box left.into();
+        let left = Box::new(left.into());
         self.tokenizer.expect_byte(b')');
 
         Statement::ForIn {
             left: left,
             right: right,
-            body: box self.block_or_statement(),
+            body: Box::new(self.block_or_statement()),
         }
     }
 
@@ -606,7 +608,7 @@ impl<'a> Parser<'a> {
         Statement::ForIn {
             left: left,
             right: right,
-            body: box self.block_or_statement(),
+            body: Box::new(self.block_or_statement()),
         }
     }
 
@@ -617,7 +619,7 @@ impl<'a> Parser<'a> {
         Statement::ForOf {
             left: left,
             right: right,
-            body: box self.block_or_statement(),
+            body: Box::new(self.block_or_statement()),
         }
     }
 

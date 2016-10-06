@@ -1,5 +1,3 @@
-#![feature(box_syntax)]
-
 extern crate docopt;
 extern crate rustc_serialize;
 
