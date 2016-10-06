@@ -541,6 +541,15 @@ impl Code for Statement {
                 gen.write_byte(b'}');
             },
 
+            Statement::Transparent {
+                ref body,
+            } => {
+                for statement in body {
+                    gen.new_line();
+                    gen.write(statement);
+                }
+            },
+
             Statement::Expression {
                 ref value,
             } => {

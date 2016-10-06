@@ -10,6 +10,7 @@ pub struct Settings {
     pub transform_object: bool,
     pub transform_exponentation: bool,
     pub transform_class_properties: bool,
+    pub transform_class: bool,
 }
 
 trait Take {
@@ -42,6 +43,7 @@ impl Settings {
         settings.transform_block_scope = true;
         settings.transform_arrow = true;
         settings.transform_object = true;
+        settings.transform_class = true;
 
         settings
     }
@@ -62,6 +64,7 @@ impl Settings {
             transform_object: false,
             transform_exponentation: false,
             transform_class_properties: false,
+            transform_class: false,
         }
     }
 }
@@ -480,12 +483,14 @@ impl Transformable for Statement {
             },
 
             Statement::Class {
+                ref name,
                 ref mut body,
                 ..
             } => {
                 body.transform(settings);
 
-                if !settings.transform_class_properties {
+                if !settings.transform_class_properties
+                && !settings.transform_class {
                     return;
                 }
 
@@ -517,21 +522,67 @@ impl Transformable for Statement {
                     }
                 }
 
-                let (cnst_params, mut cnst_body) = match constructor {
-                    Some(constructor) => constructor,
-                    _                 => (Vec::new(), Vec::new())
-                };
+                let (cnst_params, mut cnst_body) = constructor.unwrap_or_else(|| {
+                    (Vec::new(), Vec::new())
+                });
 
                 add_props_to_body(&mut cnst_body, props);
 
-                methods.insert(0, ClassMember::Constructor {
+                if !settings.transform_class {
+                    methods.insert(0, ClassMember::Constructor {
+                        params: cnst_params,
+                        body: cnst_body,
+                    });
+
+                    *body = methods;
+
+                    return;
+                }
+
+                let constructor = Statement::Function {
+                    name: *name,
                     params: cnst_params,
                     body: cnst_body,
-                });
+                };
 
-                *body = methods;
+                if methods.len() > 0 {
+                    let mut body = Vec::with_capacity(methods.len() + 1);
 
-                return;
+                    body.push(constructor);
+
+                    for method in methods.iter_mut() {
+                        if let &mut ClassMember::Method {
+                            name: ref method_name,
+                            params: ref mut method_params,
+                            body: ref mut method_body,
+                            ..
+                        } = method {
+                            body.push(Statement::Expression {
+                                value: Expression::Binary {
+                                    left: Box::new(Expression::Member {
+                                        object: Box::new(Expression::Member {
+                                            object: Box::new(Expression::Identifier(*name)),
+                                            property: OwnedSlice::from_static("prototype"),
+                                        }),
+                                        property: *method_name,
+                                    }),
+                                    operator: Assign,
+                                    right: Box::new(Expression::Function {
+                                        name: Some(*method_name),
+                                        params: method_params.take(),
+                                        body: method_body.take(),
+                                    }),
+                                }
+                            });
+                        }
+                    }
+
+                    Statement::Transparent {
+                        body: body
+                    }
+                } else {
+                    constructor
+                }
             }
 
             _ => return,
