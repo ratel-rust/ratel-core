@@ -390,13 +390,17 @@ impl Expression {
         }
     }
 
-    // #[inline]
-    // pub fn ident(name: &'static str) -> Self {
-    //     Expression::Identifier(OwnedSlice::from_static(name))
-    // }
+    #[inline]
+    pub fn binary<E: Into<Expression>>(left: E, operator: OperatorType, right: E) -> Self {
+        Expression::Binary {
+            operator: operator,
+            left: Box::new(left.into()),
+            right: Box::new(right.into()),
+        }
+    }
 
     #[inline]
-    pub fn member<E: Into<Expression>>(object: E, property: &'static str) -> Self {
+    pub fn member<E: Into<Expression>, S: Into<OwnedSlice>>(object: E, property: S) -> Self {
         Expression::Member {
             object: Box::new(object.into()),
             property: property.into(),

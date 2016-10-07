@@ -51,52 +51,63 @@ macro_rules! match_descend {
     }
 }
 
-// Look up table that marks which ASCII characters are allowed in identifiers
-const NU: bool = true; // digit
-const AL: bool = true; // alphabet
-const DO: bool = true; // dollar sign $
-const UN: bool = true; // underscore
-const __: bool = false;
+mod ident_lookup {
+    // Look up table that marks which ASCII characters are allowed in identifiers
+    pub const NU: bool = true; // digit
+    pub const AL: bool = true; // alphabet
+    pub const DO: bool = true; // dollar sign $
+    pub const UN: bool = true; // underscore
+    pub const __: bool = false;
 
-static IDENT_ALLOWED: [bool; 256] = [
-// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-  __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-  NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
-  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
-  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
-];
+    pub static TABLE: [bool; 256] = [
+    // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
+      __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
+      NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
+      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
+      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
+      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
+      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
+    ];
+}
 
-static IDENT_START_ALLOWED: [bool; 256] = [
-// 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-  __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
-  __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-  AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-  __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
-];
+mod byte_category {
+    pub const __: u8 = 0; // invalid token
+    pub const WH: u8 = 1; // whitespace
+    pub const OP: u8 = 2; // guaranteed operator
+    pub const ID: u8 = 3; // guaranteed identifier | operator
+    pub const CT: u8 = 4; // control bytes ( ) [ ] { } ; : ,
+    pub const UN: u8 = 5; // potential unicode identifier
+
+    pub static TABLE: [u8; 256] = [
+    // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+      __, __, __, __, __, __, __, __, __, WH, WH, __, __, WH, __, __, // 0
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
+      WH, OP, __, __, ID, OP, OP, __, CT, CT, OP, OP, CT, OP, __, __, // 2
+      __, __, __, __, __, __, __, __, __, __, CT, CT, OP, OP, OP, OP, // 3
+      __, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, // 4
+      ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, CT, __, CT, OP, ID, // 5
+      __, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, // 6
+      ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, CT, OP, CT, OP, __, // 7
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // B
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // C
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // D
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // E
+      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // F
+    ];
+}
 
 pub struct Tokenizer<'a> {
     // String slice to parse
@@ -155,7 +166,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_byte_bump(&mut self) -> u8 {
+    fn expect_byte(&mut self) -> u8 {
         if self.is_eof() {
             panic!("Unexpected end of source");
         }
@@ -169,14 +180,14 @@ impl<'a> Tokenizer<'a> {
         let start = self.index - 1;
 
         loop {
-            let ch = self.read_byte_bump();
+            let ch = self.expect_byte();
 
             if ch == first {
                 break;
             }
 
             if ch == b'\\' {
-                self.read_byte_bump();
+                self.expect_byte();
             }
         }
 
@@ -312,7 +323,7 @@ impl<'a> Tokenizer<'a> {
 
     fn read_block_comment(&mut self) {
         loop {
-            if self.read_byte_bump() == b'*' && self.read_byte_bump() == b'/' {
+            if self.expect_byte() == b'*' && self.expect_byte() == b'/' {
                 return;
             }
         }
@@ -322,7 +333,7 @@ impl<'a> Tokenizer<'a> {
         let start = self.index - 1;
 
         while !self.is_eof() {
-            if !IDENT_ALLOWED[self.read_byte() as usize] {
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
                 break;
             }
 
@@ -403,85 +414,87 @@ impl<'a> Tokenizer<'a> {
         self.get_token()
     }
 
+    #[inline]
+    fn read_operator(&mut self, ch: u8) -> Option<Token> {
+        match_operators! { self ch
+            b'=' => Assign {
+                b'=' => Equality {
+                    b'=' => StrictEquality,
+                }
+                b'>' => FatArrow,
+            }
+            b'!' => LogicalNot {
+                b'=' => Inequality {
+                    b'=' => StrictInequality,
+                }
+            }
+            b'<' => Lesser {
+                b'<' => BitShiftLeft {
+                    b'=' => BSLAssign,
+                }
+                b'=' => LesserEquals,
+            }
+            b'>' => Greater {
+                b'>' => BitShiftRight {
+                    b'>' => UBitShiftRight {
+                        b'=' => UBSRAssign,
+                    }
+                    b'=' => BSRAssign,
+                }
+                b'=' => GreaterEquals,
+            }
+            b'?' => Conditional,
+            b'~' => BitwiseNot,
+            b'^' => BitwiseXor {
+                b'=' => BitXorAssign,
+            }
+            b'&' => BitwiseAnd {
+                b'&' => LogicalAnd,
+                b'=' => BitAndAssign,
+            }
+            b'|' => BitwiseOr {
+                b'|' => LogicalOr,
+                b'=' => BitOrAssign,
+            }
+            b'+' => Addition {
+                b'+' => Increment,
+                b'=' => AddAssign,
+            }
+            b'-' => Substraction {
+                b'-' => Decrement,
+                b'=' => SubstractAssign,
+            }
+            b'*' => Multiplication {
+                b'*' => Exponent {
+                    b'=' => ExponentAssign,
+                }
+                b'=' => MultiplyAssign,
+            }
+            b'%' => Remainder {
+                b'=' => RemainderAssign,
+            }
+        }
+
+        None
+    }
+
     fn get_token(&mut self) -> Option<Token> {
         while !self.is_eof() {
             self.token_start = self.index;
 
-            let ch = self.read_byte_bump();
+            use self::byte_category::*;
 
-            if IDENT_START_ALLOWED[ch as usize] {
-                return Some(self.read_label());
-            }
+            let ch = self.expect_byte();
 
-            match_operators! { self ch
-                b'=' => Assign {
-                    b'=' => Equality {
-                        b'=' => StrictEquality,
-                    }
-                    b'>' => FatArrow,
-                }
-                b'!' => LogicalNot {
-                    b'=' => Inequality {
-                        b'=' => StrictInequality,
-                    }
-                }
-                b'<' => Lesser {
-                    b'<' => BitShiftLeft {
-                        b'=' => BSLAssign,
-                    }
-                    b'=' => LesserEquals,
-                }
-                b'>' => Greater {
-                    b'>' => BitShiftRight {
-                        b'>' => UBitShiftRight {
-                            b'=' => UBSRAssign,
-                        }
-                        b'=' => BSRAssign,
-                    }
-                    b'=' => GreaterEquals,
-                }
-                b'?' => Conditional,
-                b'~' => BitwiseNot,
-                b'^' => BitwiseXor {
-                    b'=' => BitXorAssign,
-                }
-                b'&' => BitwiseAnd {
-                    b'&' => LogicalAnd,
-                    b'=' => BitAndAssign,
-                }
-                b'|' => BitwiseOr {
-                    b'|' => LogicalOr,
-                    b'=' => BitOrAssign,
-                }
-                b'+' => Addition {
-                    b'+' => Increment,
-                    b'=' => AddAssign,
-                }
-                b'-' => Substraction {
-                    b'-' => Decrement,
-                    b'=' => SubstractAssign,
-                }
-                b'*' => Multiplication {
-                    b'*' => Exponent {
-                        b'=' => ExponentAssign,
-                    }
-                    b'=' => MultiplyAssign,
-                }
-                b'%' => Remainder {
-                    b'=' => RemainderAssign,
-                }
+            match TABLE[ch as usize] {
+                WH => continue,
+                OP => return self.read_operator(ch),
+                ID => return Some(self.read_label()),
+                CT => return Some(Control(ch)),
+                _  => {},
             }
 
             return Some(match ch {
-                b';' => Semicolon,
-                b',' => Comma,
-                b':' => Colon,
-                b'(' => ParenOn,
-                b')' => ParenOff,
-                b'[' => BracketOn,
-                b']' => BracketOff,
-                b'{' => BraceOn,
-                b'}' => BraceOff,
                 b'"' | b'\'' => {
                     Literal(LiteralString( self.read_string(ch) ))
                 },
@@ -518,7 +531,7 @@ impl<'a> Tokenizer<'a> {
                             },
                             b'.' => {
                                 self.bump();
-                                match self.read_byte_bump() {
+                                match self.expect_byte() {
                                     b'.' => Operator(Spread),
                                     ch   => {
                                         panic!("Invalid character `{:?}`", ch);
@@ -537,12 +550,8 @@ impl<'a> Tokenizer<'a> {
                 }
             });
         }
-        return None;
-    }
 
-    #[inline]
-    fn read_peeked_byte(&mut self) -> u8 {
-        unsafe { *self.byte_ptr.offset(self.token_start as isize) }
+        None
     }
 
     #[inline]
@@ -569,9 +578,9 @@ impl<'a> Tokenizer<'a> {
 
         self.consume_whitespace();
 
-        let ch = self.read_byte_bump();
+        let ch = self.expect_byte();
 
-        if !IDENT_START_ALLOWED[ch as usize] {
+        if byte_category::TABLE[ch as usize] != byte_category::ID {
             panic!("Invalid character `{:?}`", ch);
         }
 
@@ -582,18 +591,21 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn expect_byte(&mut self, byte: u8) {
-        if self.token.is_some() {
-            self.token = None;
-            self.index = self.token_start;
-        } else {
-            self.consume_whitespace();
-        }
+    pub fn expect_control(&mut self, byte: u8) {
+        let ct = match self.token {
+            Some(Control(ct)) => {
+                self.token = None;
+                ct
+            },
+            None => {
+                self.consume_whitespace();
+                self.expect_byte()
+            },
+            Some(ref token) => panic!("Unexpected token `{:?}`", token)
+        };
 
-        let ch = self.read_byte_bump();
-
-        if ch != byte {
-            panic!("Invalid character `{:?}`", ch);
+        if ct != byte {
+            panic!("Invalid character `{:?}`", ct);
         }
     }
 
@@ -619,23 +631,27 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn allow_byte(&mut self, byte: u8) -> bool {
-        if self.token.is_some() {
-            if self.read_peeked_byte() == byte {
-                self.token = None;
-                true
-            } else {
-                false
-            }
-        } else {
-            self.consume_whitespace();
+    pub fn allow_control(&mut self, byte: u8) -> bool {
+        match self.token {
+            Some(Control(ct)) => {
+                if ct == byte {
+                    self.token = None;
+                    true
+                } else {
+                    false
+                }
+            },
+            None => {
+                self.consume_whitespace();
 
-            if self.read_byte() == byte {
-                self.bump();
-                true
-            } else {
-                false
-            }
+                if self.read_byte() == byte {
+                    self.bump();
+                    true
+                } else {
+                    false
+                }
+            },
+            _ => false
         }
     }
 }

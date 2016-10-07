@@ -17,17 +17,9 @@ pub enum ReservedKind {
 #[derive(Debug, PartialEq)]
 pub enum Token {
     LineTermination,
-    Semicolon,
-    Comma,
-    Colon,
+    Control(u8), // One of the control bytes: ( ) [ ] { } ; : ,
     Operator(OperatorType),
     Declaration(VariableDeclarationKind),
-    ParenOn,
-    ParenOff,
-    BracketOn,
-    BracketOff,
-    BraceOn,
-    BraceOff,
     Break,
     Do,
     Case,

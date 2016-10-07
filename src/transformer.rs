@@ -194,14 +194,16 @@ impl Transformable for Expression {
 
                 for member in computed.drain(..) {
                     if let ObjectMember::Computed { key, value } = member {
-                        body.push(Expression::Binary {
-                            left: Box::new(Expression::ComputedMember {
-                                object: Box::new("___".into()),
-                                property: Box::new(key),
-                            }),
-                            operator: Assign,
-                            right: Box::new(value),
-                        }.into());
+                        body.push(
+                            Expression::binary(
+                                Expression::ComputedMember {
+                                    object: Box::new("___".into()),
+                                    property: Box::new(key),
+                                },
+                                Assign,
+                                value
+                            ).into()
+                        );
                     }
                 }
 
@@ -441,14 +443,14 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
             ref mut value,
             ..
         } = prop {
-            body.insert(0, Expression::Binary {
-                left: Box::new(Expression::Member {
-                    object: Box::new(Expression::This),
-                    property: *name,
-                }),
-                operator: Assign,
-                right: Box::new(value.take()),
-            }.into());
+            body.insert(
+                0,
+                Expression::binary(
+                    Expression::member(Expression::This, *name),
+                    Assign,
+                    value.take(),
+                ).into()
+            );
         }
     }
 }
@@ -580,18 +582,20 @@ impl Transformable for Statement {
                             body: ref mut method_body,
                             ..
                         } = method {
-                            body.push(Expression::Binary {
-                                left: Box::new(Expression::Member {
-                                    object: Box::new(Expression::member(name, "prototype")),
-                                    property: *method_name,
-                                }),
-                                operator: Assign,
-                                right: Box::new(Expression::Function {
-                                    name: Some(*method_name),
-                                    params: method_params.take(),
-                                    body: method_body.take(),
-                                }),
-                            }.into());
+                            body.push(
+                                Expression::binary(
+                                    Expression::member(
+                                        Expression::member(name, "prototype"),
+                                        *method_name
+                                    ),
+                                    Assign,
+                                    Expression::Function {
+                                        name: Some(*method_name),
+                                        params: method_params.take(),
+                                        body: method_body.take(),
+                                    },
+                                ).into()
+                            );
                         }
                     }
 
