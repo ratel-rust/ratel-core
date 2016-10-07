@@ -156,7 +156,7 @@ impl<'a> Tokenizer<'a> {
 
     // Check if we are at the end of the source.
     #[inline]
-    pub fn is_eof(&mut self) -> bool {
+    fn is_eof(&mut self) -> bool {
         self.index == self.length
     }
 
@@ -189,6 +189,7 @@ impl<'a> Tokenizer<'a> {
         ch
     }
 
+    #[inline]
     fn read_string(&mut self, first: u8) -> OwnedSlice {
         let start = self.index - 1;
 
@@ -280,6 +281,7 @@ impl<'a> Tokenizer<'a> {
         })
     }
 
+    #[inline]
     fn read_number(&mut self, first: u8) -> LiteralValue {
         let start = self.index - 1;
 
@@ -325,6 +327,7 @@ impl<'a> Tokenizer<'a> {
         LiteralValue::LiteralInteger(value)
     }
 
+    #[inline]
     fn read_comment(&mut self) {
         while !self.is_eof() {
             if self.read_byte() == b'\n' {
@@ -334,6 +337,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    #[inline]
     fn read_block_comment(&mut self) {
         loop {
             if self.expect_byte() == b'*' && self.expect_byte() == b'/' {
@@ -342,25 +346,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    #[inline]
-    pub fn expect_label(&mut self) -> OwnedSlice {
-        let start = self.index;
-
-        while !self.is_eof() {
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
-                break;
-            }
-
-            self.bump();
-        }
-
-        unsafe {
-            let slice = self.source.slice_unchecked(start, self.index);
-            OwnedSlice::from_str(slice)
-        }
-    }
-
-    fn read_label_token(&mut self) -> Token {
+    fn read_label(&mut self) -> Token {
         let start = self.index - 1;
 
         while !self.is_eof() {
@@ -521,7 +507,7 @@ impl<'a> Tokenizer<'a> {
                 TokenCategory::GuaranteedOperator => {
                     return Some(Operator(self.read_operator(ch)));
                 },
-                TokenCategory::Label   => return Some(self.read_label_token()),
+                TokenCategory::Label   => return Some(self.read_label()),
                 TokenCategory::Control => return Some(Control(ch)),
                 _  => {},
             }
@@ -638,7 +624,7 @@ impl<'a> Tokenizer<'a> {
 
         self.bump();
 
-        match self.read_label_token() {
+        match self.read_label() {
             Identifier(ident) => ident,
             token             => panic!("Unexpected token `{:?}`", token)
         }
