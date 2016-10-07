@@ -3,6 +3,7 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use grammar::OwnedSlice;
+use grammar::OperatorType;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
@@ -31,7 +32,7 @@ macro_rules! match_descend {
         $secondary:pat => $tok:ident $cascade:tt
     )* } ) => ({
         if $tokenizer.is_eof() {
-            return Some(Operator($matched));
+            return $matched;
         }
         match $tokenizer.read_byte() {
             $(
@@ -40,14 +41,11 @@ macro_rules! match_descend {
                     match_descend!( $tokenizer $tok $cascade )
                 },
             )*
-            _ => return Some(Operator($matched))
+            _ => return $matched
         }
     });
-    ( $tokenizer:ident return $matched:expr ) => {
-        return Some($matched)
-    };
     ( $tokenizer:ident $matched:expr , ) => {
-        return Some(Operator($matched))
+        return $matched
     }
 }
 
@@ -80,24 +78,39 @@ mod ident_lookup {
     ];
 }
 
-mod byte_category {
-    pub const __: u8 = 0; // invalid token
-    pub const WH: u8 = 1; // whitespace
-    pub const OP: u8 = 2; // guaranteed operator
-    pub const ID: u8 = 3; // guaranteed identifier | operator
-    pub const CT: u8 = 4; // control bytes ( ) [ ] { } ; : ,
-    pub const UN: u8 = 5; // potential unicode identifier
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum TokenCategory {
+    EndOfProgram,
+    Invalid,
+    Whitespace,
+    GuaranteedOperator,
+    Label,
+    Control,
+    Other,
+    Unicode,
+}
 
-    pub static TABLE: [u8; 256] = [
+mod byte_category {
+    use super::TokenCategory;
+
+    const __: TokenCategory = TokenCategory::Invalid;
+    const WH: TokenCategory = TokenCategory::Whitespace;
+    const OP: TokenCategory = TokenCategory::GuaranteedOperator;
+    const LA: TokenCategory = TokenCategory::Label;
+    const CT: TokenCategory = TokenCategory::Control;
+    const OT: TokenCategory = TokenCategory::Other;
+    const UN: TokenCategory = TokenCategory::Unicode;
+
+    pub static TABLE: [TokenCategory; 256] = [
     // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
       __, __, __, __, __, __, __, __, __, WH, WH, __, __, WH, __, __, // 0
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-      WH, OP, __, __, ID, OP, OP, __, CT, CT, OP, OP, CT, OP, __, __, // 2
-      __, __, __, __, __, __, __, __, __, __, CT, CT, OP, OP, OP, OP, // 3
-      __, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, // 4
-      ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, CT, __, CT, OP, ID, // 5
-      __, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, // 6
-      ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, ID, CT, OP, CT, OP, __, // 7
+      WH, OP, OT, __, LA, OP, OP, OT, CT, CT, OP, OP, CT, OP, OT, OT, // 2
+      OT, OT, OT, OT, OT, OT, OT, OT, OT, OT, CT, CT, OP, OP, OP, OP, // 3
+      __, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, // 4
+      LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, CT, __, CT, OP, LA, // 5
+      OT, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, // 6
+      LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, CT, OP, CT, OP, __, // 7
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
@@ -143,7 +156,7 @@ impl<'a> Tokenizer<'a> {
 
     // Check if we are at the end of the source.
     #[inline]
-    fn is_eof(&mut self) -> bool {
+    pub fn is_eof(&mut self) -> bool {
         self.index == self.length
     }
 
@@ -329,7 +342,25 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn read_label(&mut self) -> Token {
+    #[inline]
+    pub fn expect_label(&mut self) -> OwnedSlice {
+        let start = self.index;
+
+        while !self.is_eof() {
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                break;
+            }
+
+            self.bump();
+        }
+
+        unsafe {
+            let slice = self.source.slice_unchecked(start, self.index);
+            OwnedSlice::from_str(slice)
+        }
+    }
+
+    fn read_label_token(&mut self) -> Token {
         let start = self.index - 1;
 
         while !self.is_eof() {
@@ -415,7 +446,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_operator(&mut self, ch: u8) -> Option<Token> {
+    fn read_operator(&mut self, ch: u8) -> OperatorType {
         match_operators! { self ch
             b'=' => Assign {
                 b'=' => Equality {
@@ -475,22 +506,23 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        None
+        unreachable!()
     }
 
     fn get_token(&mut self) -> Option<Token> {
         while !self.is_eof() {
             self.token_start = self.index;
 
-            use self::byte_category::*;
+            let ch = self.read_byte();
+            self.bump();
 
-            let ch = self.expect_byte();
-
-            match TABLE[ch as usize] {
-                WH => continue,
-                OP => return self.read_operator(ch),
-                ID => return Some(self.read_label()),
-                CT => return Some(Control(ch)),
+            match byte_category::TABLE[ch as usize] {
+                TokenCategory::Whitespace         => continue,
+                TokenCategory::GuaranteedOperator => {
+                    return Some(Operator(self.read_operator(ch)));
+                },
+                TokenCategory::Label   => return Some(self.read_label_token()),
+                TokenCategory::Control => return Some(Control(ch)),
                 _  => {},
             }
 
@@ -543,11 +575,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 },
                 b'0'...b'9' => Literal(self.read_number(ch)),
-                b' ' | b'\t' | b'\n' | b'\r' => continue,
-
-                _ => {
-                    panic!("Invalid character `{:?}`", ch);
-                }
+                _           => panic!("Invalid character `{:?}`", ch)
             });
         }
 
@@ -555,15 +583,41 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn consume_whitespace(&mut self) {
+    pub fn get_category(&mut self) -> TokenCategory {
         while !self.is_eof() {
-            match self.read_byte() {
-                b' '  |
-                b'\t' |
-                b'\n' => self.bump(),
-                _     => break,
+            let category = byte_category::TABLE[self.read_byte() as usize];
+
+            match category {
+                TokenCategory::Whitespace => {
+                    self.bump();
+                    continue;
+                },
+                TokenCategory::Other => {
+                    if self.index + 1 < self.length {
+                        let slice = unsafe {
+                            self.source.slice_unchecked(self.index, self.index + 2)
+                        };
+
+                        match slice {
+                            "//" => {
+                                self.index += 2;
+                                self.read_comment();
+                                continue;
+                            },
+                            "/*" => {
+                                self.index += 2;
+                                self.read_block_comment();
+                                continue;
+                            },
+                            _ => return TokenCategory::Other
+                        }
+                    }
+                },
+                category => return category
             }
         }
+
+        TokenCategory::EndOfProgram
     }
 
     #[inline]
@@ -571,58 +625,40 @@ impl<'a> Tokenizer<'a> {
         if self.token.is_some() {
             return match self.token.take() {
                 Some(Identifier(ident)) => ident,
-                Some(token)             => panic!("Unexpected token `{:?}`", token),
+                Some(token)             => panic!("Unexpected token `{:?}` {}", token, self.index),
                 _                       => unreachable!(),
             };
         }
 
-        self.consume_whitespace();
+        let category = self.get_category();
 
-        let ch = self.expect_byte();
-
-        if byte_category::TABLE[ch as usize] != byte_category::ID {
-            panic!("Invalid character `{:?}`", ch);
+        if category != TokenCategory::Label {
+            panic!("Invalid character `{:?}`", self.expect_byte());
         }
 
-        match self.read_label() {
+        self.bump();
+
+        match self.read_label_token() {
             Identifier(ident) => ident,
             token             => panic!("Unexpected token `{:?}`", token)
         }
     }
 
     #[inline]
-    pub fn expect_control(&mut self, byte: u8) {
+    pub fn expect_semicolon(&mut self) {
         let ct = match self.token {
             Some(Control(ct)) => {
                 self.token = None;
                 ct
             },
             None => {
-                self.consume_whitespace();
+                self.get_category();
                 self.expect_byte()
             },
             Some(ref token) => panic!("Unexpected token `{:?}`", token)
         };
 
-        if ct != byte {
-            panic!("Invalid character `{:?}`", ct);
-        }
-    }
-
-    #[inline]
-    pub fn expect_semicolon(&mut self) {
-        if self.token.is_some() {
-            self.token = None;
-            self.index = self.token_start;
-        } else {
-            self.consume_whitespace();
-        }
-
-        if self.is_eof() {
-            return;
-        }
-
-        match self.read_byte() {
+        match ct {
             b';' => self.bump(),
             b')' |
             b'}' => return,
@@ -631,27 +667,44 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn allow_control(&mut self, byte: u8) -> bool {
-        match self.token {
-            Some(Control(ct)) => {
-                if ct == byte {
-                    self.token = None;
-                    true
-                } else {
-                    false
-                }
+    pub fn expect_control(&mut self, byte: u8) {
+        let ch = match self.token {
+            Some(Control(ch)) => {
+                self.token = None;
+                ch
             },
             None => {
-                self.consume_whitespace();
-
-                if self.read_byte() == byte {
-                    self.bump();
-                    true
-                } else {
-                    false
-                }
+                self.get_category();
+                self.expect_byte()
             },
-            _ => false
+            Some(ref token) => panic!("Unexpected token `{:?}`", token)
+        };
+
+        if ch != byte {
+            panic!("Invalid character `{:?}` {}", ch, self.index);
+        }
+    }
+
+    #[inline]
+    pub fn allow_control(&mut self) -> u8 {
+        match self.token {
+            Some(Control(ch)) => ch,
+            Some(_)           => 0,
+            None              => {
+                let category = self.get_category();
+
+                if category != TokenCategory::Control {
+                    return 0;
+                }
+
+                let ch = self.read_byte();
+
+                self.token_start = self.index;
+                self.token = Some(Control(ch));
+                self.bump();
+
+                ch
+            }
         }
     }
 }
