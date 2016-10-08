@@ -3,70 +3,608 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use grammar::OwnedSlice;
-use grammar::OperatorType;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
+use error::{ Error, Result };
 
 
-
-macro_rules! match_operators {
-    { $tokenizer:ident $ch:ident
-        $(
-            $prime:pat => $tok:ident $cascade:tt
-        )*
-    } => ({
-        match $ch {
-            $(
-                $prime => match_descend!( $tokenizer $tok $cascade )
-            ),*
-            ,
-            _ => {}
-        }
-    })
+trait OnByte: Sync {
+    fn execute(&self, tok: &mut Tokenizer, byte: u8) -> Result<Token>;
 }
 
-macro_rules! match_descend {
-    ( $tokenizer:ident $matched:ident { $(
-        $secondary:pat => $tok:ident $cascade:tt
-    )* } ) => ({
-        if $tokenizer.is_eof() {
-            return $matched;
-        }
-        match $tokenizer.read_byte() {
-            $(
-                $secondary => {
-                    $tokenizer.bump();
-                    match_descend!( $tokenizer $tok $cascade )
-                },
-            )*
-            _ => return $matched
-        }
-    });
-    ( $tokenizer:ident $matched:expr , ) => {
-        return $matched
+macro_rules! on_byte {
+    { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:expr)* } => {
+        $(
+            struct $name;
+
+            impl OnByte for $name {
+                fn execute(&self, $tok: &mut Tokenizer, $byte: u8) -> Result<Token> {
+                    $code
+                }
+            }
+
+            const $static_name: &'static $name = &$name;
+        )*
     }
 }
 
-mod ident_lookup {
-    // Look up table that marks which ASCII characters are allowed in identifiers
-    pub const NU: bool = true; // digit
-    pub const AL: bool = true; // alphabet
-    pub const DO: bool = true; // dollar sign $
-    pub const UN: bool = true; // underscore
-    pub const __: bool = false;
+on_byte! {
+    const ___: InvalidByte |tok, _| {
+        Err(Error {
+            line: 0,
+            column: tok.index,
+        })
+    }
+
+    // =
+    const EQL: EqualSign |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'=' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'=' => {
+                        tok.bump();
+
+                        StrictEquality
+                    },
+
+                    _ => Equality
+                }
+            },
+
+            b'>' => {
+                tok.bump();
+
+                FatArrow
+            },
+
+            _ => Assign
+        };
+
+        Ok(Operator(op))
+    }
+
+    // !
+    const EXL: ExclamationMark |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'=' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'=' => {
+                        tok.bump();
+
+                        StrictInequality
+                    },
+
+                    _ => Inequality
+                }
+            },
+
+            _ => LogicalNot
+        };
+
+        Ok(Operator(op))
+    }
+
+    // <
+    const LSS: LessSign |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'<' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'=' => {
+                        tok.bump();
+
+                        BSLAssign
+                    },
+
+                    _ => BitShiftLeft
+                }
+            },
+
+            b'=' => {
+                tok.bump();
+
+                LesserEquals
+            },
+
+            _ => LogicalNot
+        };
+
+        Ok(Operator(op))
+    }
+
+    // >
+    const MOR: MoreSign |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'>' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'>' => {
+                        tok.bump();
+
+                        match tok.peek_byte() {
+                            b'=' => {
+                                tok.bump();
+
+                                UBSRAssign
+                            }
+
+                            _ => UBitShiftRight
+                        }
+                    },
+
+                    _ => BSRAssign
+                }
+            },
+
+            b'=' => {
+                tok.bump();
+
+                GreaterEquals
+            },
+
+            _ => Greater
+        };
+
+        Ok(Operator(op))
+    }
+
+    // ?
+    const QST: QuestionMark |tok, _| {
+        tok.bump();
+
+        Ok(Operator(Conditional))
+    }
+
+    // ~
+    const TLD: Tilde |tok, _| {
+        tok.bump();
+
+        Ok(Operator(BitwiseNot))
+    }
+
+    // ^
+    const CRT: Caret |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'=' => {
+                tok.bump();
+
+                BitXorAssign
+            },
+
+            _ => BitwiseXor
+        };
+
+        Ok(Operator(op))
+    }
+
+    // &
+    const AMP: Ampersand |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'&' => {
+                tok.bump();
+
+                LogicalAnd
+            },
+
+            b'=' => {
+                tok.bump();
+
+                BitAndAssign
+            },
+
+            _ => BitwiseAnd
+        };
+
+        Ok(Operator(op))
+    }
+
+    // |
+    const PIP: Pipe |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'|' => {
+                tok.bump();
+
+                LogicalOr
+            },
+
+            b'=' => {
+                tok.bump();
+
+                BitOrAssign
+            },
+
+            _ => BitwiseOr
+        };
+
+        Ok(Operator(op))
+    }
+
+    // +
+    const PLS: PlusSign |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'+' => {
+                tok.bump();
+
+                Increment
+            },
+
+            b'=' => {
+                tok.bump();
+
+                AddAssign
+            },
+
+            _ => Addition
+        };
+
+        Ok(Operator(op))
+    }
+
+    // -
+    const MIN: MinusSign |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'-' => {
+                tok.bump();
+
+                Decrement
+            },
+
+            b'=' => {
+                tok.bump();
+
+                SubstractAssign
+            },
+
+            _ => Substraction
+        };
+
+        Ok(Operator(op))
+    }
+
+    // *
+    const ATR: Asterisk |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'*' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'=' => {
+                        tok.bump();
+
+                        ExponentAssign
+                    },
+
+                    _ => Exponent
+                }
+            },
+
+            b'=' => {
+                tok.bump();
+
+                MultiplyAssign
+            },
+
+            _ => Multiplication
+        };
+
+        Ok(Operator(op))
+    }
+
+    // /
+    const SLH: Slash |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'/' => {
+                tok.bump();
+                tok.read_comment();
+                tok.consume_whitespace();
+
+                return tok.get_token();
+            },
+
+            b'*' => {
+                tok.bump();
+                tok.read_block_comment();
+                tok.consume_whitespace();
+
+                return tok.get_token();
+            },
+
+            b'=' => {
+                tok.bump();
+
+                DivideAssign
+            }
+
+            _ => Division
+        };
+
+        Ok(Operator(op))
+    }
+
+    // %
+    const PRC: Percent |tok, _| {
+        tok.bump();
+
+        let op = match tok.peek_byte() {
+            b'=' => {
+                tok.bump();
+
+                RemainderAssign
+            },
+
+            _ => Remainder
+        };
+
+        Ok(Operator(op))
+    }
+
+    // Label starting with a letter, _ or $
+    const LBL: Label |tok, _| {
+        let start = tok.index;
+
+        tok.bump();
+
+        while !tok.is_eof() {
+            if !ident_lookup::TABLE[tok.read_byte() as usize] {
+                break;
+            }
+            tok.bump();
+        }
+
+        let slice = unsafe {
+            tok.source.slice_unchecked(start, tok.index)
+        };
+
+        Ok(match slice {
+            "new"        => Operator(New),
+            "typeof"     => Operator(Typeof),
+            "delete"     => Operator(Delete),
+            "void"       => Operator(Void),
+            "in"         => Operator(In),
+            "instanceof" => Operator(Instanceof),
+            "var"        => Declaration(Var),
+            "let"        => Declaration(Let),
+            "const"      => Declaration(Const),
+            "break"      => Break,
+            "do"         => Do,
+            "case"       => Case,
+            "else"       => Else,
+            "catch"      => Catch,
+            "export"     => Export,
+            "class"      => Class,
+            "extends"    => Extends,
+            "return"     => Return,
+            "while"      => While,
+            "finally"    => Finally,
+            "super"      => Super,
+            "with"       => With,
+            "continue"   => Continue,
+            "for"        => For,
+            "switch"     => Switch,
+            "yield"      => Yield,
+            "debugger"   => Debugger,
+            "function"   => Function,
+            "this"       => This,
+            "default"    => Default,
+            "if"         => If,
+            "throw"      => Throw,
+            "import"     => Import,
+            "try"        => Try,
+            "await"      => Await,
+            "static"     => Static,
+            "true"       => Literal(LiteralTrue),
+            "false"      => Literal(LiteralFalse),
+            "undefined"  => Literal(LiteralUndefined),
+            "null"       => Literal(LiteralNull),
+            "enum"       => Reserved(Enum),
+            "implements" => Reserved(Implements),
+            "package"    => Reserved(Package),
+            "protected"  => Reserved(Protected),
+            "interface"  => Reserved(Interface),
+            "private"    => Reserved(Private),
+            "public"     => Reserved(Public),
+            _            => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // 0 to 9
+    const DIG: Digit |tok, first| {
+        let start = tok.index;
+
+        tok.bump();
+
+        if first == b'0' {
+            match tok.peek_byte() {
+                b'b' => {
+                    tok.bump();
+
+                    return Ok(Literal(tok.read_binary()));
+                },
+
+                b'o' => {
+                    tok.bump();
+
+                    return Ok(Literal(tok.read_octal()));
+                },
+
+                b'x' => {
+                    tok.bump();
+
+                    return Ok(Literal(tok.read_hexadec()));
+                },
+
+                _ => {}
+            }
+        }
+
+        while !tok.is_eof() {
+            match tok.read_byte() {
+                b'0'...b'9' => {
+                    tok.bump();
+                },
+                b'.' => {
+                    tok.bump();
+
+                    return Ok(Literal(tok.read_float(start)));
+                },
+                _ => break,
+            }
+        }
+
+        let value = unsafe {
+            let slice = tok.source.slice_unchecked(start, tok.index);
+            OwnedSlice::from_str(slice)
+        };
+
+        Ok(Literal(LiteralFloat(value)))
+    }
+
+    // .
+    const PRD: Period |tok, _| {
+        let start = tok.index;
+
+        tok.bump();
+
+        match tok.peek_byte() {
+            b'0'...b'9' => {
+                tok.bump();
+
+                Ok(Literal(tok.read_float(start)))
+            },
+
+            b'.' => {
+                tok.bump();
+
+                match tok.peek_byte() {
+                    b'.' => {
+                        tok.bump();
+
+                        Ok(Operator(Spread))
+                    },
+
+                    _ => Err(Error {
+                        line: 0,
+                        column: tok.index
+                    })
+                }
+            },
+
+            _ => Ok(Operator(Accessor))
+        }
+    }
+
+    // " or '
+    const QOT: Quote |tok, byte| {
+        let start = tok.index;
+
+        tok.bump();
+
+        loop {
+            let ch = tok.expect_byte();
+
+            if ch == byte {
+                break;
+            }
+
+            if ch == b'\\' {
+                tok.expect_byte();
+            }
+        }
+
+        let value = unsafe {
+            let slice = tok.source.slice_unchecked(start, tok.index);
+            OwnedSlice::from_str(slice)
+        };
+
+        Ok(Literal(LiteralString(value)))
+    }
+
+    // space, tab, carriage return, new line
+    const WHT: Whitespace |tok, _| {
+        tok.bump();
+
+        tok.consume_whitespace();
+
+        tok.get_token()
+    }
+
+    // One of: ( ) [ ] { } : ; ,
+    const CTL: ControlSign |tok, byte| {
+        tok.bump();
+
+        Ok(Control(byte))
+    }
+
+    const UNI: Unicode |_, _| {
+        unimplemented!()
+    }
+}
+
+#[allow(dead_code)]
+static ON_BYTES: [&'static OnByte; 256] = [
+//   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, WHT, WHT, ___, ___, WHT, ___, ___, // 0
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
+    WHT, EXL, QOT, ___, LBL, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
+    DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, CTL, CTL, LSS, EQL, MOR, QST, // 3
+    ___, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, // 4
+    LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, CTL, ___, CTL, CRT, LBL, // 5
+    ___, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, // 6
+    LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, CTL, PIP, CTL, TLD, ___, // 7
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // A
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // B
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // C
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // D
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // E
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // F
+];
+
+mod whitespace {
+    const __: bool = false;
+    const WH: bool = true;
 
     pub static TABLE: [bool; 256] = [
     // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
+      __, __, __, __, __, __, __, __, __, WH, WH, __, __, WH, __, __, // 0
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-      __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-      NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
-      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, UN, // 5
-      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
+      WH, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 5
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
@@ -78,39 +616,25 @@ mod ident_lookup {
     ];
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum TokenCategory {
-    EndOfProgram,
-    Invalid,
-    Whitespace,
-    GuaranteedOperator,
-    Label,
-    Control,
-    Other,
-    Unicode,
-}
+mod ident_lookup {
+    // Look up table that marks which ASCII characters are allowed in identifiers
+    pub const NU: bool = true; // digit
+    pub const AL: bool = true; // alphabet
+    pub const DO: bool = true; // dollar sign $
+    pub const US: bool = true; // underscore
+    pub const UN: bool = true; // unicode
+    pub const __: bool = false;
 
-mod byte_category {
-    use super::TokenCategory;
-
-    const __: TokenCategory = TokenCategory::Invalid;
-    const WH: TokenCategory = TokenCategory::Whitespace;
-    const OP: TokenCategory = TokenCategory::GuaranteedOperator;
-    const LA: TokenCategory = TokenCategory::Label;
-    const CT: TokenCategory = TokenCategory::Control;
-    const OT: TokenCategory = TokenCategory::Other;
-    const UN: TokenCategory = TokenCategory::Unicode;
-
-    pub static TABLE: [TokenCategory; 256] = [
+    pub static TABLE: [bool; 256] = [
     // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      __, __, __, __, __, __, __, __, __, WH, WH, __, __, WH, __, __, // 0
+      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-      WH, OP, OT, __, LA, OP, OP, OT, CT, CT, OP, OP, CT, OP, OT, OT, // 2
-      OT, OT, OT, OT, OT, OT, OT, OT, OT, OT, CT, CT, OP, OP, OP, OP, // 3
-      __, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, // 4
-      LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, CT, __, CT, OP, LA, // 5
-      OT, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, // 6
-      LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, LA, CT, OP, CT, OP, __, // 7
+      __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
+      NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
+      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
+      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, US, // 5
+      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
+      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
@@ -156,7 +680,7 @@ impl<'a> Tokenizer<'a> {
 
     // Check if we are at the end of the source.
     #[inline]
-    fn is_eof(&mut self) -> bool {
+    fn is_eof(&self) -> bool {
         self.index == self.length
     }
 
@@ -169,6 +693,15 @@ impl<'a> Tokenizer<'a> {
     #[inline]
     fn read_byte(&self) -> u8 {
         unsafe { *self.byte_ptr.offset(self.index as isize) }
+    }
+
+    #[inline]
+    fn peek_byte(&self) -> u8 {
+        if self.is_eof() {
+            return 0;
+        }
+
+        self.read_byte()
     }
 
     // Manually increment the index. Calling `read_byte` and then `bump`
@@ -187,27 +720,6 @@ impl<'a> Tokenizer<'a> {
         let ch = self.read_byte();
         self.bump();
         ch
-    }
-
-    #[inline]
-    fn read_string(&mut self, first: u8) -> OwnedSlice {
-        let start = self.index - 1;
-
-        loop {
-            let ch = self.expect_byte();
-
-            if ch == first {
-                break;
-            }
-
-            if ch == b'\\' {
-                self.expect_byte();
-            }
-        }
-
-        unsafe {
-            OwnedSlice::from_str(&self.source.slice_unchecked(start, self.index))
-        }
     }
 
     fn read_binary(&mut self) -> LiteralValue {
@@ -267,6 +779,7 @@ impl<'a> Tokenizer<'a> {
         return LiteralInteger(value);
     }
 
+    #[inline]
     fn read_float(&mut self, start: usize) -> LiteralValue {
         while !self.is_eof() {
             let ch = self.read_byte();
@@ -279,52 +792,6 @@ impl<'a> Tokenizer<'a> {
         LiteralValue::LiteralFloat(unsafe {
             OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
         })
-    }
-
-    #[inline]
-    fn read_number(&mut self, first: u8) -> LiteralValue {
-        let start = self.index - 1;
-
-        if first == b'.' {
-            return self.read_float(start);
-        } else if first == b'0' {
-            if self.is_eof() {
-                return LiteralValue::LiteralInteger(0);
-            }
-            match self.read_byte() {
-                b'b' => {
-                    self.bump();
-                    return self.read_binary();
-                },
-                b'o' => {
-                    self.bump();
-                    return self.read_octal();
-                },
-                b'x' => {
-                    self.bump();
-                    return self.read_hexadec();
-                },
-                _ => {}
-            }
-        }
-
-        let mut value = (first - b'0') as u64;
-
-        while !self.is_eof() {
-            let ch = self.read_byte();
-            match ch {
-                b'0'...b'9' => {
-                    value = value * 10 + (ch - b'0') as u64;
-                    self.bump();
-                },
-                b'.' => {
-                    return self.read_float(start);
-                },
-                _ => break,
-            }
-        }
-
-        LiteralValue::LiteralInteger(value)
     }
 
     #[inline]
@@ -346,351 +813,112 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn read_label(&mut self) -> Token {
-        let start = self.index - 1;
+    #[inline]
+    pub fn peek(&mut self) -> Token {
+        match self.token {
+            Some(token) => token,
 
+            None => {
+                let token = self.get_token().unwrap();
+
+                self.token = Some(token);
+
+                token
+            }
+        }
+    }
+
+    #[inline]
+    pub fn next(&mut self) -> Token {
+        match self.token {
+            Some(token) => {
+                self.token = None;
+                token
+            },
+            None => self.get_token().unwrap()
+        }
+    }
+
+    #[inline]
+    fn get_token(&mut self) -> Result<Token> {
+        self.consume_whitespace();
+
+        if self.is_eof() {
+            return Ok(EndOfProgram);
+        }
+
+        let ch = self.read_byte();
+
+        ON_BYTES[ch as usize].execute(self, ch)
+    }
+
+    #[inline]
+    fn consume_whitespace(&mut self) {
         while !self.is_eof() {
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
-                break;
-            }
-
-            self.bump();
-        }
-
-        let slice = unsafe {
-            self.source.slice_unchecked(start, self.index)
-        };
-
-        match slice {
-            "new"        => Operator(New),
-            "typeof"     => Operator(Typeof),
-            "delete"     => Operator(Delete),
-            "void"       => Operator(Void),
-            "in"         => Operator(In),
-            "instanceof" => Operator(Instanceof),
-            "var"        => Declaration(Var),
-            "let"        => Declaration(Let),
-            "const"      => Declaration(Const),
-            "break"      => Break,
-            "do"         => Do,
-            "case"       => Case,
-            "else"       => Else,
-            "catch"      => Catch,
-            "export"     => Export,
-            "class"      => Class,
-            "extends"    => Extends,
-            "return"     => Return,
-            "while"      => While,
-            "finally"    => Finally,
-            "super"      => Super,
-            "with"       => With,
-            "continue"   => Continue,
-            "for"        => For,
-            "switch"     => Switch,
-            "yield"      => Yield,
-            "debugger"   => Debugger,
-            "function"   => Function,
-            "this"       => This,
-            "default"    => Default,
-            "if"         => If,
-            "throw"      => Throw,
-            "import"     => Import,
-            "try"        => Try,
-            "await"      => Await,
-            "static"     => Static,
-            "true"       => Literal(LiteralTrue),
-            "false"      => Literal(LiteralFalse),
-            "undefined"  => Literal(LiteralUndefined),
-            "null"       => Literal(LiteralNull),
-            "enum"       => Reserved(Enum),
-            "implements" => Reserved(Implements),
-            "package"    => Reserved(Package),
-            "protected"  => Reserved(Protected),
-            "interface"  => Reserved(Interface),
-            "private"    => Reserved(Private),
-            "public"     => Reserved(Public),
-            _            => Identifier(unsafe { OwnedSlice::from_str(slice) }),
-        }
-    }
-
-    #[inline]
-    pub fn peek(&mut self) -> Option<&Token> {
-        if self.token.is_none() {
-            self.token = self.get_token();
-        }
-
-        self.token.as_ref()
-    }
-
-    #[inline]
-    pub fn next(&mut self) -> Option<Token> {
-        if self.token.is_some() {
-            return self.token.take();
-        }
-
-        self.get_token()
-    }
-
-    #[inline]
-    fn read_operator(&mut self, ch: u8) -> OperatorType {
-        match_operators! { self ch
-            b'=' => Assign {
-                b'=' => Equality {
-                    b'=' => StrictEquality,
-                }
-                b'>' => FatArrow,
-            }
-            b'!' => LogicalNot {
-                b'=' => Inequality {
-                    b'=' => StrictInequality,
-                }
-            }
-            b'<' => Lesser {
-                b'<' => BitShiftLeft {
-                    b'=' => BSLAssign,
-                }
-                b'=' => LesserEquals,
-            }
-            b'>' => Greater {
-                b'>' => BitShiftRight {
-                    b'>' => UBitShiftRight {
-                        b'=' => UBSRAssign,
-                    }
-                    b'=' => BSRAssign,
-                }
-                b'=' => GreaterEquals,
-            }
-            b'?' => Conditional,
-            b'~' => BitwiseNot,
-            b'^' => BitwiseXor {
-                b'=' => BitXorAssign,
-            }
-            b'&' => BitwiseAnd {
-                b'&' => LogicalAnd,
-                b'=' => BitAndAssign,
-            }
-            b'|' => BitwiseOr {
-                b'|' => LogicalOr,
-                b'=' => BitOrAssign,
-            }
-            b'+' => Addition {
-                b'+' => Increment,
-                b'=' => AddAssign,
-            }
-            b'-' => Substraction {
-                b'-' => Decrement,
-                b'=' => SubstractAssign,
-            }
-            b'*' => Multiplication {
-                b'*' => Exponent {
-                    b'=' => ExponentAssign,
-                }
-                b'=' => MultiplyAssign,
-            }
-            b'%' => Remainder {
-                b'=' => RemainderAssign,
-            }
-        }
-
-        unreachable!()
-    }
-
-    fn get_token(&mut self) -> Option<Token> {
-        while !self.is_eof() {
-            self.token_start = self.index;
-
             let ch = self.read_byte();
-            self.bump();
 
-            match byte_category::TABLE[ch as usize] {
-                TokenCategory::Whitespace         => continue,
-                TokenCategory::GuaranteedOperator => {
-                    return Some(Operator(self.read_operator(ch)));
-                },
-                TokenCategory::Label   => return Some(self.read_label()),
-                TokenCategory::Control => return Some(Control(ch)),
-                _  => {},
+            // if ch <= 0x20 {
+            if whitespace::TABLE[ch as usize] {
+                self.bump();
+                continue;
             }
 
-            return Some(match ch {
-                b'"' | b'\'' => {
-                    Literal(LiteralString( self.read_string(ch) ))
-                },
-                b'/' => {
-                    if self.is_eof() {
-                        Operator(Division)
-                    } else {
-                        match self.read_byte() {
-                            b'/' => {
-                                self.bump();
-                                self.read_comment();
-                                continue;
-                            },
-                            b'*' => {
-                                self.bump();
-                                self.read_block_comment();
-                                continue;
-                            },
-                            b'=' => {
-                                self.bump();
-                                Operator(DivideAssign)
-                            },
-                            _ => Operator(Division)
-                        }
-                    }
-                },
-                b'.' => {
-                    if self.is_eof() {
-                        Operator(Accessor)
-                    } else {
-                        match self.read_byte() {
-                            b'0'...b'9' => {
-                                Literal(self.read_number(b'.'))
-                            },
-                            b'.' => {
-                                self.bump();
-                                match self.expect_byte() {
-                                    b'.' => Operator(Spread),
-                                    ch   => {
-                                        panic!("Invalid character `{:?}`", ch);
-                                    }
-                                }
-                            },
-                            _ => Operator(Accessor)
-                        }
-                    }
-                },
-                b'0'...b'9' => Literal(self.read_number(ch)),
-                _           => panic!("Invalid character `{:?}`", ch)
-            });
-        }
+            if ch == b'/' && self.index + 1 < self.length {
+                let slice = unsafe {
+                    self.source.slice_unchecked(self.index, self.index + 2)
+                };
 
-        None
-    }
-
-    #[inline]
-    pub fn get_category(&mut self) -> TokenCategory {
-        while !self.is_eof() {
-            let category = byte_category::TABLE[self.read_byte() as usize];
-
-            match category {
-                TokenCategory::Whitespace => {
-                    self.bump();
-                    continue;
-                },
-                TokenCategory::Other => {
-                    if self.index + 1 < self.length {
-                        let slice = unsafe {
-                            self.source.slice_unchecked(self.index, self.index + 2)
-                        };
-
-                        match slice {
-                            "//" => {
-                                self.index += 2;
-                                self.read_comment();
-                                continue;
-                            },
-                            "/*" => {
-                                self.index += 2;
-                                self.read_block_comment();
-                                continue;
-                            },
-                            _ => return TokenCategory::Other
-                        }
-                    }
-                },
-                category => return category
+                match slice {
+                    "//" => {
+                        self.index += 2;
+                        self.read_comment();
+                        continue;
+                    },
+                    "/*" => {
+                        self.index += 2;
+                        self.read_block_comment();
+                        continue;
+                    },
+                    _ => return
+                }
             }
-        }
 
-        TokenCategory::EndOfProgram
+            return;
+        }
     }
 
     #[inline]
     pub fn expect_identifier(&mut self) -> OwnedSlice {
-        if self.token.is_some() {
-            return match self.token.take() {
-                Some(Identifier(ident)) => ident,
-                Some(token)             => panic!("Unexpected token `{:?}` {}", token, self.index),
-                _                       => unreachable!(),
-            };
-        }
-
-        let category = self.get_category();
-
-        if category != TokenCategory::Label {
-            panic!("Invalid character `{:?}`", self.expect_byte());
-        }
-
-        self.bump();
-
-        match self.read_label() {
+        match self.next() {
             Identifier(ident) => ident,
-            token             => panic!("Unexpected token `{:?}`", token)
+            token             => panic!("Unexpected token `{:?}` {}", token, self.index)
         }
     }
 
     #[inline]
     pub fn expect_semicolon(&mut self) {
-        let ct = match self.token {
-            Some(Control(ct)) => {
-                self.token = None;
-                ct
-            },
-            None => {
-                self.get_category();
-                self.expect_byte()
-            },
-            Some(ref token) => panic!("Unexpected token `{:?}`", token)
-        };
-
-        match ct {
-            b';' => self.bump(),
-            b')' |
-            b'}' => return,
-            ch   => panic!("Unexpected character {:?} {}", ch, self.index)
+        match self.next() {
+            Control(b';') => self.bump(),
+            Control(b')') |
+            Control(b'}') => return,
+            token         => panic!("Unexpected token `{:?}` {}", token, self.index)
         }
     }
 
     #[inline]
-    pub fn expect_control(&mut self, byte: u8) {
-        let ch = match self.token {
-            Some(Control(ch)) => {
-                self.token = None;
-                ch
-            },
-            None => {
-                self.get_category();
-                self.expect_byte()
-            },
-            Some(ref token) => panic!("Unexpected token `{:?}`", token)
-        };
+    pub fn expect_control(&mut self, expected: u8) {
+        let token = self.next();
 
-        if ch != byte {
-            panic!("Invalid character `{:?}` {}", ch, self.index);
+        if token != Control(expected) {
+            panic!("Unexpected token `{:?}` {}", token, self.index);
         }
     }
 
     #[inline]
     pub fn allow_control(&mut self) -> u8 {
-        match self.token {
-            Some(Control(ch)) => ch,
-            Some(_)           => 0,
-            None              => {
-                let category = self.get_category();
-
-                if category != TokenCategory::Control {
-                    return 0;
-                }
-
-                let ch = self.read_byte();
-
-                self.token_start = self.index;
-                self.token = Some(Control(ch));
-                self.bump();
-
-                ch
-            }
+        match self.peek() {
+            Control(byte) => byte,
+            _             => 0
         }
     }
 }

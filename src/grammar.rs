@@ -79,7 +79,7 @@ impl fmt::Display for OwnedSlice {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LiteralValue {
     LiteralUndefined,
     LiteralNull,
@@ -91,7 +91,7 @@ pub enum LiteralValue {
 }
 pub use self::LiteralValue::*;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Parameter {
     pub name: OwnedSlice,
 }
@@ -481,7 +481,7 @@ pub enum ClassMember {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VariableDeclarationKind {
     Var,
     Let,

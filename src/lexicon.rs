@@ -3,7 +3,7 @@ use grammar::LiteralValue;
 use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
     Enum,
     Implements,
@@ -14,7 +14,7 @@ pub enum ReservedKind {
     Public,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
     LineTermination,
     Control(u8), // One of the control bytes: ( ) [ ] { } ; : ,
@@ -50,4 +50,5 @@ pub enum Token {
     Reserved(ReservedKind),
     Identifier(OwnedSlice),
     Literal(LiteralValue),
+    EndOfProgram,
 }

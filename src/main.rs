@@ -8,6 +8,7 @@ use std::fs::File;
 use std::time::{ Instant, Duration };
 use docopt::Docopt;
 
+pub mod error;
 pub mod lexicon;
 pub mod tokenizer;
 pub mod parser;
