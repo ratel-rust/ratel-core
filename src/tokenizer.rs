@@ -10,28 +10,20 @@ use grammar::LiteralValue::*;
 use error::{ Error, Result };
 
 
-trait OnByte: Sync {
-    fn execute(&self, tok: &mut Tokenizer, byte: u8) -> Result<Token>;
-}
-
 macro_rules! on_byte {
     { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:expr)* } => {
         $(
-            struct $name;
-
-            impl OnByte for $name {
-                fn execute(&self, $tok: &mut Tokenizer, $byte: u8) -> Result<Token> {
-                    $code
-                }
+            fn $name($tok: &mut Tokenizer, $byte: u8) -> Result<Token> {
+                $code
             }
 
-            const $static_name: &'static $name = &$name;
+            const $static_name: fn(&mut Tokenizer, u8) -> Result<Token> = $name;
         )*
     }
 }
 
 on_byte! {
-    const ___: InvalidByte |tok, _| {
+    const ___: invalid_byte |tok, _| {
         Err(Error {
             line: 0,
             column: tok.index,
@@ -39,7 +31,7 @@ on_byte! {
     }
 
     // =
-    const EQL: EqualSign |tok, _| {
+    const EQL: equal_sign |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -70,7 +62,7 @@ on_byte! {
     }
 
     // !
-    const EXL: ExclamationMark |tok, _| {
+    const EXL: exclamation_mark |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -95,7 +87,7 @@ on_byte! {
     }
 
     // <
-    const LSS: LessSign |tok, _| {
+    const LSS: less_sign |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -126,7 +118,7 @@ on_byte! {
     }
 
     // >
-    const MOR: MoreSign |tok, _| {
+    const MOR: more_sign |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -165,21 +157,21 @@ on_byte! {
     }
 
     // ?
-    const QST: QuestionMark |tok, _| {
+    const QST: question_mark |tok, _| {
         tok.bump();
 
         Ok(Operator(Conditional))
     }
 
     // ~
-    const TLD: Tilde |tok, _| {
+    const TLD: tilde |tok, _| {
         tok.bump();
 
         Ok(Operator(BitwiseNot))
     }
 
     // ^
-    const CRT: Caret |tok, _| {
+    const CRT: caret |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -196,7 +188,7 @@ on_byte! {
     }
 
     // &
-    const AMP: Ampersand |tok, _| {
+    const AMP: ampersand |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -219,7 +211,7 @@ on_byte! {
     }
 
     // |
-    const PIP: Pipe |tok, _| {
+    const PIP: pipe |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -242,7 +234,7 @@ on_byte! {
     }
 
     // +
-    const PLS: PlusSign |tok, _| {
+    const PLS: plus_sign |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -265,7 +257,7 @@ on_byte! {
     }
 
     // -
-    const MIN: MinusSign |tok, _| {
+    const MIN: minus_sign |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -288,7 +280,7 @@ on_byte! {
     }
 
     // *
-    const ATR: Asterisk |tok, _| {
+    const ATR: asterisk |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -319,7 +311,7 @@ on_byte! {
     }
 
     // /
-    const SLH: Slash |tok, _| {
+    const SLH: slash |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -352,7 +344,7 @@ on_byte! {
     }
 
     // %
-    const PRC: Percent |tok, _| {
+    const PRC: percent |tok, _| {
         tok.bump();
 
         let op = match tok.peek_byte() {
@@ -369,7 +361,7 @@ on_byte! {
     }
 
     // Label starting with a letter, _ or $
-    const LBL: Label |tok, _| {
+    const LBL: label |tok, _| {
         let start = tok.index;
 
         tok.bump();
@@ -438,7 +430,7 @@ on_byte! {
     }
 
     // 0 to 9
-    const DIG: Digit |tok, first| {
+    const DIG: digit |tok, first| {
         let start = tok.index;
 
         tok.bump();
@@ -490,7 +482,7 @@ on_byte! {
     }
 
     // .
-    const PRD: Period |tok, _| {
+    const PRD: period |tok, _| {
         let start = tok.index;
 
         tok.bump();
@@ -524,7 +516,7 @@ on_byte! {
     }
 
     // " or '
-    const QOT: Quote |tok, byte| {
+    const QOT: quote |tok, byte| {
         let start = tok.index;
 
         tok.bump();
@@ -550,7 +542,7 @@ on_byte! {
     }
 
     // space, tab, carriage return, new line
-    const WHT: Whitespace |tok, _| {
+    const WHT: whitespace |tok, _| {
         tok.bump();
 
         tok.consume_whitespace();
@@ -559,19 +551,18 @@ on_byte! {
     }
 
     // One of: ( ) [ ] { } : ; ,
-    const CTL: ControlSign |tok, byte| {
+    const CTL: control_sign |tok, byte| {
         tok.bump();
 
         Ok(Control(byte))
     }
 
-    const UNI: Unicode |_, _| {
+    const UNI: unicode |_, _| {
         unimplemented!()
     }
 }
 
-#[allow(dead_code)]
-static ON_BYTES: [&'static OnByte; 256] = [
+static ON_BYTES: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
     ___, ___, ___, ___, ___, ___, ___, ___, ___, WHT, WHT, ___, ___, WHT, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
@@ -847,7 +838,7 @@ impl<'a> Tokenizer<'a> {
 
         let ch = self.read_byte();
 
-        ON_BYTES[ch as usize].execute(self, ch)
+        ON_BYTES[ch as usize](self, ch)
     }
 
     #[inline]
