@@ -841,8 +841,6 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     fn get_token(&mut self) -> Result<Token> {
-        self.consume_whitespace();
-
         if self.is_eof() {
             return Ok(EndOfProgram);
         }
