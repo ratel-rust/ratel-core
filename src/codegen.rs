@@ -703,6 +703,14 @@ impl Code for Statement {
                 gen.write_byte(b'}');
                 gen.new_line();
             },
+
+            Statement::Throw {
+                ref value,
+            } => {
+                gen.write_bytes(b"throw ");
+                gen.write(value);
+                gen.write_byte(b';');
+            }
         }
     }
 }

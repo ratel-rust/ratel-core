@@ -549,6 +549,13 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    fn throw_statement(&mut self) -> Statement {
+        statement!(self, Statement::Throw {
+            value: self.sequence_or_expression()
+        })
+    }
+
+    #[inline]
     fn break_statement(&mut self) -> Statement {
         statement!(self, Statement::Break {
             label: match self.tokenizer.peek() {
@@ -817,6 +824,7 @@ impl<'a> Parser<'a> {
             While             => self.while_statement(),
             For               => self.for_statement(),
             Identifier(label) => self.labeled_or_expression_statement(label),
+            Throw             => self.throw_statement(),
             token             => self.expression_statement(token),
         })
     }

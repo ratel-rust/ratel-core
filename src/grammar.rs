@@ -557,6 +557,9 @@ pub enum Statement {
         extends: Option<OwnedSlice>,
         body: Vec<ClassMember>,
     },
+    Throw {
+        value: Expression
+    },
 }
 
 impl From<Expression> for Statement {
