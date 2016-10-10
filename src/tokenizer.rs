@@ -1038,10 +1038,11 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     pub fn expect_semicolon(&mut self) {
-        match self.next() {
-            Control(b';') => self.bump(),
+        match self.peek() {
+            Control(b';') => self.consume(),
             Control(b')') |
-            Control(b'}') => return,
+            Control(b'}') |
+            EndOfProgram  => return,
             token         => panic!("Unexpected token `{:?}` {}", token, self.index)
         }
     }
