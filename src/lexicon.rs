@@ -45,7 +45,6 @@ pub enum Token {
     Throw,
     Import,
     Try,
-    Await,
     Static,
     Reserved(ReservedKind),
     Identifier(OwnedSlice),

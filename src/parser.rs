@@ -74,14 +74,14 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.tokenizer.allow_control() == b'}' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 
             list.push(self.object_member());
 
             if self.tokenizer.allow_control() == b'}' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 
@@ -153,7 +153,7 @@ impl<'a> Parser<'a> {
     fn block_or_statement(&mut self) -> Statement {
         match self.tokenizer.allow_control() {
             b'{' => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 Statement::Block {
                     body: self.block_body_tail()
@@ -179,7 +179,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.tokenizer.allow_control() == b'}' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 break;
             }
@@ -218,7 +218,7 @@ impl<'a> Parser<'a> {
 
         let body = match self.tokenizer.allow_control() {
             b'{' => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 Statement::Block {
                     body: self.block_body_tail()
@@ -300,7 +300,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn paren_expression(&mut self) -> Expression {
         if self.tokenizer.allow_control() == b')' {
-            self.tokenizer.next();
+            self.tokenizer.consume();
 
             match self.tokenizer.next() {
                 Operator(FatArrow) => {},
@@ -326,12 +326,12 @@ impl<'a> Parser<'a> {
     fn sequence_or(&mut self, first: Expression) -> Expression {
         match self.tokenizer.allow_control() {
             b',' => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 let mut list = vec![first, self.expression(0)];
 
                 while self.tokenizer.allow_control() == b',' {
-                    self.tokenizer.next();
+                    self.tokenizer.consume();
 
                     list.push(self.expression(0));
                 }
@@ -353,14 +353,14 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.tokenizer.allow_control() == terminator {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 
             list.push(self.expression(0));
 
             if self.tokenizer.allow_control() == terminator {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 
@@ -465,7 +465,7 @@ impl<'a> Parser<'a> {
             });
 
             if self.tokenizer.allow_control() == b',' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 continue;
             }
@@ -490,7 +490,7 @@ impl<'a> Parser<'a> {
     fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Statement {
         match self.tokenizer.allow_control() {
             b':' => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 Statement::Labeled {
                     label: label,
@@ -682,14 +682,14 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.tokenizer.allow_control() == b')' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 
             list.push(self.parameter());
 
             if self.tokenizer.allow_control() == b')' {
-                self.tokenizer.next();
+                self.tokenizer.consume();
                 break;
             }
 

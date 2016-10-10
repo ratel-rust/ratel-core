@@ -24,9 +24,9 @@ macro_rules! define_handlers {
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, WHT, WHT, ___, ___, WHT, ___, ___, // 0
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
-    WHT, EXL, QOT, ___, IDT, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
+    ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
     ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, CTL, CTL, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
     IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, CTL, ___, CTL, CRT, IDT, // 5
@@ -336,7 +336,6 @@ define_handlers! {
             b'/' => {
                 tok.bump();
                 tok.read_comment();
-                tok.consume_whitespace();
 
                 return tok.get_token();
             },
@@ -344,7 +343,6 @@ define_handlers! {
             b'*' => {
                 tok.bump();
                 tok.read_block_comment();
-                tok.consume_whitespace();
 
                 return tok.get_token();
             },
@@ -696,15 +694,6 @@ define_handlers! {
         Ok(Literal(LiteralString(value)))
     }
 
-    // space, tab, carriage return, new line
-    const WHT: whitespace |tok, _| {
-        tok.bump();
-
-        tok.consume_whitespace();
-
-        tok.get_token()
-    }
-
     // One of: ( ) [ ] { } : ; ,
     const CTL: control_sign |tok, byte| {
         tok.bump();
@@ -934,10 +923,7 @@ impl<'a> Tokenizer<'a> {
 
         self.bump();
 
-        while !self.is_eof() {
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
-                break;
-            }
+        while !self.is_eof() && ident_lookup::TABLE[self.read_byte() as usize] {
             self.bump();
         }
 
@@ -1014,6 +1000,8 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     fn get_token(&mut self) -> Result<Token> {
+        self.consume_whitespace();
+
         self.token_start = self.index;
 
         if self.is_eof() {
