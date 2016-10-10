@@ -16,7 +16,7 @@ pub enum ReservedKind {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
-    LineTermination,
+    EndOfProgram,
     Control(u8), // One of the control bytes: ( ) [ ] { } ; : ,
     Operator(OperatorType),
     Declaration(VariableDeclarationKind),
@@ -50,5 +50,4 @@ pub enum Token {
     Reserved(ReservedKind),
     Identifier(OwnedSlice),
     Literal(LiteralValue),
-    EndOfProgram,
 }

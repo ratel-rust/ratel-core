@@ -1,7 +1,18 @@
 #[derive(Copy, Clone, Debug)]
-pub struct Error {
-    pub line: usize,
-    pub column: usize,
+pub enum Error {
+    UnexpectedEndOfProgram,
+    UnexpectedToken {
+        start: usize,
+        end: usize,
+    },
+}
+
+pub enum ParsingError {
+    UnexpectedEndOfProgram,
+    UnexpectedToken {
+        start: usize,
+        end: usize,
+    },
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;

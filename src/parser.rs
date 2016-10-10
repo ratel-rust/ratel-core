@@ -10,7 +10,7 @@ macro_rules! allow {
     ($parser:ident, $p:pat) => {
         match $parser.tokenizer.peek() {
             $p => {
-                $parser.tokenizer.next();
+                $parser.tokenizer.consume();
                 true
             },
             _ => false
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
             Identifier(key) | Literal(LiteralString(key)) => {
                 match self.tokenizer.peek() {
                     Control(b':') => {
-                        self.tokenizer.next();
+                        self.tokenizer.consume();
 
                         ObjectMember::Literal {
                             key: key,
@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
                     },
 
                     Control(b'(') => {
-                        self.tokenizer.next();
+                        self.tokenizer.consume();
 
                         ObjectMember::Method {
                             name: key,
@@ -283,7 +283,7 @@ impl<'a> Parser<'a> {
     fn function_expression(&mut self) -> Expression {
         let name = match self.tokenizer.peek() {
             Identifier(name) => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 Some(name)
             },
@@ -403,7 +403,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
 
-                    self.tokenizer.next();
+                    self.tokenizer.consume();
 
                     self.infix_expression(left, rbp, op)
                 },
@@ -413,7 +413,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
 
-                    self.tokenizer.next();
+                    self.tokenizer.consume();
 
                     Expression::Call {
                         callee: Box::new(left),
@@ -426,7 +426,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
 
-                    self.tokenizer.next();
+                    self.tokenizer.consume();
 
                     let property = self.sequence_or_expression();
 
@@ -456,7 +456,8 @@ impl<'a> Parser<'a> {
                 name: self.tokenizer.expect_identifier(),
                 value: match self.tokenizer.peek() {
                     Operator(Assign) => {
-                        self.tokenizer.next();
+                        self.tokenizer.consume();
+
                         Some(self.expression(0))
                     },
                     _ => None
@@ -721,7 +722,7 @@ impl<'a> Parser<'a> {
     fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> ClassMember {
         match self.tokenizer.peek() {
             Control(b'(') => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
 
                 if !is_static && name.as_str() == "constructor" {
                     ClassMember::Constructor {
@@ -738,7 +739,8 @@ impl<'a> Parser<'a> {
                 }
             },
             Operator(Assign) => {
-                self.tokenizer.next();
+                self.tokenizer.consume();
+
                 ClassMember::Property {
                     is_static: is_static,
                     name: name,
@@ -789,7 +791,7 @@ impl<'a> Parser<'a> {
 
         Some(match token {
             EndOfProgram      => return None,
-            Control(b';')     => return self.statement(),
+            Control(b';')     => Statement::Transparent { body: Vec::new() },
             Control(b'{')     => self.block_statement(),
             Declaration(kind) => self.variable_declaration_statement(kind),
             Return            => self.return_statement(),

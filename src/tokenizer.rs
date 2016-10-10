@@ -9,25 +9,43 @@ use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 use error::{ Error, Result };
 
-
-macro_rules! on_byte {
-    { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:expr)* } => {
+/// Helper macro for declaring byte-handler functions with correlating constants.
+/// This becomes handy due to a lookup table present below.
+macro_rules! define_handlers {
+    { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:block)* } => {
         $(
-            fn $name($tok: &mut Tokenizer, $byte: u8) -> Result<Token> {
-                $code
-            }
+            fn $name($tok: &mut Tokenizer, $byte: u8) -> Result<Token> $code
 
             const $static_name: fn(&mut Tokenizer, u8) -> Result<Token> = $name;
         )*
     }
 }
 
-on_byte! {
+/// Lookup table mapping any incoming byte to a handler function defined below.
+static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
+//   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, WHT, WHT, ___, ___, WHT, ___, ___, // 0
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
+    WHT, EXL, QOT, ___, IDT, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
+    ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, CTL, CTL, LSS, EQL, MOR, QST, // 3
+    ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
+    IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, CTL, ___, CTL, CRT, IDT, // 5
+    ___, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
+    L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, CTL, PIP, CTL, TLD, ___, // 7
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // A
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // B
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // C
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // D
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // E
+    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // F
+];
+
+// Handler function definitions:
+define_handlers! {
     const ___: invalid_byte |tok, _| {
-        Err(Error {
-            line: 0,
-            column: tok.index,
-        })
+        Err(tok.invalid_character())
     }
 
     // =
@@ -360,104 +378,244 @@ on_byte! {
         Ok(Operator(op))
     }
 
-    // Label starting with a letter, _ or $
-    const LBL: label |tok, _| {
-        let start = tok.index;
+    // Non-keyword Identifier: starting with a letter, _ or $
+    const IDT: identifier |tok, _| {
+        Ok(Identifier(unsafe {
+            OwnedSlice::from_str(tok.consume_label_characters())
+        }))
+    }
 
-        tok.bump();
-
-        while !tok.is_eof() {
-            if !ident_lookup::TABLE[tok.read_byte() as usize] {
-                break;
-            }
-            tok.bump();
-        }
-
-        let slice = unsafe {
-            tok.source.slice_unchecked(start, tok.index)
-        };
-
-        Ok(match slice {
-            "new"        => Operator(New),
-            "typeof"     => Operator(Typeof),
-            "delete"     => Operator(Delete),
-            "void"       => Operator(Void),
-            "in"         => Operator(In),
-            "instanceof" => Operator(Instanceof),
-            "var"        => Declaration(Var),
-            "let"        => Declaration(Let),
-            "const"      => Declaration(Const),
+    // Identifier or keyword starting with a letter `b`
+    const L_B: label_b |tok, _| {
+        Ok(match tok.consume_label_characters() {
             "break"      => Break,
-            "do"         => Do,
-            "case"       => Case,
-            "else"       => Else,
-            "catch"      => Catch,
-            "export"     => Export,
-            "class"      => Class,
-            "extends"    => Extends,
-            "return"     => Return,
-            "while"      => While,
-            "finally"    => Finally,
-            "super"      => Super,
-            "with"       => With,
-            "continue"   => Continue,
-            "for"        => For,
-            "switch"     => Switch,
-            "yield"      => Yield,
-            "debugger"   => Debugger,
-            "function"   => Function,
-            "this"       => This,
-            "default"    => Default,
-            "if"         => If,
-            "throw"      => Throw,
-            "import"     => Import,
-            "try"        => Try,
-            "await"      => Await,
-            "static"     => Static,
-            "true"       => Literal(LiteralTrue),
-            "false"      => Literal(LiteralFalse),
-            "undefined"  => Literal(LiteralUndefined),
-            "null"       => Literal(LiteralNull),
-            "enum"       => Reserved(Enum),
-            "implements" => Reserved(Implements),
-            "package"    => Reserved(Package),
-            "protected"  => Reserved(Protected),
-            "interface"  => Reserved(Interface),
-            "private"    => Reserved(Private),
-            "public"     => Reserved(Public),
-            _            => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
 
-    // 0 to 9
-    const DIG: digit |tok, first| {
+    // Identifier or keyword starting with a letter `c`
+    const L_C: label_c |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "const"      => Declaration(Const),
+            "case"       => Case,
+            "class"      => Class,
+            "catch"      => Catch,
+            "continue"   => Continue,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `d`
+    const L_D: label_d |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "delete"     => Operator(Delete),
+            "do"         => Do,
+            "debugger"   => Debugger,
+            "default"    => Default,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `e`
+    const L_E: label_e |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "else"       => Else,
+            "export"     => Export,
+            "extends"    => Extends,
+            "enum"       => Reserved(Enum),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `f`
+    const L_F: label_f |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "finally"    => Finally,
+            "for"        => For,
+            "function"   => Function,
+            "false"      => Literal(LiteralFalse),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `i`
+    const L_I: label_i |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "in"         => Operator(In),
+            "instanceof" => Operator(Instanceof),
+            "if"         => If,
+            "import"     => Import,
+            "implements" => Reserved(Implements),
+            "interface"  => Reserved(Interface),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `l`
+    const L_L: label_l |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "let"        => Declaration(Let),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `n`
+    const L_N: label_n |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "new"        => Operator(New),
+            "null"       => Literal(LiteralNull),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `p`
+    const L_P: label_p |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "package"    => Reserved(Package),
+            "protected"  => Reserved(Protected),
+            "private"    => Reserved(Private),
+            "public"     => Reserved(Public),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `r`
+    const L_R: label_r |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "return"     => Return,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `s`
+    const L_S: label_s |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "super"      => Super,
+            "switch"     => Switch,
+            "static"     => Static,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `t`
+    const L_T: label_t |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "typeof"     => Operator(Typeof),
+            "this"       => This,
+            "throw"      => Throw,
+            "try"        => Try,
+            "true"       => Literal(LiteralTrue),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `u`
+    const L_U: label_u |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "undefined"  => Literal(LiteralUndefined),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `v`
+    const L_V: label_v |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "void"       => Operator(Void),
+            "var"        => Declaration(Var),
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `w`
+    const L_W: label_w |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "while"      => While,
+            "with"       => With,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Identifier or keyword starting with a letter `y`
+    const L_Y: label_y |tok, _| {
+        Ok(match tok.consume_label_characters() {
+            "yield"      => Yield,
+            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+        })
+    }
+
+    // Unicode character
+    const UNI: unicode |tok, _| {
+        let start = tok.index;
+
+        let first = tok.source[start..].chars().next().expect("Has to have one");
+
+        // TODO: check first.is_alphanumeric();
+
+        tok.index += first.len_utf8();
+
+        tok.consume_label_characters();
+
+        Ok(Identifier(unsafe {
+            let slice = tok.source.slice_unchecked(start, tok.index);
+            OwnedSlice::from_str(slice)
+        }))
+    }
+
+    // 0
+    const ZER: zero |tok, _| {
         let start = tok.index;
 
         tok.bump();
 
-        if first == b'0' {
-            match tok.peek_byte() {
-                b'b' => {
+        match tok.peek_byte() {
+            b'b' => {
+                tok.bump();
+
+                return Ok(Literal(tok.read_binary()));
+            },
+
+            b'o' => {
+                tok.bump();
+
+                return Ok(Literal(tok.read_octal()));
+            },
+
+            b'x' => {
+                tok.bump();
+
+                return Ok(Literal(tok.read_hexadec()));
+            },
+
+            _ => {}
+        }
+
+        while !tok.is_eof() {
+            match tok.read_byte() {
+                b'0'...b'9' => {
+                    tok.bump();
+                },
+                b'.' => {
                     tok.bump();
 
-                    return Ok(Literal(tok.read_binary()));
+                    return Ok(Literal(tok.read_float(start)));
                 },
-
-                b'o' => {
-                    tok.bump();
-
-                    return Ok(Literal(tok.read_octal()));
-                },
-
-                b'x' => {
-                    tok.bump();
-
-                    return Ok(Literal(tok.read_hexadec()));
-                },
-
-                _ => {}
+                _ => break,
             }
         }
+
+        let value = unsafe {
+            let slice = tok.source.slice_unchecked(start, tok.index);
+            OwnedSlice::from_str(slice)
+        };
+
+        Ok(Literal(LiteralFloat(value)))
+    }
+
+    // 1 to 9
+    const DIG: digit |tok, _| {
+        let start = tok.index;
+
+        tok.bump();
 
         while !tok.is_eof() {
             match tok.read_byte() {
@@ -504,10 +662,7 @@ on_byte! {
                         Ok(Operator(Spread))
                     },
 
-                    _ => Err(Error {
-                        line: 0,
-                        column: tok.index
-                    })
+                    _ => Err(tok.invalid_character())
                 }
             },
 
@@ -556,31 +711,7 @@ on_byte! {
 
         Ok(Control(byte))
     }
-
-    const UNI: unicode |_, _| {
-        unimplemented!()
-    }
 }
-
-static ON_BYTES: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
-//   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, WHT, WHT, ___, ___, WHT, ___, ___, // 0
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
-    WHT, EXL, QOT, ___, LBL, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
-    DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, CTL, CTL, LSS, EQL, MOR, QST, // 3
-    ___, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, // 4
-    LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, CTL, ___, CTL, CRT, LBL, // 5
-    ___, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, // 6
-    LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, LBL, CTL, PIP, CTL, TLD, ___, // 7
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // A
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // B
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // C
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // D
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // E
-    UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // F
-];
 
 mod whitespace {
     const __: bool = false;
@@ -702,6 +833,30 @@ impl<'a> Tokenizer<'a> {
         self.index += 1;
     }
 
+    fn invalid_character(&self) -> Error {
+        if self.is_eof() {
+            return Error::UnexpectedEndOfProgram;
+        }
+
+        let len = self.source[self.index..]
+                      .chars()
+                      .next()
+                      .expect("Must have a character")
+                      .len_utf8();
+
+        Error::UnexpectedToken {
+            start: self.index,
+            end: self.index + len,
+        }
+    }
+
+    // fn invalid_token(&self) -> Error {
+    //     Error::UnexpectedToken {
+    //         start: self.token_start,
+    //         end: self.index,
+    //     }
+    // }
+
     #[inline]
     fn expect_byte(&mut self) -> u8 {
         if self.is_eof() {
@@ -713,6 +868,7 @@ impl<'a> Tokenizer<'a> {
         ch
     }
 
+    #[inline]
     fn read_binary(&mut self) -> LiteralValue {
         let mut value = 0;
 
@@ -734,6 +890,7 @@ impl<'a> Tokenizer<'a> {
         LiteralInteger(value)
     }
 
+    #[inline]
     fn read_octal(&mut self) -> LiteralValue {
         let mut value = 0;
 
@@ -751,6 +908,7 @@ impl<'a> Tokenizer<'a> {
         LiteralInteger(value)
     }
 
+    #[inline]
     fn read_hexadec(&mut self) -> LiteralValue {
         let mut value = 0;
 
@@ -768,6 +926,24 @@ impl<'a> Tokenizer<'a> {
         }
 
         return LiteralInteger(value);
+    }
+
+    #[inline]
+    fn consume_label_characters(&mut self) -> &str {
+        let start = self.index;
+
+        self.bump();
+
+        while !self.is_eof() {
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                break;
+            }
+            self.bump();
+        }
+
+        unsafe {
+            self.source.slice_unchecked(start, self.index)
+        }
     }
 
     #[inline]
@@ -823,7 +999,8 @@ impl<'a> Tokenizer<'a> {
     pub fn next(&mut self) -> Token {
         match self.token {
             Some(token) => {
-                self.token = None;
+                self.consume();
+
                 token
             },
             None => self.get_token().unwrap()
@@ -831,14 +1008,21 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
+    pub fn consume(&mut self) {
+        self.token = None;
+    }
+
+    #[inline]
     fn get_token(&mut self) -> Result<Token> {
+        self.token_start = self.index;
+
         if self.is_eof() {
             return Ok(EndOfProgram);
         }
 
         let ch = self.read_byte();
 
-        ON_BYTES[ch as usize](self, ch)
+        BYTE_HANDLERS[ch as usize](self, ch)
     }
 
     #[inline]
@@ -850,26 +1034,6 @@ impl<'a> Tokenizer<'a> {
             if whitespace::TABLE[ch as usize] {
                 self.bump();
                 continue;
-            }
-
-            if ch == b'/' && self.index + 1 < self.length {
-                let slice = unsafe {
-                    self.source.slice_unchecked(self.index, self.index + 2)
-                };
-
-                match slice {
-                    "//" => {
-                        self.index += 2;
-                        self.read_comment();
-                        continue;
-                    },
-                    "/*" => {
-                        self.index += 2;
-                        self.read_block_comment();
-                        continue;
-                    },
-                    _ => return
-                }
             }
 
             return;
