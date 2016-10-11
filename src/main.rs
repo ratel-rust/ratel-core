@@ -78,7 +78,6 @@ fn main() {
         process::exit(0);
     }
 
-
     let source = match args.flag_string {
         Some(source) => source,
         None => {
@@ -96,7 +95,6 @@ fn main() {
             }
         }
     };
-
 
     let start = Instant::now();
     let mut ast = parser::parse(source);

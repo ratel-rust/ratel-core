@@ -21,6 +21,19 @@ macro_rules! define_handlers {
     }
 }
 
+macro_rules! expect_byte {
+    ($tok:ident) => ({
+        if $tok.is_eof() {
+            return Err(Error::UnexpectedEndOfProgram);
+        }
+
+        let byte = $tok.read_byte();
+        $tok.bump();
+
+        byte
+    })
+}
+
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
@@ -333,16 +346,25 @@ define_handlers! {
         tok.bump();
 
         let op = match tok.peek_byte() {
+            // regular comment
             b'/' => {
                 tok.bump();
-                tok.read_comment();
+
+                // Keep consuming bytes until new line or end of source
+                while !tok.is_eof() && tok.read_byte() != b'\n' {
+                    tok.bump();
+                }
 
                 return tok.get_token();
             },
 
+            // block comment
             b'*' => {
                 tok.bump();
-                tok.read_block_comment();
+
+                // Keep consuming bytes until */ happens in a row
+                while expect_byte!(tok) != b'*' ||
+                      expect_byte!(tok) != b'/' {}
 
                 return tok.get_token();
             },
@@ -547,7 +569,12 @@ define_handlers! {
 
         let first = tok.source[start..].chars().next().expect("Has to have one");
 
-        // TODO: check first.is_alphanumeric();
+        if !first.is_alphanumeric() {
+            return Err(Error::UnexpectedToken {
+                start: start,
+                end: start + 1
+            });
+        }
 
         tok.index += first.len_utf8();
 
@@ -675,14 +702,14 @@ define_handlers! {
         tok.bump();
 
         loop {
-            let ch = tok.expect_byte();
+            let ch = expect_byte!(tok);
 
             if ch == byte {
                 break;
             }
 
             if ch == b'\\' {
-                tok.expect_byte();
+                expect_byte!(tok);
             }
         }
 
@@ -771,6 +798,7 @@ pub struct Tokenizer<'a> {
     token_start: usize,
 }
 
+
 impl<'a> Tokenizer<'a> {
     #[inline]
     pub fn new(source: &'a str) -> Self {
@@ -838,17 +866,6 @@ impl<'a> Tokenizer<'a> {
     //         end: self.index,
     //     }
     // }
-
-    #[inline]
-    fn expect_byte(&mut self) -> u8 {
-        if self.is_eof() {
-            panic!("Unexpected end of source");
-        }
-
-        let ch = self.read_byte();
-        self.bump();
-        ch
-    }
 
     #[inline]
     fn read_binary(&mut self) -> LiteralValue {
@@ -938,25 +955,6 @@ impl<'a> Tokenizer<'a> {
         LiteralValue::LiteralFloat(unsafe {
             OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
         })
-    }
-
-    #[inline]
-    fn read_comment(&mut self) {
-        while !self.is_eof() {
-            if self.read_byte() == b'\n' {
-                return;
-            }
-            self.bump();
-        }
-    }
-
-    #[inline]
-    fn read_block_comment(&mut self) {
-        loop {
-            if self.expect_byte() == b'*' && self.expect_byte() == b'/' {
-                return;
-            }
-        }
     }
 
     #[inline]
