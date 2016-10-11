@@ -32,12 +32,13 @@ Usage:
   badger --version
 
 Options:
-  -h --help                 Show this screen.
-  --version                 Show version.
-  -f FILE, --file=FILE      Specifies the input file.
-  -o FILE, --output=FILE    Specifies the output file.
-  --pretty                  Don't minify the output.
-  --ast                     Print out the Abstract Syntax Tree of the input.
+  -h --help                    Show this screen.
+  --version                    Show version.
+  -e SCRIPT, --string=SCRIPT   Specifies an input string.
+  -f FILE, --file=FILE         Specifies the input file.
+  -o FILE, --output=FILE       Specifies the output file.
+  --pretty                     Don't minify the output.
+  --ast                        Print out the Abstract Syntax Tree of the input.
 ";
 
 fn read_file(path: &str) -> Result<String, Error> {
@@ -64,6 +65,7 @@ struct Args {
     flag_version: bool,
     flag_ast: bool,
     flag_pretty: bool,
+    flag_string: Option<String>,
 }
 
 fn main() {
@@ -76,21 +78,28 @@ fn main() {
         process::exit(0);
     }
 
-    if args.flag_file.is_none() {
+
+    if args.flag_string.is_none() && args.flag_file.is_none() {
         println!("{}", USAGE);
         process::exit(0);
     }
 
-    let file = match read_file(&args.flag_file.unwrap()) {
-        Ok(file) => file,
-        Err(err) => {
-            println!("ERR Couldn't read file: {:?}", err);
-            process::exit(1)
+
+    let input = match args.flag_string {
+        Some(source) => source,
+        None => {
+                match read_file(&args.flag_file.unwrap()) {
+                    Ok(file) => file,
+                    Err(err) => {
+                        println!("ERR Couldn't read file: {:?}", err);
+                        process::exit(1)
+                    }
+                }
         }
     };
 
     let start = Instant::now();
-    let mut ast = parser::parse(file);
+    let mut ast = parser::parse(input);
     let parse_duration = Instant::now().duration_since(start);
 
     if args.flag_ast {
