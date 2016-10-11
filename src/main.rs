@@ -79,27 +79,27 @@ fn main() {
     }
 
 
-    if args.flag_string.is_none() && args.flag_file.is_none() {
-        println!("{}", USAGE);
-        process::exit(0);
-    }
-
-
-    let input = match args.flag_string {
+    let source = match args.flag_string {
         Some(source) => source,
         None => {
-                match read_file(&args.flag_file.unwrap()) {
-                    Ok(file) => file,
-                    Err(err) => {
+            match args.flag_file {
+                Some(path) => {
+                    read_file(&path).unwrap_or_else(|err| {
                         println!("ERR Couldn't read file: {:?}", err);
-                        process::exit(1)
-                    }
+                        process::exit(1);
+                    })
+                },
+                None => {
+                    println!("{}", USAGE);
+                    process::exit(0);
                 }
+            }
         }
     };
 
+
     let start = Instant::now();
-    let mut ast = parser::parse(input);
+    let mut ast = parser::parse(source);
     let parse_duration = Instant::now().duration_since(start);
 
     if args.flag_ast {
