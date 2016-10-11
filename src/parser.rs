@@ -56,6 +56,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    #[inline]
     pub fn new(source: &'a str) -> Self {
         Parser {
             tokenizer: Tokenizer::new(source),

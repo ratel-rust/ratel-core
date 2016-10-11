@@ -761,29 +761,22 @@ pub struct Tokenizer<'a> {
     // String slice to parse
     pub source: &'a str,
 
-    // Byte pointer to the slice above
-    byte_ptr: *const u8,
-
     // Current index
     index: usize,
-
-    // Lenght of the source
-    length: usize,
 
     // Current token
     token: Option<Token>,
 
     // Index of current token in source
-    pub token_start: usize,
+    token_start: usize,
 }
 
 impl<'a> Tokenizer<'a> {
+    #[inline]
     pub fn new(source: &'a str) -> Self {
         Tokenizer {
             source: source,
-            byte_ptr: source.as_ptr(),
             index: 0,
-            length: source.len(),
             token: None,
             token_start: 0,
         }
@@ -792,7 +785,7 @@ impl<'a> Tokenizer<'a> {
     // Check if we are at the end of the source.
     #[inline]
     fn is_eof(&self) -> bool {
-        self.index == self.length
+        self.index == self.source.len()
     }
 
     // Read a byte from the source. Note that this does not increment
@@ -803,7 +796,7 @@ impl<'a> Tokenizer<'a> {
     // is virtually irrelevant.
     #[inline]
     fn read_byte(&self) -> u8 {
-        unsafe { *self.byte_ptr.offset(self.index as isize) }
+        unsafe { *self.source.as_ptr().offset(self.index as isize) }
     }
 
     #[inline]
