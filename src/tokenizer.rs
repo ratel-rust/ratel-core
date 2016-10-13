@@ -860,12 +860,12 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    // fn invalid_token(&self) -> Error {
-    //     Error::UnexpectedToken {
-    //         start: self.token_start,
-    //         end: self.index,
-    //     }
-    // }
+    pub fn invalid_token(&self) -> Error {
+        Error::UnexpectedToken {
+            start: self.token_start,
+            end: self.index,
+        }
+    }
 
     #[inline]
     fn read_binary(&mut self) -> LiteralValue {
@@ -1020,38 +1020,23 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn expect_identifier(&mut self) -> OwnedSlice {
-        match self.next().expect("TODO: Error Handling") {
-            Identifier(ident) => ident,
-            token             => panic!("Unexpected token `{:?}` {}", token, self.index)
+    pub fn expect_identifier(&mut self) -> Result<OwnedSlice> {
+        match try!(self.next()) {
+            Identifier(ident) => Ok(ident),
+            _                 => return Err(self.invalid_token())
         }
     }
 
     #[inline]
-    pub fn expect_semicolon(&mut self) {
-        match self.peek().expect("TODO: Error Handling") {
+    pub fn expect_semicolon(&mut self) -> Result<()> {
+        match try!(self.peek()) {
             Control(b';') => self.consume(),
             Control(b')') |
             Control(b'}') |
-            EndOfProgram  => return,
-            token         => panic!("Unexpected token `{:?}` {}", token, self.index)
+            EndOfProgram  => {},
+            _             => return Err(self.invalid_token())
         }
-    }
 
-    #[inline]
-    pub fn expect_control(&mut self, expected: u8) {
-        let token = self.next().expect("TODO: Error Handling");
-
-        if token != Control(expected) {
-            panic!("Unexpected token `{:?}` {}", token, self.index);
-        }
-    }
-
-    #[inline]
-    pub fn allow_control(&mut self) -> u8 {
-        match self.peek().expect("TODO: Error Handling") {
-            Control(byte) => byte,
-            _             => 0
-        }
+        Ok(())
     }
 }
