@@ -3,12 +3,13 @@ use lexicon::Token::*;
 use tokenizer::Tokenizer;
 use grammar::*;
 use grammar::OperatorType::*;
+use error::Result;
 
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
 macro_rules! allow {
     ($parser:ident, $p:pat) => {
-        match $parser.tokenizer.peek() {
+        match try!($parser.tokenizer.peek()) {
             $p => {
                 $parser.tokenizer.consume();
                 true
@@ -20,7 +21,7 @@ macro_rules! allow {
 
 macro_rules! unexpected_token {
     ($parser:ident) => ({
-        unexpected_token!($parser, $parser.tokenizer.next());
+        unexpected_token!($parser, try!($parser.tokenizer.next()));
     });
     ($parser:ident, $token:expr) => {
         panic!("Unexpected token {:?}", $token);
@@ -31,15 +32,15 @@ macro_rules! unexpected_token {
 /// end of program. If neither is found, but a LineTermination
 /// occured on previous token, parsing will continue as if a
 /// semicolon was present. In other cases cause a panic.
-macro_rules! statement {
-    ($parser:ident, $eval:expr) => ({
-        let value = $eval;
+// macro_rules! statement {
+//     ($parser:ident, $eval:expr) => ({
+//         let value = $eval;
 
-        $parser.tokenizer.expect_semicolon();
+//         $parser.tokenizer.expect_semicolon();
 
-        value
-    })
-}
+//         value
+//     })
+// }
 
 macro_rules! surround {
     ($parser:ident, $b1:expr, $eval:expr, $b2:expr) => ({
@@ -65,12 +66,12 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn array_expression(&mut self) -> Expression {
-        Expression::Array(self.expression_list(b']'))
+    fn array_expression(&mut self) -> Result<Expression> {
+        Ok(Expression::Array(try!(self.expression_list(b']'))))
     }
 
     #[inline]
-    fn object_member_list(&mut self) -> Vec<ObjectMember> {
+    fn object_member_list(&mut self) -> Result<Vec<ObjectMember>> {
         let mut list = Vec::new();
 
         loop {
@@ -79,7 +80,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            list.push(self.object_member());
+            list.push(try!(self.object_member()));
 
             if self.tokenizer.allow_control() == b'}' {
                 self.tokenizer.consume();
@@ -89,20 +90,20 @@ impl<'a> Parser<'a> {
             self.tokenizer.expect_control(b',');
         }
 
-        list
+        Ok(list)
     }
 
     #[inline]
-    fn object_member(&mut self) -> ObjectMember {
-        match self.tokenizer.next() {
+    fn object_member(&mut self) -> Result<ObjectMember> {
+        Ok(match try!(self.tokenizer.next()) {
             Identifier(key) | Literal(LiteralString(key)) => {
-                match self.tokenizer.peek() {
+                match try!(self.tokenizer.peek()) {
                     Control(b':') => {
                         self.tokenizer.consume();
 
                         ObjectMember::Literal {
                             key: key,
-                            value: self.expression(0),
+                            value: try!(self.expression(0)),
                         }
                     },
 
@@ -111,8 +112,8 @@ impl<'a> Parser<'a> {
 
                         ObjectMember::Method {
                             name: key,
-                            params: self.parameter_list(),
-                            body: self.block_body()
+                            params: try!(self.parameter_list()),
+                            body: try!(self.block_body())
                         }
                     },
 
@@ -122,19 +123,19 @@ impl<'a> Parser<'a> {
                 }
             },
             Control(b'[') => {
-                let key = self.expression(0);
+                let key = try!(self.expression(0));
 
                 self.tokenizer.expect_control(b']');
 
-                match self.tokenizer.next() {
+                match try!(self.tokenizer.next()) {
                     Control(b':') => ObjectMember::Computed {
                         key: key,
-                        value: self.expression(0),
+                        value: try!(self.expression(0)),
                     },
                     Control(b'(') => ObjectMember::ComputedMethod {
                         name: key,
-                        params: self.parameter_list(),
-                        body: self.block_body(),
+                        params: try!(self.parameter_list()),
+                        body: try!(self.block_body()),
                     },
                     token => unexpected_token!(self, token),
                 }
@@ -142,40 +143,40 @@ impl<'a> Parser<'a> {
             token => {
                 panic!("Expected object key, got {:?}", token)
             }
-        }
+        })
     }
 
     #[inline]
-    fn object_expression(&mut self) -> Expression {
-        Expression::Object(self.object_member_list())
+    fn object_expression(&mut self) -> Result<Expression> {
+        Ok(Expression::Object(try!(self.object_member_list())))
     }
 
     #[inline]
-    fn block_or_statement(&mut self) -> Statement {
+    fn block_or_statement(&mut self) -> Result<Statement> {
         match self.tokenizer.allow_control() {
             b'{' => {
                 self.tokenizer.consume();
 
-                Statement::Block {
-                    body: self.block_body_tail()
-                }
+                Ok(Statement::Block {
+                    body: try!(self.block_body_tail())
+                })
             },
             _ => {
-                let token = self.tokenizer.next();
+                let token = try!(self.tokenizer.next());
                 self.expression_statement(token)
             }
         }
     }
 
     #[inline]
-    fn block_statement(&mut self) -> Statement {
-        Statement::Block {
-            body: self.block_body_tail(),
-        }
+    fn block_statement(&mut self) -> Result<Statement> {
+        Ok(Statement::Block {
+            body: try!(self.block_body_tail()),
+        })
     }
 
     #[inline]
-    fn block_body_tail(&mut self) -> Vec<Statement> {
+    fn block_body_tail(&mut self) -> Result<Vec<Statement>> {
         let mut body = Vec::new();
 
         loop {
@@ -186,20 +187,20 @@ impl<'a> Parser<'a> {
             }
 
             body.push(
-                self.statement().expect("Unexpected end of statements block")
+                try!(self.statement()).expect("Unexpected end of statements block")
             )
         }
 
-        body
+        Ok(body)
     }
 
     #[inline]
-    fn block_body(&mut self) -> Vec<Statement> {
+    fn block_body(&mut self) -> Result<Vec<Statement>> {
         self.tokenizer.expect_control(b'{');
         self.block_body_tail()
     }
 
-    fn arrow_function_expression(&mut self, p: Option<Expression>) -> Expression {
+    fn arrow_function_expression(&mut self, p: Option<Expression>) -> Result<Expression> {
         let params: Vec<Parameter> = match p {
             None => Vec::new(),
             Some(Expression::Identifier(name)) => {
@@ -213,8 +214,7 @@ impl<'a> Parser<'a> {
                     }
                 }).collect()
             },
-            _ =>
-                panic!("Cannot cast {:?} to parameters", p),
+            _ => panic!("Cannot cast {:?} to parameters", p),
         };
 
         let body = match self.tokenizer.allow_control() {
@@ -222,33 +222,33 @@ impl<'a> Parser<'a> {
                 self.tokenizer.consume();
 
                 Statement::Block {
-                    body: self.block_body_tail()
+                    body: try!(self.block_body_tail())
                 }
             }
-            _    => self.expression(0).into()
+            _    => try!(self.expression(0)).into()
         };
 
-        Expression::ArrowFunction {
+        Ok(Expression::ArrowFunction {
             params: params,
             body: Box::new(body)
-        }
+        })
     }
 
     #[inline]
-    fn prefix_expression(&mut self, operator: OperatorType) -> Expression {
+    fn prefix_expression(&mut self, operator: OperatorType) -> Result<Expression> {
         if !operator.prefix() {
             panic!("Unexpected operator {:?}", operator);
         }
 
-        Expression::Prefix {
+        Ok(Expression::Prefix {
             operator: operator,
-            operand: Box::new(self.expression(15)),
-        }
+            operand: Box::new(try!(self.expression(15))),
+        })
     }
 
     #[inline]
-    fn infix_expression(&mut self, left: Expression, bp: u8, op: OperatorType) -> Expression {
-        match op {
+    fn infix_expression(&mut self, left: Expression, bp: u8, op: OperatorType) -> Result<Expression> {
+        Ok(match op {
             Increment | Decrement => Expression::Postfix {
                 operator: op,
                 operand: Box::new(left),
@@ -258,14 +258,14 @@ impl<'a> Parser<'a> {
 
             Conditional => Expression::Conditional {
                 test: Box::new(left),
-                consequent: Box::new(self.expression(bp)),
+                consequent: Box::new(try!(self.expression(bp))),
                 alternate: {
                     self.tokenizer.expect_control(b':');
-                    Box::new(self.expression(bp))
+                    Box::new(try!(self.expression(bp)))
                 }
             },
 
-            FatArrow => self.arrow_function_expression(Some(left)),
+            FatArrow => return self.arrow_function_expression(Some(left)),
 
             _ => {
                 if !op.infix() {
@@ -276,34 +276,34 @@ impl<'a> Parser<'a> {
                     // TODO: verify that left is assignable
                 }
 
-                Expression::binary(left, op, self.expression(bp))
+                Expression::binary(left, op, try!(self.expression(bp)))
             }
-        }
+        })
     }
 
-    fn function_expression(&mut self) -> Expression {
-        let name = match self.tokenizer.peek() {
+    fn function_expression(&mut self) -> Result<Expression> {
+        let name = match try!(self.tokenizer.peek()) {
             Identifier(name) => {
                 self.tokenizer.consume();
 
                 Some(name)
             },
-            _                => None
+            _ => None
         };
 
-        Expression::Function {
+        Ok(Expression::Function {
             name: name,
-            params: self.parameter_list(),
-            body: self.block_body(),
-        }
+            params: try!(self.parameter_list()),
+            body: try!(self.block_body()),
+        })
     }
 
     #[inline]
-    fn paren_expression(&mut self) -> Expression {
+    fn paren_expression(&mut self) -> Result<Expression> {
         if self.tokenizer.allow_control() == b')' {
             self.tokenizer.consume();
 
-            match self.tokenizer.next() {
+            match try!(self.tokenizer.next()) {
                 Operator(FatArrow) => {},
                 token              => unexpected_token!(self, token)
             }
@@ -311,45 +311,46 @@ impl<'a> Parser<'a> {
             return self.arrow_function_expression(None);
         }
 
-        let expression = self.sequence_or_expression();
+        let expression = try!(self.sequence_or_expression());
+
         self.tokenizer.expect_control(b')');
 
-        expression
+        Ok(expression)
     }
 
     #[inline]
-    fn sequence_or_expression_from_token(&mut self, token: Token) -> Expression {
-        let first = self.expression_from_token(token, 0);
+    fn sequence_or_expression_from_token(&mut self, token: Token) -> Result<Expression> {
+        let first = try!(self.expression_from_token(token, 0));
         self.sequence_or(first)
     }
 
     #[inline]
-    fn sequence_or(&mut self, first: Expression) -> Expression {
-        match self.tokenizer.allow_control() {
+    fn sequence_or(&mut self, first: Expression) -> Result<Expression> {
+        Ok(match self.tokenizer.allow_control() {
             b',' => {
                 self.tokenizer.consume();
 
-                let mut list = vec![first, self.expression(0)];
+                let mut list = vec![first, try!(self.expression(0))];
 
                 while self.tokenizer.allow_control() == b',' {
                     self.tokenizer.consume();
 
-                    list.push(self.expression(0));
+                    list.push(try!(self.expression(0)));
                 }
 
                 Expression::Sequence(list)
             },
             _ => first
-        }
+        })
     }
 
     #[inline]
-    fn sequence_or_expression(&mut self) -> Expression {
-        let token = self.tokenizer.next();
+    fn sequence_or_expression(&mut self) -> Result<Expression> {
+        let token = try!(self.tokenizer.next());
         self.sequence_or_expression_from_token(token)
     }
 
-    fn expression_list(&mut self, terminator: u8) -> Vec<Expression> {
+    fn expression_list(&mut self, terminator: u8) -> Result<Vec<Expression>> {
         let mut list = Vec::new();
 
         loop {
@@ -358,7 +359,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            list.push(self.expression(0));
+            list.push(try!(self.expression(0)));
 
             if self.tokenizer.allow_control() == terminator {
                 self.tokenizer.consume();
@@ -368,35 +369,35 @@ impl<'a> Parser<'a> {
             self.tokenizer.expect_control(b',');
         }
 
-        list
+        Ok(list)
     }
 
     #[inline]
-    fn expression(&mut self, lbp: u8) -> Expression {
-        let token = self.tokenizer.next();
+    fn expression(&mut self, lbp: u8) -> Result<Expression> {
+        let token = try!(self.tokenizer.next());
         self.expression_from_token(token, lbp)
     }
 
     #[inline]
-    fn expression_from_token(&mut self, token: Token, lbp: u8) -> Expression {
+    fn expression_from_token(&mut self, token: Token, lbp: u8) -> Result<Expression> {
         let left = match token {
             This              => Expression::This,
             Literal(value)    => Expression::Literal(value),
             Identifier(value) => value.into(),
-            Operator(optype)  => self.prefix_expression(optype),
-            Control(b'(')     => self.paren_expression(),
-            Control(b'[')     => self.array_expression(),
-            Control(b'{')     => self.object_expression(),
-            Function          => self.function_expression(),
+            Operator(optype)  => try!(self.prefix_expression(optype)),
+            Control(b'(')     => try!(self.paren_expression()),
+            Control(b'[')     => try!(self.array_expression()),
+            Control(b'{')     => try!(self.object_expression()),
+            Function          => try!(self.function_expression()),
             token             => unexpected_token!(self, token)
         };
 
         self.complex_expression(left, lbp)
     }
 
-    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Expression {
+    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Result<Expression> {
         loop {
-            left = match self.tokenizer.peek() {
+            left = match try!(self.tokenizer.peek()) {
                 Operator(op) => {
                     let rbp = op.binding_power();
 
@@ -406,7 +407,7 @@ impl<'a> Parser<'a> {
 
                     self.tokenizer.consume();
 
-                    self.infix_expression(left, rbp, op)
+                    try!(self.infix_expression(left, rbp, op))
                 },
 
                 Control(b'(') => {
@@ -418,7 +419,7 @@ impl<'a> Parser<'a> {
 
                     Expression::Call {
                         callee: Box::new(left),
-                        arguments: self.expression_list(b')'),
+                        arguments: try!(self.expression_list(b')')),
                     }
                 },
 
@@ -429,7 +430,7 @@ impl<'a> Parser<'a> {
 
                     self.tokenizer.consume();
 
-                    let property = self.sequence_or_expression();
+                    let property = try!(self.sequence_or_expression());
 
                     self.tokenizer.expect_control(b']');
 
@@ -443,23 +444,21 @@ impl<'a> Parser<'a> {
             }
         }
 
-        left
+        Ok(left)
     }
 
     /// Helper for the `for` loops that doesn't consume semicolons
-    fn variable_declaration(
-        &mut self, kind: VariableDeclarationKind
-    ) -> Statement {
+    fn variable_declaration(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
         let mut declarators = Vec::new();
 
         loop {
             declarators.push(VariableDeclarator {
                 name: self.tokenizer.expect_identifier(),
-                value: match self.tokenizer.peek() {
+                value: match try!(self.tokenizer.peek()) {
                     Operator(Assign) => {
                         self.tokenizer.consume();
 
-                        Some(self.expression(0))
+                        Some(try!(self.expression(0)))
                     },
                     _ => None
                 }
@@ -474,71 +473,89 @@ impl<'a> Parser<'a> {
             break;
         }
 
-        Statement::VariableDeclaration {
+        Ok(Statement::VariableDeclaration {
             kind: kind,
             declarators: declarators,
-        }
+        })
     }
 
     #[inline]
-    fn variable_declaration_statement(
-        &mut self, kind: VariableDeclarationKind
-    ) -> Statement {
-        statement!(self, self.variable_declaration(kind))
+    fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
+        let statement = try!(self.variable_declaration(kind));
+
+        self.tokenizer.expect_semicolon();
+
+        Ok(statement)
     }
 
     #[inline]
-    fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Statement {
-        match self.tokenizer.allow_control() {
+    fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Result<Statement> {
+        Ok(match self.tokenizer.allow_control() {
             b':' => {
                 self.tokenizer.consume();
 
                 Statement::Labeled {
                     label: label,
-                    body: Box::new(self.statement().expect("Expected statement")),
+                    body: Box::new(self.statement().unwrap().expect("Expected statement")),
                 }
             },
             _ => {
-                let first = self.complex_expression(label.into(), 0);
+                let first = try!(self.complex_expression(label.into(), 0));
 
-                statement!(self, self.sequence_or(first).into())
+                let statement = try!(self.sequence_or(first)).into();
+
+                self.tokenizer.expect_semicolon();
+
+                statement
             }
-        }
+        })
     }
 
     #[inline]
-    fn expression_statement(&mut self, token: Token) -> Statement {
-        statement!(self, self.sequence_or_expression_from_token(token).into())
+    fn expression_statement(&mut self, token: Token) -> Result<Statement> {
+        let statement = try!(self.sequence_or_expression_from_token(token)).into();
+
+        self.tokenizer.expect_semicolon();
+
+        Ok(statement)
     }
 
     #[inline]
-    fn return_statement(&mut self) -> Statement {
-        statement!(self, Statement::Return {
-            value: match self.tokenizer.peek() {
+    fn return_statement(&mut self) -> Result<Statement> {
+        let statement = Statement::Return {
+            value: match try!(self.tokenizer.peek()) {
                 EndOfProgram  => None,
                 Control(b';') => None,
                 _             => {
                     if self.allow_asi {
                         None
                     } else {
-                        Some(self.sequence_or_expression())
+                        Some(try!(self.sequence_or_expression()))
                     }
                 }
             }
-        })
+        };
+
+        self.tokenizer.expect_semicolon();
+
+        Ok(statement)
     }
 
     #[inline]
-    fn throw_statement(&mut self) -> Statement {
-        statement!(self, Statement::Throw {
-            value: self.sequence_or_expression()
-        })
+    fn throw_statement(&mut self) -> Result<Statement> {
+        let statement = Statement::Throw {
+            value: try!(self.sequence_or_expression())
+        };
+
+        self.tokenizer.expect_semicolon();
+
+        Ok(statement)
     }
 
     #[inline]
-    fn break_statement(&mut self) -> Statement {
-        statement!(self, Statement::Break {
-            label: match self.tokenizer.peek() {
+    fn break_statement(&mut self) -> Result<Statement> {
+        let statement = Statement::Break {
+            label: match try!(self.tokenizer.peek()) {
                 EndOfProgram  => None,
                 Control(b';') => None,
                 _             => {
@@ -549,136 +566,139 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-        })
+        };
+
+        self.tokenizer.expect_semicolon();
+
+        Ok(statement)
     }
 
-    fn if_statement(&mut self) -> Statement {
-        let test = surround!(self, b'(', self.expression(0), b')');
-        let consequent = Box::new(self.block_or_statement());
+    fn if_statement(&mut self) -> Result<Statement> {
+        let test = surround!(self, b'(', try!(self.expression(0)), b')');
+        let consequent = Box::new(try!(self.block_or_statement()));
         let alternate = if allow!(self, Else) {
             if allow!(self, If) {
-                Some(Box::new(self.if_statement()))
+                Some(Box::new(try!(self.if_statement())))
             } else {
-                Some(Box::new(self.block_or_statement()))
+                Some(Box::new(try!(self.block_or_statement())))
             }
         } else {
             None
         };
 
-        Statement::If {
+        Ok(Statement::If {
             test: test,
             consequent: consequent,
             alternate: alternate,
-        }
+        })
     }
 
     #[inline]
-    fn while_statement(&mut self) -> Statement {
-        Statement::While {
-            test: surround!(self, b'(', self.expression(0), b')'),
-            body: Box::new(self.block_or_statement()),
-        }
+    fn while_statement(&mut self) -> Result<Statement> {
+        Ok(Statement::While {
+            test: surround!(self, b'(', try!(self.expression(0)), b')'),
+            body: Box::new(try!(self.block_or_statement())),
+        })
     }
 
-    #[inline]
-    fn for_statement(&mut self) -> Statement {
-        self.tokenizer.expect_control(b'(');
+    // #[inline]
+    // fn for_statement(&mut self) -> Result<Statement> {
+    //     self.tokenizer.expect_control(b'(');
 
-        let init = match self.tokenizer.next() {
-            Control(b';')     => None,
+    //     let init = match try!(self.tokenizer.next()) {
+    //         Control(b';')     => None,
 
-            Declaration(kind) => Some(Box::new(self.variable_declaration(kind))),
+    //         Declaration(kind) => Some(Box::new(self.variable_declaration(kind))),
 
-            token             => {
-                let expression = self.sequence_or_expression_from_token(token);
+    //         token             => {
+    //             let expression = try!(self.sequence_or_expression_from_token(token));
 
-                if let Expression::Binary {
-                    left,
-                    operator: In,
-                    right,
-                } = expression {
-                    return self.for_in_statement_from_expressions(*left, *right);
-                }
+    //             if let Expression::Binary {
+    //                 left,
+    //                 operator: In,
+    //                 right,
+    //             } = expression {
+    //                 return try!(self.for_in_statement_from_expressions(*left, *right));
+    //             }
 
-                Some(Box::new(expression.into()))
-            },
-        };
-        if init.is_some() {
-            match self.tokenizer.next() {
-                Operator(In)      => return self.for_in_statement(init),
-                Identifier(ident) => {
-                    let slice = ident.as_str();
-                    if slice != "of" {
-                        panic!("Unexpected identifier {}", slice);
-                    }
-                    return self.for_of_statement(init.unwrap());
-                },
-                Control(b';')     => {},
-                token             => unexpected_token!(self, token),
-            }
-        }
+    //             Some(Box::new(expression.into()))
+    //         },
+    //     };
+    //     if init.is_some() {
+    //         match try!(self.tokenizer.next()) {
+    //             Operator(In)      => return self.for_in_statement(init),
+    //             Identifier(ident) => {
+    //                 let slice = ident.as_str();
+    //                 if slice != "of" {
+    //                     panic!("Unexpected identifier {}", slice);
+    //                 }
+    //                 return try!(self.for_of_statement(init.unwrap()));
+    //             },
+    //             Control(b';')     => {},
+    //             token             => unexpected_token!(self, token),
+    //         }
+    //     }
 
-        let test = match self.tokenizer.next() {
-            Control(b';') => None,
-            token         => Some(self.sequence_or_expression_from_token(token)),
-        };
-        if !test.is_none() {
-            self.tokenizer.expect_control(b';')
-        }
+    //     let test = match try!(self.tokenizer.next()) {
+    //         Control(b';') => None,
+    //         token         => Some(try!(self.sequence_or_expression_from_token(token))),
+    //     };
+    //     if !test.is_none() {
+    //         self.tokenizer.expect_control(b';')
+    //     }
 
-        let update = match self.tokenizer.next() {
-            Control(b')') => None,
-            token         => Some(self.sequence_or_expression_from_token(token)),
-        };
-        if !update.is_none() {
-            self.tokenizer.expect_control(b')');
-        }
+    //     let update = match try!(self.tokenizer.next()) {
+    //         Control(b')') => None,
+    //         token         => Some(try!(self.sequence_or_expression_from_token(token))),
+    //     };
+    //     if !update.is_none() {
+    //         self.tokenizer.expect_control(b')');
+    //     }
 
-        Statement::For {
-            init: init,
-            test: test,
-            update: update,
-            body: Box::new(self.block_or_statement()),
-        }
-    }
+    //     Ok(Statement::For {
+    //         init: init,
+    //         test: test,
+    //         update: update,
+    //         body: Box::new(try!(self.block_or_statement())),
+    //     })
+    // }
 
-    fn for_in_statement_from_expressions(
-        &mut self, left: Expression, right: Expression
-    ) -> Statement {
-        let left = Box::new(left.into());
-        self.tokenizer.expect_control(b')');
+    // fn for_in_statement_from_expressions(&mut self, left: Expression, right: Expression)
+    // -> Result<Statement> {
+    //     let left = Box::new(left.into());
+    //     self.tokenizer.expect_control(b')');
 
-        Statement::ForIn {
-            left: left,
-            right: right,
-            body: Box::new(self.block_or_statement()),
-        }
-    }
+    //     Ok(Statement::ForIn {
+    //         left: left,
+    //         right: right,
+    //         body: Box::new(try!(self.block_or_statement())),
+    //     })
+    // }
 
-    fn for_in_statement(&mut self, left: Option<Box<Statement>>) -> Statement {
-        let left = left.unwrap();
-        let right = self.sequence_or_expression();
-        self.tokenizer.expect_control(b')');
+    // fn for_in_statement(&mut self, left: Option<Box<Statement>>) -> Result<Statement> {
+    //     let left = left.unwrap();
+    //     let right = self.sequence_or_expression();
+    //     self.tokenizer.expect_control(b')');
 
-        Statement::ForIn {
-            left: left,
-            right: right,
-            body: Box::new(self.block_or_statement()),
-        }
-    }
+    //     Ok(Statement::ForIn {
+    //         left: left,
+    //         right: right,
+    //         body: Box::new(try!(self.block_or_statement())),
+    //     })
+    // }
 
-    fn for_of_statement(&mut self, left: Box<Statement>) -> Statement {
-        let right = self.sequence_or_expression();
-        self.tokenizer.expect_control(b')');
+    // fn for_of_statement(&mut self, left: Box<Statement>) -> Result<Statement> {
+    //     let right = self.sequence_or_expression();
+    //     self.tokenizer.expect_control(b')');
 
-        Statement::ForOf {
-            left: left,
-            right: right,
-            body: Box::new(self.block_or_statement()),
-        }
-    }
+    //     Ok(Statement::ForOf {
+    //         left: left,
+    //         right: right,
+    //         body: Box::new(try!(self.block_or_statement())),
+    //     })
+    // }
 
-    fn parameter_list(&mut self) -> Vec<Parameter> {
+    fn parameter_list(&mut self) -> Result<Vec<Parameter>> {
         let mut list = Vec::new();
 
         loop {
@@ -687,7 +707,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            list.push(self.parameter());
+            list.push(try!(self.parameter()));
 
             if self.tokenizer.allow_control() == b')' {
                 self.tokenizer.consume();
@@ -697,45 +717,45 @@ impl<'a> Parser<'a> {
             self.tokenizer.expect_control(b',');
         }
 
-        list
+        Ok(list)
     }
 
     #[inline]
-    fn parameter(&mut self) -> Parameter {
-        Parameter {
+    fn parameter(&mut self) -> Result<Parameter> {
+        Ok(Parameter {
             name: self.tokenizer.expect_identifier()
-        }
+        })
     }
 
     #[inline]
-    fn function_statement(&mut self) -> Statement {
+    fn function_statement(&mut self) -> Result<Statement> {
         let name = self.tokenizer.expect_identifier();
 
         self.tokenizer.expect_control(b'(');
 
-        Statement::Function {
+        Ok(Statement::Function {
             name: name,
-            params: self.parameter_list(),
-            body: self.block_body(),
-        }
+            params: try!(self.parameter_list()),
+            body: try!(self.block_body()),
+        })
     }
 
-    fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> ClassMember {
-        match self.tokenizer.peek() {
+    fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> Result<ClassMember> {
+        Ok(match try!(self.tokenizer.peek()) {
             Control(b'(') => {
                 self.tokenizer.consume();
 
                 if !is_static && name.as_str() == "constructor" {
                     ClassMember::Constructor {
-                        params: self.parameter_list(),
-                        body: self.block_body(),
+                        params: try!(self.parameter_list()),
+                        body: try!(self.block_body()),
                     }
                 } else {
                     ClassMember::Method {
                         is_static: is_static,
                         name: name,
-                        params: self.parameter_list(),
-                        body: self.block_body(),
+                        params: try!(self.parameter_list()),
+                        body: try!(self.block_body()),
                     }
                 }
             },
@@ -745,17 +765,17 @@ impl<'a> Parser<'a> {
                 ClassMember::Property {
                     is_static: is_static,
                     name: name,
-                    value: self.expression(0),
+                    value: try!(self.expression(0)),
                 }
             },
             _ => unexpected_token!(self),
-        }
+        })
     }
 
     #[inline]
-    fn class_statement(&mut self) -> Statement {
+    fn class_statement(&mut self) -> Result<Statement> {
         let name = self.tokenizer.expect_identifier();
-        let super_class = match self.tokenizer.next() {
+        let super_class = match try!(self.tokenizer.next()) {
             Extends => {
                 let name = self.tokenizer.expect_identifier();
                 self.tokenizer.expect_control(b'{');
@@ -768,11 +788,12 @@ impl<'a> Parser<'a> {
         let mut members = Vec::new();
 
         loop {
-            members.push(match self.tokenizer.next() {
-                Identifier(name) => self.class_member(name, false),
+            members.push(match try!(self.tokenizer.next()) {
+                Identifier(name) => try!(self.class_member(name, false)),
                 Static           => {
                     let name = self.tokenizer.expect_identifier();
-                    self.class_member(name, true)
+
+                    try!(self.class_member(name, true))
                 },
                 Control(b';')    => continue,
                 Control(b'}')    => break,
@@ -780,45 +801,57 @@ impl<'a> Parser<'a> {
             });
         }
 
-        Statement::Class {
+        Ok(Statement::Class {
             name: name,
             extends: super_class,
             body: members,
-        }
+        })
     }
 
-    fn statement(&mut self) -> Option<Statement> {
-        let token = self.tokenizer.next();
+    fn statement(&mut self) -> Result<Option<Statement>> {
+        let token = try!(self.tokenizer.next());
 
-        Some(match token {
-            EndOfProgram      => return None,
+        Ok(Some(match token {
+            EndOfProgram      => return Ok(None),
             Control(b';')     => Statement::Transparent { body: Vec::new() },
-            Control(b'{')     => self.block_statement(),
-            Declaration(kind) => self.variable_declaration_statement(kind),
-            Return            => self.return_statement(),
-            Break             => self.break_statement(),
-            Function          => self.function_statement(),
-            Class             => self.class_statement(),
-            If                => self.if_statement(),
-            While             => self.while_statement(),
-            For               => self.for_statement(),
-            Identifier(label) => self.labeled_or_expression_statement(label),
-            Throw             => self.throw_statement(),
-            token             => self.expression_statement(token),
-        })
+            Control(b'{')     => try!(self.block_statement()),
+            Declaration(kind) => try!(self.variable_declaration_statement(kind)),
+            Return            => try!(self.return_statement()),
+            Break             => try!(self.break_statement()),
+            Function          => try!(self.function_statement()),
+            Class             => try!(self.class_statement()),
+            If                => try!(self.if_statement()),
+            While             => try!(self.while_statement()),
+            // For               => try!(self.for_statement()),
+            Identifier(label) => try!(self.labeled_or_expression_statement(label)),
+            Throw             => try!(self.throw_statement()),
+            token             => try!(self.expression_statement(token)),
+        }))
     }
 }
 
 pub fn parse(source: String) -> Program {
     let mut body = Vec::new();
+    let mut error = None;
 
     {
         let mut parser = Parser::new(&source);
 
-        while let Some(statement) = parser.statement() {
-            body.push(statement);
+        loop {
+            match parser.statement() {
+                Ok(Some(statement)) => body.push(statement),
+                Ok(None)            => break,
+                Err(err)            => {
+                    error = Some(err);
+                    break;
+                }
+            }
         }
     }
 
-    Program::new(source, body)
+    Program {
+        source: source,
+        body: body,
+        error: error
+    }
 }

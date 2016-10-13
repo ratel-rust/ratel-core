@@ -1,11 +1,11 @@
 [package]
-name = "badger"
-version = "0.2.2"
+name = "ratel"
+version = "0.2.3"
 authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
 license = "MIT"
 description = "JavaScript transpiler in Rust"
-repository = "https://github.com/HoneyBadger-rust/HoneyBadger"
-documentation = "https://github.com/HoneyBadger-rust/HoneyBadger"
+repository = "https://github.com/ratel-rust/ratel-core"
+documentation = "https://github.com/ratel-rust/ratel-core"
 
 [dependencies]
 docopt = "0.6.78"

@@ -958,29 +958,29 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    pub fn peek(&mut self) -> Token {
+    pub fn peek(&mut self) -> Result<Token> {
         match self.token {
-            Some(token) => token,
+            Some(token) => Ok(token),
 
             None => {
-                let token = self.get_token().unwrap();
+                let token = try!(self.get_token());
 
                 self.token = Some(token);
 
-                token
+                Ok(token)
             }
         }
     }
 
     #[inline]
-    pub fn next(&mut self) -> Token {
+    pub fn next(&mut self) -> Result<Token> {
         match self.token {
             Some(token) => {
                 self.consume();
 
-                token
+                Ok(token)
             },
-            None => self.get_token().unwrap()
+            None => self.get_token()
         }
     }
 
@@ -1021,7 +1021,7 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     pub fn expect_identifier(&mut self) -> OwnedSlice {
-        match self.next() {
+        match self.next().expect("TODO: Error Handling") {
             Identifier(ident) => ident,
             token             => panic!("Unexpected token `{:?}` {}", token, self.index)
         }
@@ -1029,7 +1029,7 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     pub fn expect_semicolon(&mut self) {
-        match self.peek() {
+        match self.peek().expect("TODO: Error Handling") {
             Control(b';') => self.consume(),
             Control(b')') |
             Control(b'}') |
@@ -1040,7 +1040,7 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     pub fn expect_control(&mut self, expected: u8) {
-        let token = self.next();
+        let token = self.next().expect("TODO: Error Handling");
 
         if token != Control(expected) {
             panic!("Unexpected token `{:?}` {}", token, self.index);
@@ -1049,7 +1049,7 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     pub fn allow_control(&mut self) -> u8 {
-        match self.peek() {
+        match self.peek().expect("TODO: Error Handling") {
             Control(byte) => byte,
             _             => 0
         }

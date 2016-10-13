@@ -1,13 +1,5 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
-    UnexpectedEndOfProgram,
-    UnexpectedToken {
-        start: usize,
-        end: usize,
-    },
-}
-
-pub enum ParsingError {
     UnexpectedEndOfProgram,
     UnexpectedToken {
         start: usize,
