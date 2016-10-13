@@ -3,7 +3,7 @@ use lexicon::Token::*;
 use tokenizer::Tokenizer;
 use grammar::*;
 use grammar::OperatorType::*;
-use error::Result;
+use error::{Result, Error};
 
 /// If the next token matches `$p`, consume that token and return
 /// true, else do nothing and return false
@@ -173,7 +173,10 @@ impl<'a> Parser<'a> {
             }
 
             body.push(
-                try!(self.statement()).expect("Unexpected end of statements block")
+                match try!(self.statement()) {
+                    Some(statement) => statement,
+                    None            => return Err(Error::UnexpectedEndOfProgram)
+                }
             )
         }
 
@@ -484,7 +487,12 @@ impl<'a> Parser<'a> {
 
                 Statement::Labeled {
                     label: label,
-                    body: Box::new(self.statement().unwrap().expect("Expected statement")),
+                    body: Box::new(
+                        match try!(self.statement()) {
+                            Some(statement) => statement,
+                            None            => return Err(Error::UnexpectedEndOfProgram)
+                        }
+                    )
                 }
             },
             _ => {
@@ -612,9 +620,10 @@ impl<'a> Parser<'a> {
                 Some(Box::new(expression.into()))
             },
         };
+
         if init.is_some() {
             match try!(self.tokenizer.next()) {
-                Operator(In)      => return self.for_in_statement(init),
+                Operator(In)      => return self.for_in_statement(init.unwrap()),
                 Identifier(ident) => {
                     if ident.as_str() != "of" {
                         unexpected_token!(self);
@@ -664,8 +673,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn for_in_statement(&mut self, left: Option<Box<Statement>>) -> Result<Statement> {
-        let left = left.unwrap();
+    fn for_in_statement(&mut self, left: Box<Statement>) -> Result<Statement> {
         let right = try!(self.sequence_or_expression());
 
         expect!(self, Control(b')'));

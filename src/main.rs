@@ -100,6 +100,10 @@ fn main() {
     let mut ast = parser::parse(source);
     let parse_duration = Instant::now().duration_since(start);
 
+    if ast.error.is_some() {
+        panic!("Parsing error: {:?}", ast.error.unwrap());
+    }
+
     if args.flag_ast {
         println!("{:#?}", ast);
         print_ms("Parsing", &parse_duration);
