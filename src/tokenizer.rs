@@ -791,9 +791,6 @@ pub struct Tokenizer<'a> {
     // Current index
     index: usize,
 
-    // Current token
-    token: Option<Token>,
-
     // Index of current token in source
     token_start: usize,
 }
@@ -805,8 +802,29 @@ impl<'a> Tokenizer<'a> {
         Tokenizer {
             source: source,
             index: 0,
-            token: None,
             token_start: 0,
+        }
+    }
+
+    #[inline]
+    pub fn get_token(&mut self) -> Result<Token> {
+        self.consume_whitespace();
+
+        self.token_start = self.index;
+
+        if self.is_eof() {
+            return Ok(EndOfProgram);
+        }
+
+        let ch = self.read_byte();
+
+        BYTE_HANDLERS[ch as usize](self, ch)
+    }
+
+    pub fn invalid_token(&self) -> Error {
+        Error::UnexpectedToken {
+            start: self.token_start,
+            end: self.index,
         }
     }
 
@@ -843,6 +861,22 @@ impl<'a> Tokenizer<'a> {
         self.index += 1;
     }
 
+
+    #[inline]
+    fn consume_whitespace(&mut self) {
+        while !self.is_eof() {
+            let ch = self.read_byte();
+
+            // if ch <= 0x20 {
+            if whitespace::TABLE[ch as usize] {
+                self.bump();
+                continue;
+            }
+
+            return;
+        }
+    }
+
     fn invalid_character(&self) -> Error {
         if self.is_eof() {
             return Error::UnexpectedEndOfProgram;
@@ -857,13 +891,6 @@ impl<'a> Tokenizer<'a> {
         Error::UnexpectedToken {
             start: self.index,
             end: self.index + len,
-        }
-    }
-
-    pub fn invalid_token(&self) -> Error {
-        Error::UnexpectedToken {
-            start: self.token_start,
-            end: self.index,
         }
     }
 
@@ -957,86 +984,4 @@ impl<'a> Tokenizer<'a> {
         })
     }
 
-    #[inline]
-    pub fn peek(&mut self) -> Result<Token> {
-        match self.token {
-            Some(token) => Ok(token),
-
-            None => {
-                let token = try!(self.get_token());
-
-                self.token = Some(token);
-
-                Ok(token)
-            }
-        }
-    }
-
-    #[inline]
-    pub fn next(&mut self) -> Result<Token> {
-        match self.token {
-            Some(token) => {
-                self.consume();
-
-                Ok(token)
-            },
-            None => self.get_token()
-        }
-    }
-
-    #[inline]
-    pub fn consume(&mut self) {
-        self.token = None;
-    }
-
-    #[inline]
-    fn get_token(&mut self) -> Result<Token> {
-        self.consume_whitespace();
-
-        self.token_start = self.index;
-
-        if self.is_eof() {
-            return Ok(EndOfProgram);
-        }
-
-        let ch = self.read_byte();
-
-        BYTE_HANDLERS[ch as usize](self, ch)
-    }
-
-    #[inline]
-    fn consume_whitespace(&mut self) {
-        while !self.is_eof() {
-            let ch = self.read_byte();
-
-            // if ch <= 0x20 {
-            if whitespace::TABLE[ch as usize] {
-                self.bump();
-                continue;
-            }
-
-            return;
-        }
-    }
-
-    #[inline]
-    pub fn expect_identifier(&mut self) -> Result<OwnedSlice> {
-        match try!(self.next()) {
-            Identifier(ident) => Ok(ident),
-            _                 => return Err(self.invalid_token())
-        }
-    }
-
-    #[inline]
-    pub fn expect_semicolon(&mut self) -> Result<()> {
-        match try!(self.peek()) {
-            Control(b';') => self.consume(),
-            Control(b')') |
-            Control(b'}') |
-            EndOfProgram  => {},
-            _             => return Err(self.invalid_token())
-        }
-
-        Ok(())
-    }
 }

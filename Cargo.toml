@@ -7,6 +7,9 @@ description = "JavaScript transpiler in Rust"
 repository = "https://github.com/ratel-rust/ratel-core"
 documentation = "https://github.com/ratel-rust/ratel-core"
 
+[profile.release]
+panic = "abort"
+
 [dependencies]
 docopt = "0.6.78"
 rustc-serialize = "0.3.16"
