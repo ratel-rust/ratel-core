@@ -3,7 +3,7 @@ use lexicon::Token::*;
 use tokenizer::Tokenizer;
 use grammar::*;
 use grammar::OperatorType::*;
-use error::{Result, Error};
+use error::Result;
 
 /// Peek on the next token. Return with an error if tokenizer fails.
 macro_rules! peek {
@@ -125,9 +125,13 @@ impl<'a> Parser<'a> {
         let mut list = Vec::new();
 
         loop {
-            allow!(self, Control(b']') => break);
-
-            list.push(try!(self.expression(0)));
+            match next!(self) {
+                Control(b')') => break,
+                token         => {
+                    let expression = try!(self.expression_from_token(token, 0));
+                    list.push(expression);
+                }
+            }
 
             match next!(self) {
                 Control(b']') => break,
@@ -144,9 +148,12 @@ impl<'a> Parser<'a> {
         let mut list = Vec::new();
 
         loop {
-            allow!(self, Control(b'}') => break);
-
-            list.push(try!(self.object_member()));
+            match next!(self) {
+                Control(b'}') => break,
+                token         => {
+                    list.push(try!(self.object_member(token)));
+                }
+            }
 
             match next!(self) {
                 Control(b'}') => break,
@@ -159,8 +166,8 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn object_member(&mut self) -> Result<ObjectMember> {
-        Ok(match next!(self) {
+    fn object_member(&mut self, token: Token) -> Result<ObjectMember> {
+        Ok(match token {
             Identifier(key) | Literal(LiteralString(key)) => {
                 match peek!(self) {
                     Control(b':') => {
@@ -422,9 +429,13 @@ impl<'a> Parser<'a> {
         let mut list = Vec::new();
 
         loop {
-            allow!(self, Control(b')') => break);
-
-            list.push(try!(self.expression(0)));
+            match next!(self) {
+                Control(b')') => break,
+                token         => {
+                    let expression = try!(self.expression_from_token(token, 0));
+                    list.push(expression);
+                }
+            }
 
             match next!(self) {
                 Control(b')') => break,
@@ -788,9 +799,15 @@ impl<'a> Parser<'a> {
         let mut list = Vec::new();
 
         loop {
-            allow!(self, Control(b')') => break);
-
-            list.push(try!(self.parameter()));
+            match next!(self) {
+                Control(b')')    => break,
+                Identifier(name) => {
+                    list.push(Parameter {
+                        name: name
+                    });
+                },
+                _ => unexpected_token!(self)
+            }
 
             match next!(self) {
                 Control(b')') => break,
@@ -800,13 +817,6 @@ impl<'a> Parser<'a> {
         }
 
         Ok(list)
-    }
-
-    #[inline]
-    fn parameter(&mut self) -> Result<Parameter> {
-        Ok(Parameter {
-            name: expect_identifier!(self)
-        })
     }
 
     #[inline]
@@ -823,10 +833,8 @@ impl<'a> Parser<'a> {
     }
 
     fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> Result<ClassMember> {
-        Ok(match peek!(self) {
+        Ok(match next!(self) {
             Control(b'(') => {
-                self.consume();
-
                 if !is_static && name.as_str() == "constructor" {
                     ClassMember::Constructor {
                         params: try!(self.parameter_list()),
@@ -842,8 +850,6 @@ impl<'a> Parser<'a> {
                 }
             },
             Operator(Assign) => {
-                self.consume();
-
                 ClassMember::Property {
                     is_static: is_static,
                     name: name,
@@ -890,6 +896,7 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
             Control(b';')     => Ok(Statement::Transparent { body: Vec::new() }),
@@ -904,7 +911,7 @@ impl<'a> Parser<'a> {
             For               => self.for_statement(),
             Identifier(label) => self.labeled_or_expression_statement(label),
             Throw             => self.throw_statement(),
-            token             => self.expression_statement(token),
+            _                 => self.expression_statement(token),
         }
     }
 
