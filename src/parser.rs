@@ -122,7 +122,21 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn array_expression(&mut self) -> Result<Expression> {
-        Ok(Expression::Array(try!(self.expression_list(Control(b']')))))
+        let mut list = Vec::new();
+
+        loop {
+            allow!(self, Control(b']') => break);
+
+            list.push(try!(self.expression(0)));
+
+            match next!(self) {
+                Control(b']') => break,
+                Control(b',') => continue,
+                _             => unexpected_token!(self)
+            }
+        }
+
+        Ok(Expression::Array(list))
     }
 
     #[inline]
@@ -134,9 +148,11 @@ impl<'a> Parser<'a> {
 
             list.push(try!(self.object_member()));
 
-            allow!(self, Control(b'}') => break);
-
-            expect!(self, Control(b','));
+            match next!(self) {
+                Control(b'}') => break,
+                Control(b',') => continue,
+                _             => unexpected_token!(self)
+            }
         }
 
         Ok(list)
@@ -227,14 +243,10 @@ impl<'a> Parser<'a> {
         let mut body = Vec::new();
 
         loop {
-            allow!(self, Control(b'}') => break);
-
-            body.push(
-                match try!(self.statement()) {
-                    Some(statement) => statement,
-                    None            => return Err(Error::UnexpectedEndOfProgram)
-                }
-            )
+            body.push(match next!(self) {
+                Control(b'}') => break,
+                token         => try!(self.statement(token))
+            });
         }
 
         Ok(body)
@@ -352,17 +364,27 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn paren_expression(&mut self) -> Result<Expression> {
-        allow!(self, Control(b')') => {
-            expect!(self, Operator(FatArrow));
+        match next!(self) {
+            Control(b')') => {
+                expect!(self, Operator(FatArrow));
 
-            return self.arrow_function_expression(None);
-        });
+                self.arrow_function_expression(None)
+            },
+            token => {
+                let expression = try!(self.expression_from_token(token, 0));
+                let expression = try!(self.sequence_or(expression));
 
-        let expression = try!(self.sequence_or_expression());
+                expect!(self, Control(b')'));
 
-        expect!(self, Control(b')'));
+                Ok(expression)
+            }
+        }
+    }
 
-        Ok(expression)
+    #[inline]
+    fn sequence_or_expression(&mut self) -> Result<Expression> {
+        let token = next!(self);
+        self.sequence_or_expression_from_token(token)
     }
 
     #[inline]
@@ -396,29 +418,19 @@ impl<'a> Parser<'a> {
         })
     }
 
-    #[inline]
-    fn sequence_or_expression(&mut self) -> Result<Expression> {
-        let token = next!(self);
-        self.sequence_or_expression_from_token(token)
-    }
-
-    fn expression_list(&mut self, terminator: Token) -> Result<Vec<Expression>> {
+    fn expression_list(&mut self) -> Result<Vec<Expression>> {
         let mut list = Vec::new();
 
         loop {
-            if peek!(self) == terminator {
-                self.consume();
-                break;
-            }
+            allow!(self, Control(b')') => break);
 
             list.push(try!(self.expression(0)));
 
-            if peek!(self) == terminator {
-                self.consume();
-                break;
+            match next!(self) {
+                Control(b')') => break,
+                Control(b',') => continue,
+                _             => unexpected_token!(self)
             }
-
-            expect!(self, Control(b','));
         }
 
         Ok(list)
@@ -472,7 +484,7 @@ impl<'a> Parser<'a> {
 
                     Expression::Call {
                         callee: Box::new(left),
-                        arguments: try!(self.expression_list(Control(b')'))),
+                        arguments: try!(self.expression_list()),
                     }
                 },
 
@@ -543,14 +555,11 @@ impl<'a> Parser<'a> {
             Control(b':') => {
                 self.consume();
 
+                let token = next!(self);
+
                 Statement::Labeled {
                     label: label,
-                    body: Box::new(
-                        match try!(self.statement()) {
-                            Some(statement) => statement,
-                            None            => return Err(Error::UnexpectedEndOfProgram)
-                        }
-                    )
+                    body: Box::new(try!(self.statement(token)))
                 }
             },
             _ => {
@@ -783,9 +792,11 @@ impl<'a> Parser<'a> {
 
             list.push(try!(self.parameter()));
 
-            allow!(self, Control(b')') => break);
-
-            expect!(self, Control(b','));
+            match next!(self) {
+                Control(b')') => break,
+                Control(b',') => {},
+                _             => unexpected_token!(self)
+            }
         }
 
         Ok(list)
@@ -879,46 +890,48 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn statement(&mut self) -> Result<Option<Statement>> {
-        let token = next!(self);
+    fn statement(&mut self, token: Token) -> Result<Statement> {
+        match token {
+            Control(b';')     => Ok(Statement::Transparent { body: Vec::new() }),
+            Control(b'{')     => self.block_statement(),
+            Declaration(kind) => self.variable_declaration_statement(kind),
+            Return            => self.return_statement(),
+            Break             => self.break_statement(),
+            Function          => self.function_statement(),
+            Class             => self.class_statement(),
+            If                => self.if_statement(),
+            While             => self.while_statement(),
+            For               => self.for_statement(),
+            Identifier(label) => self.labeled_or_expression_statement(label),
+            Throw             => self.throw_statement(),
+            token             => self.expression_statement(token),
+        }
+    }
 
-        Ok(Some(match token {
-            EndOfProgram      => return Ok(None),
-            Control(b';')     => Statement::Transparent { body: Vec::new() },
-            Control(b'{')     => try!(self.block_statement()),
-            Declaration(kind) => try!(self.variable_declaration_statement(kind)),
-            Return            => try!(self.return_statement()),
-            Break             => try!(self.break_statement()),
-            Function          => try!(self.function_statement()),
-            Class             => try!(self.class_statement()),
-            If                => try!(self.if_statement()),
-            While             => try!(self.while_statement()),
-            For               => try!(self.for_statement()),
-            Identifier(label) => try!(self.labeled_or_expression_statement(label)),
-            Throw             => try!(self.throw_statement()),
-            token             => try!(self.expression_statement(token)),
-        }))
+    #[inline]
+    pub fn parse(&mut self) -> Result<Vec<Statement>> {
+        let mut body = Vec::new();
+
+        loop {
+            body.push(match next!(self) {
+                EndOfProgram => break,
+                token        => try!(self.statement(token))
+            })
+        }
+
+        Ok(body)
     }
 }
 
 pub fn parse(source: String) -> Program {
-    let mut body = Vec::new();
-    let mut error = None;
-
-    {
+    let (error, body) = {
         let mut parser = Parser::new(&source);
 
-        loop {
-            match parser.statement() {
-                Ok(Some(statement)) => body.push(statement),
-                Ok(None)            => break,
-                Err(err)            => {
-                    error = Some(err);
-                    break;
-                }
-            }
+        match parser.parse() {
+            Ok(body) => (None, body),
+            Err(err) => (Some(err), Vec::new())
         }
-    }
+    };
 
     Program {
         source: source,
