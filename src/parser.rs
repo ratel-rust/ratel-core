@@ -288,15 +288,13 @@ impl<'a> Parser<'a> {
             _ => unexpected_token!(self)
         };
 
-        let body = match peek!(self) {
+        let body = match next!(self) {
             Control(b'{') => {
-                self.consume();
-
                 Statement::Block {
                     body: try!(self.block_body_tail())
                 }
             }
-            _ => try!(self.expression(0)).into()
+            token => try!(self.expression_from_token(token, 0)).into()
         };
 
         Ok(Expression::ArrowFunction {
@@ -458,7 +456,7 @@ impl<'a> Parser<'a> {
         let left = match token {
             This              => Expression::This,
             Literal(value)    => Expression::Literal(value),
-            Identifier(value) => value.into(),
+            Identifier(value) => Expression::from(value),
             Operator(optype)  => try!(self.prefix_expression(optype)),
             Control(b'(')     => try!(self.paren_expression()),
             Control(b'[')     => try!(self.array_expression()),
@@ -562,27 +560,22 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Result<Statement> {
-        Ok(match peek!(self) {
-            Control(b':') => {
-                self.consume();
+        allow!(self, Control(b':') => {
+            let token = next!(self);
 
-                let token = next!(self);
+            return Ok(Statement::Labeled {
+                label: label,
+                body: Box::new(try!(self.statement(token)))
+            })
+        });
 
-                Statement::Labeled {
-                    label: label,
-                    body: Box::new(try!(self.statement(token)))
-                }
-            },
-            _ => {
-                let first = try!(self.complex_expression(label.into(), 0));
+        let first = try!(self.complex_expression(label.into(), 0));
 
-                let statement = try!(self.sequence_or(first)).into();
+        let expression = self.sequence_or(first);
 
-                expect_semicolon!(self);
+        expect_semicolon!(self);
 
-                statement
-            }
-        })
+        expression.map(|expr| Statement::from(expr))
     }
 
     #[inline]
@@ -866,7 +859,9 @@ impl<'a> Parser<'a> {
         let super_class = match next!(self) {
             Extends => {
                 let name = expect_identifier!(self);
+
                 expect!(self, Control(b'{'));
+
                 Some(name)
             },
             Control(b'{') => None,

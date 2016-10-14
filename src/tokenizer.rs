@@ -828,6 +828,23 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    fn invalid_character(&self) -> Error {
+        if self.is_eof() {
+            return Error::UnexpectedEndOfProgram;
+        }
+
+        let len = self.source[self.index..]
+                      .chars()
+                      .next()
+                      .expect("Must have a character")
+                      .len_utf8();
+
+        Error::UnexpectedToken {
+            start: self.index,
+            end: self.index + len,
+        }
+    }
+
     // Check if we are at the end of the source.
     #[inline]
     fn is_eof(&self) -> bool {
@@ -874,23 +891,6 @@ impl<'a> Tokenizer<'a> {
             }
 
             return;
-        }
-    }
-
-    fn invalid_character(&self) -> Error {
-        if self.is_eof() {
-            return Error::UnexpectedEndOfProgram;
-        }
-
-        let len = self.source[self.index..]
-                      .chars()
-                      .next()
-                      .expect("Must have a character")
-                      .len_utf8();
-
-        Error::UnexpectedToken {
-            start: self.index,
-            end: self.index + len,
         }
     }
 
