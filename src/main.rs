@@ -3,10 +3,11 @@ extern crate rustc_serialize;
 
 use std::process;
 use std::io::prelude::*;
-use std::io::Error;
+use std::io;
 use std::fs::File;
 use std::time::{ Instant, Duration };
 use docopt::Docopt;
+use error::ParseError;
 
 pub mod error;
 pub mod lexicon;
@@ -41,7 +42,7 @@ Options:
   --ast                        Print out the Abstract Syntax Tree of the input.
 ";
 
-fn read_file(path: &str) -> Result<String, Error> {
+fn read_file(path: &str) -> Result<String, io::Error> {
     let mut f = try!(File::open(path));
     let mut s = String::new();
     match f.read_to_string(&mut s) {
@@ -50,7 +51,7 @@ fn read_file(path: &str) -> Result<String, Error> {
     }
 }
 
-fn write_file(filename: &str, program: String) -> Result<(), Error> {
+fn write_file(filename: &str, program: String) -> Result<(), io::Error> {
     let mut f = try!(File::create(filename));
     match f.write_all(&program.into_bytes()[..]) {
         Ok(_) => Ok(()),
@@ -97,12 +98,60 @@ fn main() {
     };
 
     let start = Instant::now();
-    let mut ast = parser::parse(source);
+    let result = parser::parse(source);
     let parse_duration = Instant::now().duration_since(start);
 
-    if ast.error.is_some() {
-        panic!("Parsing error: {:?}", ast.error.unwrap());
-    }
+    let mut ast = match result {
+        Err(ParseError::UnexpectedEndOfProgram) => {
+            println!("Unexpected end of program");
+
+            process::exit(1);
+        },
+        Err(ParseError::UnexpectedToken { source, start, end }) => {
+            let (lineno, line) = source[..start]
+                                   .lines()
+                                   .enumerate()
+                                   .last()
+                                   .expect("Must always have at least one line.");
+
+            let colno = line.chars().count();
+            let token_len = source[start..end].chars().count();
+
+            println!("Unexpected token at {}:{}\n", lineno + 1, colno + 1);
+
+            let iter = source
+                        .lines()
+                        .enumerate()
+                        .skip_while(|&(index, _)| index < lineno.saturating_sub(2))
+                        .take_while(|&(index, _)| index < lineno + 3);
+
+            for (index, line) in iter {
+                if index == lineno {
+                    println!("> {:4} | {}", index+1, line);
+
+                    let mut marker = String::with_capacity(line.len() + 9);
+
+                    marker.push_str("       | ");
+
+                    for _ in 0..colno {
+                        marker.push(' ');
+                    }
+
+                    for _ in 0..token_len {
+                        marker.push('^');
+                    }
+
+                    println!("{}", marker);
+
+                } else {
+                    println!("{:6} | {}", index+1, line);
+                }
+            }
+
+            process::exit(1);
+        },
+        Ok(ast) => ast,
+    };
 
     if args.flag_ast {
         println!("{:#?}", ast);

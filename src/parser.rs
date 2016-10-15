@@ -3,7 +3,7 @@ use lexicon::Token::*;
 use tokenizer::Tokenizer;
 use grammar::*;
 use grammar::OperatorType::*;
-use error::Result;
+use error::{ Result, Error, ParseResult, ParseError };
 
 /// Peek on the next token. Return with an error if tokenizer fails.
 macro_rules! peek {
@@ -925,19 +925,28 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn parse(source: String) -> Program {
-    let (error, body) = {
-        let mut parser = Parser::new(&source);
+pub fn parse(source: String) -> ParseResult<Program> {
+    match Parser::new(&source).parse() {
+        Ok(body) => Ok(Program {
+            source: source,
+            body: body
+        }),
+        Err(err) => match err {
+            Error::UnexpectedEndOfProgram => {
+                Err(ParseError::UnexpectedEndOfProgram)
+            },
 
-        match parser.parse() {
-            Ok(body) => (None, body),
-            Err(err) => (Some(err), Vec::new())
+            Error::UnexpectedToken {
+                start,
+                end
+            } => {
+                Err(ParseError::UnexpectedToken {
+                    source: source,
+                    start: start,
+                    end: end
+                })
+            }
         }
-    };
 
-    Program {
-        source: source,
-        body: body,
-        error: error
     }
 }

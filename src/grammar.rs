@@ -1,6 +1,5 @@
 use std::{ str, slice, fmt };
 use std::ops::Deref;
-use error::Error;
 
 #[derive(Clone, Copy)]
 pub struct OwnedSlice {
@@ -576,5 +575,4 @@ impl From<Expression> for Statement {
 pub struct Program {
     pub source: String,
     pub body: Vec<Statement>,
-    pub error: Option<Error>,
 }
