@@ -283,6 +283,15 @@ fn binary_expression() {
 }
 
 #[test]
+fn binary_expression_less_than() {
+    assert_expression!("i < 10", Expression::Binary {
+        left: Box::new(ident!("i")),
+        operator: Lesser,
+        right: boxnum!("10")
+    });
+}
+
+#[test]
 fn op_precedence_left() {
     assert_expression!("1 + 2 * 3", Expression::Binary {
         left: boxnum!("1"),

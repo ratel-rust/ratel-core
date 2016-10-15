@@ -205,7 +205,7 @@ define_handlers! {
                 LesserEquals
             },
 
-            _ => LogicalNot
+            _ => Lesser
         };
 
         Ok(Operator(op))
