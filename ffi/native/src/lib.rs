@@ -3,50 +3,47 @@ extern crate neon;
 extern crate ratel;
 
 use neon::vm::{Call, JsResult};
-use neon::js::{JsString, Variant};
+use neon::js::{JsString, JsBoolean};
+use neon::js::error::{JsError, Kind};
 use ratel::{parser, transformer, codegen};
 
 fn transform(call: Call) -> JsResult<JsString> {
     let scope = call.scope;
 
-    let source = match call.arguments.get(scope, 0).unwrap().variant() {
-        Variant::String(handle) => handle.value() + "\n",
-        _                       => panic!("First argument must be a string"),
-    };
+    if call.arguments.len() == 0 {
+        return JsError::throw(Kind::TypeError, "First argument must be a string")
+    }
 
-    let minify = match call.arguments.get(scope, 1).unwrap().variant() {
-        Variant::Boolean(handle) => handle.value(),
-        _                        => false,
-    };
+    let source = try!(try!(call.arguments.require(scope, 0)).check::<JsString>());
+    let minify = try!(try!(call.arguments.require(scope, 1)).check::<JsBoolean>());
 
-    let mut ast = match parser::parse(source) {
+    let mut ast = match parser::parse(source.value()) {
         Err(error) => {
-            println!("{}", error);
-
-            // TODO: return Ok(JsNull) or some such
-            ::std::process::exit(1);
+            let str = format!("{}", error);
+            return JsError::throw(Kind::SyntaxError, &str)
         },
         Ok(ast) => ast,
     };
 
     transformer::transform(&mut ast, transformer::Settings::target_es5());
-    let out = codegen::generate_code(ast, minify);
+    let out = codegen::generate_code(ast, minify.value());
+
     Ok(JsString::new(scope, &out).unwrap())
 }
 
 fn parse(call: Call) -> JsResult<JsString> {
     let scope = call.scope;
-    let source = match call.arguments.get(scope, 0).unwrap().variant() {
-        Variant::String(handle) => handle.value(),
-        _                       => panic!("First argument must be a string"),
-    };
 
-    let ast = match parser::parse(source) {
+    if call.arguments.len() == 0 {
+        return JsError::throw(Kind::TypeError, "First argument must be a string")
+    }
+
+    let source = try!(try!(call.arguments.require(scope, 0)).check::<JsString>());
+
+    let ast = match parser::parse(source.value()) {
         Err(error) => {
-            println!("{}", error);
-
-            // TODO: return Ok(JsNull) or some such
-            ::std::process::exit(1);
+            let str = format!("{}", error);
+            return JsError::throw(Kind::SyntaxError, &str)
         },
         Ok(ast) => ast,
     };
