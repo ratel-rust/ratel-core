@@ -7,13 +7,13 @@ pub use ratel::grammar::OperatorType::*;
 
 macro_rules! assert_parse {
     ($string:expr, $body:expr) => {
-        assert_eq!(parse($string.to_string()).body, $body);
+        assert_eq!(parse($string.into()).expect("Must parse").body, $body);
     }
 }
 
 macro_rules! assert_expression {
     ($string:expr, $ex:expr) => {
-        match parse($string.to_string()).body[0] {
+        match parse($string.into()).expect("Must parse").body[0] {
             Statement::Expression { ref value } => assert_eq!(*value, $ex),
             _                                   => panic!("No expression found"),
         }
@@ -25,7 +25,7 @@ macro_rules! assert_statement {
 }
 
 macro_rules! num {
-    ($num:expr) => (Expression::Literal(LiteralFloat($num)))
+    ($num:expr) => (Expression::Literal(LiteralFloat($num.into())))
 }
 
 macro_rules! boxnum {
@@ -33,12 +33,12 @@ macro_rules! boxnum {
 }
 
 macro_rules! ident {
-    ($name:expr) => (Expression::Identifier($name.to_string()))
+    ($name:expr) => (Expression::Identifier($name.into()))
 }
 
 macro_rules! param {
     ($name:expr) => (Parameter {
-        name: $name.to_string()
+        name: $name.into()
     })
 }
 
@@ -52,7 +52,7 @@ fn block_statement() {
 #[test]
 fn labeled_statement() {
     assert_statement!("foo: {}", Statement::Labeled {
-        label: "foo".to_string(),
+        label: "foo".into(),
         body: Box::new(Statement::Block {
             body: Vec::new(),
         }),
@@ -69,7 +69,7 @@ fn break_statement() {
 #[test]
 fn break_label_statement() {
     assert_statement!("break foo;", Statement::Break {
-        label: Some("foo".to_string())
+        label: Some("foo".into())
     });
 }
 
@@ -106,9 +106,9 @@ fn return_value_statement() {
 fn return_sequence_statement() {
     assert_statement!("return 1, 2, 3;", Statement::Return {
         value: Some(Expression::Sequence(vec![
-            num!(1.0),
-            num!(2.0),
-            num!(3.0),
+            num!("1"),
+            num!("2"),
+            num!("3"),
         ])),
     });
 }
@@ -133,7 +133,7 @@ fn var_declare() {
     assert_statement!("var foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
+            name: "foo".into(),
             value: None,
         }]
     });
@@ -144,8 +144,8 @@ fn var_declare_value() {
     assert_statement!("var foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
-            value: Some(num!(100.0)),
+            name: "foo".into(),
+            value: Some(num!("100")),
         }]
     });
 }
@@ -155,7 +155,7 @@ fn let_declare() {
     assert_statement!("let foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Let,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
+            name: "foo".into(),
             value: None,
         }]
     });
@@ -166,8 +166,8 @@ fn let_declare_value() {
     assert_statement!("let foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Let,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
-            value: Some(num!(100.0)),
+            name: "foo".into(),
+            value: Some(num!("100")),
         }]
     });
 }
@@ -177,7 +177,7 @@ fn const_declare() {
     assert_statement!("const foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Const,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
+            name: "foo".into(),
             value: None,
         }]
     });
@@ -188,8 +188,8 @@ fn const_declare_value() {
     assert_statement!("const foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Const,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
-            value: Some(num!(100.0)),
+            name: "foo".into(),
+            value: Some(num!("100")),
         }]
     });
 }
@@ -199,10 +199,10 @@ fn var_muliple_declare() {
     assert_statement!("var foo, bar;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
+            name: "foo".into(),
             value: None,
         }, VariableDeclarator {
-            name: "bar".to_string(),
+            name: "bar".into(),
             value: None,
         }]
     });
@@ -214,11 +214,11 @@ fn var_muliple_declare_value() {
     assert_statement!("var foo = 100, bar = 200;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".to_string(),
-            value: Some(num!(100.0)),
+            name: "foo".into(),
+            value: Some(num!("100")),
         }, VariableDeclarator {
-            name: "bar".to_string(),
-            value: Some(num!(200.0)),
+            name: "bar".into(),
+            value: Some(num!("200")),
         }]
     });
 }
@@ -250,7 +250,7 @@ fn false_expression() {
 
 #[test]
 fn number_expression() {
-    assert_expression!("100", num!(100.0));
+    assert_expression!("100", num!("100"));
 }
 
 #[test]
@@ -270,7 +270,7 @@ fn hexdec_number_expression() {
 
 #[test]
 fn floating_number_expression() {
-    assert_expression!("3.14", num!(3.14));
+    assert_expression!("3.14", num!("3.14"));
 }
 
 #[test]
@@ -278,19 +278,28 @@ fn binary_expression() {
     assert_expression!("true == 1", Expression::Binary {
         left: Box::new(Expression::Literal(LiteralTrue)),
         operator: Equality,
-        right: boxnum!(1.0)
+        right: boxnum!("1")
+    });
+}
+
+#[test]
+fn binary_expression_less_than() {
+    assert_expression!("i < 10", Expression::Binary {
+        left: Box::new(ident!("i")),
+        operator: Lesser,
+        right: boxnum!("10")
     });
 }
 
 #[test]
 fn op_precedence_left() {
     assert_expression!("1 + 2 * 3", Expression::Binary {
-        left: boxnum!(1.0),
+        left: boxnum!("1"),
         operator: Addition,
         right: Box::new(Expression::Binary {
-            left: boxnum!(2.0),
+            left: boxnum!("2"),
             operator: Multiplication,
-            right: boxnum!(3.0),
+            right: boxnum!("3"),
         }),
     });
 }
@@ -299,12 +308,12 @@ fn op_precedence_left() {
 fn op_precedence_right() {
     assert_expression!("1 * 2 + 3", Expression::Binary {
         left: Box::new(Expression::Binary {
-            left: boxnum!(1.0),
+            left: boxnum!("1"),
             operator: Multiplication,
-            right: boxnum!(2.0),
+            right: boxnum!("2"),
         }),
         operator: Addition,
-        right: boxnum!(3.0),
+        right: boxnum!("3"),
     });
 }
 
@@ -317,7 +326,7 @@ fn function_statement() {
     }
 
     ", Statement::Function {
-        name: "foo".to_string(),
+        name: "foo".into(),
         params: vec![],
         body: vec![
             Statement::Return {
@@ -336,7 +345,7 @@ fn function_with_params_statement() {
     }
 
     ", Statement::Function {
-        name: "foo".to_string(),
+        name: "foo".into(),
         params: vec![
             param!("a"),
             param!("b"),
@@ -460,13 +469,13 @@ fn for_statement() {
             value: Expression::Binary {
                 left: Box::new(ident!("i")),
                 operator: OperatorType::Assign,
-                right: Box::new(num!(0.0)),
+                right: Box::new(num!("0")),
             }
         })),
         test: Some(Expression::Binary {
             left: Box::new(ident!("i")),
             operator: OperatorType::Lesser,
-            right: Box::new(num!(10.0)),
+            right: Box::new(num!("10")),
         }),
         update: Some(Expression::Postfix {
             operator: OperatorType::Increment,
@@ -485,15 +494,15 @@ fn for_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "i".to_string(),
-                    value: Some(num!(0.0)),
+                    name: "i".into(),
+                    value: Some(num!("0")),
                 }
             ],
         })),
         test: Some(Expression::Binary {
             left: Box::new(ident!("i")),
             operator: OperatorType::Lesser,
-            right: Box::new(num!(10.0)),
+            right: Box::new(num!("10")),
         }),
         update: Some(Expression::Postfix {
             operator: OperatorType::Increment,
@@ -530,7 +539,6 @@ fn for_in_statement() {
     });
 }
 
-
 #[test]
 fn for_in_declare_statement() {
     assert_statement!("for (let item in object) {}", Statement::ForIn {
@@ -538,7 +546,7 @@ fn for_in_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".to_string(),
+                    name: "item".into(),
                     value: None,
                 }
             ],
@@ -570,7 +578,7 @@ fn for_of_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".to_string(),
+                    name: "item".into(),
                     value: None,
                 }
             ],
@@ -694,7 +702,7 @@ fn named_function_expression() {
     })
 
     ", Expression::Function {
-        name: Some("foo".to_string()),
+        name: Some("foo".into()),
         params: vec![],
         body: vec![
             Statement::Return {
@@ -724,15 +732,15 @@ fn sequence_expression_statement() {
 
 #[test]
 fn sequence_in_accessor() {
-    assert_expression!("foo[1, 2, 3]", Expression::Member {
+    assert_expression!("foo[1, 2, 3]", Expression::ComputedMember {
         object: Box::new(ident!("foo")),
-        property: Box::new(MemberKey::Computed(
+        property: Box::new(
             Expression::Sequence(vec![
-                num!(1.0),
-                num!(2.0),
-                num!(3.0),
+                num!("1"),
+                num!("2"),
+                num!("3"),
             ])
-        ))
+        )
     });
 }
 
@@ -740,8 +748,8 @@ fn sequence_in_accessor() {
 fn object_literal_member() {
     assert_expression!("({foo:100})", Expression::Object(vec![
         ObjectMember::Literal {
-            key: "foo".to_string(),
-            value: num!(100.0),
+            key: "foo".into(),
+            value: num!("100"),
         }
     ]));
 }
@@ -750,8 +758,8 @@ fn object_literal_member() {
 fn object_computed_member() {
     assert_expression!("({[100]:100})", Expression::Object(vec![
         ObjectMember::Computed {
-            key: num!(100.0),
-            value: num!(100.0),
+            key: num!("100"),
+            value: num!("100"),
         }
     ]));
 }
@@ -760,7 +768,7 @@ fn object_computed_member() {
 fn object_shorthand_member() {
     assert_expression!("({foo})", Expression::Object(vec![
         ObjectMember::Shorthand {
-            key: "foo".to_string(),
+            key: "foo".into(),
         }
     ]));
 }
@@ -769,7 +777,7 @@ fn object_shorthand_member() {
 fn object_method_member() {
     assert_expression!("({foo() {} })", Expression::Object(vec![
         ObjectMember::Method {
-            name: "foo".to_string(),
+            name: "foo".into(),
             params: vec![],
             body: vec![],
         }
@@ -780,7 +788,7 @@ fn object_method_member() {
 fn object_computed_method_member() {
     assert_expression!("({[100]() {} })", Expression::Object(vec![
         ObjectMember::ComputedMethod {
-            name: num!(100.0),
+            name: num!("100"),
             params: vec![],
             body: vec![],
         }
@@ -790,7 +798,7 @@ fn object_computed_method_member() {
 #[test]
 fn class_statement() {
     assert_statement!("class Foo {}", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: Vec::new(),
     });
@@ -799,8 +807,8 @@ fn class_statement() {
 #[test]
 fn class_extends_statement() {
     assert_statement!("class Foo extends Bar {}", Statement::Class {
-        name: "Foo".to_string(),
-        extends: Some("Bar".to_string()),
+        name: "Foo".into(),
+        extends: Some("Bar".into()),
         body: Vec::new(),
     });
 }
@@ -814,7 +822,7 @@ fn class_with_constructor_statement() {
     }
 
     ", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: vec![
             ClassMember::Constructor {
@@ -834,12 +842,12 @@ fn class_with_method_statement() {
     }
 
     ", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: vec![
             ClassMember::Method {
                 is_static: false,
-                name: "bar".to_string(),
+                name: "bar".into(),
                 params: Vec::new(),
                 body: Vec::new(),
             }
@@ -856,12 +864,12 @@ fn class_with_static_method_statement() {
     }
 
     ", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: vec![
             ClassMember::Method {
                 is_static: true,
-                name: "bar".to_string(),
+                name: "bar".into(),
                 params: Vec::new(),
                 body: Vec::new(),
             }
@@ -878,13 +886,13 @@ fn class_with_property_statement() {
     }
 
     ", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: vec![
             ClassMember::Property {
                 is_static: false,
-                name: "bar".to_string(),
-                value: num!(100.0),
+                name: "bar".into(),
+                value: num!("100"),
             }
         ],
     });
@@ -899,13 +907,13 @@ fn class_with_static_property_statement() {
     }
 
     ", Statement::Class {
-        name: "Foo".to_string(),
+        name: "Foo".into(),
         extends: None,
         body: vec![
             ClassMember::Property {
                 is_static: true,
-                name: "bar".to_string(),
-                value: num!(100.0),
+                name: "bar".into(),
+                value: num!("100"),
             }
         ],
     });
