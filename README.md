@@ -1,27 +1,21 @@
 # ratel-core
 
-JavaScript compiler core written in Rust.
+**Ratel** is a high performance JavaScript compiler with a Rust core. This repo is structured in two separate folders:
 
-Because Webpack+Babel+UglifyJS are both awesome and terrible at the same time.
+- `core` contains the main Rust codebase that does all the heavy lifting.
+- `ffi` contains the Node.js bindings and wrapper around the Rust core.
 
-## Requirements
-
-- Rust 1.8.0
-
-## Usage
-
-To print out the compiled code to stdout:
-```
-$ cargo run -- -f input.js
-```
-
-To compile to a file:
-```
-$ cargo run -- -f input.js -o output.js
-```
+For common usage checkout the [ratel-cli](https://github.com/ratel-rust/ratel-cli) repo.
 
 ## Performance
 
-Parser part of `ratel` is doing exceptionally well when compared to even the fastest parsers built in JavaScript, such as [Esprima](http://esprima.org/).
+While still incomplete, the Parser part of **Ratel** can run circles around even the fastest parsers built in JavaScript, here it is compared to [Esprima](http://esprima.org/).
 
 ![ratel vs esprima chart](http://terhix.com/ratel-perf-1.png)
+
+## Contributors
+
+This project is created and maintained by [Maciej Hirsz](https://github.com/maciejhirsz) with the help of awesome contributors. Extended thanks to:
+
+- [cmtt](https://github.com/cmtt) for work on the Node.js FFI.
+- [Jan Schulte](https://github.com/schultyy) for the initial version of transformer and codegen.
