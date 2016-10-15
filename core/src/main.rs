@@ -7,7 +7,6 @@ use std::io;
 use std::fs::File;
 use std::time::{ Instant, Duration };
 use docopt::Docopt;
-use error::ParseError;
 
 pub mod owned_slice;
 pub mod error;

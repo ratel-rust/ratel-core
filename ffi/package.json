@@ -1,0 +1,14 @@
+{
+  "name": "neon-core-ffi",
+  "version": "0.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "author": "Matthias Thoemmes <thoemmes@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "neon-cli": "^0.1.7"
+  },
+  "scripts": {
+    "install": "neon build"
+  }
+}
