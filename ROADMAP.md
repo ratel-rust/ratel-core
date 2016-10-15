@@ -1,0 +1,11 @@
+- move ffi (Node.js bridge using Neon) to core project
+- remove rust-cli, benchmarks
+- use Node buffers instead of strings
+- pass transpilation options from cli to core
+- additional tests for core library
+  - Test which ES2015 features are not yet covered
+  - implement tests in Rust
+  - implement tests in JS
+    -> for now, we just return *null* in case of errorsppi
+- webpack loader in separate repo 
+- transform ratel AST to JavaScript AST
