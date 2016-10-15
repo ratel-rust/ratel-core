@@ -1,9 +1,9 @@
-extern crate badger;
+extern crate ratel;
 
-pub use badger::*;
-pub use badger::grammar::*;
-pub use badger::parser::parse;
-pub use badger::grammar::OperatorType::*;
+pub use ratel::*;
+pub use ratel::grammar::*;
+pub use ratel::parser::parse;
+pub use ratel::grammar::OperatorType::*;
 
 macro_rules! assert_parse {
     ($string:expr, $body:expr) => {
