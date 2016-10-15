@@ -100,7 +100,7 @@ define_handlers! {
     const BTO: bracket_open |tok, _| {
         tok.bump();
 
-        Ok(BraceOpen)
+        Ok(BracketOpen)
     }
 
     // ]
@@ -843,13 +843,16 @@ mod ident_lookup {
 }
 
 pub struct Tokenizer<'a> {
-    // String slice to parse
-    pub source: &'a str,
+    /// Flags whether or not a new line was read before the token
+    consumed_new_line: bool,
 
-    // Current index
+    /// String slice to parse
+    source: &'a str,
+
+    /// Current index
     index: usize,
 
-    // Index of current token in source
+    /// Index of current token in source
     token_start: usize,
 }
 
@@ -858,6 +861,7 @@ impl<'a> Tokenizer<'a> {
     #[inline]
     pub fn new(source: &'a str) -> Self {
         Tokenizer {
+            consumed_new_line: false,
             source: source,
             index: 0,
             token_start: 0,
@@ -877,6 +881,12 @@ impl<'a> Tokenizer<'a> {
         let ch = self.read_byte();
 
         BYTE_HANDLERS[ch as usize](self, ch)
+    }
+
+    /// Check if Automatic Semicolon Insertion rules can be applied
+    #[inline]
+    pub fn asi(&self) -> bool {
+        self.consumed_new_line
     }
 
     pub fn invalid_token(&self) -> Error {
@@ -939,11 +949,17 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     fn consume_whitespace(&mut self) {
+        self.consumed_new_line = false;
+
         while !self.is_eof() {
             let ch = self.read_byte();
 
             // if ch <= 0x20 {
             if whitespace::TABLE[ch as usize] {
+                if ch == b'\n' {
+                    self.consumed_new_line = true;
+                }
+
                 self.bump();
                 continue;
             }

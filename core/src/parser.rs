@@ -84,7 +84,11 @@ macro_rules! expect_semicolon {
             BraceClose    |
             EndOfProgram  => {},
 
-            _             => unexpected_token!($parser)
+            _             => {
+                if !$parser.tokenizer.asi() {
+                    unexpected_token!($parser)
+                }
+            }
         }
     }
 }
@@ -101,9 +105,6 @@ pub struct Parser<'a> {
     // Tokenizer will produce tokens from the source
     tokenizer: Tokenizer<'a>,
 
-    // TODO: Move to tokenizer
-    allow_asi: bool,
-
     // Current token, to be used by peek! and next! macros
     token: Option<Token>,
 }
@@ -113,7 +114,6 @@ impl<'a> Parser<'a> {
     pub fn new(source: &'a str) -> Self {
         Parser {
             tokenizer: Tokenizer::new(source),
-            allow_asi: false,
             token: None,
         }
     }
@@ -354,13 +354,16 @@ impl<'a> Parser<'a> {
     }
 
     fn function_expression(&mut self) -> Result<Expression> {
-        let name = match peek!(self) {
+        let name = match next!(self) {
             Identifier(name) => {
-                self.consume();
+                expect!(self, ParenOpen);
 
                 Some(name)
             },
-            _ => None
+
+            ParenOpen => None,
+
+            _         => unexpected_token!(self),
         };
 
         Ok(Expression::Function {
@@ -597,7 +600,7 @@ impl<'a> Parser<'a> {
                 EndOfProgram => None,
                 Semicolon    => None,
                 _            => {
-                    if self.allow_asi {
+                    if self.tokenizer.asi() {
                         None
                     } else {
                         Some(try!(self.sequence_or_expression()))
@@ -629,7 +632,7 @@ impl<'a> Parser<'a> {
                 EndOfProgram => None,
                 Semicolon    => None,
                 _            => {
-                    if self.allow_asi {
+                    if self.tokenizer.asi() {
                         None
                     } else {
                         Some(expect_identifier!(self))
