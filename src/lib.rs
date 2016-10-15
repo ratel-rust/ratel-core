@@ -1,3 +1,4 @@
+pub mod owned_slice;
 pub mod error;
 pub mod lexicon;
 pub mod tokenizer;

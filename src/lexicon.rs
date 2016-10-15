@@ -1,7 +1,7 @@
-use grammar::OwnedSlice;
 use grammar::LiteralValue;
 use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
+use owned_slice::OwnedSlice;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -17,7 +17,15 @@ pub enum ReservedKind {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
     EndOfProgram,
-    Control(u8), // One of the control bytes: ( ) [ ] { } ; : ,
+    Semicolon,
+    Colon,
+    Comma,
+    ParenOpen,
+    ParenClose,
+    BracketOpen,
+    BracketClose,
+    BraceOpen,
+    BraceClose,
     Operator(OperatorType),
     Declaration(VariableDeclarationKind),
     Break,

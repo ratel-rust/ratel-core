@@ -9,6 +9,7 @@ use std::time::{ Instant, Duration };
 use docopt::Docopt;
 use error::ParseError;
 
+pub mod owned_slice;
 pub mod error;
 pub mod lexicon;
 pub mod tokenizer;
@@ -102,51 +103,8 @@ fn main() {
     let parse_duration = Instant::now().duration_since(start);
 
     let mut ast = match result {
-        Err(ParseError::UnexpectedEndOfProgram) => {
-            println!("Unexpected end of program");
-
-            process::exit(1);
-        },
-        Err(ParseError::UnexpectedToken { source, start, end }) => {
-            let (lineno, line) = source[..start]
-                                   .lines()
-                                   .enumerate()
-                                   .last()
-                                   .expect("Must always have at least one line.");
-
-            let colno = line.chars().count();
-            let token_len = source[start..end].chars().count();
-
-            println!("Unexpected token at {}:{}\n", lineno + 1, colno + 1);
-
-            let iter = source
-                        .lines()
-                        .enumerate()
-                        .skip_while(|&(index, _)| index < lineno.saturating_sub(2))
-                        .take_while(|&(index, _)| index < lineno + 3);
-
-            for (index, line) in iter {
-                if index == lineno {
-                    println!("> {:4} | {}", index+1, line);
-
-                    let mut marker = String::with_capacity(line.len() + 9);
-
-                    marker.push_str("       | ");
-
-                    for _ in 0..colno {
-                        marker.push(' ');
-                    }
-
-                    for _ in 0..token_len {
-                        marker.push('^');
-                    }
-
-                    println!("{}", marker);
-
-                } else {
-                    println!("{:6} | {}", index+1, line);
-                }
-            }
+        Err(error) => {
+            println!("{}", error);
 
             process::exit(1);
         },

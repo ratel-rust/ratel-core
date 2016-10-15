@@ -2,12 +2,12 @@ use std::str;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
-use grammar::OwnedSlice;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::LiteralValue;
 use grammar::LiteralValue::*;
 use error::{ Error, Result };
+use owned_slice::OwnedSlice;
 
 /// Helper macro for declaring byte-handler functions with correlating constants.
 /// This becomes handy due to a lookup table present below.
@@ -39,12 +39,12 @@ static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
-    ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, CTL, CTL, ATR, PLS, CTL, MIN, PRD, SLH, // 2
-    ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, CTL, CTL, LSS, EQL, MOR, QST, // 3
+    ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
+    ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
-    IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, CTL, ___, CTL, CRT, IDT, // 5
+    IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, ___, BTC, CRT, IDT, // 5
     ___, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
-    L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, CTL, PIP, CTL, TLD, ___, // 7
+    L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, BEO, PIP, BEC, TLD, ___, // 7
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // A
@@ -59,6 +59,69 @@ static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
 define_handlers! {
     const ___: invalid_byte |tok, _| {
         Err(tok.invalid_character())
+    }
+
+    // ;
+    const SEM: semicolon |tok, _| {
+        tok.bump();
+
+        Ok(Semicolon)
+    }
+
+    // :
+    const COL: colon |tok, _| {
+        tok.bump();
+
+        Ok(Colon)
+    }
+
+    // ,
+    const COM: comma |tok, _| {
+        tok.bump();
+
+        Ok(Comma)
+    }
+
+    // (
+    const PNO: paren_open |tok, _| {
+        tok.bump();
+
+        Ok(ParenOpen)
+    }
+
+    // )
+    const PNC: paren_close |tok, _| {
+        tok.bump();
+
+        Ok(ParenClose)
+    }
+
+    // [
+    const BTO: bracket_open |tok, _| {
+        tok.bump();
+
+        Ok(BraceOpen)
+    }
+
+    // ]
+    const BTC: bracket_close |tok, _| {
+        tok.bump();
+
+        Ok(BracketClose)
+    }
+
+    // {
+    const BEO: brace_open |tok, _| {
+        tok.bump();
+
+        Ok(BraceOpen)
+    }
+
+    // }
+    const BEC: brace_close |tok, _| {
+        tok.bump();
+
+        Ok(BraceClose)
     }
 
     // =
@@ -721,13 +784,6 @@ define_handlers! {
         };
 
         Ok(Literal(LiteralString(value)))
-    }
-
-    // One of: ( ) [ ] { } : ; ,
-    const CTL: control_sign |tok, byte| {
-        tok.bump();
-
-        Ok(Control(byte))
     }
 }
 

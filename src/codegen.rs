@@ -4,6 +4,7 @@ use std::ptr;
 
 use grammar::*;
 use grammar::OperatorType::*;
+use owned_slice::OwnedSlice;
 
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
