@@ -15,7 +15,7 @@ While still incomplete, the Parser part of **Ratel** can run circles around even
 
 ## Contributors
 
-This project is created and maintained by [Maciej Hirsz](https://github.com/maciejhirsz) with the help of awesome contributors. Extended thanks to:
+This project is created and maintained by [Maciej Hirsz](https://github.com/maciejhirsz) with the help of awesome [contributors](https://github.com/ratel-rust/ratel-core/graphs/contributors). Extended thanks to:
 
-- [cmtt](https://github.com/cmtt) for work on the Node.js FFI.
+- [cmtt](https://github.com/cmtt) for work on the Node.js FFI and testing.
 - [Jan Schulte](https://github.com/schultyy) for the initial version of transformer and codegen.
