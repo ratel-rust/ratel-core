@@ -1,5 +1,9 @@
 # ratel-core
 
+[![Travis CI](https://travis-ci.org/ratel-rust/ratel-core.svg)](https://travis-ci.org/ratel-rust/ratel-core)
+[![Crates.io](https://img.shields.io/crates/v/ratel.svg)](https://crates.io/crates/ratel)
+[![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg)](https://gitter.im/ratel-rust/Lobby)
+
 **Ratel** is a high performance JavaScript compiler with a Rust core. This repo is structured in two separate folders:
 
 - `core` contains the main Rust codebase that does all the heavy lifting.
