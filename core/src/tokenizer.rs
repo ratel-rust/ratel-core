@@ -234,7 +234,9 @@ define_handlers! {
                         }
                     },
 
-                    _ => BSRAssign
+                    b'=' => BSRAssign,
+
+                    _    => BitShiftRight
                 }
             },
 
@@ -658,19 +660,19 @@ define_handlers! {
         tok.bump();
 
         match tok.peek_byte() {
-            b'b' => {
+            b'b' | b'B' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_binary()));
             },
 
-            b'o' => {
+            b'o' | b'O' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_octal()));
             },
 
-            b'x' => {
+            b'x' | b'X' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_hexadec()));

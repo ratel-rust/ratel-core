@@ -13,24 +13,23 @@ fn output_program(input_program: &str) -> String {
 
 macro_rules! assert_compile {
     ($string:expr, $expect:expr) => {
-        println!("{:?}", output_program($string));
         assert_eq!(output_program($string), $expect.to_string());
     }
 }
 
 #[test]
 fn convert_const_to_var_in_global_scope() {
-    assert_compile!("const pi = 314;", "var pi=314;");
+    assert_compile!("const pi = 3.14;", "var pi=3.14;");
 }
 
 #[test]
 fn convert_let_to_var_in_global_scope() {
-    assert_compile!("let pi = 314;", "var pi=314;");
+    assert_compile!("let pi = 3.14;", "var pi=3.14;");
 }
 
 #[test]
 fn dont_touch_var_in_global_scope() {
-    assert_compile!("var pi = 314;", "var pi=314;");
+    assert_compile!("var pi = 3.14;", "var pi=3.14;");
 }
 
 #[test]
