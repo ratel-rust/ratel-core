@@ -317,18 +317,19 @@ impl Code for Expression {
                         let last_index = quasis.len() - 1;
                         let last_quasi = &quasis[last_index];
 
-                        let mut quasis = quasis[..last_index].iter();
-                        let mut expressions = expressions.iter();
+                        let mut iter = quasis[..last_index].iter().zip(expressions.iter());
 
-                        gen.write(quasis.next().expect("Must have a first quasi"));
+                        let (quasi, expression) = iter.next().expect("Must have a first pair");
+
+                        gen.write(quasi);
                         gen.write_min(b"${ ", b"${");
-                        gen.write(expressions.next().expect("Must have a first expression"));
+                        gen.write(expression);
                         gen.write_min(b" }", b"}");
 
-                        for quasi in quasis {
+                        for (quasi, expression) in iter {
                             gen.write(quasi);
                             gen.write_min(b"${ ", b"${");
-                            gen.write(expressions.next().expect("Must have a following expression"));
+                            gen.write(expression);
                             gen.write_min(b" }", b"}");
                         }
 
