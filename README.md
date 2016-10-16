@@ -1,3 +1,5 @@
+![Ratel](http://maciej.codes/things/ratel-400.png)
+
 # ratel-core
 
 [![Travis CI](https://travis-ci.org/ratel-rust/ratel-core.svg)](https://travis-ci.org/ratel-rust/ratel-core)
