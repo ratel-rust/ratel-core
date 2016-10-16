@@ -46,7 +46,7 @@ impl fmt::Display for ParseError {
                                        .lines()
                                        .enumerate()
                                        .last()
-                                       .expect("Must always have at least one line.");
+                                       .unwrap_or((0, ""));
 
                 let colno = line.chars().count();
                 let token_len = source[start..end].chars().count();
