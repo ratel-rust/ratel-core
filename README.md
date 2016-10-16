@@ -6,10 +6,10 @@
 [![Crates.io](https://img.shields.io/crates/v/ratel.svg)](https://crates.io/crates/ratel)
 [![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg)](https://gitter.im/ratel-rust/Lobby)
 
-**Ratel** is a high performance JavaScript compiler with a Rust core. This repo is structured in two separate folders:
+**Ratel** is a high performance JavaScript compiler with a Rust core. This repo is split in two separate folders:
 
 - `core` contains the main Rust codebase that does all the heavy lifting.
-- `ffi` contains the Node.js bindings and wrapper around the Rust core.
+- `ffi` contains the Node.js wrapper around the Rust core with [Neon](http://neon.rustbridge.io/) bindings.
 
 For common usage checkout the [ratel-cli](https://github.com/ratel-rust/ratel-cli) repo.
 
@@ -25,3 +25,14 @@ This project is created and maintained by [Maciej Hirsz](https://github.com/maci
 
 - [cmtt](https://github.com/cmtt) for work on the Node.js FFI and testing.
 - [Jan Schulte](https://github.com/schultyy) for the initial version of transformer and codegen.
+
+## Logo
+
+The smirky **Ratel** by the courtesy of [A. L. Palmer](http://www.therefractedcolor.com/).
+
+## License
+
+This code is distributed under the terms of both the MIT license
+and the Apache License (Version 2.0), choose whatever works for you.
+
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.
