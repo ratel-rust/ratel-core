@@ -660,36 +660,19 @@ define_handlers! {
         tok.bump();
 
         match tok.peek_byte() {
-            b'b' => {
-                tok.bump();
-
-                return Ok(Literal(tok.read_binary()));
-            },
-            b'B' => {
+            b'b' | b'B' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_binary()));
             },
 
-            b'o' => {
+            b'o' | b'O' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_octal()));
             },
 
-            b'O' => {
-                tok.bump();
-
-                return Ok(Literal(tok.read_octal()));
-            },
-
-            b'x' => {
-                tok.bump();
-
-                return Ok(Literal(tok.read_hexadec()));
-            },
-
-            b'X' => {
+            b'x' | b'X' => {
                 tok.bump();
 
                 return Ok(Literal(tok.read_hexadec()));
