@@ -120,27 +120,23 @@ fn test_tokenizer_operators() {
 
 #[test]
 fn test_tokenizer_literals() {
-    assert_token!("undefined", Token::Literal(LiteralValue::LiteralUndefined), "Token::LiteralUndefined");
-    assert_token!("null", Token::Literal(LiteralValue::LiteralNull), "Token::LiteralNull");
-    assert_token!("true", Token::Literal(LiteralValue::LiteralTrue), "Token::LiteralTrue");
-    assert_token!("false", Token::Literal(LiteralValue::LiteralFalse), "Token::LiteralFalse");
+    assert_token!("undefined", Token::Literal(Value::Undefined), "Token::Value::Undefined");
+    assert_token!("null", Token::Literal(Value::Null), "Token::Value::Null");
+    assert_token!("true", Token::Literal(Value::True), "Token::Value::True");
+    assert_token!("false", Token::Literal(Value::False), "Token::Value::False");
 
-    assert_token!("'foo'", Token::Literal(LiteralString(OwnedSlice::from_static("'foo'"))), "Token::LiteralString");
-    assert_token!("\"foo\"", Token::Literal(LiteralString(OwnedSlice::from_static("\"foo\""))), "Token::LiteralString");
+    assert_token!("'foo'", Token::Literal(Value::String("'foo'".into())), "Token::Value::String");
+    assert_token!("\"foo\"", Token::Literal(Value::String("\"foo\"".into())), "Token::Value::String");
 
-    // assert_token!("2.2", Token::Literal(LiteralNumber(OwnedSlice::from_static("2.2"))), "Token::LiteralNumber");
-    assert_token!("2.2", Token::Literal(LiteralFloat(OwnedSlice::from_static("2.2"))), "Token::LiteralFloat");
+    assert_token!("2.2", Token::Literal(Value::Number("2.2".into())), "Token::Value::Number");
+    assert_token!("2", Token::Literal(Value::Number("2".into())), "Token::Value::Number");
 
-    // will be deprecated in favor of LiteralNumber
-    assert_token!("2", Token::Literal(LiteralFloat(OwnedSlice::from_static("2"))), "Token::LiteralFloat");
-    // assert_token!("2", Token::Literal(LiteralInteger(2)), "Token::LiteralInteger");
-
-    assert_token!("0xff", Token::Literal(LiteralInteger(255)), "Token::LiteralInteger");
-    assert_token!("0XFF", Token::Literal(LiteralInteger(255)), "Token::LiteralInteger");
-    assert_token!("0b01001011", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0B01001011", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0o113", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0O113", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
+    assert_token!("0xff", Token::Literal(Value::Integer(255)), "Token::Value::Integer");
+    assert_token!("0XFF", Token::Literal(Value::Integer(255)), "Token::Value::Integer");
+    assert_token!("0b01001011", Token::Literal(Value::Integer(75)), "Token::Value::Integer");
+    assert_token!("0B01001011", Token::Literal(Value::Integer(75)), "Token::Value::Integer");
+    assert_token!("0o113", Token::Literal(Value::Integer(75)), "Token::Value::Integer");
+    assert_token!("0O113", Token::Literal(Value::Integer(75)), "Token::Value::Integer");
 }
 
 #[test]

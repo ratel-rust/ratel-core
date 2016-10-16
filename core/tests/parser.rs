@@ -25,7 +25,7 @@ macro_rules! assert_statement {
 }
 
 macro_rules! num {
-    ($num:expr) => (Expression::Literal(LiteralFloat($num.into())))
+    ($num:expr) => (Expression::Literal(Value::Number($num.into())))
 }
 
 macro_rules! boxnum {
@@ -230,22 +230,22 @@ fn identifier_expression() {
 
 #[test]
 fn null_expression() {
-    assert_expression!("null", Expression::Literal(LiteralNull));
+    assert_expression!("null", Expression::Literal(Value::Null));
 }
 
 #[test]
 fn undefined_expression() {
-    assert_expression!("undefined", Expression::Literal(LiteralUndefined));
+    assert_expression!("undefined", Expression::Literal(Value::Undefined));
 }
 
 #[test]
 fn true_expression() {
-    assert_expression!("true", Expression::Literal(LiteralTrue));
+    assert_expression!("true", Expression::Literal(Value::True));
 }
 
 #[test]
 fn false_expression() {
-    assert_expression!("false", Expression::Literal(LiteralFalse));
+    assert_expression!("false", Expression::Literal(Value::False));
 }
 
 #[test]
@@ -255,17 +255,17 @@ fn number_expression() {
 
 #[test]
 fn binary_number_expression() {
-    assert_expression!("0b1100100", Expression::Literal(LiteralInteger(100)));
+    assert_expression!("0b1100100", Expression::Literal(Value::Integer(100)));
 }
 
 #[test]
 fn octal_number_expression() {
-    assert_expression!("0o144", Expression::Literal(LiteralInteger(100)));
+    assert_expression!("0o144", Expression::Literal(Value::Integer(100)));
 }
 
 #[test]
 fn hexdec_number_expression() {
-    assert_expression!("0x64", Expression::Literal(LiteralInteger(100)));
+    assert_expression!("0x64", Expression::Literal(Value::Integer(100)));
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn floating_number_expression() {
 #[test]
 fn binary_expression() {
     assert_expression!("true == 1", Expression::Binary {
-        left: Box::new(Expression::Literal(LiteralTrue)),
+        left: Box::new(Expression::Literal(Value::True)),
         operator: Equality,
         right: boxnum!("1")
     });
@@ -368,7 +368,7 @@ fn if_statement() {
     }
 
     ", Statement::If {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
@@ -389,7 +389,7 @@ fn if_else_statement() {
     }
 
     ", Statement::If {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
@@ -416,14 +416,14 @@ fn if_else_if_else_statement() {
     }
 
     ", Statement::If {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
             }]
         }),
         alternate: Some(Box::new(Statement::If {
-            test: Expression::Literal(LiteralFalse),
+            test: Expression::Literal(Value::False),
             consequent: Box::new(Statement::Block {
                 body: vec![Statement::Expression {
                     value: ident!("bar")
@@ -441,7 +441,7 @@ fn if_else_if_else_statement() {
 #[test]
 fn if_no_block_statement() {
     assert_statement!("if (true) foo;", Statement::If {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Expression {
             value: ident!("foo")
         }),
@@ -452,7 +452,7 @@ fn if_no_block_statement() {
 #[test]
 fn if_else_no_block_statement() {
     assert_statement!("if (true) foo; else bar;", Statement::If {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Expression {
             value: ident!("foo")
         }),
@@ -599,7 +599,7 @@ fn while_statement() {
     }
 
     ", Statement::While {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         body: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
@@ -611,7 +611,7 @@ fn while_statement() {
 #[test]
 fn while_no_block_statement() {
     assert_statement!("while (true) foo;", Statement::While {
-        test: Expression::Literal(LiteralTrue),
+        test: Expression::Literal(Value::True),
         body: Box::new(Statement::Expression {
             value: ident!("foo")
         }),

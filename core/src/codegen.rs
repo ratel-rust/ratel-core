@@ -213,17 +213,17 @@ impl Code for OperatorType {
     }
 }
 
-impl Code for LiteralValue {
+impl Code for Value {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            LiteralUndefined          => gen.write_min(b"undefined", b"void 0"),
-            LiteralNull               => gen.write_bytes(b"null"),
-            LiteralTrue               => gen.write_min(b"true", b"!0",),
-            LiteralFalse              => gen.write_min(b"false", b"!1"),
-            LiteralInteger(ref num)   => gen.write(num),
-            LiteralFloat(ref num)     => gen.write(num),
-            LiteralString(ref string) => gen.write(string),
+            Value::Undefined          => gen.write_min(b"undefined", b"void 0"),
+            Value::Null               => gen.write_bytes(b"null"),
+            Value::True               => gen.write_min(b"true", b"!0",),
+            Value::False              => gen.write_min(b"false", b"!1"),
+            Value::Integer(ref num)   => gen.write(num),
+            Value::Number(ref num)    => gen.write(num),
+            Value::String(ref string) => gen.write(string),
         }
     }
 }

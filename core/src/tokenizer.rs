@@ -4,8 +4,7 @@ use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
-use grammar::LiteralValue;
-use grammar::LiteralValue::*;
+use grammar::Value;
 use error::{ Error, Result };
 use owned_slice::OwnedSlice;
 
@@ -518,7 +517,7 @@ define_handlers! {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
-            "false"      => Literal(LiteralFalse),
+            "false"      => Literal(Value::False),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -548,7 +547,7 @@ define_handlers! {
     const L_N: label_n |tok, _| {
         Ok(match tok.consume_label_characters() {
             "new"        => Operator(New),
-            "null"       => Literal(LiteralNull),
+            "null"       => Literal(Value::Null),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -589,7 +588,7 @@ define_handlers! {
             "this"       => This,
             "throw"      => Throw,
             "try"        => Try,
-            "true"       => Literal(LiteralTrue),
+            "true"       => Literal(Value::True),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -597,7 +596,7 @@ define_handlers! {
     // Identifier or keyword starting with a letter `u`
     const L_U: label_u |tok, _| {
         Ok(match tok.consume_label_characters() {
-            "undefined"  => Literal(LiteralUndefined),
+            "undefined"  => Literal(Value::Undefined),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -700,7 +699,7 @@ define_handlers! {
             OwnedSlice::from_str(slice)
         };
 
-        Ok(Literal(LiteralFloat(value)))
+        Ok(Literal(Value::Number(value)))
     }
 
     // 1 to 9
@@ -728,7 +727,7 @@ define_handlers! {
             OwnedSlice::from_str(slice)
         };
 
-        Ok(Literal(LiteralFloat(value)))
+        Ok(Literal(Value::Number(value)))
     }
 
     // .
@@ -785,7 +784,7 @@ define_handlers! {
             OwnedSlice::from_str(slice)
         };
 
-        Ok(Literal(LiteralString(value)))
+        Ok(Literal(Value::String(value)))
     }
 }
 
@@ -971,7 +970,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_binary(&mut self) -> LiteralValue {
+    fn read_binary(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -989,11 +988,11 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralInteger(value)
+        Value::Integer(value)
     }
 
     #[inline]
-    fn read_octal(&mut self) -> LiteralValue {
+    fn read_octal(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1007,11 +1006,11 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        LiteralInteger(value)
+        Value::Integer(value)
     }
 
     #[inline]
-    fn read_hexadec(&mut self) -> LiteralValue {
+    fn read_hexadec(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1027,7 +1026,7 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        return LiteralInteger(value);
+        Value::Integer(value)
     }
 
     #[inline]
@@ -1046,7 +1045,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) -> LiteralValue {
+    fn read_float(&mut self, start: usize) -> Value {
         while !self.is_eof() {
             let ch = self.read_byte();
             match ch {
@@ -1055,7 +1054,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralValue::LiteralFloat(unsafe {
+        Value::Number(unsafe {
             OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
         })
     }

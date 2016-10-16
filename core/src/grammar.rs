@@ -1,16 +1,15 @@
 use owned_slice::OwnedSlice;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum LiteralValue {
-    LiteralUndefined,
-    LiteralNull,
-    LiteralTrue,
-    LiteralFalse,
-    LiteralInteger(u64),
-    LiteralFloat(OwnedSlice),
-    LiteralString(OwnedSlice),
+pub enum Value {
+    Undefined,
+    Null,
+    True,
+    False,
+    Integer(u64),
+    Number(OwnedSlice),
+    String(OwnedSlice),
 }
-pub use self::LiteralValue::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Parameter {
@@ -229,7 +228,7 @@ impl OperatorType {
 pub enum Expression {
     This,
     Identifier(OwnedSlice),
-    Literal(LiteralValue),
+    Literal(Value),
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
     Object(Vec<ObjectMember>),

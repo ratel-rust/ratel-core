@@ -1,4 +1,4 @@
-use grammar::LiteralValue;
+use grammar::Value;
 use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
 use owned_slice::OwnedSlice;
@@ -56,5 +56,5 @@ pub enum Token {
     Static,
     Reserved(ReservedKind),
     Identifier(OwnedSlice),
-    Literal(LiteralValue),
+    Literal(Value),
 }
