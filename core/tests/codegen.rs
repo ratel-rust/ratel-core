@@ -8,7 +8,7 @@ pub use ratel::grammar::OperatorType::*;
 fn output_program(input_program: &str) -> String {
     let mut ast = parser::parse(input_program.to_string()).expect("Must compile");
     transformer::transform(&mut ast, transformer::Settings::target_es5());
-    codegen::generate_code(ast, true)
+    codegen::generate_code(&ast, true)
 }
 
 macro_rules! assert_compile {
