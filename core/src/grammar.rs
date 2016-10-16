@@ -229,7 +229,8 @@ pub enum Expression {
     This,
     Identifier(OwnedSlice),
     Literal(Value),
-    TemplateLiteral {
+    Template {
+        tag: Option<OwnedSlice>,
         expressions: Vec<Expression>,
         quasis: Vec<OwnedSlice>,
     },

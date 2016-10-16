@@ -302,10 +302,12 @@ impl Code for Expression {
 
             Expression::Literal(ref literal)  => gen.write(literal),
 
-            Expression::TemplateLiteral {
+            Expression::Template {
+                ref tag,
                 ref expressions,
                 ref quasis,
             } => {
+                gen.write(tag);
                 gen.write_byte(b'`');
 
                 match quasis.len() {
@@ -314,10 +316,8 @@ impl Code for Expression {
                         gen.write(&quasis[0]);
                     },
                     _ => {
-                        let last_index = quasis.len() - 1;
-                        let last_quasi = &quasis[last_index];
-
-                        let mut iter = quasis[..last_index].iter().zip(expressions);
+                        let last = quasis.len() - 1;
+                        let iter = quasis[..last].iter().zip(expressions);
 
                         for (quasi, expression) in iter {
                             gen.write(quasi);
@@ -326,7 +326,7 @@ impl Code for Expression {
                             gen.write_min(b" }", b"}");
                         }
 
-                        gen.write(last_quasi);
+                        gen.write(&quasis[last]);
                     }
                 }
 
