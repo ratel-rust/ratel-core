@@ -1,6 +1,5 @@
-extern crate itoa;
-
 use std::ptr;
+use std::io::Write;
 
 use grammar::*;
 use grammar::OperatorType::*;
@@ -129,7 +128,7 @@ trait Code {
 impl Code for u64 {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        itoa::write(&mut gen.code, *self).expect("Can't fail on a Vec");
+        write!(&mut gen.code, "{}", *self).expect("Can't fail on a Vec");
     }
 }
 
@@ -716,11 +715,11 @@ impl Code for Statement {
     }
 }
 
-pub fn generate_code(program: Program, minify: bool) -> String {
+pub fn generate_code(program: &Program, minify: bool) -> String {
     let mut gen = Generator::new(minify);
 
-    for statement in program.body {
-        gen.write(&statement);
+    for statement in &program.body {
+        gen.write(statement);
         gen.new_line();
     }
 

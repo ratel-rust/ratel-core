@@ -26,7 +26,7 @@ fn transform(call: Call) -> JsResult<JsString> {
     };
 
     transformer::transform(&mut ast, transformer::Settings::target_es5());
-    let out = codegen::generate_code(ast, minify.value());
+    let out = codegen::generate_code(&ast, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())
 }
