@@ -3,6 +3,7 @@
 - pass transpilation options from cli to core
 - additional tests for core library
   - Test and list which ES2015 features are not yet covered
+    - [ ] Scientific notation for numbers
     - [ ] Function default parameters
     - [ ] Regular expressions
     - [ ] Generator functions
