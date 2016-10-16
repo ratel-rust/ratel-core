@@ -15,6 +15,14 @@ pub enum ReservedKind {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum TemplateKind {
+    Literal(OwnedSlice),
+    Head(OwnedSlice),
+    Middle(OwnedSlice),
+    Tail(OwnedSlice),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
     EndOfProgram,
     Semicolon,
@@ -57,4 +65,5 @@ pub enum Token {
     Reserved(ReservedKind),
     Identifier(OwnedSlice),
     Literal(Value),
+    Template(TemplateKind),
 }

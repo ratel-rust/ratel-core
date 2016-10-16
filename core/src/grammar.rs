@@ -229,6 +229,10 @@ pub enum Expression {
     This,
     Identifier(OwnedSlice),
     Literal(Value),
+    TemplateLiteral {
+        expressions: Vec<Expression>,
+        quasis: Vec<OwnedSlice>,
+    },
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
     Object(Vec<ObjectMember>),

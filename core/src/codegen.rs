@@ -302,6 +302,43 @@ impl Code for Expression {
 
             Expression::Literal(ref literal)  => gen.write(literal),
 
+            Expression::TemplateLiteral {
+                ref expressions,
+                ref quasis,
+            } => {
+                gen.write_byte(b'`');
+
+                match quasis.len() {
+                    0 => panic!("Must have at least one quasi"),
+                    1 => {
+                        gen.write(&quasis[0]);
+                    },
+                    _ => {
+                        let last_index = quasis.len() - 1;
+                        let last_quasi = &quasis[last_index];
+
+                        let mut quasis = quasis[..last_index].iter();
+                        let mut expressions = expressions.iter();
+
+                        gen.write(quasis.next().expect("Must have a first quasi"));
+                        gen.write_min(b"${ ", b"${");
+                        gen.write(expressions.next().expect("Must have a first expression"));
+                        gen.write_min(b" }", b"}");
+
+                        for quasi in quasis {
+                            gen.write(quasi);
+                            gen.write_min(b"${ ", b"${");
+                            gen.write(expressions.next().expect("Must have a following expression"));
+                            gen.write_min(b" }", b"}");
+                        }
+
+                        gen.write(last_quasi);
+                    }
+                }
+
+                gen.write_byte(b'`');
+            },
+
             Expression::Array(ref items) => {
                 gen.write_byte(b'[');
                 gen.write_list(items);
