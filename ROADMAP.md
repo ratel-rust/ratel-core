@@ -1,4 +1,4 @@
-- remove rust-cli, benchmarks
+- ~~remove rust-cli, benchmarks~~
 - use Node buffers instead of strings
 - pass transpilation options from cli to core
 - additional tests for core library
