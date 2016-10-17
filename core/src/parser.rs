@@ -172,7 +172,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn object_member(&mut self, token: Token) -> Result<ObjectMember> {
         Ok(match token {
-            Identifier(key) | Literal(Value::String(key)) => {
+            Identifier(key) | Literal(Value::String(key)) | Literal(Value::Number(key)) => {
                 match peek!(self) {
                     Colon => {
                         self.consume();

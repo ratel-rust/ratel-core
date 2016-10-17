@@ -6,7 +6,6 @@ pub enum Value {
     Null,
     True,
     False,
-    Integer(u64),
     Number(OwnedSlice),
     String(OwnedSlice),
     RawQuasi(OwnedSlice),

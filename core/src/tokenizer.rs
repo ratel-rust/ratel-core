@@ -1034,7 +1034,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        Value::Integer(value)
+        Value::Number(unsafe {
+            OwnedSlice::from_str(&value.to_string())
+        })
     }
 
     #[inline]
@@ -1052,7 +1054,9 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        Value::Integer(value)
+        Value::Number(unsafe {
+            OwnedSlice::from_str(&value.to_string())
+        })
     }
 
     #[inline]
@@ -1072,7 +1076,9 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        Value::Integer(value)
+        Value::Number(unsafe {
+            OwnedSlice::from_str(&value.to_string())
+        })
     }
 
     #[inline]

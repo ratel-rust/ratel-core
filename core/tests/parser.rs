@@ -255,17 +255,17 @@ fn number_expression() {
 
 #[test]
 fn binary_number_expression() {
-    assert_expression!("0b1100100", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0b1100100", num!("100"));
 }
 
 #[test]
 fn octal_number_expression() {
-    assert_expression!("0o144", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0o144", num!("100"));
 }
 
 #[test]
 fn hexdec_number_expression() {
-    assert_expression!("0x64", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0x64", num!("100"));
 }
 
 #[test]
@@ -763,10 +763,40 @@ fn sequence_in_accessor() {
 }
 
 #[test]
-fn object_literal_member() {
+fn object_string_literal_member() {
     assert_expression!("({foo:100})", Expression::Object(vec![
         ObjectMember::Literal {
             key: "foo".into(),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_number_literal_member() {
+    assert_expression!("({100:100})", Expression::Object(vec![
+        ObjectMember::Literal {
+            key: "100".into(),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_binary_literal_member() {
+    assert_expression!("({ 0b1100100 : 100})", Expression::Object(vec![
+        ObjectMember::Literal {
+            key: "100".into(),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_hex_literal_member() {
+    assert_expression!("({ 0x64 : 100})", Expression::Object(vec![
+        ObjectMember::Literal {
+            key: "100".into(),
             value: num!("100"),
         }
     ]));
