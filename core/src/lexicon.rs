@@ -16,10 +16,8 @@ pub enum ReservedKind {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TemplateKind {
-    Literal(OwnedSlice),
-    Head(OwnedSlice),
-    Middle(OwnedSlice),
-    Tail(OwnedSlice),
+    Open(OwnedSlice),
+    Closed(OwnedSlice),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

@@ -2,6 +2,7 @@ use std::str;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
+use lexicon::TemplateKind;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
 use grammar::Value;
@@ -42,7 +43,7 @@ static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
     ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
     IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, ___, BTC, CRT, IDT, // 5
-    ___, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
+    TPL, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
     L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, BEO, PIP, BEC, TLD, ___, // 7
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
@@ -646,10 +647,9 @@ define_handlers! {
 
         tok.consume_label_characters();
 
-        Ok(Identifier(unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        }))
+        let ident = tok.slice_source(start, tok.index);
+
+        Ok(Identifier(ident))
     }
 
     // 0
@@ -694,10 +694,7 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
         Ok(Literal(Value::Number(value)))
     }
@@ -722,10 +719,7 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
         Ok(Literal(Value::Number(value)))
     }
@@ -779,12 +773,18 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
         Ok(Literal(Value::String(value)))
+    }
+
+    // `
+    const TPL: template |tok, _| {
+        tok.bump();
+
+        let template_kind = try!(tok.read_template_kind());
+
+        Ok(Template(template_kind))
     }
 }
 
@@ -884,6 +884,44 @@ impl<'a> Tokenizer<'a> {
         BYTE_HANDLERS[ch as usize](self, ch)
     }
 
+    /// On top of being called when the opening backtick (`) of a template
+    /// literal occurs, this method needs to be used by the parser while
+    /// parsing a complex template string expression.
+    ///
+    /// **Note:** Parser needs to expect a BraceClose token before calling
+    /// this method to ensure that the tokenizer state is not corrupted.
+    #[inline]
+    pub fn read_template_kind(&mut self) -> Result<TemplateKind> {
+        let start = self.index;
+
+        loop {
+            let ch = expect_byte!(self);
+
+            match ch {
+                b'`' => {
+                    let quasi = self.slice_source(start, self.index - 1);
+
+                    return Ok(TemplateKind::Closed(quasi));
+                },
+                b'$' => {
+                    let ch = expect_byte!(self);
+
+                    if ch != b'{' {
+                        continue;
+                    }
+
+                    let quasi = self.slice_source(start, self.index - 2);
+
+                    return Ok(TemplateKind::Open(quasi));
+                },
+                b'\\' => {
+                    expect_byte!(self);
+                },
+                _ => {}
+            }
+        }
+    }
+
     /// Check if Automatic Semicolon Insertion rules can be applied
     #[inline]
     pub fn asi(&self) -> bool {
@@ -938,6 +976,14 @@ impl<'a> Tokenizer<'a> {
         }
 
         self.read_byte()
+    }
+
+    #[inline]
+    fn slice_source(&self, start: usize, end: usize) -> OwnedSlice {
+        unsafe {
+            let slice = self.source.slice_unchecked(start, end);
+            OwnedSlice::from_str(slice)
+        }
     }
 
     // Manually increment the index. Calling `read_byte` and then `bump`
@@ -1054,9 +1100,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        Value::Number(unsafe {
-            OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
-        })
+        let value = self.slice_source(start, self.index);
+
+        Value::Number(value)
     }
 
 }
