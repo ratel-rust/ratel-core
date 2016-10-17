@@ -28,7 +28,7 @@ This project is created and maintained by [Maciej Hirsz](https://github.com/maci
 
 ## Logo
 
-The smirky **Ratel** by the courtesy of [A. L. Palmer](http://www.therefractedcolor.com/).
+The smirky **Ratel** by the courtesy of [A. L. Palmer](https://www.behance.net/alpalmer60b4).
 
 ## License
 
