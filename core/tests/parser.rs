@@ -274,6 +274,24 @@ fn floating_number_expression() {
 }
 
 #[test]
+fn template_string_plain() {
+    assert_expression!("`foobar`", Expression::Template {
+        tag: None,
+        quasis: vec!["foobar".into()],
+        expressions: Vec::new(),
+    });
+}
+
+#[test]
+fn template_string_complex() {
+    assert_expression!("`foo${1}bar${2}baz`", Expression::Template {
+        tag: None,
+        quasis: vec!["foo".into(), "bar".into(), "baz".into()],
+        expressions: vec![num!("1"), num!("2")],
+    });
+}
+
+#[test]
 fn binary_expression() {
     assert_expression!("true == 1", Expression::Binary {
         left: Box::new(Expression::Literal(Value::True)),

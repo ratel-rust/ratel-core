@@ -230,7 +230,7 @@ pub enum Expression {
     Identifier(OwnedSlice),
     Literal(Value),
     Template {
-        tag: Option<OwnedSlice>,
+        tag: Option<Box<Expression>>,
         expressions: Vec<Expression>,
         quasis: Vec<OwnedSlice>,
     },

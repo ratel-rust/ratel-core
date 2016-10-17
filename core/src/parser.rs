@@ -1,5 +1,6 @@
 use lexicon::Token;
 use lexicon::Token::*;
+use lexicon::TemplateKind;
 use tokenizer::Tokenizer;
 use grammar::*;
 use grammar::OperatorType::*;
@@ -373,6 +374,40 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn template_expression(&mut self, tag: Option<Box<Expression>>, mut kind: TemplateKind)
+    -> Result<Expression> {
+        let mut expressions = Vec::new();
+        let mut quasis = Vec::new();
+
+        loop {
+            match kind {
+                TemplateKind::Open(slice) => {
+                    quasis.push(slice);
+
+                    let expression = try!(self.sequence_or_expression());
+
+                    expressions.push(expression);
+
+                    expect!(self, BraceClose);
+
+                    kind = try!(self.tokenizer.read_template_kind());
+                }
+
+                TemplateKind::Closed(slice) => {
+                    quasis.push(slice);
+                    break;
+                }
+            }
+        }
+
+
+        Ok(Expression::Template {
+            tag: tag,
+            expressions: expressions,
+            quasis: quasis,
+        })
+    }
+
     #[inline]
     fn paren_expression(&mut self) -> Result<Expression> {
         match next!(self) {
@@ -468,6 +503,7 @@ impl<'a> Parser<'a> {
             BracketOpen       => try!(self.array_expression()),
             BraceOpen         => try!(self.object_expression()),
             Function          => try!(self.function_expression()),
+            Template(kind)    => try!(self.template_expression(None, kind)),
             _                 => unexpected_token!(self)
         };
 
@@ -518,6 +554,18 @@ impl<'a> Parser<'a> {
                         object: Box::new(left),
                         property: Box::new(property),
                     }
+                },
+
+                Template(kind) => {
+                    if lbp > 0 {
+                        break;
+                    }
+
+                    self.consume();
+
+                    let tag = Some(Box::new(left));
+
+                    try!(self.template_expression(tag, kind))
                 },
 
                 _ => break
