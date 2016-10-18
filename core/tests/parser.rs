@@ -28,6 +28,11 @@ macro_rules! num {
     ($num:expr) => (Expression::Literal(Value::Number($num.into())))
 }
 
+
+macro_rules! expr_bin {
+    ($num:expr) => (Expression::Literal(Value::Binary($num)))
+}
+
 macro_rules! boxnum {
     ($num:expr) => (Box::new(num!($num)))
 }
@@ -255,7 +260,7 @@ fn number_expression() {
 
 #[test]
 fn binary_number_expression() {
-    assert_expression!("0b1100100", num!("100"));
+    assert_expression!("0b1100100", expr_bin!(100u64));
 }
 
 #[test]

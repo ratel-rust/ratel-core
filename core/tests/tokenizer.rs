@@ -21,6 +21,10 @@ macro_rules! lit_num {
     ($num:expr) => (Literal(Value::Number($num.into())))
 }
 
+macro_rules! lit_bin {
+    ($num:expr) => (Literal(Value::Binary($num)))
+}
+
 macro_rules! assert_token {
     ($string:expr, $token:expr, $descr:expr) => {
         assert_eq!(test_token($string, $token), true, $descr);
@@ -138,8 +142,8 @@ fn test_tokenizer_literals() {
     assert_token!("0xff", Literal(Value::Number("255".into())), "Value::Number");
     assert_token!("0xff", lit_num!("255"), "Value::Number");
     assert_token!("0XFF", lit_num!("255"), "Value::Number");
-    assert_token!("0b01001011", lit_num!("75"), "Value::Number");
-    assert_token!("0B01001011", lit_num!("75"), "Value::Number");
+    assert_token!("0b01001011", lit_bin!(75u64), "Value::Number");
+    assert_token!("0B01001011", lit_bin!(75u64), "Value::Number");
     assert_token!("0o113", lit_num!("75"), "Value::Number");
     assert_token!("0O113", lit_num!("75"), "Value::Number");
 }

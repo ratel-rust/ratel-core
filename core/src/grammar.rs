@@ -7,8 +7,16 @@ pub enum Value {
     True,
     False,
     Number(OwnedSlice),
+    Binary(u64),
     String(OwnedSlice),
     RawQuasi(OwnedSlice),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ObjectKey {
+    Computed(Expression),
+    Literal(OwnedSlice), // taken from Identifier, Value::String or Value::Number
+    Binary(u64),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -366,6 +374,10 @@ impl<'a> From<&'a OwnedSlice> for Expression {
 pub enum ObjectMember {
     Shorthand {
         key: OwnedSlice,
+    },
+    Value {
+        key: ObjectKey,
+        value: Expression,
     },
     Literal {
         key: OwnedSlice,

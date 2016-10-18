@@ -1034,9 +1034,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        Value::Number(unsafe {
-            OwnedSlice::from_str(&value.to_string())
-        })
+        Value::Binary(value)
     }
 
     #[inline]
@@ -1055,7 +1053,8 @@ impl<'a> Tokenizer<'a> {
         }
 
         Value::Number(unsafe {
-            OwnedSlice::from_str(&value.to_string())
+            let num = value.to_owned().to_string();
+            OwnedSlice::from_str(&num)
         })
     }
 
@@ -1077,7 +1076,8 @@ impl<'a> Tokenizer<'a> {
         }
 
         Value::Number(unsafe {
-            OwnedSlice::from_str(&value.to_string())
+            let num = value.to_owned().to_string();
+            OwnedSlice::from_str(&num)
         })
     }
 

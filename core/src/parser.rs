@@ -198,6 +198,33 @@ impl<'a> Parser<'a> {
                     }
                 }
             },
+            Literal(Value::Binary(num)) => {
+                let key = unsafe { OwnedSlice::from_str(&num.to_string()) };
+                match peek!(self) {
+                    Colon => {
+                        self.consume();
+
+                        ObjectMember::Literal {
+                            key: key,
+                            value: try!(self.expression(0)),
+                        }
+                    },
+
+                    ParenOpen => {
+                        self.consume();
+
+                        ObjectMember::Method {
+                            name: key,
+                            params: try!(self.parameter_list()),
+                            body: try!(self.block_body())
+                        }
+                    },
+
+                    _ => ObjectMember::Shorthand {
+                        key: key,
+                    }
+                }
+            },
             BracketOpen => {
                 let key = try!(self.expression(0));
 

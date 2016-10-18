@@ -384,6 +384,13 @@ impl Transformable for ObjectMember {
                 return;
             },
 
+            ObjectMember::Value {
+                ref mut key,
+                ref mut value,
+            } => {
+                return;
+            },
+
             ObjectMember::Computed {
                 ref mut key,
                 ref mut value,

@@ -251,7 +251,7 @@ impl Code for Value {
             Value::Null                => gen.write_bytes(b"null"),
             Value::True                => gen.write_min(b"true", b"!0",),
             Value::False               => gen.write_min(b"false", b"!1"),
-            Value::Integer(ref num)    => gen.write(num),
+            Value::Binary(ref num)     => gen.write(num),
             Value::Number(ref num)     => gen.write(num),
             Value::String(ref string)  => gen.write(string),
             Value::RawQuasi(ref quasi) => write_quasi(gen, *quasi),
@@ -266,6 +266,11 @@ impl Code for ObjectMember {
             ObjectMember::Shorthand {
                 ref key
             } => gen.write(key),
+
+            ObjectMember::Value {
+                ref key,
+                ref value,
+            } => gen.write(value),
 
             ObjectMember::Literal {
                 ref key,
