@@ -1,4 +1,4 @@
-use grammar::LiteralValue;
+use grammar::Value;
 use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
 use owned_slice::OwnedSlice;
@@ -12,6 +12,12 @@ pub enum ReservedKind {
     Interface,
     Private,
     Public,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum TemplateKind {
+    Open(OwnedSlice),
+    Closed(OwnedSlice),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -56,5 +62,6 @@ pub enum Token {
     Static,
     Reserved(ReservedKind),
     Identifier(OwnedSlice),
-    Literal(LiteralValue),
+    Literal(Value),
+    Template(TemplateKind),
 }

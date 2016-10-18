@@ -2,10 +2,10 @@ use std::str;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
+use lexicon::TemplateKind;
 use grammar::OperatorType::*;
 use grammar::VariableDeclarationKind::*;
-use grammar::LiteralValue;
-use grammar::LiteralValue::*;
+use grammar::Value;
 use error::{ Error, Result };
 use owned_slice::OwnedSlice;
 
@@ -43,7 +43,7 @@ static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
     ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
     IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, ___, BTC, CRT, IDT, // 5
-    ___, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
+    TPL, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
     L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, BEO, PIP, BEC, TLD, ___, // 7
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 9
@@ -518,7 +518,7 @@ define_handlers! {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
-            "false"      => Literal(LiteralFalse),
+            "false"      => Literal(Value::False),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -548,7 +548,7 @@ define_handlers! {
     const L_N: label_n |tok, _| {
         Ok(match tok.consume_label_characters() {
             "new"        => Operator(New),
-            "null"       => Literal(LiteralNull),
+            "null"       => Literal(Value::Null),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -589,7 +589,7 @@ define_handlers! {
             "this"       => This,
             "throw"      => Throw,
             "try"        => Try,
-            "true"       => Literal(LiteralTrue),
+            "true"       => Literal(Value::True),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -597,7 +597,7 @@ define_handlers! {
     // Identifier or keyword starting with a letter `u`
     const L_U: label_u |tok, _| {
         Ok(match tok.consume_label_characters() {
-            "undefined"  => Literal(LiteralUndefined),
+            "undefined"  => Literal(Value::Undefined),
             slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
         })
     }
@@ -647,10 +647,9 @@ define_handlers! {
 
         tok.consume_label_characters();
 
-        Ok(Identifier(unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        }))
+        let ident = tok.slice_source(start, tok.index);
+
+        Ok(Identifier(ident))
     }
 
     // 0
@@ -695,12 +694,9 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
-        Ok(Literal(LiteralFloat(value)))
+        Ok(Literal(Value::Number(value)))
     }
 
     // 1 to 9
@@ -723,12 +719,9 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
-        Ok(Literal(LiteralFloat(value)))
+        Ok(Literal(Value::Number(value)))
     }
 
     // .
@@ -780,12 +773,18 @@ define_handlers! {
             }
         }
 
-        let value = unsafe {
-            let slice = tok.source.slice_unchecked(start, tok.index);
-            OwnedSlice::from_str(slice)
-        };
+        let value = tok.slice_source(start, tok.index);
 
-        Ok(Literal(LiteralString(value)))
+        Ok(Literal(Value::String(value)))
+    }
+
+    // `
+    const TPL: template |tok, _| {
+        tok.bump();
+
+        let template_kind = try!(tok.read_template_kind());
+
+        Ok(Template(template_kind))
     }
 }
 
@@ -885,6 +884,44 @@ impl<'a> Tokenizer<'a> {
         BYTE_HANDLERS[ch as usize](self, ch)
     }
 
+    /// On top of being called when the opening backtick (`) of a template
+    /// literal occurs, this method needs to be used by the parser while
+    /// parsing a complex template string expression.
+    ///
+    /// **Note:** Parser needs to expect a BraceClose token before calling
+    /// this method to ensure that the tokenizer state is not corrupted.
+    #[inline]
+    pub fn read_template_kind(&mut self) -> Result<TemplateKind> {
+        let start = self.index;
+
+        loop {
+            let ch = expect_byte!(self);
+
+            match ch {
+                b'`' => {
+                    let quasi = self.slice_source(start, self.index - 1);
+
+                    return Ok(TemplateKind::Closed(quasi));
+                },
+                b'$' => {
+                    let ch = expect_byte!(self);
+
+                    if ch != b'{' {
+                        continue;
+                    }
+
+                    let quasi = self.slice_source(start, self.index - 2);
+
+                    return Ok(TemplateKind::Open(quasi));
+                },
+                b'\\' => {
+                    expect_byte!(self);
+                },
+                _ => {}
+            }
+        }
+    }
+
     /// Check if Automatic Semicolon Insertion rules can be applied
     #[inline]
     pub fn asi(&self) -> bool {
@@ -941,6 +978,14 @@ impl<'a> Tokenizer<'a> {
         self.read_byte()
     }
 
+    #[inline]
+    fn slice_source(&self, start: usize, end: usize) -> OwnedSlice {
+        unsafe {
+            let slice = self.source.slice_unchecked(start, end);
+            OwnedSlice::from_str(slice)
+        }
+    }
+
     // Manually increment the index. Calling `read_byte` and then `bump`
     // is equivalent to consuming a byte on an iterator.
     #[inline]
@@ -971,7 +1016,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_binary(&mut self) -> LiteralValue {
+    fn read_binary(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -989,11 +1034,11 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralInteger(value)
+        Value::Integer(value)
     }
 
     #[inline]
-    fn read_octal(&mut self) -> LiteralValue {
+    fn read_octal(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1007,11 +1052,11 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        LiteralInteger(value)
+        Value::Integer(value)
     }
 
     #[inline]
-    fn read_hexadec(&mut self) -> LiteralValue {
+    fn read_hexadec(&mut self) -> Value {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1027,7 +1072,7 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        return LiteralInteger(value);
+        Value::Integer(value)
     }
 
     #[inline]
@@ -1046,7 +1091,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) -> LiteralValue {
+    fn read_float(&mut self, start: usize) -> Value {
         while !self.is_eof() {
             let ch = self.read_byte();
             match ch {
@@ -1055,9 +1100,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        LiteralValue::LiteralFloat(unsafe {
-            OwnedSlice::from_str(self.source.slice_unchecked(start, self.index))
-        })
+        let value = self.slice_source(start, self.index);
+
+        Value::Number(value)
     }
 
 }

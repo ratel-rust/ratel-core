@@ -4,8 +4,8 @@ pub use ratel::*;
 pub use ratel::grammar::*;
 pub use ratel::tokenizer::*;
 pub use ratel::lexicon::Token;
-pub use ratel::lexicon::ReservedKind;
 pub use ratel::lexicon::Token::*;
+pub use ratel::lexicon::ReservedKind;
 pub use ratel::owned_slice::OwnedSlice;
 
 fn test_token(input: &str, expected: Token) -> bool {
@@ -25,141 +25,137 @@ macro_rules! assert_token {
 
 #[test]
 fn test_tokenizer_chars() {
-    assert_token!(";", Token::Semicolon, "read a Token::Semicolon");
-    assert_token!(":", Token::Colon, "read a Token::Colon");
-    assert_token!(",", Token::Comma, "read a Token::Comma");
-    assert_token!("(", Token::ParenOpen, "read a Token::ParenOpen");
-    assert_token!(")", Token::ParenClose, "read a Token::ParenClose");
-    assert_token!("[", Token::BracketOpen, "read a Token::BracketOpen");
-    assert_token!("]", Token::BracketClose, "read a Token::BracketClose");
-    assert_token!("{", Token::BraceOpen, "read a Token::BraceOpen");
-    assert_token!("}", Token::BraceClose, "read a Token::BraceClose");
+    assert_token!(";", Semicolon, "read a Semicolon");
+    assert_token!(":", Colon, "read a Colon");
+    assert_token!(",", Comma, "read a Comma");
+    assert_token!("(", ParenOpen, "read a ParenOpen");
+    assert_token!(")", ParenClose, "read a ParenClose");
+    assert_token!("[", BracketOpen, "read a BracketOpen");
+    assert_token!("]", BracketClose, "read a BracketClose");
+    assert_token!("{", BraceOpen, "read a BraceOpen");
+    assert_token!("}", BraceClose, "read a BraceClose");
 }
 
 #[test]
 fn test_tokenizer_control_statements() {
-    assert_token!("break", Token::Break, "read a Token::Break");
-    assert_token!("do", Token::Do, "read a Token::Do");
-    assert_token!("case", Token::Case, "read a Token::Case");
-    assert_token!("else", Token::Else, "read a Token::Else");
-    assert_token!("catch", Token::Catch, "read a Token::Catch");
-    assert_token!("export", Token::Export, "read a Token::Export");
-    assert_token!("class", Token::Class, "read a Token::Class");
-    assert_token!("extends", Token::Extends, "read a Token::Extends");
-    assert_token!("return", Token::Return, "read a Token::Return");
-    assert_token!("while", Token::While, "read a Token::While");
-    assert_token!("finally", Token::Finally, "read a Token::Finally");
-    assert_token!("super", Token::Super, "read a Token::Super");
-    assert_token!("with", Token::With, "read a Token::With");
-    assert_token!("continue", Token::Continue, "read a Token::Continue");
-    assert_token!("for", Token::For, "read a Token::For");
-    assert_token!("switch", Token::Switch, "read a Token::Switch");
-    assert_token!("yield", Token::Yield, "read a Token::Yield");
-    assert_token!("debugger", Token::Debugger, "read a Token::Debugger");
-    assert_token!("function", Token::Function, "read a Token::Function");
-    assert_token!("this", Token::This, "read a Token::This");
-    assert_token!("default", Token::Default, "read a Token::Default");
-    assert_token!("if", Token::If, "read a Token::If");
-    assert_token!("throw", Token::Throw, "read a Token::Throw");
-    assert_token!("import", Token::Import, "read a Token::Import");
-    assert_token!("try", Token::Try, "read a Token::Try");
+    assert_token!("break", Break, "read a Break");
+    assert_token!("do", Do, "read a Do");
+    assert_token!("case", Case, "read a Case");
+    assert_token!("else", Else, "read a Else");
+    assert_token!("catch", Catch, "read a Catch");
+    assert_token!("export", Export, "read a Export");
+    assert_token!("class", Class, "read a Class");
+    assert_token!("extends", Extends, "read a Extends");
+    assert_token!("return", Return, "read a Return");
+    assert_token!("while", While, "read a While");
+    assert_token!("finally", Finally, "read a Finally");
+    assert_token!("super", Super, "read a Super");
+    assert_token!("with", With, "read a With");
+    assert_token!("continue", Continue, "read a Continue");
+    assert_token!("for", For, "read a For");
+    assert_token!("switch", Switch, "read a Switch");
+    assert_token!("yield", Yield, "read a Yield");
+    assert_token!("debugger", Debugger, "read a Debugger");
+    assert_token!("function", Function, "read a Function");
+    assert_token!("this", This, "read a This");
+    assert_token!("default", Default, "read a Default");
+    assert_token!("if", If, "read a If");
+    assert_token!("throw", Throw, "read a Throw");
+    assert_token!("import", Import, "read a Import");
+    assert_token!("try", Try, "read a Try");
 }
 
 #[test]
 fn test_tokenizer_operators() {
-    assert_token!("=>", Token::Operator(OperatorType::FatArrow), "OperatorType::FatArrow");
-    assert_token!(".", Token::Operator(OperatorType::Accessor), "OperatorType::Accessor");
-    assert_token!("new", Token::Operator(OperatorType::New), "OperatorType::New");
-    assert_token!("++", Token::Operator(OperatorType::Increment), "OperatorType::Increment");
-    assert_token!("--", Token::Operator(OperatorType::Decrement), "OperatorType::Decrement");
-    assert_token!("!", Token::Operator(OperatorType::LogicalNot), "OperatorType::LogicalNot");
-    assert_token!("~", Token::Operator(OperatorType::BitwiseNot), "OperatorType::BitwiseNot");
-    assert_token!("typeof", Token::Operator(OperatorType::Typeof), "OperatorType::Typeof");
-    assert_token!("void", Token::Operator(OperatorType::Void), "OperatorType::Void");
-    assert_token!("delete", Token::Operator(OperatorType::Delete), "OperatorType::Delete");
-    assert_token!("*", Token::Operator(OperatorType::Multiplication), "OperatorType::Multiplication");
-    assert_token!("/", Token::Operator(OperatorType::Division), "OperatorType::Division");
-    assert_token!("%", Token::Operator(OperatorType::Remainder), "OperatorType::Remainder");
-    assert_token!("**", Token::Operator(OperatorType::Exponent), "OperatorType::Exponent");
-    assert_token!("+", Token::Operator(OperatorType::Addition), "OperatorType::Addition");
-    assert_token!("-", Token::Operator(OperatorType::Substraction), "OperatorType::Substraction");
-    assert_token!("<<", Token::Operator(OperatorType::BitShiftLeft), "OperatorType::BitShiftLeft");
-    assert_token!(">>", Token::Operator(OperatorType::BitShiftRight), "OperatorType::BitShiftRight");
-    assert_token!(">>>", Token::Operator(OperatorType::UBitShiftRight), "OperatorType::UBitShiftRight");
-    assert_token!("<", Token::Operator(OperatorType::Lesser), "OperatorType::Lesser");
-    assert_token!("<=", Token::Operator(OperatorType::LesserEquals), "OperatorType::LesserEquals");
-    assert_token!(">", Token::Operator(OperatorType::Greater), "OperatorType::Greater");
-    assert_token!(">=", Token::Operator(OperatorType::GreaterEquals), "OperatorType::GreaterEquals");
-    assert_token!("instanceof", Token::Operator(OperatorType::Instanceof), "OperatorType::Instanceof");
-    assert_token!("in", Token::Operator(OperatorType::In), "OperatorType::In");
-    assert_token!("===", Token::Operator(OperatorType::StrictEquality), "OperatorType::StrictEquality");
-    assert_token!("!==", Token::Operator(OperatorType::StrictInequality), "OperatorType::StrictInequality");
-    assert_token!("==", Token::Operator(OperatorType::Equality), "OperatorType::Equality");
-    assert_token!("!=", Token::Operator(OperatorType::Inequality), "OperatorType::Inequality");
-    assert_token!("&", Token::Operator(OperatorType::BitwiseAnd), "OperatorType::BitwiseAnd");
-    assert_token!("^", Token::Operator(OperatorType::BitwiseXor), "OperatorType::BitwiseXor");
-    assert_token!("|", Token::Operator(OperatorType::BitwiseOr), "OperatorType::BitwiseOr");
-    assert_token!("&&", Token::Operator(OperatorType::LogicalAnd), "OperatorType::LogicalAnd");
-    assert_token!("||", Token::Operator(OperatorType::LogicalOr), "OperatorType::LogicalOr");
-    assert_token!("?", Token::Operator(OperatorType::Conditional), "OperatorType::Conditional");
-    assert_token!("=", Token::Operator(OperatorType::Assign), "OperatorType::Assign");
-    assert_token!("+=", Token::Operator(OperatorType::AddAssign), "OperatorType::AddAssign");
-    assert_token!("-=", Token::Operator(OperatorType::SubstractAssign), "OperatorType::SubstractAssign");
-    assert_token!("**=", Token::Operator(OperatorType::ExponentAssign), "OperatorType::ExponentAssign");
-    assert_token!("*=", Token::Operator(OperatorType::MultiplyAssign), "OperatorType::MultiplyAssign");
-    assert_token!("/=", Token::Operator(OperatorType::DivideAssign), "OperatorType::DivideAssign");
-    assert_token!("%=", Token::Operator(OperatorType::RemainderAssign), "OperatorType::RemainderAssign");
-    assert_token!("<<=", Token::Operator(OperatorType::BSLAssign), "OperatorType::BSLAssign");
-    assert_token!(">>=", Token::Operator(OperatorType::BSRAssign), "OperatorType::BSRAssign");
-    assert_token!(">>>=", Token::Operator(OperatorType::UBSRAssign), "OperatorType::UBSRAssign");
-    assert_token!("&=", Token::Operator(OperatorType::BitAndAssign), "OperatorType::BitAndAssign");
-    assert_token!("^=", Token::Operator(OperatorType::BitXorAssign), "OperatorType::BitXorAssign");
-    assert_token!("|=", Token::Operator(OperatorType::BitOrAssign), "OperatorType::BitOrAssign");
-    assert_token!("...", Token::Operator(OperatorType::Spread), "OperatorType::Spread");
+    assert_token!("=>", Operator(OperatorType::FatArrow), "OperatorType::FatArrow");
+    assert_token!(".", Operator(OperatorType::Accessor), "OperatorType::Accessor");
+    assert_token!("new", Operator(OperatorType::New), "OperatorType::New");
+    assert_token!("++", Operator(OperatorType::Increment), "OperatorType::Increment");
+    assert_token!("--", Operator(OperatorType::Decrement), "OperatorType::Decrement");
+    assert_token!("!", Operator(OperatorType::LogicalNot), "OperatorType::LogicalNot");
+    assert_token!("~", Operator(OperatorType::BitwiseNot), "OperatorType::BitwiseNot");
+    assert_token!("typeof", Operator(OperatorType::Typeof), "OperatorType::Typeof");
+    assert_token!("void", Operator(OperatorType::Void), "OperatorType::Void");
+    assert_token!("delete", Operator(OperatorType::Delete), "OperatorType::Delete");
+    assert_token!("*", Operator(OperatorType::Multiplication), "OperatorType::Multiplication");
+    assert_token!("/", Operator(OperatorType::Division), "OperatorType::Division");
+    assert_token!("%", Operator(OperatorType::Remainder), "OperatorType::Remainder");
+    assert_token!("**", Operator(OperatorType::Exponent), "OperatorType::Exponent");
+    assert_token!("+", Operator(OperatorType::Addition), "OperatorType::Addition");
+    assert_token!("-", Operator(OperatorType::Substraction), "OperatorType::Substraction");
+    assert_token!("<<", Operator(OperatorType::BitShiftLeft), "OperatorType::BitShiftLeft");
+    assert_token!(">>", Operator(OperatorType::BitShiftRight), "OperatorType::BitShiftRight");
+    assert_token!(">>>", Operator(OperatorType::UBitShiftRight), "OperatorType::UBitShiftRight");
+    assert_token!("<", Operator(OperatorType::Lesser), "OperatorType::Lesser");
+    assert_token!("<=", Operator(OperatorType::LesserEquals), "OperatorType::LesserEquals");
+    assert_token!(">", Operator(OperatorType::Greater), "OperatorType::Greater");
+    assert_token!(">=", Operator(OperatorType::GreaterEquals), "OperatorType::GreaterEquals");
+    assert_token!("instanceof", Operator(OperatorType::Instanceof), "OperatorType::Instanceof");
+    assert_token!("in", Operator(OperatorType::In), "OperatorType::In");
+    assert_token!("===", Operator(OperatorType::StrictEquality), "OperatorType::StrictEquality");
+    assert_token!("!==", Operator(OperatorType::StrictInequality), "OperatorType::StrictInequality");
+    assert_token!("==", Operator(OperatorType::Equality), "OperatorType::Equality");
+    assert_token!("!=", Operator(OperatorType::Inequality), "OperatorType::Inequality");
+    assert_token!("&", Operator(OperatorType::BitwiseAnd), "OperatorType::BitwiseAnd");
+    assert_token!("^", Operator(OperatorType::BitwiseXor), "OperatorType::BitwiseXor");
+    assert_token!("|", Operator(OperatorType::BitwiseOr), "OperatorType::BitwiseOr");
+    assert_token!("&&", Operator(OperatorType::LogicalAnd), "OperatorType::LogicalAnd");
+    assert_token!("||", Operator(OperatorType::LogicalOr), "OperatorType::LogicalOr");
+    assert_token!("?", Operator(OperatorType::Conditional), "OperatorType::Conditional");
+    assert_token!("=", Operator(OperatorType::Assign), "OperatorType::Assign");
+    assert_token!("+=", Operator(OperatorType::AddAssign), "OperatorType::AddAssign");
+    assert_token!("-=", Operator(OperatorType::SubstractAssign), "OperatorType::SubstractAssign");
+    assert_token!("**=", Operator(OperatorType::ExponentAssign), "OperatorType::ExponentAssign");
+    assert_token!("*=", Operator(OperatorType::MultiplyAssign), "OperatorType::MultiplyAssign");
+    assert_token!("/=", Operator(OperatorType::DivideAssign), "OperatorType::DivideAssign");
+    assert_token!("%=", Operator(OperatorType::RemainderAssign), "OperatorType::RemainderAssign");
+    assert_token!("<<=", Operator(OperatorType::BSLAssign), "OperatorType::BSLAssign");
+    assert_token!(">>=", Operator(OperatorType::BSRAssign), "OperatorType::BSRAssign");
+    assert_token!(">>>=", Operator(OperatorType::UBSRAssign), "OperatorType::UBSRAssign");
+    assert_token!("&=", Operator(OperatorType::BitAndAssign), "OperatorType::BitAndAssign");
+    assert_token!("^=", Operator(OperatorType::BitXorAssign), "OperatorType::BitXorAssign");
+    assert_token!("|=", Operator(OperatorType::BitOrAssign), "OperatorType::BitOrAssign");
+    assert_token!("...", Operator(OperatorType::Spread), "OperatorType::Spread");
 }
 
 #[test]
 fn test_tokenizer_literals() {
-    assert_token!("undefined", Token::Literal(LiteralValue::LiteralUndefined), "Token::LiteralUndefined");
-    assert_token!("null", Token::Literal(LiteralValue::LiteralNull), "Token::LiteralNull");
-    assert_token!("true", Token::Literal(LiteralValue::LiteralTrue), "Token::LiteralTrue");
-    assert_token!("false", Token::Literal(LiteralValue::LiteralFalse), "Token::LiteralFalse");
+    assert_token!("undefined", Literal(Value::Undefined), "Value::Undefined");
+    assert_token!("null", Literal(Value::Null), "Value::Null");
+    assert_token!("true", Literal(Value::True), "Value::True");
+    assert_token!("false", Literal(Value::False), "Value::False");
 
-    assert_token!("'foo'", Token::Literal(LiteralString(OwnedSlice::from_static("'foo'"))), "Token::LiteralString");
-    assert_token!("\"foo\"", Token::Literal(LiteralString(OwnedSlice::from_static("\"foo\""))), "Token::LiteralString");
+    assert_token!("'foo'", Literal(Value::String("'foo'".into())), "Value::String");
+    assert_token!("\"foo\"", Literal(Value::String("\"foo\"".into())), "Value::String");
 
-    // assert_token!("2.2", Token::Literal(LiteralNumber(OwnedSlice::from_static("2.2"))), "Token::LiteralNumber");
-    assert_token!("2.2", Token::Literal(LiteralFloat(OwnedSlice::from_static("2.2"))), "Token::LiteralFloat");
+    assert_token!("2.2", Literal(Value::Number("2.2".into())), "Value::Number");
+    assert_token!("2", Literal(Value::Number("2".into())), "Value::Number");
 
-    // will be deprecated in favor of LiteralNumber
-    assert_token!("2", Token::Literal(LiteralFloat(OwnedSlice::from_static("2"))), "Token::LiteralFloat");
-    // assert_token!("2", Token::Literal(LiteralInteger(2)), "Token::LiteralInteger");
-
-    assert_token!("0xff", Token::Literal(LiteralInteger(255)), "Token::LiteralInteger");
-    assert_token!("0XFF", Token::Literal(LiteralInteger(255)), "Token::LiteralInteger");
-    assert_token!("0b01001011", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0B01001011", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0o113", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
-    assert_token!("0O113", Token::Literal(LiteralInteger(75)), "Token::LiteralInteger");
+    assert_token!("0xff", Literal(Value::Integer(255)), "Value::Integer");
+    assert_token!("0XFF", Literal(Value::Integer(255)), "Value::Integer");
+    assert_token!("0b01001011", Literal(Value::Integer(75)), "Value::Integer");
+    assert_token!("0B01001011", Literal(Value::Integer(75)), "Value::Integer");
+    assert_token!("0o113", Literal(Value::Integer(75)), "Value::Integer");
+    assert_token!("0O113", Literal(Value::Integer(75)), "Value::Integer");
 }
 
 #[test]
 fn test_tokenizer_reserved() {
-    assert_token!("enum", Token::Reserved(ReservedKind::Enum), "ReservedKind::Enum");
-    assert_token!("implements", Token::Reserved(ReservedKind::Implements), "ReservedKind::Implements");
-    assert_token!("package", Token::Reserved(ReservedKind::Package), "ReservedKind::Package");
-    assert_token!("protected", Token::Reserved(ReservedKind::Protected), "ReservedKind::Protected");
-    assert_token!("interface", Token::Reserved(ReservedKind::Interface), "ReservedKind::Interface");
-    assert_token!("private", Token::Reserved(ReservedKind::Private), "ReservedKind::Private");
-    assert_token!("public", Token::Reserved(ReservedKind::Public), "ReservedKind::Public");
+    assert_token!("enum", Reserved(ReservedKind::Enum), "ReservedKind::Enum");
+    assert_token!("implements", Reserved(ReservedKind::Implements), "ReservedKind::Implements");
+    assert_token!("package", Reserved(ReservedKind::Package), "ReservedKind::Package");
+    assert_token!("protected", Reserved(ReservedKind::Protected), "ReservedKind::Protected");
+    assert_token!("interface", Reserved(ReservedKind::Interface), "ReservedKind::Interface");
+    assert_token!("private", Reserved(ReservedKind::Private), "ReservedKind::Private");
+    assert_token!("public", Reserved(ReservedKind::Public), "ReservedKind::Public");
 }
 
 
 #[test]
 fn test_tokenizer_whitespace() {
-    assert_token!("", Token::EndOfProgram, "empty string");
-    assert_token!("  ", Token::EndOfProgram, "whitespaces");
-    assert_token!("\n\n\n  ", Token::EndOfProgram, "newlines");
-    assert_token!("//Comment\n//Comment", Token::EndOfProgram, "single-line comment");
-    assert_token!("/**\n  * Comment\n  */", Token::EndOfProgram, "multi-line comment");
+    assert_token!("", EndOfProgram, "empty string");
+    assert_token!("  ", EndOfProgram, "whitespaces");
+    assert_token!("\n\n\n  ", EndOfProgram, "newlines");
+    assert_token!("//Comment\n//Comment", EndOfProgram, "single-line comment");
+    assert_token!("/**\n  * Comment\n  */", EndOfProgram, "multi-line comment");
 }

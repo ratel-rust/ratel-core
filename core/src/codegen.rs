@@ -213,17 +213,17 @@ impl Code for OperatorType {
     }
 }
 
-impl Code for LiteralValue {
+impl Code for Value {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            LiteralUndefined          => gen.write_min(b"undefined", b"void 0"),
-            LiteralNull               => gen.write_bytes(b"null"),
-            LiteralTrue               => gen.write_min(b"true", b"!0",),
-            LiteralFalse              => gen.write_min(b"false", b"!1"),
-            LiteralInteger(ref num)   => gen.write(num),
-            LiteralFloat(ref num)     => gen.write(num),
-            LiteralString(ref string) => gen.write(string),
+            Value::Undefined          => gen.write_min(b"undefined", b"void 0"),
+            Value::Null               => gen.write_bytes(b"null"),
+            Value::True               => gen.write_min(b"true", b"!0",),
+            Value::False              => gen.write_min(b"false", b"!1"),
+            Value::Integer(ref num)   => gen.write(num),
+            Value::Number(ref num)    => gen.write(num),
+            Value::String(ref string) => gen.write(string),
         }
     }
 }
@@ -301,6 +301,37 @@ impl Code for Expression {
             Expression::Identifier(ref ident) => gen.write(ident),
 
             Expression::Literal(ref literal)  => gen.write(literal),
+
+            Expression::Template {
+                ref tag,
+                ref expressions,
+                ref quasis,
+            } => {
+                gen.write(tag);
+                gen.write_byte(b'`');
+
+                match quasis.len() {
+                    0 => panic!("Must have at least one quasi"),
+                    1 => {
+                        gen.write(&quasis[0]);
+                    },
+                    _ => {
+                        let last = quasis.len() - 1;
+                        let iter = quasis[..last].iter().zip(expressions);
+
+                        for (quasi, expression) in iter {
+                            gen.write(quasi);
+                            gen.write_min(b"${ ", b"${");
+                            gen.write(expression);
+                            gen.write_min(b" }", b"}");
+                        }
+
+                        gen.write(&quasis[last]);
+                    }
+                }
+
+                gen.write_byte(b'`');
+            },
 
             Expression::Array(ref items) => {
                 gen.write_byte(b'[');

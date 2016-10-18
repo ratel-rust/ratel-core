@@ -59,11 +59,17 @@ impl fmt::Display for ParseError {
                             .skip_while(|&(index, _)| index < lineno.saturating_sub(2))
                             .take_while(|&(index, _)| index < lineno + 3);
 
+                let width = log10(lineno + 3);
+
                 for (index, line) in iter {
                     if index == lineno {
-                        try!(writeln!(f, "> {:4} | {}", index+1, line));
+                        try!(writeln!(f, "> {0:1$} | {2}", index+1, width, line));
 
-                        try!(write!(f, "       | "));
+                        for _ in 0..width {
+                            try!(write!(f, " "));
+                        }
+
+                        try!(write!(f, "   | "));
 
                         for _ in 0..colno {
                             try!(write!(f, " "));
@@ -75,7 +81,7 @@ impl fmt::Display for ParseError {
 
                         try!(write!(f, "\n"));
                     } else {
-                        try!(writeln!(f, "{:6} | {}", index+1, line));
+                        try!(writeln!(f, "{0:1$} | {2}", index+1, width+2, line));
                     }
                 }
 
@@ -84,6 +90,17 @@ impl fmt::Display for ParseError {
 
         Ok(())
     }
+}
+
+fn log10(mut num: usize) -> usize {
+    let mut log = 0;
+
+    while num > 0 {
+        log += 1;
+        num /= 10;
+    }
+
+    log
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
