@@ -33,6 +33,16 @@ fn dont_touch_var_in_global_scope() {
 }
 
 #[test]
+fn template_strings() {
+    assert_compile!("`foobar`;", r#""foobar";"#);
+    assert_compile!("`foo\\`bar`;", r#""foo`bar";"#);
+    assert_compile!("`foo\nbar`;", "\"foo\\nbar\";");
+    assert_compile!("`foo${1}bar`;", r#""foo"+1+"bar";"#);
+    assert_compile!("`foo${1}${2**2}bar`;", r#""foo"+1+Math.pow(2,2)+"bar";"#);
+    assert_compile!("`foo${1}bar${2**2}`;", r#""foo"+1+"bar"+Math.pow(2,2);"#);
+}
+
+#[test]
 fn convert_let_to_var_in_block() {
     let program = "if(true) {
       let pi = 3.14;
