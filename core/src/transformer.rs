@@ -11,6 +11,7 @@ pub struct Settings {
     pub transform_exponentation: bool,
     pub transform_class_properties: bool,
     pub transform_class: bool,
+    pub transform_template_strings: bool,
 }
 
 trait Take {
@@ -44,6 +45,7 @@ impl Settings {
         settings.transform_arrow = true;
         settings.transform_object = true;
         settings.transform_class = true;
+        settings.transform_template_strings = true;
 
         settings
     }
@@ -65,6 +67,7 @@ impl Settings {
             transform_exponentation: false,
             transform_class_properties: false,
             transform_class: false,
+            transform_template_strings: false,
         }
     }
 }
@@ -256,7 +259,71 @@ impl Transformable for Expression {
 
                     _ => return,
                 }
-            }
+            },
+
+            Expression::Template {
+                ref mut tag,
+                ref mut expressions,
+                ref mut quasis,
+            } => {
+                tag.transform(settings);
+                expressions.transform(settings);
+
+                if !settings.transform_template_strings {
+                    return;
+                }
+
+                if let Some(tag) = tag.take() {
+                    // Tagged template
+
+                    let mut arguments = Vec::with_capacity(expressions.len() + 1);
+
+                    arguments.push(Expression::Array(
+                        quasis.drain(..)
+                              .map(|quasi| Expression::Literal(Value::RawQuasi(quasi)))
+                              .collect()
+                    ));
+
+                    arguments.extend(expressions.drain(..));
+
+                    Expression::Call {
+                        callee: tag,
+                        arguments: arguments,
+                    }
+                } else {
+                    // Not tagged template
+
+                    let mut quasis = quasis.drain(..);
+
+                    let mut left = Expression::Literal(
+                        Value::RawQuasi(quasis.next().expect("Must have first quasi"))
+                    );
+
+                    let iter = quasis.zip(expressions.drain(..));
+
+                    for (quasi, expression) in iter {
+                        left = Expression::binary(
+                            left,
+                            Addition,
+                            expression
+                        );
+
+                        if quasi.len() == 0 {
+                            continue;
+                        }
+
+                        left = Expression::binary(
+                            left,
+                            Addition,
+                            Expression::Literal(
+                                Value::RawQuasi(quasi)
+                            )
+                        );
+                    }
+
+                    left
+                }
+            },
 
             _ => return,
         }

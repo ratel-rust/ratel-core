@@ -9,6 +9,7 @@ pub enum Value {
     Integer(u64),
     Number(OwnedSlice),
     String(OwnedSlice),
+    RawQuasi(OwnedSlice),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

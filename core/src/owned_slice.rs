@@ -54,6 +54,11 @@ impl OwnedSlice {
             slice::from_raw_parts(self.ptr, self.len)
         }
     }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
 }
 
 impl From<&'static str> for OwnedSlice {

@@ -213,17 +213,48 @@ impl Code for OperatorType {
     }
 }
 
+fn write_quasi(gen: &mut Generator, quasi: OwnedSlice) {
+    gen.write_byte(b'"');
+
+    let mut iter = quasi.as_str().bytes();
+
+    while let Some(byte) = iter.next() {
+        match byte {
+            b'\r' => {},
+            b'\n' => gen.write_bytes(b"\\n"),
+            b'"'  => gen.write_bytes(b"\\\""),
+            b'\\' => {
+                if let Some(follow) = iter.next() {
+                    match follow {
+                        b'`'  => gen.write_byte(b'`'),
+                        b'\n' => {},
+                        b'\r' => {},
+                        _     => {
+                            gen.write_byte(b'\\');
+                            gen.write_byte(follow);
+                        }
+                    }
+                }
+            },
+            _ => gen.write_byte(byte),
+        }
+    }
+
+    gen.write_byte(b'"');
+}
+
 impl Code for Value {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            Value::Undefined          => gen.write_min(b"undefined", b"void 0"),
-            Value::Null               => gen.write_bytes(b"null"),
-            Value::True               => gen.write_min(b"true", b"!0",),
-            Value::False              => gen.write_min(b"false", b"!1"),
-            Value::Integer(ref num)   => gen.write(num),
-            Value::Number(ref num)    => gen.write(num),
-            Value::String(ref string) => gen.write(string),
+            Value::Undefined           => gen.write_min(b"undefined", b"void 0"),
+            Value::Null                => gen.write_bytes(b"null"),
+            Value::True                => gen.write_min(b"true", b"!0",),
+            Value::False               => gen.write_min(b"false", b"!1"),
+            Value::Integer(ref num)    => gen.write(num),
+            Value::Number(ref num)     => gen.write(num),
+            Value::String(ref string)  => gen.write(string),
+            Value::RawQuasi(ref quasi) => write_quasi(gen, *quasi),
         }
     }
 }
