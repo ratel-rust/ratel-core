@@ -12,12 +12,6 @@ pub enum Value {
     RawQuasi(OwnedSlice),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum ObjectKey {
-    Computed(Expression),
-    Literal(OwnedSlice), // taken from Identifier, Value::String or Value::Number
-    Binary(u64),
-}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Parameter {
@@ -379,24 +373,18 @@ pub enum ObjectMember {
         key: ObjectKey,
         value: Expression,
     },
-    Literal {
-        key: OwnedSlice,
-        value: Expression,
-    },
-    Computed {
-        key: Expression,
-        value: Expression,
-    },
     Method {
-        name: OwnedSlice,
+        key: ObjectKey,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
-    ComputedMethod {
-        name: Expression,
-        params: Vec<Parameter>,
-        body: Vec<Statement>,
-    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ObjectKey {
+    Computed(Expression),
+    Literal(OwnedSlice),
+    Binary(u64),
 }
 
 #[derive(Debug, PartialEq, Clone)]

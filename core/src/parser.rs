@@ -172,12 +172,17 @@ impl<'a> Parser<'a> {
     #[inline]
     fn object_member(&mut self, token: Token) -> Result<ObjectMember> {
         Ok(match token {
-            Identifier(key) | Literal(Value::String(key)) | Literal(Value::Number(key)) => {
+
+            Identifier(key)             |
+            Literal(Value::String(key)) |
+            Literal(Value::Number(key)) => {
+
                 match peek!(self) {
                     Colon => {
                         self.consume();
+                        let key = ObjectKey::Literal(key);
 
-                        ObjectMember::Literal {
+                        ObjectMember::Value {
                             key: key,
                             value: try!(self.expression(0)),
                         }
@@ -185,9 +190,10 @@ impl<'a> Parser<'a> {
 
                     ParenOpen => {
                         self.consume();
+                        let key = ObjectKey::Literal(key);
 
                         ObjectMember::Method {
-                            name: key,
+                            key: key,
                             params: try!(self.parameter_list()),
                             body: try!(self.block_body())
                         }
@@ -199,12 +205,12 @@ impl<'a> Parser<'a> {
                 }
             },
             Literal(Value::Binary(num)) => {
-                let key = unsafe { OwnedSlice::from_str(&num.to_string()) };
+                let key = ObjectKey::Binary(num);
                 match peek!(self) {
                     Colon => {
                         self.consume();
 
-                        ObjectMember::Literal {
+                        ObjectMember::Value {
                             key: key,
                             value: try!(self.expression(0)),
                         }
@@ -214,29 +220,27 @@ impl<'a> Parser<'a> {
                         self.consume();
 
                         ObjectMember::Method {
-                            name: key,
+                            key: key,
                             params: try!(self.parameter_list()),
                             body: try!(self.block_body())
                         }
                     },
 
-                    _ => ObjectMember::Shorthand {
-                        key: key,
-                    }
+                    _ => unexpected_token!(self)
                 }
             },
             BracketOpen => {
-                let key = try!(self.expression(0));
+                let key = ObjectKey::Computed(try!(self.expression(0)));
 
                 expect!(self, BracketClose);
 
                 match next!(self) {
-                    Colon => ObjectMember::Computed {
+                    Colon => ObjectMember::Value {
                         key: key,
                         value: try!(self.expression(0)),
                     },
-                    ParenOpen => ObjectMember::ComputedMethod {
-                        name: key,
+                    ParenOpen => ObjectMember::Method {
+                        key: key,
                         params: try!(self.parameter_list()),
                         body: try!(self.block_body()),
                     },
