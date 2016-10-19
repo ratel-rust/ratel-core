@@ -33,13 +33,25 @@ fn dont_touch_var_in_global_scope() {
 }
 
 #[test]
-fn template_strings() {
+fn template_strings_plain() {
     assert_compile!("`foobar`;", r#""foobar";"#);
     assert_compile!("`foo\\`bar`;", r#""foo`bar";"#);
     assert_compile!("`foo\nbar`;", "\"foo\\nbar\";");
+}
+
+#[test]
+fn template_strings_interpolation() {
     assert_compile!("`foo${1}bar`;", r#""foo"+1+"bar";"#);
     assert_compile!("`foo${1}${2**2}bar`;", r#""foo"+1+Math.pow(2,2)+"bar";"#);
     assert_compile!("`foo${1}bar${2**2}`;", r#""foo"+1+"bar"+Math.pow(2,2);"#);
+}
+
+#[test]
+fn template_strings_tagged() {
+    assert_compile!("foo`bar`;", r#"foo(["bar"]);"#);
+    assert_compile!("foo`bar${1}baz`;", r#"foo(["bar","baz"],1);"#);
+    assert_compile!("foo`bar${1}${2}baz`;", r#"foo(["bar","","baz"],1,2);"#);
+    assert_compile!("foo`bar${1}baz${2}`;", r#"foo(["bar","baz",""],1,2);"#);
 }
 
 #[test]

@@ -273,35 +273,56 @@ impl Transformable for Expression {
                     return;
                 }
 
-                let mut quasis = quasis.drain(..);
+                if let Some(tag) = tag.take() {
+                    // Tagged template
 
-                let mut left = Expression::Literal(
-                    Value::RawQuasi(quasis.next().expect("Must have first quasi"))
-                );
+                    let mut arguments = Vec::with_capacity(expressions.len() + 1);
 
-                let iter = quasis.zip(expressions.drain(..));
+                    arguments.push(Expression::Array(
+                        quasis.drain(..)
+                              .map(|quasi| Expression::Literal(Value::RawQuasi(quasi)))
+                              .collect()
+                    ));
 
-                for (quasi, expression) in iter {
-                    left = Expression::Binary {
-                        operator: Addition,
-                        left: Box::new(left),
-                        right: Box::new(expression),
-                    };
+                    arguments.extend(expressions.drain(..));
 
-                    if quasi.len() == 0 {
-                        continue;
+                    Expression::Call {
+                        callee: tag,
+                        arguments: arguments,
+                    }
+                } else {
+                    // Not tagged template
+
+                    let mut quasis = quasis.drain(..);
+
+                    let mut left = Expression::Literal(
+                        Value::RawQuasi(quasis.next().expect("Must have first quasi"))
+                    );
+
+                    let iter = quasis.zip(expressions.drain(..));
+
+                    for (quasi, expression) in iter {
+                        left = Expression::binary(
+                            left,
+                            Addition,
+                            expression
+                        );
+
+                        if quasi.len() == 0 {
+                            continue;
+                        }
+
+                        left = Expression::binary(
+                            left,
+                            Addition,
+                            Expression::Literal(
+                                Value::RawQuasi(quasi)
+                            )
+                        );
                     }
 
-                    left = Expression::Binary {
-                        operator: Addition,
-                        left: Box::new(left),
-                        right: Box::new(Expression::Literal(
-                            Value::RawQuasi(quasi)
-                        ))
-                    }
+                    left
                 }
-
-                left
             },
 
             _ => return,
