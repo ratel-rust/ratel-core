@@ -251,7 +251,7 @@ impl Code for Value {
             Value::Null                => gen.write_bytes(b"null"),
             Value::True                => gen.write_min(b"true", b"!0",),
             Value::False               => gen.write_min(b"false", b"!1"),
-            Value::Integer(ref num)    => gen.write(num),
+            Value::Binary(ref num)     => gen.write(num),
             Value::Number(ref num)     => gen.write(num),
             Value::String(ref string)  => gen.write(string),
             Value::RawQuasi(ref quasi) => write_quasi(gen, *quasi),
@@ -267,51 +267,40 @@ impl Code for ObjectMember {
                 ref key
             } => gen.write(key),
 
-            ObjectMember::Literal {
+            ObjectMember::Value {
                 ref key,
                 ref value,
-            } => {
-                gen.write(key);
-                gen.write_min(b": ", b":");
-                gen.write(value);
-            },
-
-            ObjectMember::Computed {
-                ref key,
-                ref value,
-            } => {
-                gen.write_byte(b'[');
-                gen.write(key);
-                gen.write_min(b"]: ", b"]:");
-                gen.write(value);
-            },
+            } => gen.write(value),
 
             ObjectMember::Method {
-                ref name,
+                ref key,
                 ref params,
                 ref body,
             } => {
-                gen.write(name);
+                gen.write(key);
                 gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
                 gen.write_block(body);
                 gen.write_byte(b'}');
             },
+        }
+    }
+}
 
-            ObjectMember::ComputedMethod {
-                ref name,
-                ref params,
-                ref body,
-            } => {
-                gen.write_byte(b'[');
-                gen.write(name);
-                gen.write_bytes(b"](");
-                gen.write_list(params);
-                gen.write_min(b") {", b"){");
-                gen.write_block(body);
-                gen.write_byte(b'}');
+impl Code for ObjectKey {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            ObjectKey::Computed (ref expression) => {
+                gen.write(expression)
             },
+            ObjectKey::Literal (ref slice) => {
+                gen.write(slice)
+            },
+            ObjectKey::Binary (ref num) => {
+                gen.write(num)
+            }
         }
     }
 }

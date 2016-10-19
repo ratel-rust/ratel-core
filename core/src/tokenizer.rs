@@ -668,13 +668,13 @@ define_handlers! {
             b'o' | b'O' => {
                 tok.bump();
 
-                return Ok(Literal(tok.read_octal()));
+                return Ok(Literal(tok.read_octal(start)));
             },
 
             b'x' | b'X' => {
                 tok.bump();
 
-                return Ok(Literal(tok.read_hexadec()));
+                return Ok(Literal(tok.read_hexadec(start)));
             },
 
             _ => {}
@@ -1034,45 +1034,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        Value::Integer(value)
-    }
-
-    #[inline]
-    fn read_octal(&mut self) -> Value {
-        let mut value = 0;
-
-        while !self.is_eof() {
-            let peek = self.read_byte();
-            let digit = match peek {
-                b'0'...b'7' => peek - b'0',
-                _           => break
-            };
-
-            value = (value << 3) + digit as u64;
-            self.bump();
-        }
-
-        Value::Integer(value)
-    }
-
-    #[inline]
-    fn read_hexadec(&mut self) -> Value {
-        let mut value = 0;
-
-        while !self.is_eof() {
-            let peek = self.read_byte();
-            let digit = match peek {
-                b'0'...b'9' => peek - b'0',
-                b'a'...b'f' => peek - b'a' + 10,
-                b'A'...b'F' => peek - b'A' + 10,
-                _           => break
-            };
-
-            value = (value << 4) + digit as u64;
-            self.bump();
-        }
-
-        Value::Integer(value)
+        Value::Binary(value)
     }
 
     #[inline]
@@ -1091,6 +1053,33 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
+    fn read_octal(&mut self, start: usize) -> Value {
+
+        while !self.is_eof() {
+            match self.read_byte() {
+                b'0'...b'7' => self.bump(),
+                _           => break
+            };
+        }
+
+        Value::Number(self.slice_source(start, self.index))
+    }
+
+    #[inline]
+    fn read_hexadec(&mut self, start: usize) -> Value {
+        while !self.is_eof() {
+            match self.read_byte() {
+                b'0'...b'9' => self.bump(),
+                b'a'...b'f' => self.bump(),
+                b'A'...b'F' => self.bump(),
+                _           => break
+            };
+        }
+
+        Value::Number(self.slice_source(start, self.index))
+    }
+
+    #[inline]
     fn read_float(&mut self, start: usize) -> Value {
         while !self.is_eof() {
             let ch = self.read_byte();
@@ -1104,5 +1093,4 @@ impl<'a> Tokenizer<'a> {
 
         Value::Number(value)
     }
-
 }
