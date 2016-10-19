@@ -265,12 +265,12 @@ fn binary_number_expression() {
 
 #[test]
 fn octal_number_expression() {
-    assert_expression!("0o144", num!("100"));
+    assert_expression!("0o144", num!("0o144"));
 }
 
 #[test]
 fn hexdec_number_expression() {
-    assert_expression!("0x64", num!("100"));
+    assert_expression!("0x64", num!("0x64"));
 }
 
 #[test]
@@ -801,7 +801,7 @@ fn object_binary_literal_member() {
 fn object_hex_literal_member() {
     assert_expression!("({ 0x64 : 100})", Expression::Object(vec![
         ObjectMember::Literal {
-            key: "100".into(),
+            key: "0x64".into(),
             value: num!("100"),
         }
     ]));

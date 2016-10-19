@@ -139,13 +139,13 @@ fn test_tokenizer_literals() {
     assert_token!("2.2", Literal(Value::Number("2.2".into())), "Value::Number");
     assert_token!("2", Literal(Value::Number("2".into())), "Value::Number");
 
-    assert_token!("0xff", Literal(Value::Number("255".into())), "Value::Number");
-    assert_token!("0xff", lit_num!("255"), "Value::Number");
-    assert_token!("0XFF", lit_num!("255"), "Value::Number");
+    assert_token!("0xff", Literal(Value::Number("0xff".into())), "Value::Number");
+    assert_token!("0xff", lit_num!("0xff"), "Value::Number");
+    assert_token!("0XFF", lit_num!("0XFF"), "Value::Number");
     assert_token!("0b01001011", lit_bin!(75u64), "Value::Number");
     assert_token!("0B01001011", lit_bin!(75u64), "Value::Number");
-    assert_token!("0o113", lit_num!("75"), "Value::Number");
-    assert_token!("0O113", lit_num!("75"), "Value::Number");
+    assert_token!("0o113", lit_num!("0o113"), "Value::Number");
+    assert_token!("0O113", lit_num!("0O113"), "Value::Number");
 }
 
 #[test]
