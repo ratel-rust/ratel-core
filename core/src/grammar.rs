@@ -252,8 +252,9 @@ pub enum Expression {
         arguments: Vec<Expression>,
     },
     Binary {
-        left: Box<Expression>,
+        parenthesized: bool,
         operator: OperatorType,
+        left: Box<Expression>,
         right: Box<Expression>,
     },
     Prefix {
@@ -320,6 +321,7 @@ impl Expression {
     #[inline]
     pub fn binary<E: Into<Expression>>(left: E, operator: OperatorType, right: E) -> Self {
         Expression::Binary {
+            parenthesized: false,
             operator: operator,
             left: Box::new(left.into()),
             right: Box::new(right.into()),
@@ -339,6 +341,30 @@ impl Expression {
         Expression::Call {
             callee: Box::new(callee.into()),
             arguments: arguments,
+        }
+    }
+
+    #[inline]
+    pub fn parenthesize(mut self) -> Expression {
+        if let Expression::Binary {
+            ref mut parenthesized,
+            ..
+        } = self {
+            *parenthesized = true;
+        }
+
+        self
+    }
+
+    #[inline]
+    pub fn needs_parens(&self, bp: u8) -> bool {
+        match *self {
+            Expression::Binary {
+                ref parenthesized,
+                ref operator,
+                ..
+            } => *parenthesized && bp >= operator.binding_power(),
+            _ => false
         }
     }
 }

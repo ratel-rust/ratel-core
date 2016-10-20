@@ -73,6 +73,10 @@ impl Generator {
 
     #[inline]
     pub fn write_block<T: Code>(&mut self, items: &Vec<T>) {
+        if items.len() == 0 {
+            return;
+        }
+
         self.indent();
         for item in items {
             self.new_line();
@@ -374,6 +378,11 @@ impl Code for Expression {
             },
 
             Expression::Object(ref members) => {
+                if members.len() == 0 {
+                    gen.write_bytes(b"{}");
+                    return;
+                }
+
                 gen.write_byte(b'{');
                 gen.indent();
 
@@ -425,11 +434,14 @@ impl Code for Expression {
             },
 
             Expression::Binary {
-                ref left,
                 ref operator,
+                ref left,
                 ref right,
+                ..
             } => {
-                if left.binding_power() < self.binding_power() {
+                let bp = self.binding_power();
+
+                if left.binding_power() < bp {
                     gen.write_byte(b'(');
                     gen.write(left);
                     gen.write_byte(b')');
@@ -439,7 +451,14 @@ impl Code for Expression {
                 gen.write_min(b" ", b"");
                 gen.write(operator);
                 gen.write_min(b" ", b"");
-                gen.write(right);
+
+                if right.needs_parens(bp) {
+                    gen.write_byte(b'(');
+                    gen.write(right);
+                    gen.write_byte(b')');
+                } else {
+                    gen.write(right);
+                }
             },
 
             Expression::Prefix {

@@ -298,46 +298,46 @@ fn template_string_complex() {
 
 #[test]
 fn binary_expression() {
-    assert_expression!("true == 1", Expression::Binary {
-        left: Box::new(Expression::Literal(Value::True)),
-        operator: Equality,
-        right: boxnum!("1")
-    });
+    assert_expression!("true == 1", Expression::binary(
+        Expression::Literal(Value::True),
+        Equality,
+        num!("1")
+    ));
 }
 
 #[test]
 fn binary_expression_less_than() {
-    assert_expression!("i < 10", Expression::Binary {
-        left: Box::new(ident!("i")),
-        operator: Lesser,
-        right: boxnum!("10")
-    });
+    assert_expression!("i < 10", Expression::binary(
+        ident!("i"),
+        Lesser,
+        num!("10")
+    ));
 }
 
 #[test]
 fn op_precedence_left() {
-    assert_expression!("1 + 2 * 3", Expression::Binary {
-        left: boxnum!("1"),
-        operator: Addition,
-        right: Box::new(Expression::Binary {
-            left: boxnum!("2"),
-            operator: Multiplication,
-            right: boxnum!("3"),
-        }),
-    });
+    assert_expression!("1 + 2 * 3", Expression::binary(
+        num!("1"),
+        Addition,
+        Expression::binary(
+            num!("2"),
+            Multiplication,
+            num!("3")
+        ),
+    ));
 }
 
 #[test]
 fn op_precedence_right() {
-    assert_expression!("1 * 2 + 3", Expression::Binary {
-        left: Box::new(Expression::Binary {
-            left: boxnum!("1"),
-            operator: Multiplication,
-            right: boxnum!("2"),
-        }),
-        operator: Addition,
-        right: boxnum!("3"),
-    });
+    assert_expression!("1 * 2 + 3", Expression::binary(
+        Expression::binary(
+            num!("1"),
+            Multiplication,
+            num!("2"),
+        ),
+        Addition,
+        num!("3"),
+    ));
 }
 
 #[test]
@@ -489,19 +489,19 @@ fn if_else_no_block_statement() {
 fn for_statement() {
     assert_statement!("for (i = 0; i < 10; i++) {}", Statement::For {
         init: Some(Box::new(Statement::Expression {
-            value: Expression::Binary {
-                left: Box::new(ident!("i")),
-                operator: OperatorType::Assign,
-                right: Box::new(num!("0")),
-            }
+            value: Expression::binary(
+                ident!("i"),
+                Assign,
+                num!("0"),
+            )
         })),
-        test: Some(Expression::Binary {
-            left: Box::new(ident!("i")),
-            operator: OperatorType::Lesser,
-            right: Box::new(num!("10")),
-        }),
+        test: Some(Expression::binary(
+            ident!("i"),
+            Lesser,
+            num!("10"),
+        )),
         update: Some(Expression::Postfix {
-            operator: OperatorType::Increment,
+            operator: Increment,
             operand: Box::new(ident!("i")),
         }),
         body: Box::new(Statement::Block {
@@ -522,13 +522,13 @@ fn for_declare_statement() {
                 }
             ],
         })),
-        test: Some(Expression::Binary {
-            left: Box::new(ident!("i")),
-            operator: OperatorType::Lesser,
-            right: Box::new(num!("10")),
-        }),
+        test: Some(Expression::binary(
+            ident!("i"),
+            Lesser,
+            num!("10"),
+        )),
         update: Some(Expression::Postfix {
-            operator: OperatorType::Increment,
+            operator: Increment,
             operand: Box::new(ident!("i")),
         }),
         body: Box::new(Statement::Block {
@@ -666,11 +666,11 @@ fn arrow_function_shorthand() {
             param!("n")
         ],
         body: Box::new(Statement::Expression {
-            value: Expression::Binary {
-                left: Box::new(ident!("n")),
-                operator: Multiplication,
-                right: Box::new(ident!("n")),
-            }
+            value: Expression::binary(
+                ident!("n"),
+                Multiplication,
+                ident!("n")
+            )
         }),
     });
 }

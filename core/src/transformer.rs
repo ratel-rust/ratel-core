@@ -269,9 +269,10 @@ impl Transformable for Expression {
             },
 
             Expression::Binary {
-                ref mut left,
                 ref mut operator,
+                ref mut left,
                 ref mut right,
+                ..
             } => {
                 left.transform(settings);
                 right.transform(settings);
@@ -343,7 +344,7 @@ impl Transformable for Expression {
                         left = Expression::binary(
                             left,
                             Addition,
-                            expression
+                            expression.parenthesize()
                         );
 
                         if quasi.len() == 0 {

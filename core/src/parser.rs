@@ -130,8 +130,8 @@ impl<'a> Parser<'a> {
 
         loop {
             match next!(self) {
-                ParenClose => break,
-                token      => {
+                BracketClose => break,
+                token        => {
                     let expression = try!(self.expression_from_token(token, 0));
                     list.push(expression);
                 }
@@ -453,7 +453,7 @@ impl<'a> Parser<'a> {
 
                 expect!(self, ParenClose);
 
-                Ok(expression)
+                Ok(expression.parenthesize())
             }
         }
     }
@@ -786,9 +786,10 @@ impl<'a> Parser<'a> {
                 let expression = try!(self.sequence_or_expression_from_token(token));
 
                 if let Expression::Binary {
-                    left,
                     operator: In,
+                    left,
                     right,
+                    ..
                 } = expression {
                     return self.for_in_statement_from_expressions(*left, *right);
                 }
