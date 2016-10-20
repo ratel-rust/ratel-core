@@ -149,6 +149,17 @@ fn test_tokenizer_literals() {
 }
 
 #[test]
+fn test_scientifix_numbers() {
+    assert_token!("0e-2", Literal(Value::Number("0e-2".into())), "Value::Number");
+    assert_token!("0e2", Literal(Value::Number("0e2".into())), "Value::Number");
+    assert_token!("2e3", Literal(Value::Number("2e3".into())), "Value::Number");
+    assert_token!("2e-3", Literal(Value::Number("2e-3".into())), "Value::Number");
+    assert_token!("2e+3", Literal(Value::Number("2e+3".into())), "Value::Number");
+    assert_token!("0.2e3", Literal(Value::Number("0.2e3".into())), "Value::Number");
+    assert_token!("0.2e-3", Literal(Value::Number("0.2e-3".into())), "Value::Number");
+}
+
+#[test]
 fn test_tokenizer_reserved() {
     assert_token!("enum", Reserved(ReservedKind::Enum), "ReservedKind::Enum");
     assert_token!("implements", Reserved(ReservedKind::Implements), "ReservedKind::Implements");
