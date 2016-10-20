@@ -17,6 +17,14 @@ fn test_token(input: &str, expected: Token) -> bool {
     tok == expected
 }
 
+macro_rules! lit_num {
+    ($num:expr) => (Literal(Value::Number($num.into())))
+}
+
+macro_rules! lit_bin {
+    ($num:expr) => (Literal(Value::Binary($num)))
+}
+
 macro_rules! assert_token {
     ($string:expr, $token:expr, $descr:expr) => {
         assert_eq!(test_token($string, $token), true, $descr);
@@ -131,12 +139,13 @@ fn test_tokenizer_literals() {
     assert_token!("2.2", Literal(Value::Number("2.2".into())), "Value::Number");
     assert_token!("2", Literal(Value::Number("2".into())), "Value::Number");
 
-    assert_token!("0xff", Literal(Value::Integer(255)), "Value::Integer");
-    assert_token!("0XFF", Literal(Value::Integer(255)), "Value::Integer");
-    assert_token!("0b01001011", Literal(Value::Integer(75)), "Value::Integer");
-    assert_token!("0B01001011", Literal(Value::Integer(75)), "Value::Integer");
-    assert_token!("0o113", Literal(Value::Integer(75)), "Value::Integer");
-    assert_token!("0O113", Literal(Value::Integer(75)), "Value::Integer");
+    assert_token!("0xff", Literal(Value::Number("0xff".into())), "Value::Number");
+    assert_token!("0xff", lit_num!("0xff"), "Value::Number");
+    assert_token!("0XFF", lit_num!("0XFF"), "Value::Number");
+    assert_token!("0b01001011", lit_bin!(75u64), "Value::Number");
+    assert_token!("0B01001011", lit_bin!(75u64), "Value::Number");
+    assert_token!("0o113", lit_num!("0o113"), "Value::Number");
+    assert_token!("0O113", lit_num!("0O113"), "Value::Number");
 }
 
 #[test]

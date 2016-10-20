@@ -1,6 +1,6 @@
 [package]
 name = "ratel"
-version = "0.5.0"
+version = "0.5.2"
 authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "JavaScript transpiler in Rust"

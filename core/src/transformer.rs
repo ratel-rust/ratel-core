@@ -32,6 +32,13 @@ impl Take for Expression {
     }
 }
 
+impl Take for ObjectKey {
+    #[inline]
+    fn take(&mut self) -> Self {
+        mem::replace(self, ObjectKey::Binary(0))
+    }
+}
+
 #[inline]
 fn bind_this(function: Expression) -> Expression {
     Expression::call(Expression::member(function, "bind"), vec![Expression::This])
@@ -172,8 +179,15 @@ impl Transformable for Expression {
 
                 let mut computed = partition_vec(members, |member| {
                     match member {
-                        &ObjectMember::Computed { .. } => false,
-                        _                              => true,
+                        &ObjectMember::Value {
+                            key: ObjectKey::Computed(_),
+                            ..
+                        } => false,
+                        &ObjectMember::Method {
+                            key: ObjectKey::Computed(_),
+                            ..
+                        } => false,
+                        _ => true,
                     }
                 });
 
@@ -196,8 +210,11 @@ impl Transformable for Expression {
                 });
 
                 for member in computed.drain(..) {
-                    if let ObjectMember::Computed { key, value } = member {
-                        body.push(
+                    body.push(match member {
+                        ObjectMember::Value {
+                            key: ObjectKey::Computed(key),
+                            value,
+                        } => {
                             Expression::binary(
                                 Expression::ComputedMember {
                                     object: Box::new("___".into()),
@@ -206,8 +223,29 @@ impl Transformable for Expression {
                                 Assign,
                                 value
                             ).into()
-                        );
-                    }
+                        }
+
+                        ObjectMember::Method {
+                            key: ObjectKey::Computed(key),
+                            params,
+                            body,
+                        } => {
+                            Expression::binary(
+                                Expression::ComputedMember {
+                                    object: Box::new("___".into()),
+                                    property: Box::new(key),
+                                },
+                                Assign,
+                                Expression::Function {
+                                    name: None,
+                                    params: params,
+                                    body: body
+                                }
+                            ).into()
+                        }
+
+                        _ => unreachable!()
+                    });
                 }
 
                 body.push(Statement::Return {
@@ -359,6 +397,28 @@ impl Transformable for Expression {
     }
 }
 
+impl Transformable for ObjectKey {
+    #[inline]
+    fn transform(&mut self, settings: &Settings) {
+        match *self {
+            ObjectKey::Computed(ref mut expression) => {
+                expression.transform(settings);
+            },
+            _ => {}
+        }
+    }
+
+    #[inline]
+    fn contains_this(&self) -> bool {
+        match *self {
+            ObjectKey::Computed(ref expression) => {
+                expression.contains_this()
+            },
+            _ => false
+        }
+    }
+}
+
 impl Transformable for ObjectMember {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
@@ -371,21 +431,13 @@ impl Transformable for ObjectMember {
                     return;
                 }
 
-                ObjectMember::Literal {
-                    key: *key,
+                ObjectMember::Value {
+                    key: ObjectKey::Literal(*key),
                     value: Expression::Identifier(*key),
                 }
             },
 
-            ObjectMember::Literal {
-                ref mut value,
-                ..
-            } => {
-                value.transform(settings);
-                return;
-            },
-
-            ObjectMember::Computed {
+            ObjectMember::Value {
                 ref mut key,
                 ref mut value,
             } => {
@@ -395,10 +447,11 @@ impl Transformable for ObjectMember {
             },
 
             ObjectMember::Method {
-                ref name,
+                ref mut key,
                 ref mut params,
                 ref mut body,
             } => {
+                key.transform(settings);
                 body.transform(settings);
                 params.transform(settings);
 
@@ -407,31 +460,8 @@ impl Transformable for ObjectMember {
                     return;
                 }
 
-                ObjectMember::Literal {
-                    key: *name,
-                    value: Expression::Function {
-                        name: Some(*name),
-                        params: params.take(),
-                        body: body.take(),
-                    }
-                }
-            },
-
-            ObjectMember::ComputedMethod {
-                ref mut name,
-                ref mut params,
-                ref mut body,
-            } => {
-                body.transform(settings);
-                params.transform(settings);
-
-                // transformation flag check
-                if !settings.transform_object {
-                    return;
-                }
-
-                ObjectMember::Computed {
-                    key: name.take(),
+                ObjectMember::Value {
+                    key: key.take(),
                     value: Expression::Function {
                         name: None,
                         params: params.take(),
@@ -444,12 +474,8 @@ impl Transformable for ObjectMember {
 
     fn contains_this(&self) -> bool {
         match *self {
-            ObjectMember::Literal {
-                ref value,
-                ..
-            } => value.contains_this(),
 
-            ObjectMember::Computed {
+            ObjectMember::Value {
                 ref key,
                 ref value,
             } => key.contains_this() || value.contains_this(),

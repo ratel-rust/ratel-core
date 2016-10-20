@@ -28,6 +28,11 @@ macro_rules! num {
     ($num:expr) => (Expression::Literal(Value::Number($num.into())))
 }
 
+
+macro_rules! expr_bin {
+    ($num:expr) => (Expression::Literal(Value::Binary($num)))
+}
+
 macro_rules! boxnum {
     ($num:expr) => (Box::new(num!($num)))
 }
@@ -255,17 +260,17 @@ fn number_expression() {
 
 #[test]
 fn binary_number_expression() {
-    assert_expression!("0b1100100", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0b1100100", expr_bin!(100u64));
 }
 
 #[test]
 fn octal_number_expression() {
-    assert_expression!("0o144", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0o144", num!("0o144"));
 }
 
 #[test]
 fn hexdec_number_expression() {
-    assert_expression!("0x64", Expression::Literal(Value::Integer(100)));
+    assert_expression!("0x64", num!("0x64"));
 }
 
 #[test]
@@ -763,10 +768,40 @@ fn sequence_in_accessor() {
 }
 
 #[test]
-fn object_literal_member() {
+fn object_string_literal_member() {
     assert_expression!("({foo:100})", Expression::Object(vec![
-        ObjectMember::Literal {
-            key: "foo".into(),
+        ObjectMember::Value {
+            key: ObjectKey::Literal("foo".into()),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_number_literal_member() {
+    assert_expression!("({100:100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Literal("100".into()),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_binary_literal_member() {
+    assert_expression!("({ 0b1100100 : 100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Binary(100),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_hex_literal_member() {
+    assert_expression!("({ 0x64 : 100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Literal("0x64".into()),
             value: num!("100"),
         }
     ]));
@@ -775,8 +810,8 @@ fn object_literal_member() {
 #[test]
 fn object_computed_member() {
     assert_expression!("({[100]:100})", Expression::Object(vec![
-        ObjectMember::Computed {
-            key: num!("100"),
+        ObjectMember::Value {
+            key: ObjectKey::Computed(num!("100")),
             value: num!("100"),
         }
     ]));
@@ -795,7 +830,7 @@ fn object_shorthand_member() {
 fn object_method_member() {
     assert_expression!("({foo() {} })", Expression::Object(vec![
         ObjectMember::Method {
-            name: "foo".into(),
+            key: ObjectKey::Literal("foo".into()),
             params: vec![],
             body: vec![],
         }
@@ -805,8 +840,19 @@ fn object_method_member() {
 #[test]
 fn object_computed_method_member() {
     assert_expression!("({[100]() {} })", Expression::Object(vec![
-        ObjectMember::ComputedMethod {
-            name: num!("100"),
+        ObjectMember::Method {
+            key: ObjectKey::Computed(num!("100")),
+            params: vec![],
+            body: vec![],
+        }
+    ]));
+}
+
+#[test]
+fn object_number_method_member() {
+    assert_expression!("({100 () {} })", Expression::Object(vec![
+        ObjectMember::Method {
+            key: ObjectKey::Literal("100".into()),
             params: vec![],
             body: vec![],
         }
