@@ -367,6 +367,16 @@ impl Expression {
             _ => false
         }
     }
+
+    #[inline]
+    pub fn is_allowed_as_bare_statement(&self) -> bool {
+        match *self {
+            Expression::Object(_)       => false,
+            Expression::Function { .. } => false,
+
+            _                           => true,
+        }
+    }
 }
 
 impl From<&'static str> for Expression {

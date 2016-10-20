@@ -171,81 +171,49 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn object_member(&mut self, token: Token) -> Result<ObjectMember> {
-        Ok(match token {
-
-            Identifier(key)             |
-            Literal(Value::String(key)) |
-            Literal(Value::Number(key)) => {
-
+        let key = match token {
+            Identifier(key) => {
                 match peek!(self) {
-                    Colon => {
-                        self.consume();
-                        let key = ObjectKey::Literal(key);
+                    Colon | ParenOpen => ObjectKey::Literal(key),
 
-                        ObjectMember::Value {
-                            key: key,
-                            value: try!(self.expression(0)),
-                        }
-                    },
-
-                    ParenOpen => {
-                        self.consume();
-                        let key = ObjectKey::Literal(key);
-
-                        ObjectMember::Method {
-                            key: key,
-                            params: try!(self.parameter_list()),
-                            body: try!(self.block_body())
-                        }
-                    },
-
-                    _ => ObjectMember::Shorthand {
+                    _ => return Ok(ObjectMember::Shorthand {
                         key: key,
-                    }
+                    })
                 }
             },
-            Literal(Value::Binary(num)) => {
-                let key = ObjectKey::Binary(num);
-                match peek!(self) {
-                    Colon => {
-                        self.consume();
 
-                        ObjectMember::Value {
-                            key: key,
-                            value: try!(self.expression(0)),
-                        }
-                    },
-
-                    ParenOpen => {
-                        self.consume();
-
-                        ObjectMember::Method {
-                            key: key,
-                            params: try!(self.parameter_list()),
-                            body: try!(self.block_body())
-                        }
-                    },
-
-                    _ => unexpected_token!(self)
-                }
-            },
             BracketOpen => {
                 let key = ObjectKey::Computed(try!(self.expression(0)));
 
                 expect!(self, BracketClose);
 
-                match next!(self) {
-                    Colon => ObjectMember::Value {
-                        key: key,
-                        value: try!(self.expression(0)),
-                    },
-                    ParenOpen => ObjectMember::Method {
-                        key: key,
-                        params: try!(self.parameter_list()),
-                        body: try!(self.block_body()),
-                    },
-                    _ => unexpected_token!(self)
+                key
+            },
+
+            Literal(Value::String(key)) => ObjectKey::Literal(key),
+
+            Literal(Value::Number(key)) => ObjectKey::Literal(key),
+
+            Literal(Value::Binary(num)) => ObjectKey::Binary(num),
+
+            _ => {
+                // Allow word tokens such as "null" and "typeof" as identifiers
+                match token.as_word() {
+                    Some(key) => ObjectKey::Literal(key.into()),
+                    None      => unexpected_token!(self)
                 }
+            }
+        };
+
+        Ok(match next!(self) {
+            Colon => ObjectMember::Value {
+                key: key,
+                value: try!(self.expression(0)),
+            },
+            ParenOpen => ObjectMember::Method {
+                key: key,
+                params: try!(self.parameter_list()),
+                body: try!(self.block_body()),
             },
             _ => unexpected_token!(self)
         })
@@ -358,7 +326,19 @@ impl<'a> Parser<'a> {
                 operand: Box::new(left),
             },
 
-            Accessor => Expression::member(left, expect_identifier!(self)),
+            Accessor => {
+                let ident = match next!(self) {
+                    Identifier(ident) => ident,
+
+                    // Allow word tokens such as "null" and "typeof" as identifiers
+                    token => match token.as_word() {
+                        Some(ident) => ident.into(),
+                        None        => unexpected_token!(self)
+                    },
+                };
+
+                Expression::member(left, ident)
+            },
 
             Conditional => Expression::Conditional {
                 test: Box::new(left),

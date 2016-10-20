@@ -642,7 +642,13 @@ impl Code for Statement {
             Statement::Expression {
                 ref value,
             } => {
-                gen.write(value);
+                if value.is_allowed_as_bare_statement() {
+                    gen.write(value);
+                } else {
+                    gen.write_byte(b'(');
+                    gen.write(value);
+                    gen.write_byte(b')');
+                }
                 gen.write_byte(b';');
             },
 
