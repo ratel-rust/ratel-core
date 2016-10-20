@@ -344,7 +344,7 @@ impl Transformable for Expression {
                         left = Expression::binary(
                             left,
                             Addition,
-                            expression
+                            expression.parenthesize()
                         );
 
                         if quasi.len() == 0 {

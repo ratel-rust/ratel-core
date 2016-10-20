@@ -343,6 +343,30 @@ impl Expression {
             arguments: arguments,
         }
     }
+
+    #[inline]
+    pub fn parenthesize(mut self) -> Expression {
+        if let Expression::Binary {
+            ref mut parenthesized,
+            ..
+        } = self {
+            *parenthesized = true;
+        }
+
+        self
+    }
+
+    #[inline]
+    pub fn needs_parens(&self, bp: u8) -> bool {
+        match *self {
+            Expression::Binary {
+                ref parenthesized,
+                ref operator,
+                ..
+            } => *parenthesized && bp >= operator.binding_power(),
+            _ => false
+        }
+    }
 }
 
 impl From<&'static str> for Expression {

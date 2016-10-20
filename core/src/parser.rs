@@ -453,7 +453,7 @@ impl<'a> Parser<'a> {
 
                 expect!(self, ParenClose);
 
-                Ok(expression)
+                Ok(expression.parenthesize())
             }
         }
     }
