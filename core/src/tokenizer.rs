@@ -1077,19 +1077,9 @@ impl<'a> Tokenizer<'a> {
         while !self.is_eof() {
             match self.read_byte() {
                 b'0'...b'9' => self.bump(),
-                b'a'...b'd' => self.bump(),
-                b'A'...b'D' => self.bump(),
-                b'f' | b'F' => self.bump(),
-                b'e' | b'E' => {
-                    self.bump();
-                    match self.peek_byte() {
-                        b'-' | b'+' => {
-                            return self.read_scientific(start);
-                        },
-                        _ => {}
-                    }
-                },
-                _           =>  break
+                b'a'...b'f' => self.bump(),
+                b'A'...b'F' => self.bump(),
+                _           => break
             };
         }
 
@@ -1117,11 +1107,10 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     fn read_scientific(&mut self, start: usize) -> Value {
-        while !self.is_eof() {
-            let ch = self.read_byte();
-            match ch {
+        if !self.is_eof() {
+            match self.read_byte() {
                 b'-' | b'+' => self.bump(),
-                _           => break
+                _           => {}
             }
         }
 

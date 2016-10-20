@@ -157,9 +157,6 @@ fn test_scientifix_numbers() {
     assert_token!("2e+3", Literal(Value::Number("2e+3".into())), "Value::Number");
     assert_token!("0.2e3", Literal(Value::Number("0.2e3".into())), "Value::Number");
     assert_token!("0.2e-3", Literal(Value::Number("0.2e-3".into())), "Value::Number");
-    assert_token!("0x1e3", Literal(Value::Number("0x1e3".into())), "Value::Number");
-    assert_token!("0x21e3", Literal(Value::Number("0x21e3".into())), "Value::Number");
-    assert_token!("0x21e-3", Literal(Value::Number("0x21e-3".into())), "Value::Number");
 }
 
 #[test]
