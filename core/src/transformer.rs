@@ -231,9 +231,10 @@ impl Transformable for Expression {
             },
 
             Expression::Binary {
-                ref mut left,
                 ref mut operator,
+                ref mut left,
                 ref mut right,
+                ..
             } => {
                 left.transform(settings);
                 right.transform(settings);

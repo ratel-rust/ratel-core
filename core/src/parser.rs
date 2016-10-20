@@ -755,9 +755,10 @@ impl<'a> Parser<'a> {
                 let expression = try!(self.sequence_or_expression_from_token(token));
 
                 if let Expression::Binary {
-                    left,
                     operator: In,
+                    left,
                     right,
+                    ..
                 } = expression {
                     return self.for_in_statement_from_expressions(*left, *right);
                 }

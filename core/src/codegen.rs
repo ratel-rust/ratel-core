@@ -428,9 +428,10 @@ impl Code for Expression {
             },
 
             Expression::Binary {
-                ref left,
                 ref operator,
+                ref left,
                 ref right,
+                ..
             } => {
                 if left.binding_power() < self.binding_power() {
                     gen.write_byte(b'(');

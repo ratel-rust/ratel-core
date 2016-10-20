@@ -251,8 +251,9 @@ pub enum Expression {
         arguments: Vec<Expression>,
     },
     Binary {
-        left: Box<Expression>,
+        parenthesized: bool,
         operator: OperatorType,
+        left: Box<Expression>,
         right: Box<Expression>,
     },
     Prefix {
@@ -319,6 +320,7 @@ impl Expression {
     #[inline]
     pub fn binary<E: Into<Expression>>(left: E, operator: OperatorType, right: E) -> Self {
         Expression::Binary {
+            parenthesized: false,
             operator: operator,
             left: Box::new(left.into()),
             right: Box::new(right.into()),

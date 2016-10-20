@@ -42,6 +42,7 @@ fn template_strings_plain() {
 #[test]
 fn template_strings_interpolation() {
     assert_compile!("`foo${1}bar`;", r#""foo"+1+"bar";"#);
+    assert_compile!("`foo${1+2}bar`;", r#""foo"+(1+2)+"bar";"#);
     assert_compile!("`foo${1}${2**2}bar`;", r#""foo"+1+Math.pow(2,2)+"bar";"#);
     assert_compile!("`foo${1}bar${2**2}`;", r#""foo"+1+"bar"+Math.pow(2,2);"#);
 }
