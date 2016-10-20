@@ -73,6 +73,10 @@ impl Generator {
 
     #[inline]
     pub fn write_block<T: Code>(&mut self, items: &Vec<T>) {
+        if items.len() == 0 {
+            return;
+        }
+
         self.indent();
         for item in items {
             self.new_line();
@@ -377,6 +381,11 @@ impl Code for Expression {
             },
 
             Expression::Object(ref members) => {
+                if members.len() == 0 {
+                    gen.write_bytes(b"{}");
+                    return;
+                }
+
                 gen.write_byte(b'{');
                 gen.indent();
 

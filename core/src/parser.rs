@@ -130,8 +130,8 @@ impl<'a> Parser<'a> {
 
         loop {
             match next!(self) {
-                ParenClose => break,
-                token      => {
+                BracketClose => break,
+                token        => {
                     let expression = try!(self.expression_from_token(token, 0));
                     list.push(expression);
                 }
