@@ -270,7 +270,11 @@ impl Code for ObjectMember {
             ObjectMember::Value {
                 ref key,
                 ref value,
-            } => gen.write(value),
+            } => {
+                gen.write(key);
+                gen.write_min(b": ", b":");
+                gen.write(value);
+            },
 
             ObjectMember::Method {
                 ref key,
@@ -293,11 +297,15 @@ impl Code for ObjectKey {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             ObjectKey::Computed (ref expression) => {
-                gen.write(expression)
+                gen.write_byte(b'[');
+                gen.write(expression);
+                gen.write_byte(b']');
             },
+
             ObjectKey::Literal (ref slice) => {
-                gen.write(slice)
+                gen.write(slice);
             },
+
             ObjectKey::Binary (ref num) => {
                 gen.write(num)
             }
