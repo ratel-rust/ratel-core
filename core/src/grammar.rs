@@ -367,6 +367,16 @@ impl Expression {
             _ => false
         }
     }
+
+    #[inline]
+    pub fn is_allowed_as_bare_statement(&self) -> bool {
+        match *self {
+            Expression::Object(_)       => false,
+            Expression::Function { .. } => false,
+
+            _                           => true,
+        }
+    }
 }
 
 impl From<&'static str> for Expression {
@@ -421,14 +431,33 @@ pub enum ClassMember {
     },
     Method {
         is_static: bool,
-        name: OwnedSlice,
+        key: ClassKey,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
     Property {
         is_static: bool,
-        name: OwnedSlice,
+        key: ClassKey,
         value: Expression,
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ClassKey {
+    Computed(Expression),
+    Literal(OwnedSlice),
+    Number(OwnedSlice),
+    Binary(u64),
+}
+
+impl ClassKey {
+    #[inline]
+    pub fn is_constructor(&self) -> bool {
+        match *self {
+            ClassKey::Literal(ref name) => name.as_str() == "constructor",
+
+            _ => false
+        }
     }
 }
 

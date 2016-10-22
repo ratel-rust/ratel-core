@@ -533,19 +533,43 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
     for prop in props.iter_mut().rev() {
         if let &mut ClassMember::Property {
             // ref is_static,
-            ref name,
+            ref mut key,
             ref mut value,
             ..
         } = prop {
             body.insert(
                 0,
                 Expression::binary(
-                    Expression::member(Expression::This, *name),
+                    class_key_to_member(Expression::This, key),
                     Assign,
                     value.take(),
                 ).into()
             );
         }
+    }
+}
+
+#[inline]
+fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
+    let expr = match *key {
+        ClassKey::Literal(ref name) => {
+            return Expression::member(object, *name);
+        },
+
+        ClassKey::Computed(ref mut expr) => expr.take(),
+
+        ClassKey::Number(ref num) => {
+            Expression::Literal(Value::Number(*num))
+        },
+
+        ClassKey::Binary(ref num) => {
+            Expression::Literal(Value::Binary(*num))
+        }
+    };
+
+    Expression::ComputedMember {
+        object: Box::new(object),
+        property: Box::new(expr),
     }
 }
 
@@ -671,20 +695,19 @@ impl Transformable for Statement {
 
                     for method in methods.iter_mut() {
                         if let &mut ClassMember::Method {
-                            name: ref method_name,
+                            key: ref mut method_key,
                             params: ref mut method_params,
                             body: ref mut method_body,
                             ..
                         } = method {
+                            let proto = Expression::member(name, "prototype");
+
                             body.push(
                                 Expression::binary(
-                                    Expression::member(
-                                        Expression::member(name, "prototype"),
-                                        *method_name
-                                    ),
+                                    class_key_to_member(proto, method_key),
                                     Assign,
                                     Expression::Function {
-                                        name: Some(*method_name),
+                                        name: None,
                                         params: method_params.take(),
                                         body: method_body.take(),
                                     },

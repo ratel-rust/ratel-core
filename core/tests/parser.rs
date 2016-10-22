@@ -808,6 +808,36 @@ fn object_hex_literal_member() {
 }
 
 #[test]
+fn object_keyword_literal_member() {
+    assert_expression!("({ function : 100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Literal("function".into()),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_value_word_literal_member() {
+    assert_expression!("({ true : 100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Literal("true".into()),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
+fn object_operator_word_literal_member() {
+    assert_expression!("({ new : 100})", Expression::Object(vec![
+        ObjectMember::Value {
+            key: ObjectKey::Literal("new".into()),
+            value: num!("100"),
+        }
+    ]));
+}
+
+#[test]
 fn object_computed_member() {
     assert_expression!("({[100]:100})", Expression::Object(vec![
         ObjectMember::Value {
@@ -857,6 +887,38 @@ fn object_number_method_member() {
             body: vec![],
         }
     ]));
+}
+
+#[test]
+fn accesss_member_identifier() {
+    assert_expression!("this.foo", Expression::Member {
+        object: Box::new(Expression::This),
+        property: "foo".into()
+    })
+}
+
+#[test]
+fn accesss_member_keyword() {
+    assert_expression!("this.function", Expression::Member {
+        object: Box::new(Expression::This),
+        property: "function".into()
+    })
+}
+
+#[test]
+fn accesss_member_value_word() {
+    assert_expression!("this.true", Expression::Member {
+        object: Box::new(Expression::This),
+        property: "true".into()
+    })
+}
+
+#[test]
+fn accesss_member_operator_word() {
+    assert_expression!("this.new", Expression::Member {
+        object: Box::new(Expression::This),
+        property: "new".into()
+    })
 }
 
 #[test]
@@ -911,7 +973,97 @@ fn class_with_method_statement() {
         body: vec![
             ClassMember::Method {
                 is_static: false,
-                name: "bar".into(),
+                key: ClassKey::Literal("bar".into()),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_keyword_method_statement() {
+    assert_statement!("
+
+    class Foo {
+        undefined() {}
+    }
+
+    ", Statement::Class {
+        name: "Foo".into(),
+        extends: None,
+        body: vec![
+            ClassMember::Method {
+                is_static: false,
+                key: ClassKey::Literal("undefined".into()),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_number_method_statement() {
+    assert_statement!("
+
+    class Foo {
+        100() {}
+    }
+
+    ", Statement::Class {
+        name: "Foo".into(),
+        extends: None,
+        body: vec![
+            ClassMember::Method {
+                is_static: false,
+                key: ClassKey::Number("100".into()),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_binary_method_statement() {
+    assert_statement!("
+
+    class Foo {
+        0b100() {}
+    }
+
+    ", Statement::Class {
+        name: "Foo".into(),
+        extends: None,
+        body: vec![
+            ClassMember::Method {
+                is_static: false,
+                key: ClassKey::Binary(4),
+                params: Vec::new(),
+                body: Vec::new(),
+            }
+        ],
+    });
+}
+
+#[test]
+fn class_with_computed_method_statement() {
+    assert_statement!(r#"
+
+    class Foo {
+        [300]() {}
+    }
+
+    "#, Statement::Class {
+        name: "Foo".into(),
+        extends: None,
+        body: vec![
+            ClassMember::Method {
+                is_static: false,
+                key: ClassKey::Computed(
+                    Expression::Literal(Value::Number("300".into()))
+                ),
                 params: Vec::new(),
                 body: Vec::new(),
             }
@@ -933,7 +1085,7 @@ fn class_with_static_method_statement() {
         body: vec![
             ClassMember::Method {
                 is_static: true,
-                name: "bar".into(),
+                key: ClassKey::Literal("bar".into()),
                 params: Vec::new(),
                 body: Vec::new(),
             }
@@ -955,7 +1107,7 @@ fn class_with_property_statement() {
         body: vec![
             ClassMember::Property {
                 is_static: false,
-                name: "bar".into(),
+                key: ClassKey::Literal("bar".into()),
                 value: num!("100"),
             }
         ],
@@ -976,7 +1128,7 @@ fn class_with_static_property_statement() {
         body: vec![
             ClassMember::Property {
                 is_static: true,
-                name: "bar".into(),
+                key: ClassKey::Literal("bar".into()),
                 value: num!("100"),
             }
         ],

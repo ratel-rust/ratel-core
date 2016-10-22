@@ -33,6 +33,17 @@ fn dont_touch_var_in_global_scope() {
 }
 
 #[test]
+fn convert_let_to_var_in_block() {
+    let program = "if(true) {
+      let pi = 3.14;
+    }";
+
+    let expected = "if(!0){var pi=3.14;}";
+
+    assert_compile!(program, expected);
+}
+
+#[test]
 fn template_strings_plain() {
     assert_compile!("`foobar`;", r#""foobar";"#);
     assert_compile!("`foo\\`bar`;", r#""foo`bar";"#);
@@ -67,14 +78,4 @@ fn template_strings_tagged() {
     assert_compile!("foo`bar${1}baz${2}`;", r#"foo(["bar","baz",""],1,2);"#);
 }
 
-#[test]
-fn convert_let_to_var_in_block() {
-    let program = "if(true) {
-      let pi = 3.14;
-    }";
-
-    let expected = "if(!0){var pi=3.14;}";
-
-    assert_compile!(program, expected);
-}
 

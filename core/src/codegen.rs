@@ -561,14 +561,14 @@ impl Code for ClassMember {
 
             ClassMember::Method {
                 is_static,
-                ref name,
+                ref key,
                 ref params,
                 ref body,
             } => {
                 if is_static {
                     gen.write_bytes(b"static ");
                 }
-                gen.write(name);
+                gen.write(key);
                 gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_min(b") {", b"){");
@@ -578,16 +578,34 @@ impl Code for ClassMember {
 
             ClassMember::Property {
                 is_static,
-                ref name,
+                ref key,
                 ref value,
             } => {
                 if is_static {
                     gen.write_bytes(b"static ");
                 }
-                gen.write(name);
+                gen.write(key);
                 gen.write_min(b" = ", b"=");
                 gen.write(value);
                 gen.write_byte(b';');
+            }
+        }
+    }
+}
+
+impl Code for ClassKey {
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            ClassKey::Literal(ref name)  => gen.write(name),
+
+            ClassKey::Number(ref name)   => gen.write(name),
+
+            ClassKey::Binary(ref num)    => gen.write(num),
+
+            ClassKey::Computed(ref expr) => {
+                gen.write_byte(b'[');
+                gen.write(expr);
+                gen.write_byte(b']');
             }
         }
     }
@@ -642,7 +660,13 @@ impl Code for Statement {
             Statement::Expression {
                 ref value,
             } => {
-                gen.write(value);
+                if value.is_allowed_as_bare_statement() {
+                    gen.write(value);
+                } else {
+                    gen.write_byte(b'(');
+                    gen.write(value);
+                    gen.write_byte(b')');
+                }
                 gen.write_byte(b';');
             },
 
