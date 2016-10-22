@@ -891,10 +891,10 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn class_member(&mut self, name: OwnedSlice, is_static: bool) -> Result<ClassMember> {
+    fn class_member(&mut self, key: ClassKey, is_static: bool) -> Result<ClassMember> {
         Ok(match next!(self) {
             ParenOpen => {
-                if !is_static && name.as_str() == "constructor" {
+                if !is_static && key.is_constructor() {
                     ClassMember::Constructor {
                         params: try!(self.parameter_list()),
                         body: try!(self.block_body()),
@@ -902,7 +902,7 @@ impl<'a> Parser<'a> {
                 } else {
                     ClassMember::Method {
                         is_static: is_static,
-                        name: name,
+                        key: key,
                         params: try!(self.parameter_list()),
                         body: try!(self.block_body()),
                     }
@@ -911,7 +911,7 @@ impl<'a> Parser<'a> {
             Operator(Assign) => {
                 ClassMember::Property {
                     is_static: is_static,
-                    name: name,
+                    key: key,
                     value: try!(self.expression(0)),
                 }
             },
@@ -937,17 +937,47 @@ impl<'a> Parser<'a> {
         let mut members = Vec::new();
 
         loop {
-            members.push(match next!(self) {
-                Identifier(name) => try!(self.class_member(name, false)),
-                Static           => {
-                    let name = expect_identifier!(self);
+            let mut token = next!(self);
 
-                    try!(self.class_member(name, true))
+            let is_static = match token {
+                Static => {
+                    token = next!(self);
+
+                    true
                 },
-                Semicolon        => continue,
-                BraceClose       => break,
-                _                => unexpected_token!(self)
-            });
+
+                _ => false
+            };
+
+            let key = match token {
+                Semicolon => continue,
+
+                BraceClose => break,
+
+                Literal(Value::Number(num)) => ClassKey::Number(num),
+
+                Literal(Value::Binary(num)) => ClassKey::Binary(num),
+
+                Identifier(key) => ClassKey::Literal(key),
+
+                BracketOpen => {
+                    let expr = try!(self.sequence_or_expression());
+
+                    expect!(self, BracketClose);
+
+                    ClassKey::Computed(expr)
+                }
+
+                _ => {
+                    // Allow word tokens such as "null" and "typeof" as identifiers
+                    match token.as_word() {
+                        Some(key) => ClassKey::Literal(key.into()),
+                        _         => unexpected_token!(self)
+                    }
+                }
+            };
+
+            members.push(try!(self.class_member(key, is_static)));
         }
 
         Ok(Statement::Class {
