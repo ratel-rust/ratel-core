@@ -6,7 +6,9 @@
 [![Crates.io](https://img.shields.io/crates/v/ratel.svg)](https://crates.io/crates/ratel)
 [![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg)](https://gitter.im/ratel-rust/Lobby)
 
-**Ratel** is a high performance JavaScript compiler with a Rust core. This repo is split in two separate folders:
+**Ratel** is a high performance JavaScript to JavaScript compiler with a Rust core. It's goal is to take newest versions of JavaScript as input, and produce output that's compatible with older versions of the language.
+
+This repo is split in two separate folders:
 
 - `core` contains the main Rust codebase that does all the heavy lifting.
 - `ffi` contains the Node.js wrapper around the Rust core with [Neon](http://neon.rustbridge.io/) bindings.
