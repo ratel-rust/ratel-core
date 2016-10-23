@@ -989,22 +989,8 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn regular_expression_statement(&mut self) -> Result<Statement> {
-        let expression = try!(self.regular_expression());
-        Ok(expression.into())
-    }
-
-    #[inline]
     fn regular_expression(&mut self) -> Result<Expression> {
-        let expression = try!(self.tokenizer.read_regular_expression());
-        match peek!(self) {
-            Operator(Accessor) => {
-                return self.complex_expression(expression, 0);
-            },
-            _ => {
-                return Ok(expression)
-            }
-        }
+        self.tokenizer.read_regular_expression()
     }
 
     #[inline]
@@ -1021,7 +1007,6 @@ impl<'a> Parser<'a> {
             While              => self.while_statement(),
             For                => self.for_statement(),
             Identifier(label)  => self.labeled_or_expression_statement(label),
-            Operator(Division) => self.regular_expression_statement(),
             Throw              => self.throw_statement(),
             _                  => self.expression_statement(token),
         }
