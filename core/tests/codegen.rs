@@ -44,6 +44,11 @@ fn convert_let_to_var_in_block() {
 }
 
 #[test]
+fn regex() {
+    assert_compile!("/foo/gi.test();", "/foo/gi.test();");
+}
+
+#[test]
 fn template_strings_plain() {
     assert_compile!("`foobar`;", r#""foobar";"#);
     assert_compile!("`foo\\`bar`;", r#""foo`bar";"#);
