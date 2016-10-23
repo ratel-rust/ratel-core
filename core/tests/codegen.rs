@@ -78,4 +78,72 @@ fn template_strings_tagged() {
     assert_compile!("foo`bar${1}baz${2}`;", r#"foo(["bar","baz",""],1,2);"#);
 }
 
+#[test]
+fn empty_class() {
+    assert_compile!("class Foo {}", "function Foo(){}");
+}
 
+#[test]
+fn class_with_constructor() {
+    assert_compile!(r#"
+
+    class Foo {
+        constructor() {
+            console.log("Hello world!");
+        }
+    }
+
+    "#, r#"function Foo(){console.log("Hello world!");}"#);
+}
+
+#[test]
+fn class_with_props() {
+    assert_compile!("
+
+    class Foo {
+        foo = 100;
+        bar = 200;
+    }
+
+    ", "function Foo(){this.foo=100;this.bar=200;}");
+}
+
+#[test]
+fn class_with_constructor_and_props() {
+    assert_compile!(r#"
+
+    class Foo {
+        foo = 100;
+        bar = 200;
+
+        constructor() {
+            console.log("Hello world!");
+        }
+    }
+
+    "#, r#"function Foo(){this.foo=100;this.bar=200;console.log("Hello world!");}"#);
+}
+
+#[test]
+fn class_with_methods() {
+    assert_compile!("
+
+    class Foo {
+        foo() {}
+        bar() {}
+    }
+
+    ", "function Foo(){}Foo.prototype.foo=function(){};Foo.prototype.bar=function(){};");
+}
+
+#[test]
+fn class_with_static_methods() {
+    assert_compile!("
+
+    class Foo {
+        static foo() {}
+        static bar() {}
+    }
+
+    ", "function Foo(){}Foo.foo=function(){};Foo.bar=function(){};");
+}

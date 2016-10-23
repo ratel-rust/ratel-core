@@ -642,7 +642,7 @@ impl Transformable for Statement {
                     _                            => false,
                 }).count();
 
-                if prop_count == 0 {
+                if prop_count == 0 && !settings.transform_class {
                     return;
                 }
 
@@ -698,13 +698,17 @@ impl Transformable for Statement {
                             key: ref mut method_key,
                             params: ref mut method_params,
                             body: ref mut method_body,
-                            ..
+                            ref is_static,
                         } = method {
-                            let proto = Expression::member(name, "prototype");
+                            let reference = if *is_static {
+                                Expression::Identifier(*name)
+                            } else {
+                                Expression::member(name, "prototype")
+                            };
 
                             body.push(
                                 Expression::binary(
-                                    class_key_to_member(proto, method_key),
+                                    class_key_to_member(reference, method_key),
                                     Assign,
                                     Expression::Function {
                                         name: None,
