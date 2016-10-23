@@ -365,6 +365,13 @@ impl Code for Expression {
                 gen.write_byte(b'`');
             },
 
+            Expression::RegEx{ ref pattern, ref flags } => {
+                gen.write_byte(b'/');
+                gen.write(pattern);
+                gen.write_byte(b'/');
+                gen.write(flags);
+            },
+
             Expression::Array(ref items) => {
                 gen.write_byte(b'[');
                 gen.write_list(items);

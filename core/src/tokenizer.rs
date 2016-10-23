@@ -4,6 +4,7 @@ use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use lexicon::TemplateKind;
 use grammar::OperatorType::*;
+use grammar::Expression;
 use grammar::VariableDeclarationKind::*;
 use grammar::Value;
 use error::{ Error, Result };
@@ -1127,4 +1128,56 @@ impl<'a> Tokenizer<'a> {
         Value::Number(value)
     }
 
+    #[inline]
+    pub fn read_regular_expression(&mut self) -> Result<Expression> {
+        let start = self.index;
+        let mut in_class = false;
+
+        loop {
+            let ch = expect_byte!(self);
+            match ch {
+                b'['  => {
+                    in_class = true;
+                },
+                b']'  => {
+                    in_class = false;
+                },
+                b'/'  => {
+                    if !in_class {
+                        break;
+                    }
+                },
+                b'\\' => {
+                    expect_byte!(self);
+                },
+                b'\n' => {
+                    return Err(Error::UnexpectedToken {
+                        start: self.index,
+                        end: self.index + 1
+                    });
+                },
+                _     => {}
+            }
+        }
+
+        let pattern = self.slice_source(start, self.index - 1);
+        let flags_start = self.index;
+
+        while !self.is_eof() {
+            let ch = self.peek_byte();
+            match ch {
+                b'g' | b'i' | b'm' | b'u' | b'y' => {
+                    self.bump();
+                },
+                _                                => {
+                    break;
+                }
+            }
+        }
+
+        Ok(Expression::RegEx{
+            pattern: pattern,
+            flags: self.slice_source(flags_start, self.index)
+        })
+    }
 }

@@ -236,6 +236,10 @@ pub enum Expression {
         expressions: Vec<Expression>,
         quasis: Vec<OwnedSlice>,
     },
+    RegEx {
+        pattern: OwnedSlice,
+        flags: OwnedSlice
+    },
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
     Object(Vec<ObjectMember>),
