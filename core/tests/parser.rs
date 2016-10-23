@@ -1134,3 +1134,19 @@ fn class_with_static_property_statement() {
         ],
     });
 }
+
+#[test]
+fn regular_expression() {
+    assert_expression!("/[\\w.]+/i", Expression::RegEx {
+        pattern: "[\\w.]+".into(),
+        flags: "i".into()
+    });
+}
+
+#[test]
+fn regular_expression_escaping() {
+    assert_expression!("/^\\a/i", Expression::RegEx {
+        pattern: "^\\a".into(),
+        flags: "i".into()
+    });
+}

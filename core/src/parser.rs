@@ -506,16 +506,17 @@ impl<'a> Parser<'a> {
     #[inline]
     fn expression_from_token(&mut self, token: Token, lbp: u8) -> Result<Expression> {
         let left = match token {
-            This              => Expression::This,
-            Literal(value)    => Expression::Literal(value),
-            Identifier(value) => Expression::from(value),
-            Operator(optype)  => try!(self.prefix_expression(optype)),
-            ParenOpen         => try!(self.paren_expression()),
-            BracketOpen       => try!(self.array_expression()),
-            BraceOpen         => try!(self.object_expression()),
-            Function          => try!(self.function_expression()),
-            Template(kind)    => try!(self.template_expression(None, kind)),
-            _                 => unexpected_token!(self)
+            This               => Expression::This,
+            Literal(value)     => Expression::Literal(value),
+            Identifier(value)  => Expression::from(value),
+            Operator(Division) => try!(self.regular_expression()),
+            Operator(optype)   => try!(self.prefix_expression(optype)),
+            ParenOpen          => try!(self.paren_expression()),
+            BracketOpen        => try!(self.array_expression()),
+            BraceOpen          => try!(self.object_expression()),
+            Function           => try!(self.function_expression()),
+            Template(kind)     => try!(self.template_expression(None, kind)),
+            _                  => unexpected_token!(self)
         };
 
         self.complex_expression(left, lbp)
@@ -988,21 +989,41 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    fn regular_expression_statement(&mut self) -> Result<Statement> {
+        let expression = try!(self.regular_expression());
+        Ok(expression.into())
+    }
+
+    #[inline]
+    fn regular_expression(&mut self) -> Result<Expression> {
+        let expression = try!(self.tokenizer.read_regular_expression());
+        match peek!(self) {
+            Operator(Accessor) => {
+                return self.complex_expression(expression, 0);
+            },
+            _ => {
+                return Ok(expression)
+            }
+        }
+    }
+
+    #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
-            Semicolon         => Ok(Statement::Transparent { body: Vec::new() }),
-            BraceOpen         => self.block_statement(),
-            Declaration(kind) => self.variable_declaration_statement(kind),
-            Return            => self.return_statement(),
-            Break             => self.break_statement(),
-            Function          => self.function_statement(),
-            Class             => self.class_statement(),
-            If                => self.if_statement(),
-            While             => self.while_statement(),
-            For               => self.for_statement(),
-            Identifier(label) => self.labeled_or_expression_statement(label),
-            Throw             => self.throw_statement(),
-            _                 => self.expression_statement(token),
+            Semicolon          => Ok(Statement::Transparent { body: Vec::new() }),
+            BraceOpen          => self.block_statement(),
+            Declaration(kind)  => self.variable_declaration_statement(kind),
+            Return             => self.return_statement(),
+            Break              => self.break_statement(),
+            Function           => self.function_statement(),
+            Class              => self.class_statement(),
+            If                 => self.if_statement(),
+            While              => self.while_statement(),
+            For                => self.for_statement(),
+            Identifier(label)  => self.labeled_or_expression_statement(label),
+            Operator(Division) => self.regular_expression_statement(),
+            Throw              => self.throw_statement(),
+            _                  => self.expression_statement(token),
         }
     }
 
