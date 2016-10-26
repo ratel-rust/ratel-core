@@ -42,8 +42,9 @@ macro_rules! ident {
 }
 
 macro_rules! param {
-    ($name:expr) => (Parameter {
-        name: $name.into()
+    ($name:expr, $expr:expr) => (Parameter {
+        name: $name.into(),
+        expression: $expr.into()
     })
 }
 
@@ -370,9 +371,9 @@ fn function_with_params_statement() {
     ", Statement::Function {
         name: "foo".into(),
         params: vec![
-            param!("a"),
-            param!("b"),
-            param!("c"),
+            param!("a", None),
+            param!("b", None),
+            param!("c", None),
         ],
         body: vec![
             Statement::Return {
@@ -663,7 +664,7 @@ fn arrow_function() {
 fn arrow_function_shorthand() {
     assert_expression!("n => n * n", Expression::ArrowFunction {
         params: vec![
-            param!("n")
+            param!("n", None)
         ],
         body: Box::new(Statement::Expression {
             value: Expression::binary(
@@ -685,14 +686,32 @@ fn arrow_function_with_params() {
 
     ", Expression::ArrowFunction {
         params: vec![
-            param!("a"),
-            param!("b"),
-            param!("c"),
+            param!("a", None),
+            param!("b", None),
+            param!("c", None),
         ],
         body: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("bar")
             }]
+        })
+    });
+}
+
+#[test]
+fn arrow_function_with_default_params() {
+    assert_expression!("
+
+    (a, b, c = 2) => bar;
+
+    ", Expression::ArrowFunction {
+        params: vec![
+            param!("a", None),
+            param!("b", None),
+            param!("c", Some(Box::new(Expression::Literal(Value::Number("2".into()))))),
+        ],
+        body: Box::new(Statement::Expression {
+            value: ident!("bar")
         })
     });
 }

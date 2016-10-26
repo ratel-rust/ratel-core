@@ -272,15 +272,27 @@ impl<'a> Parser<'a> {
         let params: Vec<Parameter> = match p {
             None => Vec::new(),
             Some(Expression::Identifier(name)) => {
-                vec![Parameter { name: name }]
+                vec![Parameter { name: name, expression: None }]
             },
             Some(Expression::Sequence(mut list)) => {
                 let mut params = Vec::with_capacity(list.len());
 
                 for expression in list.drain(..) {
                     match expression {
+                        Expression::Binary {
+                            operator: Assign,
+                            left,
+                            right,
+                            ..
+                        } => {
+                            let name = match *left {
+                                Expression::Identifier(value) => value,
+                                _                 => unexpected_token!(self)
+                            };
+                            params.push(Parameter { name: name, expression: Some(right) });
+                        },
                         Expression::Identifier(name) => {
-                            params.push(Parameter { name: name });
+                            params.push(Parameter { name: name, expression: None });
                         },
                         _ => unexpected_token!(self)
                     }
@@ -863,7 +875,8 @@ impl<'a> Parser<'a> {
                 ParenClose       => break,
                 Identifier(name) => {
                     list.push(Parameter {
-                        name: name
+                        name: name,
+                        expression: None
                     });
                 },
                 _ => unexpected_token!(self)

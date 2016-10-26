@@ -320,7 +320,11 @@ impl Code for ObjectKey {
 impl Code for Parameter {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write_bytes(self.name.as_bytes());
+        gen.write(&self.name);
+        if let Some(ref expression) = self.expression {
+            gen.write_min(b" = ", b"=");
+            gen.write(expression);
+        }
     }
 }
 

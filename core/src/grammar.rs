@@ -13,9 +13,10 @@ pub enum Value {
 }
 
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub name: OwnedSlice,
+    pub expression: Option<Box<Expression>>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
