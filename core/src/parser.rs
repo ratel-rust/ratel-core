@@ -272,11 +272,26 @@ impl<'a> Parser<'a> {
         let params: Vec<Parameter> = match p {
             None => Vec::new(),
             Some(Expression::Identifier(name)) => {
-                vec![Parameter { name: name, expression: None }]
+                vec![Parameter { name: name, default: None }]
+            },
+            Some(Expression::Binary {
+                operator: Assign,
+                left,
+                right,
+                ..
+            }) => {
+                let mut params = Vec::with_capacity(1);
+
+                let name = match *left {
+                    Expression::Identifier(value) => value,
+                    _                 => unexpected_token!(self)
+                };
+                params.push(Parameter { name: name, default: Some(right) });
+                params
             },
             Some(Expression::Sequence(mut list)) => {
                 let mut params = Vec::with_capacity(list.len());
-
+                let mut default_params = false;
                 for expression in list.drain(..) {
                     match expression {
                         Expression::Binary {
@@ -289,10 +304,14 @@ impl<'a> Parser<'a> {
                                 Expression::Identifier(value) => value,
                                 _                 => unexpected_token!(self)
                             };
-                            params.push(Parameter { name: name, expression: Some(right) });
+                            params.push(Parameter { name: name, default: Some(right) });
+                            default_params = true;
                         },
                         Expression::Identifier(name) => {
-                            params.push(Parameter { name: name, expression: None });
+                            if default_params {
+                                unexpected_token!(self)
+                            }
+                            params.push(Parameter { name: name, default: None });
                         },
                         _ => unexpected_token!(self)
                     }
@@ -869,18 +888,35 @@ impl<'a> Parser<'a> {
 
     fn parameter_list(&mut self) -> Result<Vec<Parameter>> {
         let mut list = Vec::new();
+        let mut default_params = false;
 
         loop {
-            match next!(self) {
+            let name = match next!(self) {
                 ParenClose       => break,
-                Identifier(name) => {
-                    list.push(Parameter {
-                        name: name,
-                        expression: None
-                    });
-                },
+                Identifier(name) => name,
                 _ => unexpected_token!(self)
-            }
+            };
+
+            list.push(match peek!(self) {
+                Operator(Assign) => {
+                    self.consume();
+                    let expression = try!(self.expression(0));
+                    default_params = true;
+                    Parameter {
+                        name: name,
+                        default: Some(Box::new(expression))
+                    }
+                }
+                _ => {
+                    if default_params {
+                        unexpected_token!(self);
+                    }
+                    Parameter {
+                        name: name,
+                        default: None
+                    }
+                }
+            });
 
             match next!(self) {
                 ParenClose => break,
