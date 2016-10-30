@@ -221,6 +221,13 @@ pub enum ObjectKey {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct ClassDefinition {
+    pub name: Option<OwnedSlice>,
+    pub extends: Option<OwnedSlice>,
+    pub body: Vec<ClassMember>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ClassMember {
     Constructor {
         params: Vec<Parameter>,
@@ -304,6 +311,7 @@ pub enum Statement {
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
+    Class(ClassDefinition),
     If {
         test: Expression,
         consequent: Box<Statement>,
@@ -328,11 +336,6 @@ pub enum Statement {
         left: Box<Statement>,
         right: Expression,
         body: Box<Statement>,
-    },
-    Class {
-        name: OwnedSlice,
-        extends: Option<OwnedSlice>,
-        body: Vec<ClassMember>,
     },
     Throw {
         value: Expression

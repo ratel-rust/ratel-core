@@ -553,6 +553,29 @@ impl Code for VariableDeclarationKind {
     }
 }
 
+impl Code for ClassDefinition {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        gen.new_line();
+        match self.name {
+            Some(ref name) => {
+                gen.write_bytes(b"class ");
+                gen.write(name);
+            },
+            None => gen.write_bytes(b"class")
+        }
+
+        if let Some(ref super_class) = self.extends {
+            gen.write_bytes(b" extends ");
+            gen.write(super_class);
+        }
+        gen.write_min(b" {", b"{");
+        gen.write_block(&self.body);
+        gen.write_byte(b'}');
+        gen.new_line();
+    }
+}
+
 impl Code for ClassMember {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -727,6 +750,8 @@ impl Code for Statement {
                 gen.new_line();
             },
 
+            Statement::Class(ref class) => gen.write(class),
+
             Statement::If {
                 ref test,
                 ref consequent,
@@ -795,24 +820,6 @@ impl Code for Statement {
                 gen.write(right);
                 gen.write_min(b") ", b")");
                 gen.write(body);
-            },
-
-            Statement::Class {
-                ref name,
-                ref extends,
-                ref body,
-            } => {
-                gen.new_line();
-                gen.write_bytes(b"class ");
-                gen.write(name);
-                if let &Some(ref super_class) = extends {
-                    gen.write_bytes(b" extends ");
-                    gen.write(super_class);
-                }
-                gen.write_min(b" {", b"{");
-                gen.write_block(body);
-                gen.write_byte(b'}');
-                gen.new_line();
             },
 
             Statement::Throw {

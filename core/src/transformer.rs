@@ -625,11 +625,11 @@ impl Transformable for Statement {
                 return;
             },
 
-            Statement::Class {
+            Statement::Class(ClassDefinition {
                 ref name,
                 ref mut body,
                 ..
-            } => {
+            }) => {
                 body.transform(settings);
 
                 if !settings.transform_class_properties
@@ -671,7 +671,7 @@ impl Transformable for Statement {
 
                 add_props_to_body(&mut cnst_body, props);
 
-                if !settings.transform_class {
+                // if !settings.transform_class {
                     methods.insert(0, ClassMember::Constructor {
                         params: cnst_params,
                         body: cnst_body,
@@ -680,52 +680,52 @@ impl Transformable for Statement {
                     *body = methods;
 
                     return;
-                }
+                // }
 
-                let constructor = Statement::Function {
-                    name: *name,
-                    params: cnst_params,
-                    body: cnst_body,
-                };
+                // let constructor = Statement::Function {
+                //     name: name,
+                //     params: cnst_params,
+                //     body: cnst_body,
+                // };
 
-                if methods.len() > 0 {
-                    let mut body = Vec::with_capacity(methods.len() + 1);
+                // if methods.len() > 0 {
+                //     let mut body = Vec::with_capacity(methods.len() + 1);
 
-                    body.push(constructor);
+                //     body.push(constructor);
 
-                    for method in methods.iter_mut() {
-                        if let &mut ClassMember::Method {
-                            key: ref mut method_key,
-                            params: ref mut method_params,
-                            body: ref mut method_body,
-                            ref is_static,
-                        } = method {
-                            let reference = if *is_static {
-                                Expression::Identifier(*name)
-                            } else {
-                                Expression::member(name, "prototype")
-                            };
+                //     for method in methods.iter_mut() {
+                //         if let &mut ClassMember::Method {
+                //             key: ref mut method_key,
+                //             params: ref mut method_params,
+                //             body: ref mut method_body,
+                //             ref is_static,
+                //         } = method {
+                //             let reference = if *is_static {
+                //                 Expression::Identifier(*name)
+                //             } else {
+                //                 Expression::member(name, "prototype")
+                //             };
 
-                            body.push(
-                                Expression::binary(
-                                    class_key_to_member(reference, method_key),
-                                    Assign,
-                                    Expression::Function {
-                                        name: None,
-                                        params: method_params.take(),
-                                        body: method_body.take(),
-                                    },
-                                ).into()
-                            );
-                        }
-                    }
+                //             body.push(
+                //                 Expression::binary(
+                //                     class_key_to_member(reference, method_key),
+                //                     Assign,
+                //                     Expression::Function {
+                //                         name: None,
+                //                         params: method_params.take(),
+                //                         body: method_body.take(),
+                //                     },
+                //                 ).into()
+                //             );
+                //         }
+                //     }
 
-                    Statement::Transparent {
-                        body: body
-                    }
-                } else {
-                    constructor
-                }
+                //     Statement::Transparent {
+                //         body: body
+                //     }
+                // } else {
+                //     constructor
+                // }
             }
 
             _ => return,
