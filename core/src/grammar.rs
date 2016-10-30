@@ -1,4 +1,5 @@
 use owned_slice::OwnedSlice;
+use operator::OperatorKind;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Value {
@@ -16,214 +17,6 @@ pub enum Value {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Parameter {
     pub name: OwnedSlice,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum OperatorType {
-    FatArrow,         //   …  => …
-    Accessor,         //   …  .  …
-    New,              //     new …
-    Increment,        //      ++ … | … ++
-    Decrement,        //      -- … | … --
-    LogicalNot,       //       ! …
-    BitwiseNot,       //       ~ …
-    Typeof,           //  typeof …
-    Void,             //    void …
-    Delete,           //  delete …
-    Multiplication,   //   …  *  …
-    Division,         //   …  /  …
-    Remainder,        //   …  %  …
-    Exponent,         //   …  ** …
-    Addition,         //   …  +  … | + …
-    Substraction,     //   …  -  … | - …
-    BitShiftLeft,     //   …  << …
-    BitShiftRight,    //   …  >> …
-    UBitShiftRight,   //   … >>> …
-    Lesser,           //   …  <  …
-    LesserEquals,     //   …  <= …
-    Greater,          //   …  >  …
-    GreaterEquals,    //   …  >= …
-    Instanceof,       //   … instanceof …
-    In,               //   …  in …
-    StrictEquality,   //   … === …
-    StrictInequality, //   … !== …
-    Equality,         //   …  == …
-    Inequality,       //   …  != …
-    BitwiseAnd,       //   …  &  …
-    BitwiseXor,       //   …  ^  …
-    BitwiseOr,        //   …  |  …
-    LogicalAnd,       //   …  && …
-    LogicalOr,        //   …  || …
-    Conditional,      //   …  ?  …  :  …
-    Assign,           //   …  =  …
-    AddAssign,        //   …  += …
-    SubstractAssign,  //   …  -= …
-    ExponentAssign,   //   … **= …
-    MultiplyAssign,   //   …  *= …
-    DivideAssign,     //   …  /= …
-    RemainderAssign,  //   …  %= …
-    BSLAssign,        //   … <<= …
-    BSRAssign,        //   … >>= …
-    UBSRAssign,       //   … >>>= …
-    BitAndAssign,     //   …  &= …
-    BitXorAssign,     //   …  ^= …
-    BitOrAssign,      //   …  |= …
-    Spread,           //     ... …
-}
-use self::OperatorType::*;
-
-impl OperatorType {
-    /// According to the Operator Precedence Table
-    /// Note: Unary opearotrs default to 15!
-    pub fn binding_power(&self) -> u8 {
-        match *self {
-            FatArrow         |
-            Accessor         => 18,
-
-            New              => 17,
-
-            Increment        |
-            Decrement        => 16,
-
-            LogicalNot       |
-            BitwiseNot       |
-            Typeof           |
-            Void             |
-            Delete           => 15,
-
-            Multiplication   |
-            Division         |
-            Remainder        |
-            Exponent         => 14,
-
-            Addition         |
-            Substraction     => 13,
-
-            BitShiftLeft     |
-            BitShiftRight    |
-            UBitShiftRight   => 12,
-
-            Lesser           |
-            LesserEquals     |
-            Greater          |
-            GreaterEquals    |
-            Instanceof       |
-            In               => 11,
-
-            StrictEquality   |
-            StrictInequality |
-            Equality         |
-            Inequality       => 10,
-
-            BitwiseAnd       => 9,
-            BitwiseXor       => 8,
-            BitwiseOr        => 7,
-            LogicalAnd       => 6,
-            LogicalOr        => 5,
-            Conditional      => 4,
-
-            Assign           |
-            AddAssign        |
-            SubstractAssign  |
-            ExponentAssign   |
-            MultiplyAssign   |
-            DivideAssign     |
-            RemainderAssign  |
-            BSLAssign        |
-            BSRAssign        |
-            UBSRAssign       |
-            BitAndAssign     |
-            BitXorAssign     |
-            BitOrAssign      => 3,
-
-            Spread           => 1,
-        }
-    }
-
-    pub fn prefix(&self) -> bool {
-        match *self {
-            LogicalNot       |
-            BitwiseNot       |
-            Typeof           |
-            Void             |
-            Delete           |
-            New              |
-            Spread           |
-            Increment        |
-            Decrement        |
-            Addition         |
-            Substraction     => true,
-
-            _                => false
-        }
-    }
-
-    pub fn infix(&self) -> bool {
-        match *self {
-            FatArrow         |
-            Accessor         |
-            Multiplication   |
-            Division         |
-            Remainder        |
-            Exponent         |
-            StrictEquality   |
-            StrictInequality |
-            Equality         |
-            Inequality       |
-            Lesser           |
-            LesserEquals     |
-            Greater          |
-            GreaterEquals    |
-            Instanceof       |
-            In               |
-            BitShiftLeft     |
-            BitShiftRight    |
-            UBitShiftRight   |
-            BitwiseAnd       |
-            BitwiseXor       |
-            BitwiseOr        |
-            LogicalAnd       |
-            LogicalOr        |
-            Conditional      |
-            Addition         |
-            Substraction     |
-            Assign           |
-            AddAssign        |
-            SubstractAssign  |
-            ExponentAssign   |
-            MultiplyAssign   |
-            DivideAssign     |
-            RemainderAssign  |
-            BSLAssign        |
-            BSRAssign        |
-            UBSRAssign       |
-            BitAndAssign     |
-            BitXorAssign     |
-            BitOrAssign      => true,
-
-            _                => false
-        }
-    }
-
-    pub fn assignment(&self) -> bool {
-        match *self {
-            Assign           |
-            AddAssign        |
-            SubstractAssign  |
-            ExponentAssign   |
-            MultiplyAssign   |
-            DivideAssign     |
-            RemainderAssign  |
-            BSLAssign        |
-            BSRAssign        |
-            UBSRAssign       |
-            BitAndAssign     |
-            BitXorAssign     |
-            BitOrAssign      => true,
-
-            _                => false
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -257,16 +50,16 @@ pub enum Expression {
     },
     Binary {
         parenthesized: bool,
-        operator: OperatorType,
+        operator: OperatorKind,
         left: Box<Expression>,
         right: Box<Expression>,
     },
     Prefix {
-        operator: OperatorType,
+        operator: OperatorKind,
         operand: Box<Expression>,
     },
     Postfix {
-        operator: OperatorType,
+        operator: OperatorKind,
         operand: Box<Expression>,
     },
     Conditional {
@@ -323,7 +116,7 @@ impl Expression {
     }
 
     #[inline]
-    pub fn binary<E: Into<Expression>>(left: E, operator: OperatorType, right: E) -> Self {
+    pub fn binary<E: Into<Expression>>(left: E, operator: OperatorKind, right: E) -> Self {
         Expression::Binary {
             parenthesized: false,
             operator: operator,

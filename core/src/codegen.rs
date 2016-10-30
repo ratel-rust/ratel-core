@@ -2,7 +2,7 @@ use std::ptr;
 use std::io::Write;
 
 use grammar::*;
-use grammar::OperatorType::*;
+use operator::OperatorKind;
 use owned_slice::OwnedSlice;
 
 /// The `Generator` is a wrapper around an owned `String` that's used to
@@ -160,9 +160,11 @@ impl<T: Code> Code for Option<T> {
     }
 }
 
-impl Code for OperatorType {
+impl Code for OperatorKind {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
+        use ::operator::OperatorKind::*;
+
         gen.write_bytes(match *self {
             FatArrow         => b"=>",
             Accessor         => b".",

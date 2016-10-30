@@ -1,9 +1,7 @@
 extern crate ratel;
 
-pub use ratel::*;
-pub use ratel::grammar::*;
-pub use ratel::parser::parse;
-pub use ratel::grammar::OperatorType::*;
+use ratel::{ transformer, parser, codegen };
+
 
 fn output_program(input_program: &str) -> String {
     let mut ast = parser::parse(input_program.to_string()).expect("Must compile");
