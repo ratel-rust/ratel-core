@@ -44,6 +44,11 @@ fn convert_let_to_var_in_block() {
 }
 
 #[test]
+fn exponent_in_sequence() {
+    assert_compile!("(1, 2 ** 2)", "(1,Math.pow(2,2));");
+}
+
+#[test]
 fn regex() {
     assert_compile!("/foo/gi.test();", "/foo/gi.test();");
 }
@@ -81,6 +86,21 @@ fn template_strings_tagged() {
     assert_compile!("foo`bar${1}baz`;", r#"foo(["bar","baz"],1);"#);
     assert_compile!("foo`bar${1}${2}baz`;", r#"foo(["bar","","baz"],1,2);"#);
     assert_compile!("foo`bar${1}baz${2}`;", r#"foo(["bar","baz",""],1,2);"#);
+}
+
+#[test]
+fn function_statement_default_parameters() {
+    assert_compile!("function foo(a,b=1){}", "function foo(a,b){b===undefined&&(b=1);}");
+}
+
+#[test]
+fn function_expression_default_parameters() {
+    assert_compile!("(function(a,b=1){})", "(function(a,b){b===undefined&&(b=1);});");
+}
+
+#[test]
+fn arrow_function_default_parameters() {
+    assert_compile!("(a,b=1)=>{}", "(function(a,b){b===undefined&&(b=1);});");
 }
 
 #[test]

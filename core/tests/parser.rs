@@ -708,7 +708,7 @@ fn arrow_function_with_default_params() {
         params: vec![
             param!("a", None),
             param!("b", None),
-            param!("c", Some(Box::new(Expression::Literal(Value::Number("2".into()))))),
+            param!("c", Some(Box::new(num!("2")))),
         ],
         body: Box::new(Statement::Expression {
             value: ident!("bar")
