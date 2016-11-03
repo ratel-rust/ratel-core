@@ -584,6 +584,10 @@ impl Transformable for ObjectMember {
                 body.transform(settings);
                 params.transform(settings);
 
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
+
                 // transformation flag check
                 if !settings.transform_object {
                     return;
@@ -632,6 +636,10 @@ impl Transformable for ClassMember {
             } => {
                 params.transform(settings);
                 body.transform(settings);
+
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
             },
 
             Property {

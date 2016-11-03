@@ -89,21 +89,6 @@ fn template_strings_tagged() {
 }
 
 #[test]
-fn function_statement_default_parameters() {
-    assert_compile!("function foo(a,b=1){}", "function foo(a,b){b===undefined&&(b=1);}");
-}
-
-#[test]
-fn function_expression_default_parameters() {
-    assert_compile!("(function(a,b=1){})", "(function(a,b){b===undefined&&(b=1);});");
-}
-
-#[test]
-fn arrow_function_default_parameters() {
-    assert_compile!("(a,b=1)=>{}", "(function(a,b){b===undefined&&(b=1);});");
-}
-
-#[test]
 fn empty_class() {
     assert_compile!("class Foo {}", "function Foo(){}");
 }
@@ -171,4 +156,29 @@ fn class_with_static_methods() {
     }
 
     ", "function Foo(){}Foo.foo=function(){};Foo.bar=function(){};");
+}
+
+#[test]
+fn function_statement_default_parameters() {
+    assert_compile!("function foo(a,b=1){}", "function foo(a,b){b===undefined&&(b=1);}");
+}
+
+#[test]
+fn function_expression_default_parameters() {
+    assert_compile!("(function(a,b=1){})", "(function(a,b){b===undefined&&(b=1);});");
+}
+
+#[test]
+fn arrow_function_default_parameters() {
+    assert_compile!("(a,b=1)=>{}", "(function(a,b){b===undefined&&(b=1);});");
+}
+
+#[test]
+fn object_method_default_parameters() {
+    assert_compile!("({foo(a,b=1){}})", "({foo:function(a,b){b===undefined&&(b=1);}});");
+}
+
+#[test]
+fn class_method_default_parameters() {
+    assert_compile!("class Foo{bar(a,b=1){}}", "function Foo(){}Foo.prototype.bar=function(a,b){b===undefined&&(b=1);};")
 }
