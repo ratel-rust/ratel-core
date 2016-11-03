@@ -770,7 +770,14 @@ impl Code for Statement {
                 gen.write_min(b"; ", b";");
                 gen.write(update);
                 gen.write_min(b") ", b")");
-                gen.write(body);
+                match *body {
+                        Some(_) => {
+                            gen.write(body);
+                        },
+                        None  => {
+                            gen.write_byte(b';');
+                        },
+                }
             },
 
             Statement::ForIn {
@@ -783,7 +790,14 @@ impl Code for Statement {
                 gen.write_bytes(b" in ");
                 gen.write(right);
                 gen.write_min(b") ", b")");
-                gen.write(body);
+                match *body {
+                        Some(_) => {
+                            gen.write(body);
+                        },
+                        None  => {
+                            gen.write_byte(b';');
+                        },
+                }
             },
 
             Statement::ForOf {
@@ -796,7 +810,14 @@ impl Code for Statement {
                 gen.write_bytes(b" of ");
                 gen.write(right);
                 gen.write_min(b") ", b")");
-                gen.write(body);
+                match *body {
+                        Some(_) => {
+                            gen.write(body);
+                        },
+                        None  => {
+                            gen.write_byte(b';');
+                        },
+                }
             },
 
             Statement::Class {

@@ -513,28 +513,28 @@ pub enum Statement {
     },
     If {
         test: Expression,
-        consequent: Box<Statement>,
+        consequent: Option<Box<Statement>>,
         alternate: Option<Box<Statement>>,
     },
     While {
         test: Expression,
-        body: Box<Statement>,
+        body: Option<Box<Statement>>,
     },
     For {
         init: Option<Box<Statement>>,
         test: Option<Expression>,
         update: Option<Expression>,
-        body: Box<Statement>,
+        body: Option<Box<Statement>>,
     },
     ForIn {
         left: Box<Statement>,
         right: Expression,
-        body: Box<Statement>,
+        body: Option<Box<Statement>>,
     },
     ForOf {
         left: Box<Statement>,
         right: Expression,
-        body: Box<Statement>,
+        body: Option<Box<Statement>>,
     },
     Class {
         name: OwnedSlice,

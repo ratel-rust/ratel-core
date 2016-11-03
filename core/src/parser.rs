@@ -756,7 +756,10 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let consequent = Box::new(try!(self.block_or_statement()));
+        let consequent = match self.block_or_statement() {
+            Ok(statement)  =>  Some(Box::new(statement)),
+            Err(_)         => None
+        };
 
         let alternate = match peek!(self) {
             Else => {
@@ -791,9 +794,16 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let body = match self.block_or_statement() {
+            Ok(statement)     => {
+                Some(Box::new(statement))
+            },
+            Err(_)            => None
+        };
+
         Ok(Statement::While {
             test: test,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -853,11 +863,18 @@ impl<'a> Parser<'a> {
             expect!(self, ParenClose);
         }
 
+        let body = match self.block_or_statement() {
+            Ok(statement)     => {
+                Some(Box::new(statement))
+            },
+            Err(_)            => None
+        };
+
         Ok(Statement::For {
             init: init,
             test: test,
             update: update,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -867,10 +884,17 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let body = match self.block_or_statement() {
+            Ok(statement)     => {
+                Some(Box::new(statement))
+            },
+            Err(_)            => None
+        };
+
         Ok(Statement::ForIn {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -879,10 +903,17 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let body = match self.block_or_statement() {
+            Ok(statement)     => {
+                Some(Box::new(statement))
+            },
+            Err(_)            => None
+        };
+
         Ok(Statement::ForIn {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -891,10 +922,17 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let body = match self.block_or_statement() {
+            Ok(statement)     => {
+                Some(Box::new(statement))
+            },
+            Err(_)            => None
+        };
+
         Ok(Statement::ForOf {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
