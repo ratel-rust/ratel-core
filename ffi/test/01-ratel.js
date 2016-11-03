@@ -45,7 +45,7 @@ describe('Ratel ffi', () => {
 [
     Expression {
         value: Literal(
-            LiteralFloat(
+            Number(
                 "2"
             )
         )
