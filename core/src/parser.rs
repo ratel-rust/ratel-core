@@ -271,19 +271,62 @@ impl<'a> Parser<'a> {
     fn arrow_function_expression(&mut self, p: Option<Expression>) -> Result<Expression> {
         let params: Vec<Parameter> = match p {
             None => Vec::new(),
+
             Some(Expression::Identifier(name)) => {
-                vec![Parameter { name: name }]
+                vec![Parameter {
+                    name    : name,
+                    default : None,
+                }]
             },
+
+            Some(Expression::Binary {
+                parenthesized : true,
+                operator      : Assign,
+                left,
+                right,
+            }) => {
+                let name = match *left {
+                    Expression::Identifier(value) => value,
+                    _                 => unexpected_token!(self)
+                };
+
+                vec![Parameter {
+                    name    : name,
+                    default : Some(right),
+                }]
+            },
+
             Some(Expression::Sequence(mut list)) => {
                 let mut params = Vec::with_capacity(list.len());
 
                 for expression in list.drain(..) {
-                    match expression {
-                        Expression::Identifier(name) => {
-                            params.push(Parameter { name: name });
+                    params.push(match expression {
+                        Expression::Binary {
+                            operator: Assign,
+                            left,
+                            right,
+                            ..
+                        } => {
+                            let name = match *left {
+                                Expression::Identifier(value) => value,
+                                _ => unexpected_token!(self)
+                            };
+
+                            Parameter {
+                                name    : name,
+                                default : Some(right),
+                            }
                         },
+
+                        Expression::Identifier(name) => {
+                            Parameter {
+                                name    : name,
+                                default : None
+                            }
+                        },
+
                         _ => unexpected_token!(self)
-                    }
+                    })
                 }
 
                 params
@@ -857,17 +900,35 @@ impl<'a> Parser<'a> {
 
     fn parameter_list(&mut self) -> Result<Vec<Parameter>> {
         let mut list = Vec::new();
+        let mut default_params = false;
 
         loop {
-            match next!(self) {
+            let name = match next!(self) {
                 ParenClose       => break,
-                Identifier(name) => {
-                    list.push(Parameter {
-                        name: name
-                    });
-                },
+                Identifier(name) => name,
                 _ => unexpected_token!(self)
-            }
+            };
+
+            list.push(match peek!(self) {
+                Operator(Assign) => {
+                    self.consume();
+                    let expression = try!(self.expression(0));
+                    default_params = true;
+                    Parameter {
+                        name: name,
+                        default: Some(Box::new(expression))
+                    }
+                }
+                _ => {
+                    if default_params {
+                        unexpected_token!(self);
+                    }
+                    Parameter {
+                        name: name,
+                        default: None
+                    }
+                }
+            });
 
             match next!(self) {
                 ParenClose => break,

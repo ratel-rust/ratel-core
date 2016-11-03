@@ -8,6 +8,7 @@ pub struct Settings {
     pub transform_block_scope: bool,
     pub transform_arrow: bool,
     pub transform_object: bool,
+    pub transform_default_parameters: bool,
     pub transform_exponentation: bool,
     pub transform_class_properties: bool,
     pub transform_class: bool,
@@ -50,6 +51,7 @@ impl Settings {
 
         settings.transform_block_scope = true;
         settings.transform_arrow = true;
+        settings.transform_default_parameters = true;
         settings.transform_object = true;
         settings.transform_class = true;
         settings.transform_template_strings = true;
@@ -71,6 +73,7 @@ impl Settings {
             transform_block_scope: false,
             transform_arrow: false,
             transform_object: false,
+            transform_default_parameters: false,
             transform_exponentation: false,
             transform_class_properties: false,
             transform_class: false,
@@ -122,6 +125,33 @@ impl<T: Transformable> Transformable for Box<T> {
 
 impl Transformable for Parameter {}
 
+#[inline]
+fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Statement>) {
+    for param in params.iter_mut() {
+        match param.default.take() {
+            Some(value) => {
+                body.insert(0, Statement::Expression {
+                    value: Expression::binary(
+                        Expression::binary(
+                            param.name,
+                            StrictEquality,
+                            "undefined".into(),
+                        ),
+                        LogicalAnd,
+                        Expression::Binary {
+                            parenthesized : true,
+                            operator      : Assign,
+                            left          : Box::new(param.name.into()),
+                            right         : value,
+                        }
+                    )
+                });
+            },
+            None => {},
+        }
+    }
+}
+
 impl Transformable for Expression {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
@@ -132,13 +162,43 @@ impl Transformable for Expression {
                 params.transform(settings);
                 body.transform(settings);
 
+                if settings.transform_default_parameters {
+                    let has_defaults = params.iter().any(|param| match *param {
+                        Parameter {
+                            default: Some(_),
+                            ..
+                        } => true,
+                        _ => false,
+                    });
+
+                    if has_defaults {
+                        let mut new_body = match **body {
+                            Statement::Block { ref mut body }       => body.take(),
+                            Statement::Expression { ref mut value } => vec![
+                                Statement::Return {
+                                    value: Some(value.take())
+                                }
+                            ],
+                            ref statement => {
+                                panic!("Invalid arrow function body {:#?}", statement);
+                            }
+                        };
+
+                        transform_default_parameters(params, &mut new_body);
+
+                        **body = Statement::Block {
+                            body: new_body
+                        };
+                    }
+                }
+
                 // transformation flag check
                 if !settings.transform_arrow {
                     return;
                 }
 
                 let body = match **body {
-                    Statement::Block { ref mut body }   => body.split_off(0),
+                    Statement::Block { ref mut body }       => body.take(),
                     Statement::Expression { ref mut value } => vec![
                         Statement::Return {
                             value: Some(value.take())
@@ -162,6 +222,21 @@ impl Transformable for Expression {
                 } else {
                     function
                 }
+            },
+
+            Expression::Function {
+                ref mut params,
+                ref mut body,
+                ..
+            } => {
+                params.transform(settings);
+                body.transform(settings);
+
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
+
+                return;
             },
 
             Expression::Array(ref mut items) => {
@@ -364,7 +439,61 @@ impl Transformable for Expression {
                 }
             },
 
-            _ => return,
+            Expression::Sequence(ref mut expressions) => {
+                expressions.transform(settings);
+
+                return;
+            },
+
+            Expression::Member {
+                ref mut object,
+                ..
+            } => {
+                object.transform(settings);
+
+                return;
+            },
+
+            Expression::ComputedMember {
+                ref mut object,
+                ref mut property,
+            } => {
+                object.transform(settings);
+                property.transform(settings);
+
+                return;
+            },
+
+            Expression::Prefix {
+                ref mut operand,
+                ..
+            }
+            |
+            Expression::Postfix {
+                ref mut operand,
+                ..
+            } => {
+                operand.transform(settings);
+
+                return;
+            },
+
+            Expression::Conditional {
+                ref mut test,
+                ref mut consequent,
+                ref mut alternate,
+            } => {
+                test.transform(settings);
+                consequent.transform(settings);
+                alternate.transform(settings);
+
+                return;
+            },
+
+            Expression::This           |
+            Expression::Literal(..)    |
+            Expression::RegEx {..}     |
+            Expression::Identifier(..) => return,
         }
     }
 
@@ -455,6 +584,10 @@ impl Transformable for ObjectMember {
                 body.transform(settings);
                 params.transform(settings);
 
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
+
                 // transformation flag check
                 if !settings.transform_object {
                     return;
@@ -503,6 +636,10 @@ impl Transformable for ClassMember {
             } => {
                 params.transform(settings);
                 body.transform(settings);
+
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
             },
 
             Property {
@@ -625,6 +762,21 @@ impl Transformable for Statement {
                 return;
             },
 
+            Statement::Function {
+                ref mut params,
+                ref mut body,
+                ..
+            } => {
+                params.transform(settings);
+                body.transform(settings);
+
+                if settings.transform_default_parameters {
+                    transform_default_parameters(params, body);
+                }
+
+                return;
+            },
+
             Statement::Class {
                 ref name,
                 ref mut body,
@@ -726,9 +878,75 @@ impl Transformable for Statement {
                 } else {
                     constructor
                 }
-            }
+            },
 
-            _ => return,
+            Statement::Transparent {
+                ref mut body,
+            } => {
+                body.transform(settings);
+
+                return;
+            },
+
+            Statement::Return {
+                ref mut value,
+            } => {
+                value.transform(settings);
+
+                return;
+            },
+
+            Statement::Throw {
+                ref mut value,
+            } => {
+                value.transform(settings);
+
+                return;
+            },
+
+            Statement::While {
+                ref mut test,
+                ref mut body,
+            } => {
+                test.transform(settings);
+                body.transform(settings);
+
+                return;
+            },
+
+            Statement::For {
+                ref mut init,
+                ref mut test,
+                ref mut update,
+                ref mut body,
+            } => {
+                init.transform(settings);
+                test.transform(settings);
+                update.transform(settings);
+                body.transform(settings);
+
+                return;
+            },
+
+            Statement::ForIn {
+                ref mut left,
+                ref mut right,
+                ref mut body,
+            }
+            |
+            Statement::ForOf {
+                ref mut left,
+                ref mut right,
+                ref mut body,
+            } => {
+                left.transform(settings);
+                right.transform(settings);
+                body.transform(settings);
+
+                return;
+            },
+
+            Statement::Break { .. } => return,
         }
     }
 
