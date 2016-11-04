@@ -489,6 +489,7 @@ pub enum Statement {
     Transparent {
         body: Vec<Statement>,
     },
+    Empty {},
     Labeled {
         label: OwnedSlice,
         body: Box<Statement>,
@@ -513,28 +514,28 @@ pub enum Statement {
     },
     If {
         test: Expression,
-        consequent: Option<Box<Statement>>,
-        alternate: Option<Box<Statement>>,
+        consequent: Box<Statement>,
+        alternate: Box<Statement>,
     },
     While {
         test: Expression,
-        body: Option<Box<Statement>>,
+        body: Box<Statement>,
     },
     For {
         init: Option<Box<Statement>>,
         test: Option<Expression>,
         update: Option<Expression>,
-        body: Option<Box<Statement>>,
+        body: Box<Statement>,
     },
     ForIn {
         left: Box<Statement>,
         right: Expression,
-        body: Option<Box<Statement>>,
+        body: Box<Statement>,
     },
     ForOf {
         left: Box<Statement>,
         right: Expression,
-        body: Option<Box<Statement>>,
+        body: Box<Statement>,
     },
     Class {
         name: OwnedSlice,

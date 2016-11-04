@@ -214,7 +214,6 @@ fn var_muliple_declare() {
     });
 }
 
-
 #[test]
 fn var_muliple_declare_value() {
     assert_statement!("var foo = 100, bar = 200;", Statement::VariableDeclaration {
@@ -393,12 +392,12 @@ fn if_statement() {
 
     ", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: Some(Box::new(Statement::Block {
+        consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
             }]
-        })),
-        alternate: None,
+        }),
+        alternate: Box::new(Statement::Empty {}),
     });
 }
 
@@ -414,16 +413,16 @@ fn if_else_statement() {
 
     ", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: Some(Box::new(Statement::Block {
+        consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
             }]
-        })),
-        alternate: Some(Box::new(Statement::Block {
+        }),
+        alternate: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("bar")
             }]
-        })),
+        }),
     })
 }
 
@@ -441,24 +440,24 @@ fn if_else_if_else_statement() {
 
     ", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: Some(Box::new(Statement::Block {
+        consequent: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
             }]
-        })),
-        alternate: Some(Box::new(Statement::If {
+        }),
+        alternate: Box::new(Statement::If {
             test: Expression::Literal(Value::False),
-            consequent: Some(Box::new(Statement::Block {
+            consequent: Box::new(Statement::Block {
                 body: vec![Statement::Expression {
                     value: ident!("bar")
                 }]
-            })),
-            alternate: Some(Box::new(Statement::Block {
+            }),
+            alternate: Box::new(Statement::Block {
                 body: vec![Statement::Expression {
                     value: ident!("baz")
                 }]
-            })),
-        })),
+            }),
+        }),
     });
 }
 
@@ -466,10 +465,25 @@ fn if_else_if_else_statement() {
 fn if_single_statement() {
     assert_statement!("if (true) foo;", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: Some(Box::new(Statement::Expression {
+        consequent: Box::new(Statement::Expression {
             value: ident!("foo")
-        })),
-        alternate: None,
+        }),
+        alternate: Box::new(Statement::Empty {}),
+    });
+}
+
+#[test]
+fn if_single_assignment_statement() {
+    assert_statement!("if (true) const foo = 100;", Statement::If {
+        test: Expression::Literal(Value::True),
+        consequent: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Const,
+            declarators: vec![VariableDeclarator {
+                name: "foo".into(),
+                value: Some(num!("100")),
+            }]
+        }),
+        alternate: Box::new(Statement::Empty {}),
     });
 }
 
@@ -481,8 +495,8 @@ fn if_no_block_statement() {
 
     ", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: None,
-        alternate: None,
+        consequent: Box::new(Statement::Empty {}),
+        alternate: Box::new(Statement::Empty {}),
     });
 }
 
@@ -490,12 +504,23 @@ fn if_no_block_statement() {
 fn if_else_single_statement() {
     assert_statement!("if (true) foo; else bar;", Statement::If {
         test: Expression::Literal(Value::True),
-        consequent: Some(Box::new(Statement::Expression {
+        consequent: Box::new(Statement::Expression {
             value: ident!("foo")
-        })),
-        alternate: Some(Box::new(Statement::Expression {
+        }),
+        alternate: Box::new(Statement::Expression {
             value: ident!("bar")
-        })),
+        }),
+    })
+}
+
+#[test]
+fn if_else_no_alternate_statement() {
+    assert_statement!("if (true) foo; else;", Statement::If {
+        test: Expression::Literal(Value::True),
+        consequent: Box::new(Statement::Expression {
+            value: ident!("foo")
+        }),
+        alternate: Box::new(Statement::Empty {}),
     })
 }
 
@@ -518,9 +543,9 @@ fn for_statement() {
             operator: Increment,
             operand: Box::new(ident!("i")),
         }),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -543,7 +568,7 @@ fn for_no_block_statement() {
             operator: Increment,
             operand: Box::new(ident!("i")),
         }),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -568,9 +593,9 @@ fn for_declare_statement() {
             operator: Increment,
             operand: Box::new(ident!("i")),
         }),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -595,7 +620,7 @@ fn for_declare_no_block_statement() {
             operator: Increment,
             operand: Box::new(ident!("i")),
         }),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -605,9 +630,9 @@ fn for_empty_statement() {
         init: None,
         test: None,
         update: None,
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -617,7 +642,7 @@ fn for_empty_no_block_statement() {
         init: None,
         test: None,
         update: None,
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -628,9 +653,9 @@ fn for_in_statement() {
             value: ident!("item")
         }),
         right: ident!("object"),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -641,7 +666,7 @@ fn for_in_no_block_statement() {
             value: ident!("item")
         }),
         right: ident!("object"),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -658,9 +683,9 @@ fn for_in_declare_statement() {
             ],
         }),
         right: ident!("object"),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -677,7 +702,7 @@ fn for_in_declare_no_block_statement() {
             ],
         }),
         right: ident!("object"),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -688,9 +713,9 @@ fn for_of_statement() {
             value: ident!("item")
         }),
         right: ident!("array"),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -701,7 +726,7 @@ fn for_of_no_block_statement() {
             value: ident!("item")
         }),
         right: ident!("array"),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -718,9 +743,9 @@ fn for_of_declare_statement() {
             ],
         }),
         right: ident!("array"),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: Vec::new(),
-        })),
+        }),
     });
 }
 
@@ -737,7 +762,7 @@ fn for_of_declare_no_block_statement() {
             ],
         }),
         right: ident!("array"),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 
@@ -751,11 +776,11 @@ fn while_statement() {
 
     ", Statement::While {
         test: Expression::Literal(Value::True),
-        body: Some(Box::new(Statement::Block {
+        body: Box::new(Statement::Block {
             body: vec![Statement::Expression {
                 value: ident!("foo")
             }]
-        })),
+        }),
     });
 }
 
@@ -763,9 +788,9 @@ fn while_statement() {
 fn while_single_statement() {
     assert_statement!("while (true) foo;", Statement::While {
         test: Expression::Literal(Value::True),
-        body: Some(Box::new(Statement::Expression {
+        body: Box::new(Statement::Expression {
             value: ident!("foo")
-        })),
+        }),
     });
 }
 
@@ -773,7 +798,7 @@ fn while_single_statement() {
 fn while_no_block_statement() {
     assert_statement!("while (true);", Statement::While {
         test: Expression::Literal(Value::True),
-        body: None,
+        body: Box::new(Statement::Empty {}),
     });
 }
 

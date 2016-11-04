@@ -668,6 +668,10 @@ impl Code for Statement {
                 }
             },
 
+            Statement::Empty {} => {
+                gen.write_byte(b';');
+            }
+
             Statement::Expression {
                 ref value,
             } => {
@@ -739,10 +743,10 @@ impl Code for Statement {
                 gen.write_min(b") ", b")");
                 gen.write(consequent);
 
-                if let Some(ref alternate) = *alternate {
+                if Box::new(Statement::Empty {}) != *alternate {
                     gen.write_bytes(b" else ");
                     gen.write(alternate);
-                };
+                }
             },
 
             Statement::While {
@@ -770,14 +774,7 @@ impl Code for Statement {
                 gen.write_min(b"; ", b";");
                 gen.write(update);
                 gen.write_min(b") ", b")");
-                match *body {
-                        Some(_) => {
-                            gen.write(body);
-                        },
-                        None  => {
-                            gen.write_byte(b';');
-                        },
-                }
+                gen.write(body);
             },
 
             Statement::ForIn {
@@ -790,14 +787,7 @@ impl Code for Statement {
                 gen.write_bytes(b" in ");
                 gen.write(right);
                 gen.write_min(b") ", b")");
-                match *body {
-                        Some(_) => {
-                            gen.write(body);
-                        },
-                        None  => {
-                            gen.write_byte(b';');
-                        },
-                }
+                gen.write(body);
             },
 
             Statement::ForOf {
@@ -810,14 +800,7 @@ impl Code for Statement {
                 gen.write_bytes(b" of ");
                 gen.write(right);
                 gen.write_min(b") ", b")");
-                match *body {
-                        Some(_) => {
-                            gen.write(body);
-                        },
-                        None  => {
-                            gen.write_byte(b';');
-                        },
-                }
+                gen.write(body);
             },
 
             Statement::Class {

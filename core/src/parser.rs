@@ -225,23 +225,6 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn block_or_statement(&mut self) -> Result<Statement> {
-        match peek!(self) {
-            BraceOpen => {
-                self.consume();
-
-                Ok(Statement::Block {
-                    body: try!(self.block_body_tail())
-                })
-            },
-            _ => {
-                let token = next!(self);
-                self.expression_statement(token)
-            }
-        }
-    }
-
-    #[inline]
     fn block_statement(&mut self) -> Result<Statement> {
         Ok(Statement::Block {
             body: try!(self.block_body_tail()),
@@ -756,33 +739,25 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let consequent = match self.block_or_statement() {
-            Ok(statement)  =>  Some(Box::new(statement)),
-            Err(_)         => None
-        };
+        let token = next!(self);
+        let consequent = Box::new(try!(self.statement(token)));
 
         let alternate = match peek!(self) {
             Else => {
                 self.consume();
 
-                match peek!(self) {
-                    If => {
-                        self.consume();
+                let token = next!(self);
 
-                        Some(Box::new(try!(self.if_statement())))
-                    },
-
-                    _ => Some(Box::new(try!(self.block_or_statement())))
-                }
+                try!(self.statement(token))
             },
 
-            _ => None
+            _ => Statement::Empty {}
         };
 
         Ok(Statement::If {
             test: test,
             consequent: consequent,
-            alternate: alternate,
+            alternate: Box::new(alternate),
         })
     }
 
@@ -794,12 +769,8 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let body = match self.block_or_statement() {
-            Ok(statement)     => {
-                Some(Box::new(statement))
-            },
-            Err(_)            => None
-        };
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
 
         Ok(Statement::While {
             test: test,
@@ -863,12 +834,8 @@ impl<'a> Parser<'a> {
             expect!(self, ParenClose);
         }
 
-        let body = match self.block_or_statement() {
-            Ok(statement)     => {
-                Some(Box::new(statement))
-            },
-            Err(_)            => None
-        };
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
 
         Ok(Statement::For {
             init: init,
@@ -884,12 +851,8 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let body = match self.block_or_statement() {
-            Ok(statement)     => {
-                Some(Box::new(statement))
-            },
-            Err(_)            => None
-        };
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
 
         Ok(Statement::ForIn {
             left: left,
@@ -903,12 +866,8 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let body = match self.block_or_statement() {
-            Ok(statement)     => {
-                Some(Box::new(statement))
-            },
-            Err(_)            => None
-        };
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
 
         Ok(Statement::ForIn {
             left: left,
@@ -922,12 +881,8 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let body = match self.block_or_statement() {
-            Ok(statement)     => {
-                Some(Box::new(statement))
-            },
-            Err(_)            => None
-        };
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
 
         Ok(Statement::ForOf {
             left: left,
@@ -1095,7 +1050,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
-            Semicolon          => Ok(Statement::Transparent { body: Vec::new() }),
+            Semicolon          => Ok(Statement::Empty {}),
             BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),

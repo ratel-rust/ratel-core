@@ -888,6 +888,10 @@ impl Transformable for Statement {
                 return;
             },
 
+            Statement::Empty {} => {
+                return;
+            },
+
             Statement::Return {
                 ref mut value,
             } => {
