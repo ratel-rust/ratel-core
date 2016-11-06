@@ -1,3 +1,4 @@
+pub mod operator;
 pub mod owned_slice;
 pub mod error;
 pub mod lexicon;

@@ -1,6 +1,6 @@
 use grammar::Value;
-use grammar::OperatorType;
 use grammar::VariableDeclarationKind;
+use operator::OperatorKind;
 use owned_slice::OwnedSlice;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -32,7 +32,7 @@ pub enum Token {
     BracketClose,
     BraceOpen,
     BraceClose,
-    Operator(OperatorType),
+    Operator(OperatorKind),
     Declaration(VariableDeclarationKind),
     Break,
     Do,
@@ -69,7 +69,7 @@ pub enum Token {
 impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
-        use grammar::OperatorType::*;
+        use operator::OperatorKind::*;
         use grammar::Value::*;
 
         match *self {

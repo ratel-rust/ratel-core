@@ -1,9 +1,7 @@
 extern crate ratel;
 
-pub use ratel::*;
-pub use ratel::grammar::*;
-pub use ratel::parser::parse;
-pub use ratel::grammar::OperatorType::*;
+use ratel::{ transformer, parser, codegen };
+
 
 fn output_program(input_program: &str) -> String {
     let mut ast = parser::parse(input_program.to_string()).expect("Must compile");
@@ -30,6 +28,13 @@ fn convert_let_to_var_in_global_scope() {
 #[test]
 fn dont_touch_var_in_global_scope() {
     assert_compile!("var pi = 3.14;", "var pi=3.14;");
+}
+
+#[test]
+fn keyword_prefix_operators() {
+    assert_compile!("delete a;", "delete a;");
+    assert_compile!("new a;", "new a;");
+    assert_compile!("typeof a;", "typeof a;");
 }
 
 #[test]
