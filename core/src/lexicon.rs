@@ -102,7 +102,7 @@ impl Token {
             Operator(New)        => Some("new"),
             Operator(Typeof)     => Some("typeof"),
             Operator(Void)       => Some("void"),
-            Operator(Delete)     => Some("delte"),
+            Operator(Delete)     => Some("delete"),
             Operator(Instanceof) => Some("instanceof"),
             Literal(True)        => Some("true"),
             Literal(False)       => Some("false"),

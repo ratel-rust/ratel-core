@@ -13,10 +13,10 @@ pub enum Value {
     RawQuasi(OwnedSlice),
 }
 
-
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub name: OwnedSlice,
+    pub default: Option<Box<Expression>>
 }
 
 #[derive(Debug, PartialEq, Clone)]
