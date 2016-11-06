@@ -982,11 +982,11 @@ impl<'a> Parser<'a> {
             members.push(try!(self.class_member(key, is_static)));
         }
 
-        Ok(Statement::Class(ClassDefinition {
-            name: Some(name),
+        Ok(Statement::Class {
+            name: name,
             extends: super_class,
             body: members,
-        }))
+        })
     }
 
     #[inline]

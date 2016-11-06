@@ -449,6 +449,7 @@ impl Code for Expression {
                 ..
             } => {
                 let bp = self.binding_power();
+                let spacing = operator.is_word() || !gen.minify;
 
                 if left.binding_power() < bp {
                     gen.write_byte(b'(');
@@ -457,9 +458,14 @@ impl Code for Expression {
                 } else {
                     gen.write(left);
                 }
-                gen.write_min(b" ", b"");
+
+                if spacing {
+                    gen.write_byte(b' ');
+                }
                 gen.write(operator);
-                gen.write_min(b" ", b"");
+                if spacing {
+                    gen.write_byte(b' ');
+                }
 
                 if right.needs_parens(bp) {
                     gen.write_byte(b'(');
@@ -475,6 +481,9 @@ impl Code for Expression {
                 ref operand,
             } => {
                 gen.write(operator);
+                if operator.is_word() {
+                    gen.write_byte(b' ');
+                }
                 gen.write(operand);
             },
 
@@ -550,29 +559,6 @@ impl Code for VariableDeclarationKind {
             VariableDeclarationKind::Let   => b"let",
             VariableDeclarationKind::Const => b"const",
         })
-    }
-}
-
-impl Code for ClassDefinition {
-    #[inline]
-    fn to_code(&self, gen: &mut Generator) {
-        gen.new_line();
-        match self.name {
-            Some(ref name) => {
-                gen.write_bytes(b"class ");
-                gen.write(name);
-            },
-            None => gen.write_bytes(b"class")
-        }
-
-        if let Some(ref super_class) = self.extends {
-            gen.write_bytes(b" extends ");
-            gen.write(super_class);
-        }
-        gen.write_min(b" {", b"{");
-        gen.write_block(&self.body);
-        gen.write_byte(b'}');
-        gen.new_line();
     }
 }
 
@@ -750,7 +736,23 @@ impl Code for Statement {
                 gen.new_line();
             },
 
-            Statement::Class(ref class) => gen.write(class),
+            Statement::Class {
+                ref name,
+                ref extends,
+                ref body,
+            } => {
+                gen.new_line();
+                gen.write_bytes(b"class ");
+                gen.write(name);
+                if let &Some(ref super_class) = extends {
+                    gen.write_bytes(b" extends ");
+                    gen.write(super_class);
+                }
+                gen.write_min(b" {", b"{");
+                gen.write_block(body);
+                gen.write_byte(b'}');
+                gen.new_line();
+            },
 
             Statement::If {
                 ref test,

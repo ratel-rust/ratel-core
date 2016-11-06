@@ -31,6 +31,13 @@ fn dont_touch_var_in_global_scope() {
 }
 
 #[test]
+fn keyword_prefix_operators() {
+    assert_compile!("delete a;", "delete a;");
+    assert_compile!("new a;", "new a;");
+    assert_compile!("typeof a;", "typeof a;");
+}
+
+#[test]
 fn convert_let_to_var_in_block() {
     let program = "if(true) {
       let pi = 3.14;

@@ -209,4 +209,17 @@ impl OperatorKind {
             _                => false
         }
     }
+
+    #[inline]
+    pub fn is_word(&self) -> bool {
+        match *self {
+            New        |
+            Typeof     |
+            Void       |
+            Delete     |
+            Instanceof => true,
+
+            _          => false,
+        }
+    }
 }
