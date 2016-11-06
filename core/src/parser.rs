@@ -748,16 +748,16 @@ impl<'a> Parser<'a> {
 
                 let token = next!(self);
 
-                try!(self.statement(token))
+                Some(Box::new(try!(self.statement(token))))
             },
 
-            _ => Statement::Empty {}
+            _ => None
         };
 
         Ok(Statement::If {
             test: test,
             consequent: consequent,
-            alternate: Box::new(alternate),
+            alternate: alternate,
         })
     }
 
@@ -1050,7 +1050,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
-            Semicolon          => Ok(Statement::Empty {}),
+            Semicolon          => Ok(Statement::Empty),
             BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),

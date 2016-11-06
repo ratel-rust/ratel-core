@@ -668,7 +668,7 @@ impl Code for Statement {
                 }
             },
 
-            Statement::Empty {} => {
+            Statement::Empty => {
                 gen.write_byte(b';');
             }
 
@@ -743,7 +743,7 @@ impl Code for Statement {
                 gen.write_min(b") ", b")");
                 gen.write(consequent);
 
-                if Box::new(Statement::Empty {}) != *alternate {
+                if let Some(ref alternate) = *alternate {
                     gen.write_bytes(b" else ");
                     gen.write(alternate);
                 }

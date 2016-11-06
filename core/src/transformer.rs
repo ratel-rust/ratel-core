@@ -888,7 +888,7 @@ impl Transformable for Statement {
                 return;
             },
 
-            Statement::Empty {} => {
+            Statement::Empty => {
                 return;
             },
 

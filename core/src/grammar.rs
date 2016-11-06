@@ -480,6 +480,7 @@ pub struct VariableDeclarator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
+    Empty,
     Block {
         body: Vec<Statement>,
     },
@@ -489,7 +490,6 @@ pub enum Statement {
     Transparent {
         body: Vec<Statement>,
     },
-    Empty {},
     Labeled {
         label: OwnedSlice,
         body: Box<Statement>,
@@ -515,7 +515,7 @@ pub enum Statement {
     If {
         test: Expression,
         consequent: Box<Statement>,
-        alternate: Box<Statement>,
+        alternate: Option<Box<Statement>>,
     },
     While {
         test: Expression,
