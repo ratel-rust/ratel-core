@@ -226,23 +226,6 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn block_or_statement(&mut self) -> Result<Statement> {
-        match peek!(self) {
-            BraceOpen => {
-                self.consume();
-
-                Ok(Statement::Block {
-                    body: try!(self.block_body_tail())
-                })
-            },
-            _ => {
-                let token = next!(self);
-                self.expression_statement(token)
-            }
-        }
-    }
-
-    #[inline]
     fn block_statement(&mut self) -> Result<Statement> {
         Ok(Statement::Block {
             body: try!(self.block_body_tail()),
@@ -757,21 +740,16 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let consequent = Box::new(try!(self.block_or_statement()));
+        let token = next!(self);
+        let consequent = Box::new(try!(self.statement(token)));
 
         let alternate = match peek!(self) {
             Else => {
                 self.consume();
 
-                match peek!(self) {
-                    If => {
-                        self.consume();
+                let token = next!(self);
 
-                        Some(Box::new(try!(self.if_statement())))
-                    },
-
-                    _ => Some(Box::new(try!(self.block_or_statement())))
-                }
+                Some(Box::new(try!(self.statement(token))))
             },
 
             _ => None
@@ -792,9 +770,12 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
+
         Ok(Statement::While {
             test: test,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -854,11 +835,14 @@ impl<'a> Parser<'a> {
             expect!(self, ParenClose);
         }
 
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
+
         Ok(Statement::For {
             init: init,
             test: test,
             update: update,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -868,10 +852,13 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
+
         Ok(Statement::ForIn {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -880,10 +867,13 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
+
         Ok(Statement::ForIn {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -892,10 +882,13 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
+        let token = next!(self);
+        let body = Box::new(try!(self.statement(token)));
+
         Ok(Statement::ForOf {
             left: left,
             right: right,
-            body: Box::new(try!(self.block_or_statement())),
+            body: body,
         })
     }
 
@@ -1058,7 +1051,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
-            Semicolon          => Ok(Statement::Transparent { body: Vec::new() }),
+            Semicolon          => Ok(Statement::Empty),
             BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),

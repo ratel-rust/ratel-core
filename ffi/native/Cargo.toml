@@ -1,6 +1,6 @@
 [package]
 name = "ffi"
-version = "0.0.0"
+version = "0.0.1"
 authors = ["Matthias Thoemmes <thoemmes@gmail.com>"]
 license = "MIT"
 
@@ -9,7 +9,7 @@ name = "ffi"
 crate-type = ["dylib"]
 
 [dependencies]
-neon = "0.1"
+neon = "0.1.11"
 
 [dependencies.ratel]
 path = "../../core"

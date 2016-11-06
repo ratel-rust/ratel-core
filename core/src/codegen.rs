@@ -679,6 +679,10 @@ impl Code for Statement {
                 }
             },
 
+            Statement::Empty => {
+                gen.write_byte(b';');
+            }
+
             Statement::Expression {
                 ref value,
             } => {
@@ -771,7 +775,7 @@ impl Code for Statement {
                 if let Some(ref alternate) = *alternate {
                     gen.write_bytes(b" else ");
                     gen.write(alternate);
-                };
+                }
             },
 
             Statement::While {

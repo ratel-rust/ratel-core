@@ -213,7 +213,6 @@ fn var_muliple_declare() {
     });
 }
 
-
 #[test]
 fn var_muliple_declare_value() {
     assert_statement!("var foo = 100, bar = 200;", Statement::VariableDeclaration {
@@ -462,7 +461,7 @@ fn if_else_if_else_statement() {
 }
 
 #[test]
-fn if_no_block_statement() {
+fn if_single_statement() {
     assert_statement!("if (true) foo;", Statement::If {
         test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Expression {
@@ -473,7 +472,35 @@ fn if_no_block_statement() {
 }
 
 #[test]
-fn if_else_no_block_statement() {
+fn if_single_assignment_statement() {
+    assert_statement!("if (true) const foo = 100;", Statement::If {
+        test: Expression::Literal(Value::True),
+        consequent: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Const,
+            declarators: vec![VariableDeclarator {
+                name: "foo".into(),
+                value: Some(num!("100")),
+            }]
+        }),
+        alternate: None,
+    });
+}
+
+#[test]
+fn if_no_block_statement() {
+    assert_statement!("
+
+    if (true);
+
+    ", Statement::If {
+        test: Expression::Literal(Value::True),
+        consequent: Box::new(Statement::Empty),
+        alternate: None,
+    });
+}
+
+#[test]
+fn if_else_single_statement() {
     assert_statement!("if (true) foo; else bar;", Statement::If {
         test: Expression::Literal(Value::True),
         consequent: Box::new(Statement::Expression {
@@ -482,6 +509,17 @@ fn if_else_no_block_statement() {
         alternate: Some(Box::new(Statement::Expression {
             value: ident!("bar")
         })),
+    })
+}
+
+#[test]
+fn if_else_empty_alternate_statement() {
+    assert_statement!("if (true) foo; else;", Statement::If {
+        test: Expression::Literal(Value::True),
+        consequent: Box::new(Statement::Expression {
+            value: ident!("foo")
+        }),
+        alternate: Some(Box::new(Statement::Empty)),
     })
 }
 
@@ -507,6 +545,29 @@ fn for_statement() {
         body: Box::new(Statement::Block {
             body: Vec::new(),
         }),
+    });
+}
+
+#[test]
+fn for_no_block_statement() {
+    assert_statement!("for (i = 0; i < 10; i++);", Statement::For {
+        init: Some(Box::new(Statement::Expression {
+            value: Expression::binary(
+                ident!("i"),
+                Assign,
+                num!("0"),
+            )
+        })),
+        test: Some(Expression::binary(
+            ident!("i"),
+            Lesser,
+            num!("10"),
+        )),
+        update: Some(Expression::Postfix {
+            operator: Increment,
+            operand: Box::new(ident!("i")),
+        }),
+        body: Box::new(Statement::Empty),
     });
 }
 
@@ -538,6 +599,31 @@ fn for_declare_statement() {
 }
 
 #[test]
+fn for_declare_no_block_statement() {
+    assert_statement!("for (let i = 0; i < 10; i++);", Statement::For {
+        init: Some(Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "i".into(),
+                    value: Some(num!("0")),
+                }
+            ],
+        })),
+        test: Some(Expression::binary(
+            ident!("i"),
+            Lesser,
+            num!("10"),
+        )),
+        update: Some(Expression::Postfix {
+            operator: Increment,
+            operand: Box::new(ident!("i")),
+        }),
+        body: Box::new(Statement::Empty),
+    });
+}
+
+#[test]
 fn for_empty_statement() {
     assert_statement!("for (;;) {}", Statement::For {
         init: None,
@@ -546,6 +632,16 @@ fn for_empty_statement() {
         body: Box::new(Statement::Block {
             body: Vec::new(),
         }),
+    });
+}
+
+#[test]
+fn for_empty_no_block_statement() {
+    assert_statement!("for (;;);", Statement::For {
+        init: None,
+        test: None,
+        update: None,
+        body: Box::new(Statement::Empty),
     });
 }
 
@@ -559,6 +655,17 @@ fn for_in_statement() {
         body: Box::new(Statement::Block {
             body: Vec::new(),
         }),
+    });
+}
+
+#[test]
+fn for_in_no_block_statement() {
+    assert_statement!("for (item in object);", Statement::ForIn {
+        left: Box::new(Statement::Expression {
+            value: ident!("item")
+        }),
+        right: ident!("object"),
+        body: Box::new(Statement::Empty),
     });
 }
 
@@ -582,6 +689,23 @@ fn for_in_declare_statement() {
 }
 
 #[test]
+fn for_in_declare_no_block_statement() {
+    assert_statement!("for (let item in object);", Statement::ForIn {
+        left: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".into(),
+                    value: None,
+                }
+            ],
+        }),
+        right: ident!("object"),
+        body: Box::new(Statement::Empty),
+    });
+}
+
+#[test]
 fn for_of_statement() {
     assert_statement!("for (item of array) {}", Statement::ForOf {
         left: Box::new(Statement::Expression {
@@ -591,6 +715,17 @@ fn for_of_statement() {
         body: Box::new(Statement::Block {
             body: Vec::new(),
         }),
+    });
+}
+
+#[test]
+fn for_of_no_block_statement() {
+    assert_statement!("for (item of array);", Statement::ForOf {
+        left: Box::new(Statement::Expression {
+            value: ident!("item")
+        }),
+        right: ident!("array"),
+        body: Box::new(Statement::Empty),
     });
 }
 
@@ -614,6 +749,23 @@ fn for_of_declare_statement() {
 }
 
 #[test]
+fn for_of_declare_no_block_statement() {
+    assert_statement!("for (let item of array);", Statement::ForOf {
+        left: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".into(),
+                    value: None,
+                }
+            ],
+        }),
+        right: ident!("array"),
+        body: Box::new(Statement::Empty),
+    });
+}
+
+#[test]
 fn while_statement() {
     assert_statement!("
 
@@ -632,12 +784,20 @@ fn while_statement() {
 }
 
 #[test]
-fn while_no_block_statement() {
+fn while_single_statement() {
     assert_statement!("while (true) foo;", Statement::While {
         test: Expression::Literal(Value::True),
         body: Box::new(Statement::Expression {
             value: ident!("foo")
         }),
+    });
+}
+
+#[test]
+fn while_no_block_statement() {
+    assert_statement!("while (true);", Statement::While {
+        test: Expression::Literal(Value::True),
+        body: Box::new(Statement::Empty),
     });
 }
 

@@ -273,6 +273,7 @@ pub struct VariableDeclarator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
+    Empty,
     Block {
         body: Vec<Statement>,
     },
