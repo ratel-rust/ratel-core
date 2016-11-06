@@ -1,9 +1,8 @@
 extern crate ratel;
 
-pub use ratel::*;
-pub use ratel::grammar::*;
-pub use ratel::parser::parse;
-pub use ratel::grammar::OperatorType::*;
+use ratel::grammar::*;
+use ratel::parser::parse;
+use ratel::operator::OperatorKind::*;
 
 macro_rules! assert_parse {
     ($string:expr, $body:expr) => {

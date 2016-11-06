@@ -3,7 +3,8 @@ use lexicon::Token::*;
 use lexicon::TemplateKind;
 use tokenizer::Tokenizer;
 use grammar::*;
-use grammar::OperatorType::*;
+use operator::OperatorKind;
+use operator::OperatorKind::*;
 use owned_slice::OwnedSlice;
 use error::{ Result, Error, ParseResult, ParseError };
 
@@ -333,7 +334,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn prefix_expression(&mut self, operator: OperatorType) -> Result<Expression> {
+    fn prefix_expression(&mut self, operator: OperatorKind) -> Result<Expression> {
         if !operator.prefix() {
             unexpected_token!(self);
         }
@@ -345,7 +346,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn infix_expression(&mut self, left: Expression, bp: u8, op: OperatorType) -> Result<Expression> {
+    fn infix_expression(&mut self, left: Expression, bp: u8, op: OperatorKind) -> Result<Expression> {
         Ok(match op {
             Increment | Decrement => Expression::Postfix {
                 operator: op,

@@ -2,7 +2,7 @@ use std::mem;
 
 use grammar::*;
 use grammar::ClassMember::*;
-use grammar::OperatorType::*;
+use operator::OperatorKind::*;
 
 pub struct Settings {
     pub transform_block_scope: bool,

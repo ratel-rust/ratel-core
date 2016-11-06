@@ -3,7 +3,7 @@ use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
 use lexicon::TemplateKind;
-use grammar::OperatorType::*;
+use operator::OperatorKind::*;
 use grammar::Expression;
 use grammar::VariableDeclarationKind::*;
 use grammar::Value;
