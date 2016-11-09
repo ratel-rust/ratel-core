@@ -689,6 +689,25 @@ fn for_in_declare_statement() {
 }
 
 #[test]
+fn for_in_declare_statement_initial_value() {
+    assert_statement!("for (let item = 0 in object) {}", Statement::ForIn {
+        left: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".into(),
+                    value: Some(num!("0")),
+                }
+            ],
+        }),
+        right: ident!("object"),
+        body: Box::new(Statement::Block {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
 fn for_in_declare_no_block_statement() {
     assert_statement!("for (let item in object);", Statement::ForIn {
         left: Box::new(Statement::VariableDeclaration {
@@ -738,6 +757,25 @@ fn for_of_declare_statement() {
                 VariableDeclarator {
                     name: "item".into(),
                     value: None,
+                }
+            ],
+        }),
+        right: ident!("array"),
+        body: Box::new(Statement::Block {
+            body: Vec::new(),
+        }),
+    });
+}
+
+#[test]
+fn for_of_declare_statement_initial_value() {
+    assert_statement!("for (let item = 0 of array) {}", Statement::ForOf {
+        left: Box::new(Statement::VariableDeclaration {
+            kind: VariableDeclarationKind::Let,
+            declarators: vec![
+                VariableDeclarator {
+                    name: "item".into(),
+                    value: Some(num!("0")),
                 }
             ],
         }),
