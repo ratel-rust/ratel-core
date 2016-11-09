@@ -566,7 +566,7 @@ impl<'a> Parser<'a> {
                 },
 
                 ParenOpen => {
-                    if lbp > 0 {
+                    if lbp > 18 {
                         break;
                     }
 
@@ -579,7 +579,7 @@ impl<'a> Parser<'a> {
                 },
 
                 BracketOpen => {
-                    if lbp > 0 {
+                    if lbp > 19 {
                         break;
                     }
 
