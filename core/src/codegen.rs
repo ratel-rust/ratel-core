@@ -333,6 +333,7 @@ impl Code for Parameter {
 impl Code for Expression {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
+            Expression::Void => {},
 
             Expression::This => gen.write_bytes(b"this"),
 
@@ -381,6 +382,12 @@ impl Code for Expression {
             Expression::Array(ref items) => {
                 gen.write_byte(b'[');
                 gen.write_list(items);
+
+                // Add dangling comma if the array ends with a spare element
+                if let Some(&Expression::Void) = items.iter().rev().next() {
+                    gen.write_byte(b',');
+                }
+
                 gen.write_byte(b']');
             },
 

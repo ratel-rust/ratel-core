@@ -132,6 +132,10 @@ impl<'a> Parser<'a> {
         loop {
             match next!(self) {
                 BracketClose => break,
+                Comma        => {
+                    list.push(Expression::Void);
+                    continue;
+                }
                 token        => {
                     let expression = try!(self.expression_from_token(token, 0));
                     list.push(expression);
@@ -566,7 +570,7 @@ impl<'a> Parser<'a> {
                 },
 
                 ParenOpen => {
-                    if lbp > 0 {
+                    if lbp > 18 {
                         break;
                     }
 
@@ -579,7 +583,7 @@ impl<'a> Parser<'a> {
                 },
 
                 BracketOpen => {
-                    if lbp > 0 {
+                    if lbp > 19 {
                         break;
                     }
 
@@ -616,6 +620,14 @@ impl<'a> Parser<'a> {
 
     /// Helper for the `for` loops that doesn't consume semicolons
     fn variable_declaration(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
+        Ok(Statement::VariableDeclaration {
+            kind: kind,
+            declarators: try!(self.variable_declarators()),
+        })
+    }
+
+    #[inline]
+    fn variable_declarators(&mut self) -> Result<Vec<VariableDeclarator>> {
         let mut declarators = Vec::new();
 
         loop {
@@ -636,10 +648,7 @@ impl<'a> Parser<'a> {
             break;
         }
 
-        Ok(Statement::VariableDeclaration {
-            kind: kind,
-            declarators: declarators,
-        })
+        Ok(declarators)
     }
 
     #[inline]
@@ -799,9 +808,40 @@ impl<'a> Parser<'a> {
         let init = match next!(self) {
             Semicolon         => None,
 
-            Declaration(kind) => Some(Box::new(try!(self.variable_declaration(kind)))),
+            Declaration(kind) => {
+                let mut declarators = try!(self.variable_declarators());
 
-            token             => {
+                if declarators.len() == 1 {
+                    let value = declarators[0].value.take();
+
+                    match value {
+                        Some(Expression::Binary {
+                            operator: In,
+                            left,
+                            right,
+                            ..
+                        }) => {
+                            declarators[0].value = Some(*left);
+
+                            let left = Statement::VariableDeclaration {
+                                kind: kind,
+                                declarators: declarators,
+                            };
+
+                            return self.for_in_statement_from_parts(left, *right);
+                        },
+
+                        _ => declarators[0].value = value
+                    }
+                }
+
+                Some(Box::new(Statement::VariableDeclaration {
+                    kind: kind,
+                    declarators: declarators,
+                }))
+            }
+
+            token => {
                 let expression = try!(self.sequence_or_expression_from_token(token));
 
                 if let Expression::Binary {
@@ -810,7 +850,7 @@ impl<'a> Parser<'a> {
                     right,
                     ..
                 } = expression {
-                    return self.for_in_statement_from_expressions(*left, *right);
+                    return self.for_in_statement_from_parts(*left, *right);
                 }
 
                 Some(Box::new(expression.into()))
@@ -858,8 +898,8 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn for_in_statement_from_expressions(&mut self, left: Expression, right: Expression)
-    -> Result<Statement> {
+    fn for_in_statement_from_parts<S>(&mut self, left: S, right: Expression) -> Result<Statement>
+    where S: Into<Statement> {
         let left = Box::new(left.into());
 
         expect!(self, ParenClose);

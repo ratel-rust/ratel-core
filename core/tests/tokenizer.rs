@@ -31,6 +31,18 @@ macro_rules! assert_token {
 }
 
 #[test]
+fn test_tokenizer_identifier() {
+    assert_token!("foo", Identifier("foo".into()), "read a plain identifier");
+    assert_token!("_foo", Identifier("_foo".into()), "read an identifier starting with _");
+    assert_token!("$foo", Identifier("$foo".into()), "read an identifier starting with $");
+    assert_token!("_0", Identifier("_0".into()), "read an identifier with _ and digit");
+    assert_token!("$0", Identifier("$0".into()), "read an identifier with $ and digit");
+    assert_token!("π", Identifier("π".into()), "read a unicode identifier");
+    assert_token!("\\u0050", Identifier("\\u0050".into()), "read an escaped unicode identifier");
+    assert_token!("_\\u0050", Identifier("_\\u0050".into()), "read an identifier with escaped unicode character");
+}
+
+#[test]
 fn test_tokenizer_chars() {
     assert_token!(";", Semicolon, "read a Semicolon");
     assert_token!(":", Colon, "read a Colon");
