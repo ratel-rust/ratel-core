@@ -1328,3 +1328,32 @@ fn regular_expression_escaping() {
         flags: "i".into()
     });
 }
+
+#[test]
+fn try_catch_statement() {
+    assert_statement!("
+
+    try {
+        true;
+    } catch (err) {
+        false;
+    }
+
+    ", Statement::Try {
+        body: Box::new(Statement::Block {
+            body: vec![
+                Statement::Expression {
+                    value: Expression::Literal(Value::True)
+                }
+            ]
+        }),
+        error: "err".into(),
+        handler: Box::new(Statement::Block {
+            body: vec![
+                Statement::Expression {
+                    value: Expression::Literal(Value::False)
+                }
+            ]
+        }),
+    });
+}

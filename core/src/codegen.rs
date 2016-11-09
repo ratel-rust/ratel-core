@@ -838,6 +838,19 @@ impl Code for Statement {
                 gen.write_bytes(b"throw ");
                 gen.write(value);
                 gen.write_byte(b';');
+            },
+
+            Statement::Try {
+                ref body,
+                ref error,
+                ref handler,
+            } => {
+                gen.write_min(b"try ", b"try");
+                gen.write(body);
+                gen.write_min(b" catch (", b"catch(");
+                gen.write(error);
+                gen.write_min(b") ", b")");
+                gen.write(handler);
             }
         }
     }

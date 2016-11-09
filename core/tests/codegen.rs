@@ -187,3 +187,8 @@ fn object_method_default_parameters() {
 fn class_method_default_parameters() {
     assert_compile!("class Foo{bar(a,b=1){}}", "function Foo(){}Foo.prototype.bar=function(a,b){b===undefined&&(b=1);};")
 }
+
+#[test]
+fn try_catch() {
+    assert_compile!("try{foo();}catch(err){console.error(err);}", "try{foo();}catch(err){console.error(err);}");
+}

@@ -654,11 +654,9 @@ impl<'a> Parser<'a> {
     #[inline]
     fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Result<Statement> {
         allow!(self, Colon => {
-            let token = next!(self);
-
             return Ok(Statement::Labeled {
                 label: label,
-                body: Box::new(try!(self.statement(token)))
+                body: Box::new(try!(self.expect_statement()))
             })
         });
 
@@ -712,6 +710,25 @@ impl<'a> Parser<'a> {
         Ok(statement)
     }
 
+    fn try_statement(&mut self) -> Result<Statement> {
+        let body = try!(self.expect_statement());
+
+        expect!(self, Catch);
+        expect!(self, ParenOpen);
+
+        let error = expect_identifier!(self);
+
+        expect!(self, ParenClose);
+
+        let handler = try!(self.expect_statement());
+
+        Ok(Statement::Try {
+            body: Box::new(body),
+            error: error,
+            handler: Box::new(handler),
+        })
+    }
+
     #[inline]
     fn break_statement(&mut self) -> Result<Statement> {
         let statement = Statement::Break {
@@ -740,16 +757,13 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let token = next!(self);
-        let consequent = Box::new(try!(self.statement(token)));
+        let consequent = Box::new(try!(self.expect_statement()));
 
         let alternate = match peek!(self) {
             Else => {
                 self.consume();
 
-                let token = next!(self);
-
-                Some(Box::new(try!(self.statement(token))))
+                Some(Box::new(try!(self.expect_statement())))
             },
 
             _ => None
@@ -770,8 +784,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let token = next!(self);
-        let body = Box::new(try!(self.statement(token)));
+        let body = Box::new(try!(self.expect_statement()));
 
         Ok(Statement::While {
             test: test,
@@ -835,8 +848,7 @@ impl<'a> Parser<'a> {
             expect!(self, ParenClose);
         }
 
-        let token = next!(self);
-        let body = Box::new(try!(self.statement(token)));
+        let body = Box::new(try!(self.expect_statement()));
 
         Ok(Statement::For {
             init: init,
@@ -852,8 +864,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let token = next!(self);
-        let body = Box::new(try!(self.statement(token)));
+        let body = Box::new(try!(self.expect_statement()));
 
         Ok(Statement::ForIn {
             left: left,
@@ -867,8 +878,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let token = next!(self);
-        let body = Box::new(try!(self.statement(token)));
+        let body = Box::new(try!(self.expect_statement()));
 
         Ok(Statement::ForIn {
             left: left,
@@ -882,8 +892,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let token = next!(self);
-        let body = Box::new(try!(self.statement(token)));
+        let body = Box::new(try!(self.expect_statement()));
 
         Ok(Statement::ForOf {
             left: left,
@@ -1049,6 +1058,13 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    fn expect_statement(&mut self) -> Result<Statement> {
+        let token = next!(self);
+
+        self.statement(token)
+    }
+
+    #[inline]
     fn statement(&mut self, token: Token) -> Result<Statement> {
         match token {
             Semicolon          => Ok(Statement::Empty),
@@ -1063,6 +1079,7 @@ impl<'a> Parser<'a> {
             For                => self.for_statement(),
             Identifier(label)  => self.labeled_or_expression_statement(label),
             Throw              => self.throw_statement(),
+            Try                => self.try_statement(),
             _                  => self.expression_statement(token),
         }
     }

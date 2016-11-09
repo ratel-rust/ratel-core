@@ -338,6 +338,11 @@ pub enum Statement {
     Throw {
         value: Expression
     },
+    Try {
+        body: Box<Statement>,
+        error: OwnedSlice,
+        handler: Box<Statement>,
+    }
 }
 
 impl From<Expression> for Statement {

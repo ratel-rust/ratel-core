@@ -951,6 +951,17 @@ impl Transformable for Statement {
             },
 
             Statement::Break { .. } => return,
+
+            Statement::Try {
+                ref mut body,
+                ref mut handler,
+                ..
+            } => {
+                body.transform(settings);
+                handler.transform(settings);
+
+                return;
+            },
         }
     }
 
