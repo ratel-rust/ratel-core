@@ -43,7 +43,7 @@ static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
     ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
     ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
-    IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, ___, BTC, CRT, IDT, // 5
+    IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, IDT, BTC, CRT, IDT, // 5
     TPL, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
     L_P, IDT, L_R, L_S, L_T, L_U, L_V, L_W, IDT, L_Y, IDT, BEO, PIP, BEC, TLD, ___, // 7
     UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, UNI, // 8
@@ -829,6 +829,7 @@ mod ident_lookup {
     pub const DO: bool = true; // dollar sign $
     pub const US: bool = true; // underscore
     pub const UN: bool = true; // unicode
+    pub const BS: bool = true; // backslash
     pub const __: bool = false;
 
     pub static TABLE: [bool; 256] = [
@@ -838,7 +839,7 @@ mod ident_lookup {
       __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
       NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
       __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, US, // 5
+      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, BS, __, __, US, // 5
       __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
       AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
       UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
@@ -1048,6 +1049,8 @@ impl<'a> Tokenizer<'a> {
 
     #[inline]
     fn consume_label_characters(&mut self) -> &str {
+        // TODO: Reject invalid unicode and escaped unicode character
+
         let start = self.index;
 
         self.bump();
