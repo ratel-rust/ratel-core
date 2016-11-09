@@ -192,3 +192,9 @@ fn class_method_default_parameters() {
 fn ternary_expression() {
     assert_compile!("const a=1?console.log('foo'):null;", "var a=1?console.log('foo'):null;")
 }
+
+#[test]
+fn sparse_array_expression() {
+    assert_compile!("[,,1];", "[,,1];");
+    assert_compile!("[,,];", "[,,];");
+}

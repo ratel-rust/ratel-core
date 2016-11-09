@@ -132,6 +132,10 @@ impl<'a> Parser<'a> {
         loop {
             match next!(self) {
                 BracketClose => break,
+                Comma        => {
+                    list.push(Expression::Void);
+                    continue;
+                }
                 token        => {
                     let expression = try!(self.expression_from_token(token, 0));
                     list.push(expression);

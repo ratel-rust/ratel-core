@@ -29,7 +29,7 @@ impl<T> Take for Vec<T> {
 impl Take for Expression {
     #[inline]
     fn take(&mut self) -> Self {
-        mem::replace(self, Expression::This)
+        mem::replace(self, Expression::Void)
     }
 }
 
@@ -490,6 +490,7 @@ impl Transformable for Expression {
                 return;
             },
 
+            Expression::Void           |
             Expression::This           |
             Expression::Literal(..)    |
             Expression::RegEx {..}     |

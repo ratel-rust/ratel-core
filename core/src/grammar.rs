@@ -21,6 +21,7 @@ pub struct Parameter {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
+    Void,
     This,
     Identifier(OwnedSlice),
     Literal(Value),
