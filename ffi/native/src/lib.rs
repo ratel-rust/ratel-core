@@ -1,3 +1,4 @@
+#![allow(improper_ctypes)]
 #[macro_use]
 extern crate neon;
 extern crate ratel;
@@ -14,8 +15,8 @@ fn transform(call: Call) -> JsResult<JsString> {
         return JsError::throw(Kind::TypeError, "First argument must be a string")
     }
 
-    let source = try!(try!(call.arguments.require(scope, 0)).check::<JsString>());
-    let minify = try!(try!(call.arguments.require(scope, 1)).check::<JsBoolean>());
+    let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
+    let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
     let mut ast = match parser::parse(source.value()) {
         Err(error) => {
@@ -38,7 +39,7 @@ fn parse(call: Call) -> JsResult<JsString> {
         return JsError::throw(Kind::TypeError, "First argument must be a string")
     }
 
-    let source = try!(try!(call.arguments.require(scope, 0)).check::<JsString>());
+    let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
 
     let ast = match parser::parse(source.value()) {
         Err(error) => {
@@ -54,7 +55,8 @@ fn parse(call: Call) -> JsResult<JsString> {
 }
 
 register_module!(m, {
-    try!(m.export("transform", transform));
-    try!(m.export("parse", parse));
+
+    m.export("transform", transform)?;
+    m.export("parse", parse)?;
     Ok(())
 });
