@@ -791,7 +791,7 @@ define_handlers! {
     const TPL: template |tok, _| {
         tok.bump();
 
-        let template_kind = try!(tok.read_template_kind());
+        let template_kind = tok.read_template_kind()?;
 
         Ok(Template(template_kind))
     }

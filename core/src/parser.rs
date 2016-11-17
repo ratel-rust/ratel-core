@@ -15,7 +15,7 @@ macro_rules! peek {
             Some(token) => token,
 
             None => {
-                let token = try!($parser.tokenizer.get_token());
+                let token = $parser.tokenizer.get_token()?;
 
                 $parser.token = Some(token);
 
@@ -34,7 +34,7 @@ macro_rules! next {
 
                 token
             },
-            None => try!($parser.tokenizer.get_token())
+            None => $parser.tokenizer.get_token()?
         }
     }
 }
@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
                     continue;
                 }
                 token        => {
-                    let expression = try!(self.expression_from_token(token, 0));
+                    let expression = self.expression_from_token(token, 0)?;
                     list.push(expression);
                 }
             }
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
             match next!(self) {
                 BraceClose => break,
                 token      => {
-                    list.push(try!(self.object_member(token)));
+                    list.push(self.object_member(token)?);
                 }
             }
 
@@ -188,7 +188,7 @@ impl<'a> Parser<'a> {
             },
 
             BracketOpen => {
-                let key = ObjectKey::Computed(try!(self.expression(0)));
+                let key = ObjectKey::Computed(self.expression(0)?);
 
                 expect!(self, BracketClose);
 
@@ -213,12 +213,12 @@ impl<'a> Parser<'a> {
         Ok(match next!(self) {
             Colon => ObjectMember::Value {
                 key: key,
-                value: try!(self.expression(0)),
+                value: self.expression(0)?,
             },
             ParenOpen => ObjectMember::Method {
                 key: key,
-                params: try!(self.parameter_list()),
-                body: try!(self.block_body()),
+                params: self.parameter_list()?,
+                body: self.block_body()?,
             },
             _ => unexpected_token!(self)
         })
@@ -226,13 +226,13 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn object_expression(&mut self) -> Result<Expression> {
-        Ok(Expression::Object(try!(self.object_member_list())))
+        Ok(Expression::Object(self.object_member_list()?))
     }
 
     #[inline]
     fn block_statement(&mut self) -> Result<Statement> {
         Ok(Statement::Block {
-            body: try!(self.block_body_tail()),
+            body: self.block_body_tail()?,
         })
     }
 
@@ -243,7 +243,7 @@ impl<'a> Parser<'a> {
         loop {
             body.push(match next!(self) {
                 BraceClose => break,
-                token      => try!(self.statement(token))
+                token      => self.statement(token)?
             });
         }
 
@@ -325,10 +325,10 @@ impl<'a> Parser<'a> {
         let body = match next!(self) {
             BraceOpen => {
                 Statement::Block {
-                    body: try!(self.block_body_tail())
+                    body: self.block_body_tail()?
                 }
             }
-            token => try!(self.expression_from_token(token, 0)).into()
+            token => self.expression_from_token(token, 0)?.into()
         };
 
         Ok(Expression::ArrowFunction {
@@ -345,7 +345,7 @@ impl<'a> Parser<'a> {
 
         Ok(Expression::Prefix {
             operator: operator,
-            operand: Box::new(try!(self.expression(15))),
+            operand: Box::new(self.expression(15)?),
         })
     }
 
@@ -373,10 +373,10 @@ impl<'a> Parser<'a> {
 
             Conditional => Expression::Conditional {
                 test: Box::new(left),
-                consequent: Box::new(try!(self.expression(bp))),
+                consequent: Box::new(self.expression(bp)?),
                 alternate: {
                     expect!(self, Colon);
-                    Box::new(try!(self.expression(bp)))
+                    Box::new(self.expression(bp)?)
                 }
             },
 
@@ -391,7 +391,7 @@ impl<'a> Parser<'a> {
                     // TODO: verify that left is assignable
                 }
 
-                Expression::binary(left, op, try!(self.expression(bp)))
+                Expression::binary(left, op, self.expression(bp)?)
             }
         })
     }
@@ -411,8 +411,8 @@ impl<'a> Parser<'a> {
 
         Ok(Expression::Function {
             name: name,
-            params: try!(self.parameter_list()),
-            body: try!(self.block_body()),
+            params: self.parameter_list()?,
+            body: self.block_body()?,
         })
     }
 
@@ -426,13 +426,13 @@ impl<'a> Parser<'a> {
                 TemplateKind::Open(slice) => {
                     quasis.push(slice);
 
-                    let expression = try!(self.sequence_or_expression());
+                    let expression = self.sequence_or_expression()?;
 
                     expressions.push(expression);
 
                     expect!(self, BraceClose);
 
-                    kind = try!(self.tokenizer.read_template_kind());
+                    kind = self.tokenizer.read_template_kind()?;
                 }
 
                 TemplateKind::Closed(slice) => {
@@ -459,8 +459,8 @@ impl<'a> Parser<'a> {
                 self.arrow_function_expression(None)
             },
             token => {
-                let expression = try!(self.expression_from_token(token, 0));
-                let expression = try!(self.sequence_or(expression));
+                let expression = self.expression_from_token(token, 0)?;
+                let expression = self.sequence_or(expression)?;
 
                 expect!(self, ParenClose);
 
@@ -477,7 +477,7 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn sequence_or_expression_from_token(&mut self, token: Token) -> Result<Expression> {
-        let first = try!(self.expression_from_token(token, 0));
+        let first = self.expression_from_token(token, 0)?;
         self.sequence_or(first)
     }
 
@@ -487,14 +487,14 @@ impl<'a> Parser<'a> {
             Comma => {
                 self.consume();
 
-                let mut list = vec![first, try!(self.expression(0))];
+                let mut list = vec![first, self.expression(0)?];
 
                 loop {
                     match peek!(self) {
                         Comma => {
                             self.consume();
 
-                            list.push(try!(self.expression(0)));
+                            list.push(self.expression(0)?);
                         },
                         _ => break,
                     }
@@ -513,7 +513,7 @@ impl<'a> Parser<'a> {
             match next!(self) {
                 ParenClose => break,
                 token      => {
-                    let expression = try!(self.expression_from_token(token, 0));
+                    let expression = self.expression_from_token(token, 0)?;
                     list.push(expression);
                 }
             }
@@ -540,13 +540,13 @@ impl<'a> Parser<'a> {
             This               => Expression::This,
             Literal(value)     => Expression::Literal(value),
             Identifier(value)  => Expression::from(value),
-            Operator(Division) => try!(self.regular_expression()),
-            Operator(optype)   => try!(self.prefix_expression(optype)),
-            ParenOpen          => try!(self.paren_expression()),
-            BracketOpen        => try!(self.array_expression()),
-            BraceOpen          => try!(self.object_expression()),
-            Function           => try!(self.function_expression()),
-            Template(kind)     => try!(self.template_expression(None, kind)),
+            Operator(Division) => self.regular_expression()?,
+            Operator(optype)   => self.prefix_expression(optype)?,
+            ParenOpen          => self.paren_expression()?,
+            BracketOpen        => self.array_expression()?,
+            BraceOpen          => self.object_expression()?,
+            Function           => self.function_expression()?,
+            Template(kind)     => self.template_expression(None, kind)?,
             _                  => unexpected_token!(self)
         };
 
@@ -566,7 +566,7 @@ impl<'a> Parser<'a> {
 
                     self.consume();
 
-                    try!(self.infix_expression(left, rbp, op))
+                    self.infix_expression(left, rbp, op)?
                 },
 
                 ParenOpen => {
@@ -578,7 +578,7 @@ impl<'a> Parser<'a> {
 
                     Expression::Call {
                         callee: Box::new(left),
-                        arguments: try!(self.expression_list()),
+                        arguments: self.expression_list()?,
                     }
                 },
 
@@ -589,7 +589,7 @@ impl<'a> Parser<'a> {
 
                     self.consume();
 
-                    let property = try!(self.sequence_or_expression());
+                    let property = self.sequence_or_expression()?;
 
                     expect!(self, BracketClose);
 
@@ -608,7 +608,7 @@ impl<'a> Parser<'a> {
 
                     let tag = Some(Box::new(left));
 
-                    try!(self.template_expression(tag, kind))
+                    self.template_expression(tag, kind)?
                 },
 
                 _ => break
@@ -622,7 +622,7 @@ impl<'a> Parser<'a> {
     fn variable_declaration(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
         Ok(Statement::VariableDeclaration {
             kind: kind,
-            declarators: try!(self.variable_declarators()),
+            declarators: self.variable_declarators()?,
         })
     }
 
@@ -637,7 +637,7 @@ impl<'a> Parser<'a> {
                     Operator(Assign) => {
                         self.consume();
 
-                        Some(try!(self.expression(0)))
+                        Some(self.expression(0)?)
                     },
                     _ => None
                 }
@@ -653,7 +653,7 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
-        let statement = try!(self.variable_declaration(kind));
+        let statement = self.variable_declaration(kind)?;
 
         expect_semicolon!(self);
 
@@ -665,11 +665,11 @@ impl<'a> Parser<'a> {
         allow!(self, Colon => {
             return Ok(Statement::Labeled {
                 label: label,
-                body: Box::new(try!(self.expect_statement()))
+                body: Box::new(self.expect_statement()?)
             })
         });
 
-        let first = try!(self.complex_expression(label.into(), 0));
+        let first = self.complex_expression(label.into(), 0)?;
 
         let expression = self.sequence_or(first);
 
@@ -680,7 +680,7 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn expression_statement(&mut self, token: Token) -> Result<Statement> {
-        let statement = try!(self.sequence_or_expression_from_token(token)).into();
+        let statement = self.sequence_or_expression_from_token(token)?.into();
 
         expect_semicolon!(self);
 
@@ -697,7 +697,7 @@ impl<'a> Parser<'a> {
                     if self.tokenizer.asi() {
                         None
                     } else {
-                        Some(try!(self.sequence_or_expression()))
+                        Some(self.sequence_or_expression()?)
                     }
                 }
             }
@@ -711,7 +711,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn throw_statement(&mut self) -> Result<Statement> {
         let statement = Statement::Throw {
-            value: try!(self.sequence_or_expression())
+            value: self.sequence_or_expression()?
         };
 
         expect_semicolon!(self);
@@ -720,7 +720,7 @@ impl<'a> Parser<'a> {
     }
 
     fn try_statement(&mut self) -> Result<Statement> {
-        let body = try!(self.expect_statement());
+        let body = self.expect_statement()?;
 
         expect!(self, Catch);
         expect!(self, ParenOpen);
@@ -729,7 +729,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let handler = try!(self.expect_statement());
+        let handler = self.expect_statement()?;
 
         Ok(Statement::Try {
             body: Box::new(body),
@@ -762,17 +762,17 @@ impl<'a> Parser<'a> {
     fn if_statement(&mut self) -> Result<Statement> {
         expect!(self, ParenOpen);
 
-        let test = try!(self.expression(0));
+        let test = self.expression(0)?;
 
         expect!(self, ParenClose);
 
-        let consequent = Box::new(try!(self.expect_statement()));
+        let consequent = Box::new(self.expect_statement()?);
 
         let alternate = match peek!(self) {
             Else => {
                 self.consume();
 
-                Some(Box::new(try!(self.expect_statement())))
+                Some(Box::new(self.expect_statement()?))
             },
 
             _ => None
@@ -789,11 +789,11 @@ impl<'a> Parser<'a> {
     fn while_statement(&mut self) -> Result<Statement> {
         expect!(self, ParenOpen);
 
-        let test = try!(self.expression(0));
+        let test = self.expression(0)?;
 
         expect!(self, ParenClose);
 
-        let body = Box::new(try!(self.expect_statement()));
+        let body = Box::new(self.expect_statement()?);
 
         Ok(Statement::While {
             test: test,
@@ -809,7 +809,7 @@ impl<'a> Parser<'a> {
             Semicolon         => None,
 
             Declaration(kind) => {
-                let mut declarators = try!(self.variable_declarators());
+                let mut declarators = self.variable_declarators()?;
 
                 if declarators.len() == 1 {
                     let value = declarators[0].value.take();
@@ -842,7 +842,7 @@ impl<'a> Parser<'a> {
             }
 
             token => {
-                let expression = try!(self.sequence_or_expression_from_token(token));
+                let expression = self.sequence_or_expression_from_token(token)?;
 
                 if let Expression::Binary {
                     operator: In,
@@ -873,7 +873,7 @@ impl<'a> Parser<'a> {
 
         let test = match next!(self) {
             Semicolon => None,
-            token     => Some(try!(self.sequence_or_expression_from_token(token))),
+            token     => Some(self.sequence_or_expression_from_token(token)?),
         };
 
         if !test.is_none() {
@@ -882,13 +882,13 @@ impl<'a> Parser<'a> {
 
         let update = match next!(self) {
             ParenClose => None,
-            token      => Some(try!(self.sequence_or_expression_from_token(token))),
+            token      => Some(self.sequence_or_expression_from_token(token)?),
         };
         if !update.is_none() {
             expect!(self, ParenClose);
         }
 
-        let body = Box::new(try!(self.expect_statement()));
+        let body = Box::new(self.expect_statement()?);
 
         Ok(Statement::For {
             init: init,
@@ -904,7 +904,7 @@ impl<'a> Parser<'a> {
 
         expect!(self, ParenClose);
 
-        let body = Box::new(try!(self.expect_statement()));
+        let body = Box::new(self.expect_statement()?);
 
         Ok(Statement::ForIn {
             left: left,
@@ -914,11 +914,11 @@ impl<'a> Parser<'a> {
     }
 
     fn for_in_statement(&mut self, left: Box<Statement>) -> Result<Statement> {
-        let right = try!(self.sequence_or_expression());
+        let right = self.sequence_or_expression()?;
 
         expect!(self, ParenClose);
 
-        let body = Box::new(try!(self.expect_statement()));
+        let body = Box::new(self.expect_statement()?);
 
         Ok(Statement::ForIn {
             left: left,
@@ -928,11 +928,11 @@ impl<'a> Parser<'a> {
     }
 
     fn for_of_statement(&mut self, left: Box<Statement>) -> Result<Statement> {
-        let right = try!(self.sequence_or_expression());
+        let right = self.sequence_or_expression()?;
 
         expect!(self, ParenClose);
 
-        let body = Box::new(try!(self.expect_statement()));
+        let body = Box::new(self.expect_statement()?);
 
         Ok(Statement::ForOf {
             left: left,
@@ -955,7 +955,7 @@ impl<'a> Parser<'a> {
             list.push(match peek!(self) {
                 Operator(Assign) => {
                     self.consume();
-                    let expression = try!(self.expression(0));
+                    let expression = self.expression(0)?;
                     default_params = true;
                     Parameter {
                         name: name,
@@ -991,8 +991,8 @@ impl<'a> Parser<'a> {
 
         Ok(Statement::Function {
             name: name,
-            params: try!(self.parameter_list()),
-            body: try!(self.block_body()),
+            params: self.parameter_list()?,
+            body: self.block_body()?,
         })
     }
 
@@ -1001,15 +1001,15 @@ impl<'a> Parser<'a> {
             ParenOpen => {
                 if !is_static && key.is_constructor() {
                     ClassMember::Constructor {
-                        params: try!(self.parameter_list()),
-                        body: try!(self.block_body()),
+                        params: self.parameter_list()?,
+                        body: self.block_body()?,
                     }
                 } else {
                     ClassMember::Method {
                         is_static: is_static,
                         key: key,
-                        params: try!(self.parameter_list()),
-                        body: try!(self.block_body()),
+                        params: self.parameter_list()?,
+                        body: self.block_body()?,
                     }
                 }
             },
@@ -1017,7 +1017,7 @@ impl<'a> Parser<'a> {
                 ClassMember::Property {
                     is_static: is_static,
                     key: key,
-                    value: try!(self.expression(0)),
+                    value: self.expression(0)?,
                 }
             },
             _ => unexpected_token!(self),
@@ -1066,7 +1066,7 @@ impl<'a> Parser<'a> {
                 Identifier(key) => ClassKey::Literal(key),
 
                 BracketOpen => {
-                    let expr = try!(self.sequence_or_expression());
+                    let expr = self.sequence_or_expression()?;
 
                     expect!(self, BracketClose);
 
@@ -1082,7 +1082,7 @@ impl<'a> Parser<'a> {
                 }
             };
 
-            members.push(try!(self.class_member(key, is_static)));
+            members.push(self.class_member(key, is_static)?);
         }
 
         Ok(Statement::Class {
@@ -1131,7 +1131,7 @@ impl<'a> Parser<'a> {
         loop {
             body.push(match next!(self) {
                 EndOfProgram => break,
-                token        => try!(self.statement(token))
+                token        => self.statement(token)?
             })
         }
 

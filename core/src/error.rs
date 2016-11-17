@@ -34,7 +34,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ParseError::UnexpectedEndOfProgram => {
-                try!(write!(f, "Unexpected end of program"))
+                write!(f, "Unexpected end of program")?
             },
 
             ParseError::UnexpectedToken {
@@ -51,7 +51,7 @@ impl fmt::Display for ParseError {
                 let colno = line.chars().count();
                 let token_len = source[start..end].chars().count();
 
-                try!(writeln!(f, "Unexpected token at {}:{}\n", lineno + 1, colno + 1));
+                writeln!(f, "Unexpected token at {}:{}\n", lineno + 1, colno + 1)?;
 
                 let iter = source
                             .lines()
@@ -63,25 +63,25 @@ impl fmt::Display for ParseError {
 
                 for (index, line) in iter {
                     if index == lineno {
-                        try!(writeln!(f, "> {0:1$} | {2}", index+1, width, line));
+                        writeln!(f, "> {0:1$} | {2}", index+1, width, line)?;
 
                         for _ in 0..width {
-                            try!(write!(f, " "));
+                            write!(f, " ")?;
                         }
 
-                        try!(write!(f, "   | "));
+                        write!(f, "   | ")?;
 
                         for _ in 0..colno {
-                            try!(write!(f, " "));
+                            write!(f, " ")?;
                         }
 
                         for _ in 0..token_len {
-                            try!(write!(f, "^"));
+                            write!(f, "^")?;
                         }
 
-                        try!(write!(f, "\n"));
+                        write!(f, "\n")?;
                     } else {
-                        try!(writeln!(f, "{0:1$} | {2}", index+1, width+2, line));
+                        writeln!(f, "{0:1$} | {2}", index+1, width+2, line)?;
                     }
                 }
 
