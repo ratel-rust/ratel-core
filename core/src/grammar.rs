@@ -76,7 +76,12 @@ pub enum Expression {
         name: Option<OwnedSlice>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
-    }
+    },
+    Class {
+        name: Option<OwnedSlice>,
+        extends: Option<OwnedSlice>,
+        body: Vec<ClassMember>,
+    },
 }
 
 impl Expression {

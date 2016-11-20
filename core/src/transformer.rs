@@ -439,6 +439,15 @@ impl Transformable for Expression {
                 }
             },
 
+            Expression::Class {
+                ref mut body,
+                ..
+            } => {
+                body.transform(settings);
+
+                return;
+            },
+
             Expression::Sequence(ref mut expressions) => {
                 expressions.transform(settings);
 

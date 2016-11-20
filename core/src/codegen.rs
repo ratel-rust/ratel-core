@@ -557,7 +557,27 @@ impl Code for Expression {
                 gen.write_byte(b'}');
             },
 
-            // _ => gen.write_byte('💀'),
+            Expression::Class {
+                ref name,
+                ref extends,
+                ref body,
+            } => {
+                gen.new_line();
+                if let &Some(ref name) = name {
+                    gen.write_bytes(b"class ");
+                    gen.write(name);
+                } else {
+                    gen.write_bytes(b"class");
+                }
+                if let &Some(ref super_class) = extends {
+                    gen.write_bytes(b" extends ");
+                    gen.write(super_class);
+                }
+                gen.write_min(b" {", b"{");
+                gen.write_block(body);
+                gen.write_byte(b'}');
+                gen.new_line();
+            },
         }
     }
 }
