@@ -279,7 +279,7 @@ pub enum Statement {
         body: Vec<Statement>,
     },
     // `Transparent` is not part of the language grammar, just a helper that
-    // allows the transformer to replace a single statement with mutliple
+    // allows the transformer to replace a single statement with multiple
     // statements without messing with parent array.
     Transparent {
         body: Vec<Statement>,
