@@ -148,6 +148,15 @@ impl Expression {
     }
 
     #[inline]
+    pub fn iefe(body: Vec<Statement>) -> Self {
+        Expression::call(Expression::Function {
+            name: None,
+            params: Vec::new(),
+            body: body,
+        }, Vec::new())
+    }
+
+    #[inline]
     pub fn parenthesize(mut self) -> Expression {
         if let Expression::Binary {
             ref mut parenthesized,

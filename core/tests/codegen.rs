@@ -164,6 +164,45 @@ fn class_with_static_methods() {
 }
 
 #[test]
+fn class_expression() {
+    assert_compile!("
+
+    const Foo = class {
+        constructor() {
+            console.log('to the moon');
+        }
+    };
+
+    ", "var Foo=function(){console.log('to the moon');};");
+}
+
+#[test]
+fn named_class_expression() {
+    assert_compile!("
+
+    const Foo = class Bar {
+        constructor() {
+            console.log('to the moon');
+        }
+    };
+
+    ", "var Foo=function Bar(){console.log('to the moon');};");
+}
+
+#[test]
+fn class_expression_with_a_method() {
+    assert_compile!("
+
+    const Foo = class {
+        bar() {
+            console.log('to the moon');
+        }
+    };
+
+    ", "var Foo=function(){function ___(){}___.prototype.bar=function(){console.log('to the moon');};return ___;}();")
+}
+
+#[test]
 fn function_statement_default_parameters() {
     assert_compile!("function foo(a,b=1){}", "function foo(a,b){b===undefined&&(b=1);}");
 }
