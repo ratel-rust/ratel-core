@@ -643,7 +643,7 @@ define_handlers! {
         }
 
         // `consume_label_characters` bumps one at the beginning,
-        // so we substract it here.
+        // so we subtract it here.
         tok.index += first.len_utf8() - 1;
 
         tok.consume_label_characters();

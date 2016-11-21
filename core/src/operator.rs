@@ -55,7 +55,7 @@ use self::OperatorKind::*;
 
 impl OperatorKind {
     /// According to the Operator Precedence Table
-    /// Note: Unary opearotrs default to 15!
+    /// Note: Unary operators default to 15!
     #[inline]
     pub fn binding_power(&self) -> u8 {
         match *self {

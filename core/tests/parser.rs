@@ -952,6 +952,58 @@ fn named_function_expression() {
 }
 
 #[test]
+fn class_expression() {
+    assert_expression!("
+
+    (class {})
+
+    ", Expression::Class {
+        name: None,
+        extends: None,
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn named_class_expression() {
+    assert_expression!("
+
+    (class Foo {})
+
+    ", Expression::Class {
+        name: Some("Foo".into()),
+        extends: None,
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn child_class_expression() {
+    assert_expression!("
+
+    (class extends Bar {})
+
+    ", Expression::Class {
+        name: None,
+        extends: Some("Bar".into()),
+        body: Vec::new(),
+    });
+}
+
+#[test]
+fn named_child_class_expression() {
+    assert_expression!("
+
+    (class Foo extends Bar {})
+
+    ", Expression::Class {
+        name: Some("Foo".into()),
+        extends: Some("Bar".into()),
+        body: Vec::new(),
+    });
+}
+
+#[test]
 fn expression_statement() {
     assert_statement!("foo", Statement::Expression {
         value: ident!("foo")

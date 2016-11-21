@@ -11,7 +11,7 @@ pub enum Error {
 }
 
 /// Error type returned by `parser::parse`. This error will include
-/// owned `String` of the source code where the error occured, so
+/// owned `String` of the source code where the error occurred, so
 /// that a meaningful error can be printed out.
 pub enum ParseError {
     UnexpectedEndOfProgram,

@@ -76,7 +76,12 @@ pub enum Expression {
         name: Option<OwnedSlice>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
-    }
+    },
+    Class {
+        name: Option<OwnedSlice>,
+        extends: Option<OwnedSlice>,
+        body: Vec<ClassMember>,
+    },
 }
 
 impl Expression {
@@ -140,6 +145,15 @@ impl Expression {
             callee: Box::new(callee.into()),
             arguments: arguments,
         }
+    }
+
+    #[inline]
+    pub fn iefe(body: Vec<Statement>) -> Self {
+        Expression::call(Expression::Function {
+            name: None,
+            params: Vec::new(),
+            body: body,
+        }, Vec::new())
     }
 
     #[inline]
@@ -279,7 +293,7 @@ pub enum Statement {
         body: Vec<Statement>,
     },
     // `Transparent` is not part of the language grammar, just a helper that
-    // allows the transformer to replace a single statement with mutliple
+    // allows the transformer to replace a single statement with multiple
     // statements without messing with parent array.
     Transparent {
         body: Vec<Statement>,

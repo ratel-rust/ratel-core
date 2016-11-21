@@ -3,6 +3,7 @@ use std::mem;
 use grammar::*;
 use grammar::ClassMember::*;
 use operator::OperatorKind::*;
+use owned_slice::OwnedSlice;
 
 pub struct Settings {
     pub transform_block_scope: bool,
@@ -439,6 +440,65 @@ impl Transformable for Expression {
                 }
             },
 
+            Expression::Class {
+                ref name,
+                ref mut body,
+                ..
+            } => {
+                body.transform(settings);
+
+                if !settings.transform_class_properties
+                && !settings.transform_class {
+                    return;
+                }
+
+                let prop_count = class_prop_count(body);
+
+                if prop_count == 0 && !settings.transform_class {
+                    return;
+                }
+
+                let (cnst_params, cnst_body, mut methods) =
+                                class_transform_props(body, prop_count);
+
+                if !settings.transform_class {
+                    methods.insert(0, ClassMember::Constructor {
+                        params: cnst_params,
+                        body: cnst_body,
+                    });
+
+                    *body = methods;
+
+                    return;
+                }
+
+                if methods.len() > 0 {
+                    let mut body = Vec::with_capacity(methods.len() + 1);
+
+                    let temp_name = "___".into();
+
+                    body.push(Statement::Function {
+                        name: temp_name,
+                        params: cnst_params,
+                        body: cnst_body,
+                    });
+
+                    class_transform_methods_to_prototype(&mut methods, &mut body, temp_name);
+
+                    body.push(Statement::Return {
+                        value: Some(temp_name.into())
+                    });
+
+                    Expression::iefe(body)
+                } else {
+                    Expression::Function {
+                        name: *name,
+                        params: cnst_params,
+                        body: cnst_body,
+                    }
+                }
+            },
+
             Expression::Sequence(ref mut expressions) => {
                 expressions.transform(settings);
 
@@ -688,6 +748,79 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
 }
 
 #[inline]
+fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
+        -> (Vec<Parameter>, Vec<Statement>, Vec<ClassMember>) {
+    let mut constructor = None;
+    let mut methods = Vec::with_capacity(body.len());
+    let mut props = Vec::with_capacity(prop_count);
+
+    for member in body.drain(..) {
+        match member {
+            ClassMember::Property {
+                ..
+            } => props.push(member),
+
+            ClassMember::Constructor {
+                params,
+                body,
+            } => constructor = Some((params, body)),
+
+            _ => methods.push(member),
+        }
+    }
+
+    let (cnst_params, mut cnst_body) = constructor.unwrap_or_else(|| {
+        (Vec::new(), Vec::new())
+    });
+
+    add_props_to_body(&mut cnst_body, props);
+
+    (cnst_params, cnst_body, methods)
+}
+
+#[inline]
+fn class_transform_methods_to_prototype(
+    methods: &mut Vec<ClassMember>,
+    body: &mut Vec<Statement>,
+    name: OwnedSlice
+) {
+    for method in methods.iter_mut() {
+        if let &mut ClassMember::Method {
+            key: ref mut method_key,
+            params: ref mut method_params,
+            body: ref mut method_body,
+            ref is_static,
+        } = method {
+            let reference = if *is_static {
+                Expression::Identifier(name)
+            } else {
+                Expression::member(name, "prototype")
+            };
+
+            body.push(
+                Expression::binary(
+                    class_key_to_member(reference, method_key),
+                    Assign,
+                    Expression::Function {
+                        name: None,
+                        params: method_params.take(),
+                        body: method_body.take(),
+                    },
+                ).into()
+            );
+        }
+    }
+}
+
+#[inline]
+fn class_prop_count(body: &mut Vec<ClassMember>) -> usize {
+    body.iter().filter(|member| match **member {
+        ClassMember::Property { .. } => true,
+        _                            => false,
+    }).count()
+}
+
+#[inline]
 fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
     let expr = match *key {
         ClassKey::Literal(ref name) => {
@@ -790,39 +923,14 @@ impl Transformable for Statement {
                     return;
                 }
 
-                let prop_count = body.iter().filter(|member| match **member {
-                    ClassMember::Property { .. } => true,
-                    _                            => false,
-                }).count();
+                let prop_count = class_prop_count(body);
 
                 if prop_count == 0 && !settings.transform_class {
                     return;
                 }
 
-                let mut constructor = None;
-                let mut methods = Vec::with_capacity(body.len());
-                let mut props = Vec::with_capacity(prop_count);
-
-                for member in body.drain(..) {
-                    match member {
-                        ClassMember::Property {
-                            ..
-                        } => props.push(member),
-
-                        ClassMember::Constructor {
-                            params,
-                            body,
-                        } => constructor = Some((params, body)),
-
-                        _ => methods.push(member),
-                    }
-                }
-
-                let (cnst_params, mut cnst_body) = constructor.unwrap_or_else(|| {
-                    (Vec::new(), Vec::new())
-                });
-
-                add_props_to_body(&mut cnst_body, props);
+                let (cnst_params, cnst_body, mut methods) =
+                                class_transform_props(body, prop_count);
 
                 if !settings.transform_class {
                     methods.insert(0, ClassMember::Constructor {
@@ -846,32 +954,7 @@ impl Transformable for Statement {
 
                     body.push(constructor);
 
-                    for method in methods.iter_mut() {
-                        if let &mut ClassMember::Method {
-                            key: ref mut method_key,
-                            params: ref mut method_params,
-                            body: ref mut method_body,
-                            ref is_static,
-                        } = method {
-                            let reference = if *is_static {
-                                Expression::Identifier(*name)
-                            } else {
-                                Expression::member(name, "prototype")
-                            };
-
-                            body.push(
-                                Expression::binary(
-                                    class_key_to_member(reference, method_key),
-                                    Assign,
-                                    Expression::Function {
-                                        name: None,
-                                        params: method_params.take(),
-                                        body: method_body.take(),
-                                    },
-                                ).into()
-                            );
-                        }
-                    }
+                    class_transform_methods_to_prototype(&mut methods, &mut body, *name);
 
                     Statement::Transparent {
                         body: body

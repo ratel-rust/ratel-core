@@ -416,6 +416,52 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn class_expression(&mut self) -> Result<Expression> {
+        let mut extends = None;
+
+        let name = match next!(self) {
+            Identifier(name) => {
+                match next!(self) {
+                    Extends => {
+                        extends = Some(expect_identifier!(self));
+
+                        expect!(self, BraceOpen);
+
+                        Some(name)
+                    },
+
+                    BraceOpen => Some(name),
+
+                    _ => unexpected_token!(self)
+                }
+            },
+
+            Extends => {
+                match next!(self) {
+                    Identifier(name) => {
+                        extends = Some(name);
+
+                        expect!(self, BraceOpen);
+
+                        None
+                    },
+
+                    _ => unexpected_token!(self)
+                }
+            },
+
+            BraceOpen => None,
+
+            _ => unexpected_token!(self)
+        };
+
+        Ok(Expression::Class {
+            name: name,
+            extends: extends,
+            body: try!(self.class_body()),
+        })
+    }
+
     fn template_expression(&mut self, tag: Option<Box<Expression>>, mut kind: TemplateKind)
     -> Result<Expression> {
         let mut expressions = Vec::new();
@@ -546,6 +592,7 @@ impl<'a> Parser<'a> {
             BracketOpen        => try!(self.array_expression()),
             BraceOpen          => try!(self.object_expression()),
             Function           => try!(self.function_expression()),
+            Class              => try!(self.class_expression()),
             Template(kind)     => try!(self.template_expression(None, kind)),
             _                  => unexpected_token!(self)
         };
@@ -1039,6 +1086,15 @@ impl<'a> Parser<'a> {
             _         => unexpected_token!(self)
         };
 
+        Ok(Statement::Class {
+            name: name,
+            extends: super_class,
+            body: try!(self.class_body()),
+        })
+    }
+
+    #[inline]
+    fn class_body(&mut self) -> Result<Vec<ClassMember>> {
         let mut members = Vec::new();
 
         loop {
@@ -1085,11 +1141,7 @@ impl<'a> Parser<'a> {
             members.push(try!(self.class_member(key, is_static)));
         }
 
-        Ok(Statement::Class {
-            name: name,
-            extends: super_class,
-            body: members,
-        })
+        Ok(members)
     }
 
     #[inline]
