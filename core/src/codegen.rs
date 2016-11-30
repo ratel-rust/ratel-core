@@ -815,6 +815,17 @@ impl Code for Statement {
                 gen.write(body);
             },
 
+            Statement::Do {
+                ref test,
+                ref body
+            } => {
+                gen.write_min(b"do ", b"do ");
+                gen.write(body);
+                gen.write_min(b"while (", b"while (");
+                gen.write(test);
+                gen.write_min(b")", b")");
+            },
+
             Statement::For {
                 ref init,
                 ref test,
