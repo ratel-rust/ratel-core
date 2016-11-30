@@ -819,11 +819,11 @@ impl Code for Statement {
                 ref test,
                 ref body
             } => {
-                gen.write_min(b"do ", b"do ");
+                gen.write_bytes(b"do ");
                 gen.write(body);
-                gen.write_min(b"while (", b"while (");
+                gen.write_bytes(b"while (");
                 gen.write(test);
-                gen.write_min(b")", b")");
+                gen.write_byte(b')');
             },
 
             Statement::For {
