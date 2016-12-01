@@ -1002,6 +1002,15 @@ impl Transformable for Statement {
                 return;
             },
 
+            Statement::Do {
+                ref mut test,
+                ref mut body
+            } => {
+                test.transform(settings);
+                body.transform(settings);
+                return;
+            },
+
             Statement::For {
                 ref mut init,
                 ref mut test,

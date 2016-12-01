@@ -849,6 +849,20 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    fn do_statement(&mut self) -> Result<Statement> {
+        let body = Box::new(try!(self.expect_statement()));
+
+        expect!(self, While);
+
+        let test = try!(self.expression(0));
+
+        Ok(Statement::Do {
+            test: test,
+            body: body,
+        })
+    }
+
+    #[inline]
     fn for_statement(&mut self) -> Result<Statement> {
         expect!(self, ParenOpen);
 
@@ -1168,6 +1182,7 @@ impl<'a> Parser<'a> {
             Class              => self.class_statement(),
             If                 => self.if_statement(),
             While              => self.while_statement(),
+            Do                 => self.do_statement(),
             For                => self.for_statement(),
             Identifier(label)  => self.labeled_or_expression_statement(label),
             Throw              => self.throw_statement(),

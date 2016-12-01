@@ -334,6 +334,10 @@ pub enum Statement {
         test: Expression,
         body: Box<Statement>,
     },
+    Do {
+        test: Expression,
+        body: Box<Statement>
+    },
     For {
         init: Option<Box<Statement>>,
         test: Option<Expression>,

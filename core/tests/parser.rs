@@ -840,6 +840,28 @@ fn while_no_block_statement() {
 }
 
 #[test]
+fn do_while_statment() {
+    assert_statement!("do { true } while (true)", Statement::Do {
+        test: Expression::Literal(Value::True),
+        body: Box::new(Statement::Block {
+            body: vec![Statement::Expression {
+                value: Expression::Literal(Value::True)
+            }]
+        }),
+    })
+}
+
+#[test]
+fn do_while_statment_block() {
+    assert_statement!("do true\nwhile (true)", Statement::Do {
+        test: Expression::Literal(Value::True),
+        body: Box::new(Statement::Expression {
+            value: Expression::Literal(Value::True)
+        }),
+    })
+}
+
+#[test]
 fn arrow_function() {
     assert_expression!("
 

@@ -815,6 +815,17 @@ impl Code for Statement {
                 gen.write(body);
             },
 
+            Statement::Do {
+                ref test,
+                ref body
+            } => {
+                gen.write_bytes(b"do ");
+                gen.write(body);
+                gen.write_bytes(b"while (");
+                gen.write(test);
+                gen.write_byte(b')');
+            },
+
             Statement::For {
                 ref init,
                 ref test,
