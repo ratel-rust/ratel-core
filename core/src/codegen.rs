@@ -663,10 +663,43 @@ impl Code for ClassKey {
 impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write(&self.name);
-        if let Some(ref value) = self.value {
-            gen.write_min(b" = ", b"=");
-            gen.write(value);
+        match self.id {
+            Expression::Identifier(ref ident) => {
+                gen.write(ident);
+                if let Some(ref value) = self.value {
+                    gen.write_min(b" = ", b"=");
+                    gen.write(value);
+                }
+            },
+            Expression::Array(ref declarators) => {
+                let mut iter = declarators.iter();
+
+                let mut values = match self.value {
+                    Some(Expression::Array(ref items)) => items.iter(),
+                    _                                  =>  [].iter()
+                };
+
+                for item in iter.next() {
+                    gen.write(item);
+                    if let Some(ref value) = values.next() {
+                        gen.write_min(b" = ", b"=");
+                        gen.write(*value);
+                    }
+                }
+
+                for item in iter {
+                    gen.write_min(b", ", b",");
+                    gen.write(item);
+                    if let Some(ref value) = values.next() {
+                        gen.write_min(b" = ", b"=");
+                        gen.write(*value);
+                    }
+                }
+            },
+            _ => {
+                println!("{:?}", self.id);
+                unimplemented!();
+            }
         }
     }
 }

@@ -138,7 +138,7 @@ fn var_declare() {
     assert_statement!("var foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: None,
         }]
     });
@@ -149,7 +149,7 @@ fn var_declare_value() {
     assert_statement!("var foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: Some(num!("100")),
         }]
     });
@@ -160,7 +160,7 @@ fn let_declare() {
     assert_statement!("let foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Let,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: None,
         }]
     });
@@ -171,7 +171,7 @@ fn let_declare_value() {
     assert_statement!("let foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Let,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: Some(num!("100")),
         }]
     });
@@ -182,7 +182,7 @@ fn const_declare() {
     assert_statement!("const foo;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Const,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: None,
         }]
     });
@@ -193,7 +193,7 @@ fn const_declare_value() {
     assert_statement!("const foo = 100;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Const,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: Some(num!("100")),
         }]
     });
@@ -204,10 +204,10 @@ fn var_muliple_declare() {
     assert_statement!("var foo, bar;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: None,
         }, VariableDeclarator {
-            name: "bar".into(),
+            id: "bar".into(),
             value: None,
         }]
     });
@@ -218,10 +218,10 @@ fn var_muliple_declare_value() {
     assert_statement!("var foo = 100, bar = 200;", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            name: "foo".into(),
+            id: "foo".into(),
             value: Some(num!("100")),
         }, VariableDeclarator {
-            name: "bar".into(),
+            id: "bar".into(),
             value: Some(num!("200")),
         }]
     });
@@ -478,7 +478,7 @@ fn if_single_assignment_statement() {
         consequent: Box::new(Statement::VariableDeclaration {
             kind: VariableDeclarationKind::Const,
             declarators: vec![VariableDeclarator {
-                name: "foo".into(),
+                id: "foo".into(),
                 value: Some(num!("100")),
             }]
         }),
@@ -578,7 +578,7 @@ fn for_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "i".into(),
+                    id: "i".into(),
                     value: Some(num!("0")),
                 }
             ],
@@ -605,7 +605,7 @@ fn for_declare_no_block_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "i".into(),
+                    id: "i".into(),
                     value: Some(num!("0")),
                 }
             ],
@@ -676,7 +676,7 @@ fn for_in_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: None,
                 }
             ],
@@ -695,7 +695,7 @@ fn for_in_declare_statement_initial_value() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: Some(num!("0")),
                 }
             ],
@@ -714,7 +714,7 @@ fn for_in_declare_no_block_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: None,
                 }
             ],
@@ -755,7 +755,7 @@ fn for_of_declare_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: None,
                 }
             ],
@@ -774,7 +774,7 @@ fn for_of_declare_statement_initial_value() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: Some(num!("0")),
                 }
             ],
@@ -793,7 +793,7 @@ fn for_of_declare_no_block_statement() {
             kind: VariableDeclarationKind::Let,
             declarators: vec![
                 VariableDeclarator {
-                    name: "item".into(),
+                    id: "item".into(),
                     value: None,
                 }
             ],
@@ -1467,5 +1467,32 @@ fn try_catch_statement() {
                 }
             ]
         }),
+    });
+}
+
+#[test]
+fn var_destructing_array() {
+    assert_statement!("var [ x, y ] = [ 1, 2 ];", Statement::VariableDeclaration {
+        kind: VariableDeclarationKind::Var,
+        declarators: vec![VariableDeclarator {
+            id: Expression::Array(vec![ident!("x"), ident!("y")]),
+            value: Some(Expression::Array(vec![num!("1"), num!("2")])),
+        }]
+    });
+}
+
+#[test]
+fn var_destructing_object() {
+    assert_statement!("var { toString: s } = \"test\"", Statement::VariableDeclaration {
+        kind: VariableDeclarationKind::Var,
+        declarators: vec![VariableDeclarator {
+            id: Expression::Object(vec![
+                ObjectMember::Value {
+                    key: ObjectKey::Literal("toString".into()),
+                    value: "s".into(),
+                }
+            ]),
+            value: Some(Expression::Literal(Value::String("\"test\"".into()))),
+        }]
     });
 }

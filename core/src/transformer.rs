@@ -279,7 +279,7 @@ impl Transformable for Expression {
                     kind: VariableDeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
-                            name: "___".into(),
+                            id: Expression::Identifier("___".into()),
                             value: Some(Expression::Object(literal)),
                         }
                     ]

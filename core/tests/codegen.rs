@@ -242,3 +242,8 @@ fn sparse_array_expression() {
     assert_compile!("[,,1];", "[,,1];");
     assert_compile!("[,,];", "[,,];");
 }
+
+#[test]
+fn destructing_array() {
+    assert_compile!("var [ x, y, c ] = [ 1, 2 ];", "var x=1,y=2,c;");
+}

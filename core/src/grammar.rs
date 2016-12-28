@@ -282,7 +282,7 @@ pub enum VariableDeclarationKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
-    pub name: OwnedSlice,
+    pub id: Expression,
     pub value: Option<Expression>,
 }
 
