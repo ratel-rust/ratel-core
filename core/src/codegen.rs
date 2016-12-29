@@ -672,27 +672,26 @@ impl Code for VariableDeclarator {
                 }
             },
             Expression::Array(ref declarators) => {
-                let mut iter = declarators.iter();
+                if let Some(ref value) = self.value {
+                    gen.write_bytes(b"_ref");
+                    gen.write_min(b" = ", b"=");
+                    gen.write(value);
 
-                let mut values = match self.value {
-                    Some(Expression::Array(ref items)) => items.iter(),
-                    _                                  =>  [].iter()
-                };
+                    let mut index = 0;
+                    for item in declarators.iter() {
+                        if *item == Expression::Void {
+                            index = index + 1;
+                            continue;
+                        }
+                        gen.write_min(b", ", b",");
+                        gen.write(item);
 
-                for item in iter.next() {
-                    gen.write(item);
-                    if let Some(ref value) = values.next() {
                         gen.write_min(b" = ", b"=");
-                        gen.write(*value);
-                    }
-                }
+                        gen.write_bytes(b"_ref[");
+                        gen.write_byte(index + 48);
+                        gen.write_bytes(b"]");
 
-                for item in iter {
-                    gen.write_min(b", ", b",");
-                    gen.write(item);
-                    if let Some(ref value) = values.next() {
-                        gen.write_min(b" = ", b"=");
-                        gen.write(*value);
+                        index = index + 1;
                     }
                 }
             },
