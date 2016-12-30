@@ -1475,7 +1475,7 @@ fn var_destructing_array() {
     assert_statement!("var [ x, y ] = [ 1, 2 ];", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            id: Expression::Array(vec![ident!("x"), ident!("y")]),
+            id: VariableExpression::ArrayPattern(vec![ident!("x"), ident!("y")]),
             value: Some(Expression::Array(vec![num!("1"), num!("2")])),
         }]
     });
@@ -1486,7 +1486,7 @@ fn var_destructing_object() {
     assert_statement!("var { toString: s } = \"test\"", Statement::VariableDeclaration {
         kind: VariableDeclarationKind::Var,
         declarators: vec![VariableDeclarator {
-            id: Expression::Object(vec![
+            id: VariableExpression::ObjectPattern(vec![
                 ObjectMember::Value {
                     key: ObjectKey::Literal("toString".into()),
                     value: "s".into(),

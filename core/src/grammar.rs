@@ -273,6 +273,44 @@ impl ClassKey {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum VariableExpression {
+    Identifier(OwnedSlice),
+    ArrayPattern(Vec<Expression>),
+    ObjectPattern(Vec<ObjectMember>),
+}
+
+impl From<Expression> for VariableExpression {
+    #[inline]
+    fn from(ident: Expression) -> Self {
+        match ident {
+            Expression::Array(items) => {
+                VariableExpression::ArrayPattern(items)
+            },
+            Expression::Object(members) => {
+                VariableExpression::ObjectPattern(members)
+            },
+            _   => {
+                unimplemented!()
+            }
+        }
+    }
+}
+
+impl From<&'static str> for VariableExpression {
+    #[inline]
+    fn from(ident: &'static str) -> Self {
+        VariableExpression::Identifier(OwnedSlice::from_static(ident))
+    }
+}
+
+impl From<OwnedSlice> for VariableExpression {
+    #[inline]
+    fn from(ident: OwnedSlice) -> Self {
+        VariableExpression::Identifier(ident)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VariableDeclarationKind {
     Var,
@@ -282,7 +320,7 @@ pub enum VariableDeclarationKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
-    pub id: Expression,
+    pub id: VariableExpression,
     pub value: Option<Expression>,
 }
 

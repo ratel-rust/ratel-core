@@ -683,7 +683,7 @@ impl<'a> Parser<'a> {
                 BraceOpen => {
                     self.consume();
                     VariableDeclarator {
-                        id: try!(self.object_expression()),
+                        id: try!(self.object_expression()).into(),
                         value: match peek!(self) {
                             Operator(Assign) => {
                                 self.consume();
@@ -697,7 +697,7 @@ impl<'a> Parser<'a> {
                 BracketOpen => {
                     self.consume();
                     VariableDeclarator {
-                        id: try!(self.array_expression()),
+                        id: try!(self.array_expression()).into(),
                         value: match peek!(self) {
                             Operator(Assign) => {
                                 self.consume();
@@ -710,7 +710,7 @@ impl<'a> Parser<'a> {
                 },
                 _ => {
                     VariableDeclarator {
-                        id: Expression::Identifier(expect_identifier!(self)),
+                        id: VariableExpression::Identifier(expect_identifier!(self)),
                         value: match peek!(self) {
                             Operator(Assign) => {
                                 self.consume();

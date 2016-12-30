@@ -664,14 +664,14 @@ impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match self.id {
-            Expression::Identifier(ref ident) => {
+            VariableExpression::Identifier(ref ident) => {
                 gen.write(ident);
                 if let Some(ref value) = self.value {
                     gen.write_min(b" = ", b"=");
                     gen.write(value);
                 }
             },
-            Expression::Array(ref declarators) => {
+            VariableExpression::ArrayPattern(ref declarators) => {
                 if let Some(ref value) = self.value {
                     gen.write_bytes(b"_ref");
                     gen.write_min(b" = ", b"=");
@@ -695,7 +695,7 @@ impl Code for VariableDeclarator {
                     }
                 }
             },
-            _ => {
+            VariableExpression::ObjectPattern(ref members) => {
                 println!("{:?}", self.id);
                 unimplemented!();
             }
