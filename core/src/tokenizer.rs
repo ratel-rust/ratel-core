@@ -1,4 +1,5 @@
 use std::str;
+use lexicon::Slice;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
@@ -466,166 +467,196 @@ define_handlers! {
 
     // Non-keyword Identifier: starting with a letter, _ or $
     const IDT: identifier |tok, _| {
-        Ok(Identifier(unsafe {
-            OwnedSlice::from_str(tok.consume_label_characters())
-        }))
+        Ok(Identifier(tok.consume_label_characters()))
     }
 
     // Identifier or keyword starting with a letter `b`
     const L_B: label_b |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "break"      => Break,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `c`
     const L_C: label_c |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "const"      => Declaration(Const),
             "case"       => Case,
             "class"      => Class,
             "catch"      => Catch,
             "continue"   => Continue,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `d`
     const L_D: label_d |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "delete"     => Operator(Delete),
             "do"         => Do,
             "debugger"   => Debugger,
             "default"    => Default,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `e`
     const L_E: label_e |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "else"       => Else,
             "export"     => Export,
             "extends"    => Extends,
             "enum"       => Reserved(Enum),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `f`
     const L_F: label_f |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
-            "false"      => Literal(Value::False),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            "false"      => LitBoolean(false),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `i`
     const L_I: label_i |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
             "if"         => If,
             "import"     => Import,
             "implements" => Reserved(Implements),
             "interface"  => Reserved(Interface),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `l`
     const L_L: label_l |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "let"        => Declaration(Let),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `n`
     const L_N: label_n |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "new"        => Operator(New),
             "null"       => Literal(Value::Null),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `p`
     const L_P: label_p |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "package"    => Reserved(Package),
             "protected"  => Reserved(Protected),
             "private"    => Reserved(Private),
             "public"     => Reserved(Public),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `r`
     const L_R: label_r |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "return"     => Return,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `s`
     const L_S: label_s |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "super"      => Super,
             "switch"     => Switch,
             "static"     => Static,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `t`
     const L_T: label_t |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "typeof"     => Operator(Typeof),
             "this"       => This,
             "throw"      => Throw,
             "try"        => Try,
-            "true"       => Literal(Value::True),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            "true"       => LitBoolean(true),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `u`
     const L_U: label_u |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "undefined"  => Literal(Value::Undefined),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `v`
     const L_V: label_v |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "void"       => Operator(Void),
             "var"        => Declaration(Var),
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `w`
     const L_W: label_w |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "while"      => While,
             "with"       => With,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `y`
     const L_Y: label_y |tok, _| {
-        Ok(match tok.consume_label_characters() {
+        let slice = tok.consume_label_characters();
+
+        Ok(match slice.as_str(tok.source) {
             "yield"      => Yield,
-            slice        => Identifier(unsafe { OwnedSlice::from_str(slice) }),
+            _            => Identifier(slice),
         })
     }
 
@@ -648,7 +679,7 @@ define_handlers! {
 
         tok.consume_label_characters();
 
-        let ident = tok.slice_source(start, tok.index);
+        let ident = Slice::new(start, tok.index);
 
         Ok(Identifier(ident))
     }
@@ -699,9 +730,9 @@ define_handlers! {
             }
         }
 
-        let value = tok.slice_source(start, tok.index);
+        let value = Slice::new(start, tok.index);
 
-        Ok(Literal(Value::Number(value)))
+        Ok(LitNumber(value))
     }
 
     // 1 to 9
@@ -728,9 +759,9 @@ define_handlers! {
             }
         }
 
-        let value = tok.slice_source(start, tok.index);
+        let value = Slice::new(start, tok.index);
 
-        Ok(Literal(Value::Number(value)))
+        Ok(LitNumber(value))
     }
 
     // .
@@ -782,9 +813,9 @@ define_handlers! {
             }
         }
 
-        let value = tok.slice_source(start, tok.index);
+        let value = Slice::new(start, tok.index);
 
-        Ok(Literal(Value::String(value)))
+        Ok(LitString(value))
     }
 
     // `
@@ -853,12 +884,12 @@ mod ident_lookup {
     ];
 }
 
-pub struct Tokenizer<'a> {
+pub struct Tokenizer<'src> {
     /// Flags whether or not a new line was read before the token
     consumed_new_line: bool,
 
     /// String slice to parse
-    source: &'a str,
+    source: &'src str,
 
     /// Current index
     index: usize,
@@ -868,9 +899,9 @@ pub struct Tokenizer<'a> {
 }
 
 
-impl<'a> Tokenizer<'a> {
+impl<'src> Tokenizer<'src> {
     #[inline]
-    pub fn new(source: &'a str) -> Self {
+    pub fn new(source: &'src str) -> Self {
         Tokenizer {
             consumed_new_line: false,
             source: source,
@@ -1048,7 +1079,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[inline]
-    fn consume_label_characters(&mut self) -> &str {
+    fn consume_label_characters(&mut self) -> Slice {
         // TODO: Reject invalid unicode and escaped unicode character
 
         let start = self.index;
@@ -1059,9 +1090,7 @@ impl<'a> Tokenizer<'a> {
             self.bump();
         }
 
-        unsafe {
-            self.source.slice_unchecked(start, self.index)
-        }
+        (start, self.index)
     }
 
     #[inline]
@@ -1080,11 +1109,13 @@ impl<'a> Tokenizer<'a> {
     fn read_hexadec(&mut self, start: usize) -> Value {
         while !self.is_eof() {
             match self.read_byte() {
-                b'0'...b'9' => self.bump(),
-                b'a'...b'f' => self.bump(),
-                b'A'...b'F' => self.bump(),
+                b'0'...b'9' => (),
+                b'a'...b'f' => (),
+                b'A'...b'F' => (),
                 _           => break
             };
+
+            self.bump();
         }
 
         Value::Number(self.slice_source(start, self.index))

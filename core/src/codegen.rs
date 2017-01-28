@@ -143,7 +143,7 @@ impl<T: Code> Code for Box<T> {
     }
 }
 
-impl Code for OwnedSlice {
+impl<'a> Code for &'a str {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         extend_from_slice(&mut gen.code, self.as_bytes());
@@ -163,59 +163,7 @@ impl<T: Code> Code for Option<T> {
 impl Code for OperatorKind {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        use ::operator::OperatorKind::*;
-
-        gen.write_bytes(match *self {
-            FatArrow         => b"=>",
-            Accessor         => b".",
-            New              => b"new",
-            Increment        => b"++",
-            Decrement        => b"--",
-            LogicalNot       => b"!",
-            BitwiseNot       => b"~",
-            Typeof           => b"typeof",
-            Void             => b"void",
-            Delete           => b"delete",
-            Multiplication   => b"*",
-            Division         => b"/",
-            Remainder        => b"%",
-            Exponent         => b"**",
-            Addition         => b"+",
-            Substraction     => b"-",
-            BitShiftLeft     => b"<<",
-            BitShiftRight    => b">>",
-            UBitShiftRight   => b">>>",
-            Lesser           => b"<",
-            LesserEquals     => b"<=",
-            Greater          => b">",
-            GreaterEquals    => b">=",
-            Instanceof       => b"instanceof",
-            In               => b"in",
-            StrictEquality   => b"===",
-            StrictInequality => b"!==",
-            Equality         => b"==",
-            Inequality       => b"!=",
-            BitwiseAnd       => b"&",
-            BitwiseXor       => b"^",
-            BitwiseOr        => b"|",
-            LogicalAnd       => b"&&",
-            LogicalOr        => b"||",
-            Conditional      => b"?",
-            Assign           => b"=",
-            AddAssign        => b"+=",
-            SubstractAssign  => b"-=",
-            ExponentAssign   => b"**=",
-            MultiplyAssign   => b"*=",
-            DivideAssign     => b"/=",
-            RemainderAssign  => b"%=",
-            BSLAssign        => b"<<=",
-            BSRAssign        => b">>=",
-            UBSRAssign       => b">>>=",
-            BitAndAssign     => b"&=",
-            BitXorAssign     => b"^=",
-            BitOrAssign      => b"|=",
-            Spread           => b"...",
-        });
+        gen.write_bytes(self.as_str().as_bytes());
     }
 }
 
@@ -249,7 +197,7 @@ fn write_quasi(gen: &mut Generator, quasi: OwnedSlice) {
     gen.write_byte(b'"');
 }
 
-impl Code for Value {
+impl<'src> Code for Value<'src> {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -265,7 +213,7 @@ impl Code for Value {
     }
 }
 
-impl Code for ObjectMember {
+impl<'src> Code for ObjectMember<'src> {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -298,7 +246,7 @@ impl Code for ObjectMember {
     }
 }
 
-impl Code for ObjectKey {
+impl<'src> Code for ObjectKey<'src> {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -319,7 +267,7 @@ impl Code for ObjectKey {
     }
 }
 
-impl Code for Parameter {
+impl<'src> Code for Parameter<'src> {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         gen.write(&self.name);
@@ -330,7 +278,7 @@ impl Code for Parameter {
     }
 }
 
-impl Code for Expression {
+impl<'src> Code for Expression<'src> {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Expression::Void => {},
@@ -593,7 +541,7 @@ impl Code for VariableDeclarationKind {
     }
 }
 
-impl Code for ClassMember {
+impl<'src> Code for ClassMember<'src> {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
@@ -642,7 +590,7 @@ impl Code for ClassMember {
     }
 }
 
-impl Code for ClassKey {
+impl<'src> Code for ClassKey<'src> {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             ClassKey::Literal(ref name)  => gen.write(name),
@@ -660,7 +608,7 @@ impl Code for ClassKey {
     }
 }
 
-impl Code for VariableDeclarator {
+impl<'src> Code for VariableDeclarator<'src> {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         gen.write(&self.name);
@@ -671,7 +619,7 @@ impl Code for VariableDeclarator {
     }
 }
 
-impl Code for Statement {
+impl<'src> Code for Statement<'src> {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Statement::Labeled {

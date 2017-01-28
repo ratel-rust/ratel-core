@@ -54,6 +54,61 @@ pub enum OperatorKind {
 use self::OperatorKind::*;
 
 impl OperatorKind {
+    #[inline]
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            FatArrow         => "=>",
+            Accessor         => ".",
+            New              => "new",
+            Increment        => "++",
+            Decrement        => "--",
+            LogicalNot       => "!",
+            BitwiseNot       => "~",
+            Typeof           => "typeof",
+            Void             => "void",
+            Delete           => "delete",
+            Multiplication   => "*",
+            Division         => "/",
+            Remainder        => "%",
+            Exponent         => "**",
+            Addition         => "+",
+            Substraction     => "-",
+            BitShiftLeft     => "<<",
+            BitShiftRight    => ">>",
+            UBitShiftRight   => ">>>",
+            Lesser           => "<",
+            LesserEquals     => "<=",
+            Greater          => ">",
+            GreaterEquals    => ">=",
+            Instanceof       => "instanceof",
+            In               => "in",
+            StrictEquality   => "===",
+            StrictInequality => "!==",
+            Equality         => "==",
+            Inequality       => "!=",
+            BitwiseAnd       => "&",
+            BitwiseXor       => "^",
+            BitwiseOr        => "|",
+            LogicalAnd       => "&&",
+            LogicalOr        => "||",
+            Conditional      => "?",
+            Assign           => "=",
+            AddAssign        => "+=",
+            SubstractAssign  => "-=",
+            ExponentAssign   => "**=",
+            MultiplyAssign   => "*=",
+            DivideAssign     => "/=",
+            RemainderAssign  => "%=",
+            BSLAssign        => "<<=",
+            BSRAssign        => ">>=",
+            UBSRAssign       => ">>>=",
+            BitAndAssign     => "&=",
+            BitXorAssign     => "^=",
+            BitOrAssign      => "|=",
+            Spread           => "...",
+        }
+    }
+
     /// According to the Operator Precedence Table
     /// Note: Unary operators default to 15!
     #[inline]

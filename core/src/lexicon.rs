@@ -1,7 +1,26 @@
-use grammar::Value;
 use grammar::VariableDeclarationKind;
 use operator::OperatorKind;
-use owned_slice::OwnedSlice;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Slice {
+    start: usize,
+    end: usize,
+}
+
+impl Slice {
+    #[inline]
+    pub fn new(start: usize, end: usize) -> Self {
+        Slice {
+            start: start,
+            end: end,
+        }
+    }
+
+    #[inline]
+    pub fn as_str(&self, src: &str) -> &str {
+        &src[self.start..self.end]
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -16,8 +35,8 @@ pub enum ReservedKind {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TemplateKind {
-    Open(OwnedSlice),
-    Closed(OwnedSlice),
+    Open(Slice),
+    Closed(Slice),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -60,9 +79,15 @@ pub enum Token {
     Import,
     Try,
     Static,
+    Undefined,
+    Null,
+    LitBoolean(bool),
+    LitNumber(Slice),
+    LitBinary(u64),
+    LitString(Slice),
+    LitQuasi(Slice),
     Reserved(ReservedKind),
-    Identifier(OwnedSlice),
-    Literal(Value),
+    Identifier(Slice),
     Template(TemplateKind),
 }
 

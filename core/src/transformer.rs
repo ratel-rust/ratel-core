@@ -20,24 +20,24 @@ trait Take {
     fn take(&mut self) -> Self;
 }
 
-impl<T> Take for Vec<T> {
+impl<T> Take for T where T: Default {
     #[inline]
     fn take(&mut self) -> Self {
-        mem::replace(self, Vec::new())
+        mem::replace(self, Default::default())
     }
 }
 
-impl Take for Expression {
+impl<'src> Default for Expression<'src> {
     #[inline]
-    fn take(&mut self) -> Self {
-        mem::replace(self, Expression::Void)
+    fn default(&mut self) -> Self {
+        Expression::Void
     }
 }
 
-impl Take for ObjectKey {
+impl<'src> Take for ObjectKey<'src> {
     #[inline]
-    fn take(&mut self) -> Self {
-        mem::replace(self, ObjectKey::Binary(0))
+    fn default(&mut self) -> Self {
+        ObjectKey::Binary(0)
     }
 }
 
@@ -124,7 +124,7 @@ impl<T: Transformable> Transformable for Box<T> {
     }
 }
 
-impl Transformable for Parameter {}
+impl<'src> Transformable for Parameter<'src> {}
 
 #[inline]
 fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Statement>) {
@@ -136,6 +136,7 @@ fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Stat
                         Expression::binary(
                             param.name,
                             StrictEquality,
+                            Expression::Literal(Value::Undefined)
                             "undefined".into(),
                         ),
                         LogicalAnd,
@@ -153,7 +154,7 @@ fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Stat
     }
 }
 
-impl Transformable for Expression {
+impl<'src> Transformable for Expression<'src> {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             Expression::ArrowFunction {
@@ -587,7 +588,7 @@ impl Transformable for Expression {
     }
 }
 
-impl Transformable for ObjectKey {
+impl<'src> Transformable for ObjectKey<'src> {
     #[inline]
     fn transform(&mut self, settings: &Settings) {
         match *self {
@@ -609,7 +610,7 @@ impl Transformable for ObjectKey {
     }
 }
 
-impl Transformable for ObjectMember {
+impl<'src> Transformable for ObjectMember<'src> {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
 
@@ -679,7 +680,7 @@ impl Transformable for ObjectMember {
     }
 }
 
-impl Transformable for ClassMember {
+impl<'src> Transformable for ClassMember<'src> {
     fn transform(&mut self, settings: &Settings) {
         match *self {
             Constructor {
@@ -713,7 +714,7 @@ impl Transformable for ClassMember {
     }
 }
 
-impl Transformable for VariableDeclarator {
+impl<'src> Transformable for VariableDeclarator<'src> {
     #[inline]
     fn transform(&mut self, settings: &Settings) {
         self.value.transform(settings);
@@ -748,8 +749,8 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
 }
 
 #[inline]
-fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
-        -> (Vec<Parameter>, Vec<Statement>, Vec<ClassMember>) {
+fn class_transform_props<'src>(body: &mut Vec<ClassMember>, prop_count: usize)
+        -> (Vec<Parameter<'src>>, Vec<Statement<'src>>, Vec<ClassMember<'src>>) {
     let mut constructor = None;
     let mut methods = Vec::with_capacity(body.len());
     let mut props = Vec::with_capacity(prop_count);
@@ -779,9 +780,9 @@ fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
 }
 
 #[inline]
-fn class_transform_methods_to_prototype(
-    methods: &mut Vec<ClassMember>,
-    body: &mut Vec<Statement>,
+fn class_transform_methods_to_prototype<'src>(
+    methods: &'src mut Vec<ClassMember<'src>>,
+    body: &'src mut Vec<Statement<'src>>,
     name: OwnedSlice
 ) {
     for method in methods.iter_mut() {
@@ -821,7 +822,7 @@ fn class_prop_count(body: &mut Vec<ClassMember>) -> usize {
 }
 
 #[inline]
-fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
+fn class_key_to_member<'src>(object: Expression<'src>, key: &'src mut ClassKey) -> Expression<'src> {
     let expr = match *key {
         ClassKey::Literal(ref name) => {
             return Expression::member(object, *name);
@@ -844,7 +845,7 @@ fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
     }
 }
 
-impl Transformable for Statement {
+impl<'src> Transformable for Statement<'src> {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             Statement::Block {

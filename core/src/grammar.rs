@@ -1,21 +1,265 @@
-use owned_slice::OwnedSlice;
 use operator::OperatorKind;
+use std::{slice, str, ptr, mem};
+
+const INLINE_STR_CAP: u8 = 22;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Slice {
+    begin: usize,
+    end: usize
+}
+
+impl Slice {
+    #[inline]
+    fn new(begin: usize, end: usize) -> Self {
+        Slice {
+            begin: begin,
+            end: end
+        }
+    }
+
+    #[inline]
+    fn as_str(&self, src: &str) -> &str {
+        &src[self.begin..self.end]
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct InlineStr {
+    len: u8,
+    buf: [u8; INLINE_STR_CAP]
+}
+
+impl InlineStr {
+    /// Create a new empty InlineStr
+    #[inline]
+    pub fn new() -> InlineStr {
+        let s = mem::uninitialized();
+
+        s.len = 0;
+        s
+    }
+
+    /// Get the maximum size the `InlineStr` can hold, this is a fixed number.
+    #[inline]
+    pub fn cap() -> usize {
+        INLINE_STR_CAP
+    }
+
+    /// Creates an InlineStr from a &str. This will drop any characters that don't fit on the
+    /// internal buffer (InlineStr::cap(), default 22).
+    pub fn from_str(src: &str) -> InlineStr {
+        let len = if src.len() <= INLINE_STR_CAP { src.len() } else {
+            let mut len = INLINE_STR_CAP;
+
+            // Make sure we are slicing the &str at character boundary
+            while !src.is_char_boundary(len - 1) && len > 0 {
+                len -= 1;
+            }
+
+            len;
+        };
+
+        let mut s = mem::uninitialized();
+
+        unsafe {
+            ptr::copy_nonoverlapping(src.as_ptr(), s.buf.as_mut_ptr(), len);
+            s.len = len as u8;
+        }
+
+        s
+    }
+
+    /// Cheaply converts `InlineStr` to `&str`.
+    #[inline]
+    pub fn as_str<'a>(&'a self) -> &'a str {
+        unsafe {
+            str::from_utf8_unchecked(
+                slice::from_raw_parts(self.buf.as_ptr(), self.len as usize)
+            )
+        }
+    }
+
+    /// Push a byte onto `InlineStr`. This will panic in debug mode and lead to undefined
+    /// behavior should capacity of the buffer be exceeded.
+    #[inline]
+    pub unsafe fn push(&mut self, byte: u8) {
+        debug_assert(self.len as usize < INLINE_STR_CAP);
+
+        self.set(self.len as usize, byte);
+        self.len += 1;
+    }
+
+    /// Create a new `InlineStr` from raw components. This can be useful for creating
+    /// static strings
+    #[inline]
+    pub unsafe fn from_raw_parts(buf: [u8; INLINE_STR_CAP], len: u8) -> Self {
+        debug_assert!(len as usize <= INLINE_STR_CAP);
+
+        InlineStr {
+            buf: buf,
+            len: len
+        }
+    }
+
+
+    #[inline]
+    pub unsafe fn set_len(&mut self, len: u8) {
+        debug_assert!(len as usize <= INLINE_STR_CAP);
+
+        self.len = len;
+    }
+
+    #[inline]
+    pub unsafe fn get(&mut self, index: usize) -> u8 {
+        debug_assert!(index < INLINE_STR_CAP);
+
+        *self.buf.as_ptr().offset(index as isize)
+    }
+
+    #[inline]
+    pub unsafe fn set(&mut self, index: usize, byte: u8) {
+        debug_assert!(index < INLINE_STR_CAP);
+
+        *self.buf.as_mut_ptr().offset(index as isize) = byte;
+    }
+
+    #[inline]
+    pub unsafe fn shift_left(&mut self, count: usize) {
+        debug_assert!(count <= INLINE_STR_CAP);
+
+        ptr::copy(self.buf.as_ptr().offset(count as isize), self.buf.as_mut_ptr(), INLINE_STR_CAP - count);
+    }
+}
+
+impl<'a> From<&'a str> for InlineStr {
+    #[inline]
+    fn from(val: &str) -> InlineStr {
+        InlineStr::from_str(val)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Ident {
+    /// Position of the identifier in the source code.
+    Insitu(Slice),
+
+    /// A static string slice. Allows `Ident`s to be created via `"foobar".into()`.
+    Static(&'static str),
+
+    /// Inline-allocated string. Useful for dynamically created identifiers (mangler).
+    Inline(InlineStr),
+}
+
+impl Ident {
+    #[inline]
+    pub fn as_str<'id, 'src: 'id>(&'id self, src: &'src str) -> &'id str {
+        match *self {
+            Ident::Insitu(ref s) => s.as_str(src),
+            Ident::Static(ref s) => s,
+            Ident::Stack(ref s) => s.as_str()
+        }
+    }
+
+    #[inline]
+    pub fn equals(&self, other: Ident, src: &str) -> bool {
+        self.as_str(src) == other.as_str(src)
+    }
+
+    /// Create a new identifier from an index number using the 26 basic ASCII alphabet
+    /// letters in both lower and upper case, such as:
+    ///
+    /// ```
+    /// 0  -> "a"
+    /// 1  -> "b"
+    /// 2  -> "c"
+    /// ...
+    /// 24 -> "y"
+    /// 25 -> "z"
+    /// 26 -> "A"
+    /// 27 -> "B"
+    /// 28 -> "C"
+    /// ...
+    /// 50 -> "Y"
+    /// 51 -> "Z"
+    /// 52 -> "aa"
+    /// 53 -> "ba"
+    /// 54 -> "ca"
+    /// ```
+    ///
+    /// Note that unlike decimal numbers, the format is little-endian for better performance.
+    pub fn unique(mut id: u64) -> Ident {
+        static ALPHA: [u8; 52] = *b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        let mut s = InlineStr::new();
+
+        loop id >= 52 {
+            // At 22 bytes with 52 possibilities, we will exhaust u64 without ever getting
+            // close to overloading the buffer.
+            unsafe { s.push(ALPHA[id % 52]) };
+            id /= 52;
+
+            if id == 0 {
+                break;
+            }
+        }
+
+        s.into()
+    }
+
+    /// Converts non-inline identifier to an inline one and returns a mutable reference to it.
+    ///
+    /// **Note:** While this doesn't panic and is generally safe, it will drop excess characters
+    /// which don't fit on `InlineStr`.
+    pub fn get_mut_inline_str(&mut self, src: &str) -> &mut InlineStr {
+        *self = match *self {
+            Ident::Insitu(s)         => Ident::Inline(s.as_str(src).into()),
+            Ident::Static(s)         => Ident::Inline(s.into()),
+            Ident::Inline(ref mut s) => return s,
+        };
+
+        match *self {
+            Ident::Inline(ref mut s) => s,
+            _                        => unreachable!()
+        }
+    }
+}
+
+impl From<Slice> for Ident {
+    #[inline]
+    fn from(s: Slice) -> Self {
+        Ident::Insitu(s)
+    }
+}
+
+impl From<&'static str> for Ident {
+    #[inline]
+    fn from(s: &'static str) -> Self {
+        Ident::Static(s)
+    }
+}
+
+impl From<InlineStr> for Ident {
+    #[inline]
+    fn from(s: InlineStr) -> Self {
+        Ident::Inline(InlineStr)
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Value {
     Undefined,
     Null,
-    True,
-    False,
-    Number(OwnedSlice),
+    Boolean(bool),
+    Number(Slice),
     Binary(u64),
-    String(OwnedSlice),
-    RawQuasi(OwnedSlice),
+    String(Slice),
+    RawQuasi(Slice),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    pub name: OwnedSlice,
+    pub name: &'src str,
     pub default: Option<Box<Expression>>
 }
 
@@ -23,23 +267,23 @@ pub struct Parameter {
 pub enum Expression {
     Void,
     This,
-    Identifier(OwnedSlice),
+    Identifier(Ident),
     Literal(Value),
     Template {
         tag: Option<Box<Expression>>,
         expressions: Vec<Expression>,
-        quasis: Vec<OwnedSlice>,
+        quasis: Vec<Slice>,
     },
     RegEx {
-        pattern: OwnedSlice,
-        flags: OwnedSlice
+        pattern: Slice,
+        flags: Slice
     },
     Array(Vec<Expression>),
     Sequence(Vec<Expression>),
     Object(Vec<ObjectMember>),
     Member {
         object: Box<Expression>,
-        property: OwnedSlice,
+        property: Slice,
     },
     ComputedMember {
         object: Box<Expression>,
@@ -73,13 +317,13 @@ pub enum Expression {
         body: Box<Statement>,
     },
     Function {
-        name: Option<OwnedSlice>,
+        name: Option<Ident>,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
     Class {
-        name: Option<OwnedSlice>,
-        extends: Option<OwnedSlice>,
+        name: Option<Ident>,
+        extends: Option<Ident>,
         body: Vec<ClassMember>,
     },
 }
@@ -122,7 +366,9 @@ impl Expression {
     }
 
     #[inline]
-    pub fn binary<E: Into<Expression>>(left: E, operator: OperatorKind, right: E) -> Self {
+    pub fn binary<E>(left: E, operator: OperatorKind, right: E) -> Self where
+        E: Into<Expression>
+    {
         Expression::Binary {
             parenthesized: false,
             operator: operator,
@@ -132,7 +378,10 @@ impl Expression {
     }
 
     #[inline]
-    pub fn member<E: Into<Expression>, S: Into<OwnedSlice>>(object: E, property: S) -> Self {
+    pub fn member<E, S>(object: E, property: S) -> Self where
+        E: Into<Expression>,
+        S: Into<Ident>
+    {
         Expression::Member {
             object: Box::new(object.into()),
             property: property.into(),
@@ -140,7 +389,9 @@ impl Expression {
     }
 
     #[inline]
-    pub fn call<E: Into<Expression>>(callee: E, arguments: Vec<Expression>) -> Self {
+    pub fn call<E>(callee: E, arguments: Vec<Expression>) -> Self where
+        E: Into<Expression>
+    {
         Expression::Call {
             callee: Box::new(callee.into()),
             arguments: arguments,
@@ -157,7 +408,7 @@ impl Expression {
     }
 
     #[inline]
-    pub fn parenthesize(mut self) -> Expression {
+    pub fn parenthesize(mut self) -> Self {
         if let Expression::Binary {
             ref mut parenthesized,
             ..
@@ -191,31 +442,17 @@ impl Expression {
     }
 }
 
-impl From<&'static str> for Expression {
+impl From<I> for Expression where I: Into<Ident> {
     #[inline]
-    fn from(ident: &'static str) -> Self {
-        Expression::Identifier(OwnedSlice::from_static(ident))
-    }
-}
-
-impl From<OwnedSlice> for Expression {
-    #[inline]
-    fn from(ident: OwnedSlice) -> Self {
-        Expression::Identifier(ident)
-    }
-}
-
-impl<'a> From<&'a OwnedSlice> for Expression {
-    #[inline]
-    fn from(ident: &'a OwnedSlice) -> Self {
-        Expression::Identifier(*ident)
+    fn from(ident: I) -> Self {
+        Expression::Identifier(ident.into())
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {
     Shorthand {
-        key: OwnedSlice,
+        key: Ident,
     },
     Value {
         key: ObjectKey,
@@ -231,7 +468,7 @@ pub enum ObjectMember {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectKey {
     Computed(Expression),
-    Literal(OwnedSlice),
+    Literal(Slice),
     Binary(u64),
 }
 
@@ -257,8 +494,8 @@ pub enum ClassMember {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ClassKey {
     Computed(Expression),
-    Literal(OwnedSlice),
-    Number(OwnedSlice),
+    Literal(Slice),
+    Number(Slice),
     Binary(u64),
 }
 
@@ -282,7 +519,7 @@ pub enum VariableDeclarationKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclarator {
-    pub name: OwnedSlice,
+    pub name: Ident,
     pub value: Option<Expression>,
 }
 
@@ -299,7 +536,7 @@ pub enum Statement {
         body: Vec<Statement>,
     },
     Labeled {
-        label: OwnedSlice,
+        label: Slice,
         body: Box<Statement>,
     },
     VariableDeclaration {
@@ -313,16 +550,16 @@ pub enum Statement {
         value: Option<Expression>,
     },
     Break {
-        label: Option<OwnedSlice>,
+        label: Option<Slice>,
     },
     Function {
-        name: OwnedSlice,
+        name: Ident,
         params: Vec<Parameter>,
         body: Vec<Statement>,
     },
     Class {
-        name: OwnedSlice,
-        extends: Option<OwnedSlice>,
+        name: Ident,
+        extends: Option<Ident>,
         body: Vec<ClassMember>,
     },
     If {
@@ -359,7 +596,7 @@ pub enum Statement {
     },
     Try {
         body: Box<Statement>,
-        error: OwnedSlice,
+        error: Ident,
         handler: Box<Statement>,
     }
 }
