@@ -245,10 +245,10 @@ fn sparse_array_expression() {
 
 #[test]
 fn destructing_array() {
-    assert_compile!("var [ x, y, c ] = [ 1, 2 ]", "var _ref=[1,2],x=_ref[0],y=_ref[1],c=_ref[2];");
+    assert_compile!("var [ x, y, c ] = [ 1, 2 ]", "var ref_xyc=[1,2],x=ref_xyc[0],y=ref_xyc[1],c=ref_xyc[2];");
 }
 
 #[test]
 fn destructing_array_elision() {
-    assert_compile!("const [,, x, y] = ['a', 'b', 'c', 'd'];", "var _ref=['a','b','c','d'],x=_ref[2],y=_ref[3];")
+    assert_compile!("const [,, x, y] = ['a', 'b', 'c', 'd'];", "var ref_xy=['a','b','c','d'],x=ref_xy[2],y=ref_xy[3];")
 }

@@ -673,7 +673,23 @@ impl Code for VariableDeclarator {
             },
             VariableExpression::ArrayPattern(ref declarators) => {
                 if let Some(ref value) = self.value {
-                    gen.write_bytes(b"_ref");
+
+                    // Iterate over all variable names and construct base_name.
+                    // (FIXME)
+
+                    let mut base_name: String = "ref_".to_owned();
+                    // Iterate over all ids and construct base_name.
+                    if let VariableExpression::ArrayPattern(ref ids) = self.id {
+                        for id in ids.iter() {
+                            if let &Expression::Identifier(ref name) = id {
+                                base_name.push_str(name);
+                            }
+                        }
+                    }
+
+                    let ref_name = &base_name.into_bytes();
+
+                    gen.write_bytes(ref_name);
                     gen.write_min(b" = ", b"=");
                     gen.write(value);
 
@@ -687,7 +703,8 @@ impl Code for VariableDeclarator {
                         gen.write(item);
 
                         gen.write_min(b" = ", b"=");
-                        gen.write_bytes(b"_ref[");
+                        gen.write_bytes(ref_name);
+                        gen.write_bytes(b"[");
                         gen.write_byte(index + 48);
                         gen.write_bytes(b"]");
 
@@ -697,6 +714,7 @@ impl Code for VariableDeclarator {
             },
             VariableExpression::ObjectPattern(ref members) => {
                 println!("{:?}", self.id);
+                println!("{:?}", members);
                 unimplemented!();
             }
         }
