@@ -75,7 +75,6 @@ impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
         use operator::OperatorKind::*;
-        use grammar::Value::*;
 
         match *self {
             Break                => Some("break"),
@@ -111,8 +110,8 @@ impl Token {
             Operator(Instanceof) => Some("instanceof"),
             LitBoolean(true)     => Some("true"),
             LitBoolean(false)    => Some("false"),
-            Token::Null          => Some("null"),
-            Token::Undefined     => Some("undefined"),
+            Null                 => Some("null"),
+            Undefined            => Some("undefined"),
 
             _                    => None,
         }

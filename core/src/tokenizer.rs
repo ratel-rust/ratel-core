@@ -7,7 +7,6 @@ use lexicon::TemplateKind;
 use operator::OperatorKind::*;
 use grammar::Expression;
 use grammar::VariableDeclarationKind::*;
-use grammar::Value;
 use error::{ Error, Result };
 
 /// Helper macro for declaring byte-handler functions with correlating constants.

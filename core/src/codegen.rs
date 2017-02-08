@@ -7,15 +7,17 @@ use operator::OperatorKind;
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
 /// things like indentation and automatically producing minified code.
-struct Generator {
+struct Generator<'src> {
+    source: &'src str,
     pub minify: bool,
     code: Vec<u8>,
     dent: u16,
 }
 
-impl Generator {
-    pub fn new(minify: bool) -> Self {
+impl<'src> Generator<'src> {
+    pub fn new(source: &'src str, minify: bool) -> Self {
         Generator {
+            source: source,
             minify: minify,
             code: Vec::with_capacity(128),
             dent: 0,
@@ -132,7 +134,7 @@ impl Code for Ident {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
-            Ident::Insitu(s)     => "INSITU",
+            Ident::Insitu(s)     => s.as_str(gen.source),
             Ident::Static(s)     => s,
             Ident::Inline(ref s) => s.as_str(),
         }.to_code(gen);
@@ -142,7 +144,7 @@ impl Code for Ident {
 impl Code for Slice {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        "INSITU".to_code(gen);
+        self.as_str(gen.source).to_code(gen);
     }
 }
 
@@ -187,31 +189,29 @@ impl Code for OperatorKind {
 fn write_quasi(gen: &mut Generator, quasi: Slice) {
     gen.write_byte(b'"');
 
-    gen.write_bytes(b"INSITU");
+    let mut iter = quasi.as_str(gen.source).bytes();
 
-    // let mut iter = quasi.as_str().bytes();
-
-    // while let Some(byte) = iter.next() {
-    //     match byte {
-    //         b'\r' => {},
-    //         b'\n' => gen.write_bytes(b"\\n"),
-    //         b'"'  => gen.write_bytes(b"\\\""),
-    //         b'\\' => {
-    //             if let Some(follow) = iter.next() {
-    //                 match follow {
-    //                     b'`'  => gen.write_byte(b'`'),
-    //                     b'\n' => {},
-    //                     b'\r' => {},
-    //                     _     => {
-    //                         gen.write_byte(b'\\');
-    //                         gen.write_byte(follow);
-    //                     }
-    //                 }
-    //             }
-    //         },
-    //         _ => gen.write_byte(byte),
-    //     }
-    // }
+    while let Some(byte) = iter.next() {
+        match byte {
+            b'\r' => {},
+            b'\n' => gen.write_bytes(b"\\n"),
+            b'"'  => gen.write_bytes(b"\\\""),
+            b'\\' => {
+                if let Some(follow) = iter.next() {
+                    match follow {
+                        b'`'  => gen.write_byte(b'`'),
+                        b'\n' => {},
+                        b'\r' => {},
+                        _     => {
+                            gen.write_byte(b'\\');
+                            gen.write_byte(follow);
+                        }
+                    }
+                }
+            },
+            _ => gen.write_byte(byte),
+        }
+    }
 
     gen.write_byte(b'"');
 }
@@ -861,7 +861,7 @@ impl Code for Statement {
 }
 
 pub fn generate_code(program: &Program, minify: bool) -> String {
-    let mut gen = Generator::new(minify);
+    let mut gen = Generator::new(&program.source, minify);
 
     for statement in &program.body {
         gen.write(statement);

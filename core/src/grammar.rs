@@ -19,6 +19,11 @@ impl Slice {
     }
 
     #[inline]
+    pub fn as_ptr(&self, src: &str) -> *const u8 {
+        unsafe { src.as_ptr().offset(self.begin as isize) }
+    }
+
+    #[inline]
     pub fn as_str<'id, 'src>(&'id self, src: &'src str) -> &'src str {
         &src[self.begin..self.end]
     }
