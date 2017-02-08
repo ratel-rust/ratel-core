@@ -1,26 +1,6 @@
+use grammar::Slice;
 use grammar::VariableDeclarationKind;
 use operator::OperatorKind;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Slice {
-    start: usize,
-    end: usize,
-}
-
-impl Slice {
-    #[inline]
-    pub fn new(start: usize, end: usize) -> Self {
-        Slice {
-            start: start,
-            end: end,
-        }
-    }
-
-    #[inline]
-    pub fn as_str(&self, src: &str) -> &str {
-        &src[self.start..self.end]
-    }
-}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -129,10 +109,10 @@ impl Token {
             Operator(Void)       => Some("void"),
             Operator(Delete)     => Some("delete"),
             Operator(Instanceof) => Some("instanceof"),
-            Literal(True)        => Some("true"),
-            Literal(False)       => Some("false"),
-            Literal(Null)        => Some("null"),
-            Literal(Undefined)   => Some("undefined"),
+            LitBoolean(true)     => Some("true"),
+            LitBoolean(false)    => Some("false"),
+            Token::Null          => Some("null"),
+            Token::Undefined     => Some("undefined"),
 
             _                    => None,
         }

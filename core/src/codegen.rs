@@ -3,7 +3,6 @@ use std::io::Write;
 
 use grammar::*;
 use operator::OperatorKind;
-use owned_slice::OwnedSlice;
 
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
@@ -129,6 +128,24 @@ trait Code {
     fn to_code(&self, gen: &mut Generator);
 }
 
+impl Code for Ident {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            Ident::Insitu(s)     => "INSITU",
+            Ident::Static(s)     => s,
+            Ident::Inline(ref s) => s.as_str(),
+        }.to_code(gen);
+    }
+}
+
+impl Code for Slice {
+    #[inline]
+    fn to_code(&self, gen: &mut Generator) {
+        "INSITU".to_code(gen);
+    }
+}
+
 impl Code for u64 {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
@@ -167,44 +184,45 @@ impl Code for OperatorKind {
     }
 }
 
-fn write_quasi(gen: &mut Generator, quasi: OwnedSlice) {
+fn write_quasi(gen: &mut Generator, quasi: Slice) {
     gen.write_byte(b'"');
 
-    let mut iter = quasi.as_str().bytes();
+    gen.write_bytes(b"INSITU");
 
-    while let Some(byte) = iter.next() {
-        match byte {
-            b'\r' => {},
-            b'\n' => gen.write_bytes(b"\\n"),
-            b'"'  => gen.write_bytes(b"\\\""),
-            b'\\' => {
-                if let Some(follow) = iter.next() {
-                    match follow {
-                        b'`'  => gen.write_byte(b'`'),
-                        b'\n' => {},
-                        b'\r' => {},
-                        _     => {
-                            gen.write_byte(b'\\');
-                            gen.write_byte(follow);
-                        }
-                    }
-                }
-            },
-            _ => gen.write_byte(byte),
-        }
-    }
+    // let mut iter = quasi.as_str().bytes();
+
+    // while let Some(byte) = iter.next() {
+    //     match byte {
+    //         b'\r' => {},
+    //         b'\n' => gen.write_bytes(b"\\n"),
+    //         b'"'  => gen.write_bytes(b"\\\""),
+    //         b'\\' => {
+    //             if let Some(follow) = iter.next() {
+    //                 match follow {
+    //                     b'`'  => gen.write_byte(b'`'),
+    //                     b'\n' => {},
+    //                     b'\r' => {},
+    //                     _     => {
+    //                         gen.write_byte(b'\\');
+    //                         gen.write_byte(follow);
+    //                     }
+    //                 }
+    //             }
+    //         },
+    //         _ => gen.write_byte(byte),
+    //     }
+    // }
 
     gen.write_byte(b'"');
 }
 
-impl<'src> Code for Value<'src> {
+impl Code for Value {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Value::Undefined           => gen.write_min(b"undefined", b"void 0"),
             Value::Null                => gen.write_bytes(b"null"),
-            Value::True                => gen.write_min(b"true", b"!0",),
-            Value::False               => gen.write_min(b"false", b"!1"),
+            Value::Boolean(val)        => if val { gen.write_min(b"true", b"!0",) } else { gen.write_min(b"false", b"!1") },
             Value::Binary(ref num)     => gen.write(num),
             Value::Number(ref num)     => gen.write(num),
             Value::String(ref string)  => gen.write(string),
@@ -213,7 +231,7 @@ impl<'src> Code for Value<'src> {
     }
 }
 
-impl<'src> Code for ObjectMember<'src> {
+impl Code for ObjectMember {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -246,7 +264,7 @@ impl<'src> Code for ObjectMember<'src> {
     }
 }
 
-impl<'src> Code for ObjectKey<'src> {
+impl Code for ObjectKey {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         match *self {
@@ -267,7 +285,7 @@ impl<'src> Code for ObjectKey<'src> {
     }
 }
 
-impl<'src> Code for Parameter<'src> {
+impl Code for Parameter {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         gen.write(&self.name);
@@ -278,7 +296,7 @@ impl<'src> Code for Parameter<'src> {
     }
 }
 
-impl<'src> Code for Expression<'src> {
+impl Code for Expression {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Expression::Void => {},
@@ -541,7 +559,7 @@ impl Code for VariableDeclarationKind {
     }
 }
 
-impl<'src> Code for ClassMember<'src> {
+impl Code for ClassMember {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
 
@@ -590,7 +608,7 @@ impl<'src> Code for ClassMember<'src> {
     }
 }
 
-impl<'src> Code for ClassKey<'src> {
+impl Code for ClassKey {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             ClassKey::Literal(ref name)  => gen.write(name),
@@ -608,7 +626,7 @@ impl<'src> Code for ClassKey<'src> {
     }
 }
 
-impl<'src> Code for VariableDeclarator<'src> {
+impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         gen.write(&self.name);
@@ -619,7 +637,7 @@ impl<'src> Code for VariableDeclarator<'src> {
     }
 }
 
-impl<'src> Code for Statement<'src> {
+impl Code for Statement {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Statement::Labeled {

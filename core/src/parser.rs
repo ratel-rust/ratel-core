@@ -5,7 +5,6 @@ use tokenizer::Tokenizer;
 use grammar::*;
 use operator::OperatorKind;
 use operator::OperatorKind::*;
-use owned_slice::OwnedSlice;
 use error::{ Result, Error, ParseResult, ParseError };
 
 /// Peek on the next token. Return with an error if tokenizer fails.
@@ -67,7 +66,7 @@ macro_rules! expect {
 macro_rules! expect_identifier {
     ($parser:ident) => {
         match next!($parser) {
-            Identifier(ident) => ident.as_str($parser.source),
+            Identifier(ident) => ident,
             _                 => unexpected_token!($parser)
         }
     }
@@ -117,6 +116,7 @@ impl<'src> Parser<'src> {
     #[inline]
     pub fn new(source: &'src str) -> Self {
         Parser {
+            source: source,
             tokenizer: Tokenizer::new(source),
             token: None,
         }
@@ -181,10 +181,10 @@ impl<'src> Parser<'src> {
         let key = match token {
             Identifier(key) => {
                 match peek!(self) {
-                    Colon | ParenOpen => ObjectKey::Literal(key.as_str(self.source)),
+                    Colon | ParenOpen => ObjectKey::Literal(key.into()),
 
                     _ => return Ok(ObjectMember::Shorthand {
-                        key: key,
+                        key: key.into(),
                     })
                 }
             },
@@ -197,9 +197,10 @@ impl<'src> Parser<'src> {
                 key
             },
 
-            LitString(key) => ObjectKey::Literal(key),
+            // TODO: Separate Literal and Ident!!
+            LitString(key) => ObjectKey::Literal(Ident::from(key)),
 
-            LitNumber(key) => ObjectKey::Literal(key),
+            LitNumber(key) => ObjectKey::Literal(Ident::from(key)),
 
             LitBinary(num) => ObjectKey::Binary(num),
 
@@ -264,7 +265,7 @@ impl<'src> Parser<'src> {
 
             Some(Expression::Identifier(name)) => {
                 vec![Parameter {
-                    name    : name.as_str(self.source),
+                    name    : name.into(),
                     default : None,
                 }]
             },
@@ -276,7 +277,7 @@ impl<'src> Parser<'src> {
                 right,
             }) => {
                 let name = match *left {
-                    Expression::Identifier(value) => value.as_str(self.source),
+                    Expression::Identifier(value) => value.into(),
                     _                             => unexpected_token!(self)
                 };
 
@@ -298,7 +299,7 @@ impl<'src> Parser<'src> {
                             ..
                         } => {
                             let name = match *left {
-                                Expression::Identifier(value) => value.as_str(self.source),
+                                Expression::Identifier(value) => value.into(),
                                 _ => unexpected_token!(self)
                             };
 
@@ -310,7 +311,7 @@ impl<'src> Parser<'src> {
 
                         Expression::Identifier(name) => {
                             Parameter {
-                                name    : name.as_str(self.source),
+                                name    : name,
                                 default : None
                             }
                         },
@@ -361,7 +362,7 @@ impl<'src> Parser<'src> {
 
             Accessor => {
                 let ident = match next!(self) {
-                    Identifier(ident) => ident.as_str(self.source),
+                    Identifier(ident) => Ident::from(ident),
 
                     // Allow word tokens such as "null" and "typeof" as identifiers
                     token => match token.as_word() {
@@ -403,7 +404,7 @@ impl<'src> Parser<'src> {
             Identifier(name) => {
                 expect!(self, ParenOpen);
 
-                Some(name.as_str(self.source))
+                Some(name.into())
             },
 
             ParenOpen => None,
@@ -425,14 +426,14 @@ impl<'src> Parser<'src> {
             Identifier(name) => {
                 match next!(self) {
                     Extends => {
-                        extends = Some(expect_identifier!(self));
+                        extends = Some(expect_identifier!(self).into());
 
                         expect!(self, BraceOpen);
 
-                        Some(name.as_str(self.source))
+                        Some(name.into())
                     },
 
-                    BraceOpen => Some(name),
+                    BraceOpen => Some(name.into()),
 
                     _ => unexpected_token!(self)
                 }
@@ -441,7 +442,7 @@ impl<'src> Parser<'src> {
             Extends => {
                 match next!(self) {
                     Identifier(name) => {
-                        extends = Some(name.as_str(self.source));
+                        extends = Some(name.into());
 
                         expect!(self, BraceOpen);
 
@@ -588,10 +589,10 @@ impl<'src> Parser<'src> {
             This               => Expression::This,
             LitBoolean(value)  => Expression::Literal(Value::Boolean(value)),
             LitBinary(value)   => Expression::Literal(Value::Binary(value)),
-            LitNumber(value)   => Expression::Literal(Value::Number(value.as_str(self.source))),
-            LitString(value)   => Expression::Literal(Value::String(value.as_str(self.source))),
-            LitQuasi(value)    => Expression::Literal(Value::RawQuasi(value.as_str(self.source))),
-            Identifier(value)  => Expression::from(value.as_str(self.source)),
+            LitNumber(value)   => Expression::Literal(Value::Number(value)),
+            LitString(value)   => Expression::Literal(Value::String(value)),
+            LitQuasi(value)    => Expression::Literal(Value::RawQuasi(value)),
+            Identifier(value)  => Expression::from(value),
             Operator(Division) => try!(self.regular_expression()),
             Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
@@ -685,7 +686,7 @@ impl<'src> Parser<'src> {
 
         loop {
             declarators.push(VariableDeclarator {
-                name: expect_identifier!(self),
+                name: expect_identifier!(self).into(),
                 value: match peek!(self) {
                     Operator(Assign) => {
                         self.consume();
@@ -714,7 +715,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    fn labeled_or_expression_statement(&mut self, label: OwnedSlice) -> Result<Statement> {
+    fn labeled_or_expression_statement(&mut self, label: Slice) -> Result<Statement> {
         allow!(self, Colon => {
             return Ok(Statement::Labeled {
                 label: label,
@@ -786,7 +787,7 @@ impl<'src> Parser<'src> {
 
         Ok(Statement::Try {
             body: Box::new(body),
-            error: error,
+            error: error.into(),
             handler: Box::new(handler),
         })
     }
@@ -965,8 +966,9 @@ impl<'src> Parser<'src> {
         })
     }
 
-    fn for_in_statement_from_parts<S>(&mut self, left: S, right: Expression) -> Result<Statement<'src>>
-    where S: Into<Statement<'src>> {
+    fn for_in_statement_from_parts<S>(&mut self, left: S, right: Expression) -> Result<Statement> where
+        S: Into<Statement>
+    {
         let left = Box::new(left.into());
 
         expect!(self, ParenClose);
@@ -1015,7 +1017,7 @@ impl<'src> Parser<'src> {
         loop {
             let name = match next!(self) {
                 ParenClose       => break,
-                Identifier(name) => name.as_str(self.source),
+                Identifier(name) => name,
                 _ => unexpected_token!(self)
             };
 
@@ -1025,7 +1027,7 @@ impl<'src> Parser<'src> {
                     let expression = try!(self.expression(0));
                     default_params = true;
                     Parameter {
-                        name: name,
+                        name: name.into(),
                         default: Some(Box::new(expression))
                     }
                 }
@@ -1034,7 +1036,7 @@ impl<'src> Parser<'src> {
                         unexpected_token!(self);
                     }
                     Parameter {
-                        name: name,
+                        name: name.into(),
                         default: None
                     }
                 }
@@ -1057,7 +1059,7 @@ impl<'src> Parser<'src> {
         expect!(self, ParenOpen);
 
         Ok(Statement::Function {
-            name: name,
+            name: name.into(),
             params: try!(self.parameter_list()),
             body: try!(self.block_body()),
         })
@@ -1066,7 +1068,7 @@ impl<'src> Parser<'src> {
     fn class_member(&mut self, key: ClassKey, is_static: bool) -> Result<ClassMember> {
         Ok(match next!(self) {
             ParenOpen => {
-                if !is_static && key.is_constructor() {
+                if !is_static && key.is_constructor(self.source) {
                     ClassMember::Constructor {
                         params: try!(self.parameter_list()),
                         body: try!(self.block_body()),
@@ -1107,8 +1109,8 @@ impl<'src> Parser<'src> {
         };
 
         Ok(Statement::Class {
-            name: name,
-            extends: super_class,
+            name: name.into(),
+            extends: super_class.map(Into::into),
             body: try!(self.class_body()),
         })
     }
@@ -1135,11 +1137,11 @@ impl<'src> Parser<'src> {
 
                 BraceClose => break,
 
-                LitNumber(num) => ClassKey::Number(num.as_str(self.source)),
+                LitNumber(num) => ClassKey::Number(num),
 
                 LitBinary(num) => ClassKey::Binary(num),
 
-                Identifier(key) => ClassKey::Literal(key.as_str(self.source)),
+                Identifier(key) => ClassKey::Literal(key.into()),
 
                 BracketOpen => {
                     let expr = try!(self.sequence_or_expression());
@@ -1190,7 +1192,7 @@ impl<'src> Parser<'src> {
             While              => self.while_statement(),
             Do                 => self.do_statement(),
             For                => self.for_statement(),
-            Identifier(label)  => self.labeled_or_expression_statement(label.as_str(self.source)),
+            Identifier(label)  => self.labeled_or_expression_statement(label),
             Throw              => self.throw_statement(),
             Try                => self.try_statement(),
             _                  => self.expression_statement(token),
@@ -1212,7 +1214,7 @@ impl<'src> Parser<'src> {
     }
 }
 
-pub fn parse<'src>(source: String) -> ParseResult<Program<'src>> {
+pub fn parse(source: String) -> ParseResult<Program> {
     match Parser::new(&source).parse() {
         Ok(body) => Ok(Program {
             source: source,

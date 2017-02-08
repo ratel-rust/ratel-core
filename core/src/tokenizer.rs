@@ -1,5 +1,5 @@
 use std::str;
-use lexicon::Slice;
+use grammar::Slice;
 use lexicon::Token;
 use lexicon::Token::*;
 use lexicon::ReservedKind::*;
@@ -9,7 +9,6 @@ use grammar::Expression;
 use grammar::VariableDeclarationKind::*;
 use grammar::Value;
 use error::{ Error, Result };
-use owned_slice::OwnedSlice;
 
 /// Helper macro for declaring byte-handler functions with correlating constants.
 /// This becomes handy due to a lookup table present below.
@@ -564,7 +563,7 @@ define_handlers! {
 
         Ok(match slice.as_str(tok.source) {
             "new"        => Operator(New),
-            "null"       => Literal(Value::Null),
+            "null"       => Null,
             _            => Identifier(slice),
         })
     }
@@ -623,7 +622,7 @@ define_handlers! {
         let slice = tok.consume_label_characters();
 
         Ok(match slice.as_str(tok.source) {
-            "undefined"  => Literal(Value::Undefined),
+            "undefined"  => Undefined,
             _            => Identifier(slice),
         })
     }
@@ -694,19 +693,19 @@ define_handlers! {
             b'b' | b'B' => {
                 tok.bump();
 
-                return Ok(Literal(tok.read_binary()));
+                return Ok(tok.read_binary());
             },
 
             b'o' | b'O' => {
                 tok.bump();
 
-                return Ok(Literal(tok.read_octal(start)));
+                return Ok(tok.read_octal(start));
             },
 
             b'x' | b'X' => {
                 tok.bump();
 
-                return Ok(Literal(tok.read_hexadec(start)));
+                return Ok(tok.read_hexadec(start));
             },
 
             _ => {}
@@ -720,11 +719,11 @@ define_handlers! {
                 b'.' => {
                     tok.bump();
 
-                    return Ok(Literal(tok.read_float(start)));
+                    return Ok(tok.read_float(start));
                 },
                 b'e' | b'E' => {
                     tok.bump();
-                    return Ok(Literal(tok.read_scientific(start)));
+                    return Ok(tok.read_scientific(start));
                 }
                 _ => break,
             }
@@ -749,11 +748,11 @@ define_handlers! {
                 b'.' => {
                     tok.bump();
 
-                    return Ok(Literal(tok.read_float(start)));
+                    return Ok(tok.read_float(start));
                 },
                 b'e' | b'E' => {
                     tok.bump();
-                    return Ok(Literal(tok.read_scientific(start)));
+                    return Ok(tok.read_scientific(start));
                 },
                 _ => break,
             }
@@ -774,7 +773,7 @@ define_handlers! {
             b'0'...b'9' => {
                 tok.bump();
 
-                Ok(Literal(tok.read_float(start)))
+                Ok(tok.read_float(start))
             },
 
             b'.' => {
@@ -940,7 +939,7 @@ impl<'src> Tokenizer<'src> {
 
             match ch {
                 b'`' => {
-                    let quasi = self.slice_source(start, self.index - 1);
+                    let quasi = Slice::new(start, self.index - 1);
 
                     return Ok(TemplateKind::Closed(quasi));
                 },
@@ -951,7 +950,7 @@ impl<'src> Tokenizer<'src> {
                         continue;
                     }
 
-                    let quasi = self.slice_source(start, self.index - 2);
+                    let quasi = Slice::new(start, self.index - 2);
 
                     return Ok(TemplateKind::Open(quasi));
                 },
@@ -1019,14 +1018,6 @@ impl<'src> Tokenizer<'src> {
         self.read_byte()
     }
 
-    #[inline]
-    fn slice_source(&self, start: usize, end: usize) -> OwnedSlice {
-        unsafe {
-            let slice = self.source.slice_unchecked(start, end);
-            OwnedSlice::from_str(slice)
-        }
-    }
-
     // Manually increment the index. Calling `read_byte` and then `bump`
     // is equivalent to consuming a byte on an iterator.
     #[inline]
@@ -1057,7 +1048,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     #[inline]
-    fn read_binary(&mut self) -> Value {
+    fn read_binary(&mut self) -> Token {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1075,7 +1066,7 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        Value::Binary(value)
+        LitBinary(value)
     }
 
     #[inline]
@@ -1090,11 +1081,11 @@ impl<'src> Tokenizer<'src> {
             self.bump();
         }
 
-        (start, self.index)
+        Slice::new(start, self.index)
     }
 
     #[inline]
-    fn read_octal(&mut self, start: usize) -> Value {
+    fn read_octal(&mut self, start: usize) -> Token {
         while !self.is_eof() {
             match self.read_byte() {
                 b'0'...b'7' => self.bump(),
@@ -1102,11 +1093,11 @@ impl<'src> Tokenizer<'src> {
             };
         }
 
-        Value::Number(self.slice_source(start, self.index))
+        LitNumber(Slice::new(start, self.index))
     }
 
     #[inline]
-    fn read_hexadec(&mut self, start: usize) -> Value {
+    fn read_hexadec(&mut self, start: usize) -> Token {
         while !self.is_eof() {
             match self.read_byte() {
                 b'0'...b'9' => (),
@@ -1118,11 +1109,11 @@ impl<'src> Tokenizer<'src> {
             self.bump();
         }
 
-        Value::Number(self.slice_source(start, self.index))
+        LitNumber(Slice::new(start, self.index))
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) -> Value {
+    fn read_float(&mut self, start: usize) -> Token {
         while !self.is_eof() {
             let ch = self.read_byte();
             match ch {
@@ -1135,13 +1126,13 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        let value = self.slice_source(start, self.index);
+        let value = Slice::new(start, self.index);
 
-        Value::Number(value)
+        LitNumber(value)
     }
 
     #[inline]
-    fn read_scientific(&mut self, start: usize) -> Value {
+    fn read_scientific(&mut self, start: usize) -> Token {
         if !self.is_eof() {
             match self.read_byte() {
                 b'-' | b'+' => self.bump(),
@@ -1157,9 +1148,9 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        let value = self.slice_source(start, self.index);
+        let value = Slice::new(start, self.index);
 
-        Value::Number(value)
+        LitNumber(value)
     }
 
     #[inline]
@@ -1194,7 +1185,7 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        let pattern = self.slice_source(start, self.index - 1);
+        let pattern = Slice::new(start, self.index - 1);
         let flags_start = self.index;
 
         while !self.is_eof() {
@@ -1211,7 +1202,7 @@ impl<'src> Tokenizer<'src> {
 
         Ok(Expression::RegEx{
             pattern: pattern,
-            flags: self.slice_source(flags_start, self.index)
+            flags: Slice::new(flags_start, self.index)
         })
     }
 }

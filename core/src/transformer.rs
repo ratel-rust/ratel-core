@@ -3,7 +3,6 @@ use std::mem;
 use grammar::*;
 use grammar::ClassMember::*;
 use operator::OperatorKind::*;
-use owned_slice::OwnedSlice;
 
 pub struct Settings {
     pub transform_block_scope: bool,
@@ -27,16 +26,16 @@ impl<T> Take for T where T: Default {
     }
 }
 
-impl<'src> Default for Expression<'src> {
+impl Default for Expression {
     #[inline]
-    fn default(&mut self) -> Self {
+    fn default() -> Self {
         Expression::Void
     }
 }
 
-impl<'src> Take for ObjectKey<'src> {
+impl Default for ObjectKey {
     #[inline]
-    fn default(&mut self) -> Self {
+    fn default() -> Self {
         ObjectKey::Binary(0)
     }
 }
@@ -124,7 +123,7 @@ impl<T: Transformable> Transformable for Box<T> {
     }
 }
 
-impl<'src> Transformable for Parameter<'src> {}
+impl Transformable for Parameter {}
 
 #[inline]
 fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Statement>) {
@@ -137,7 +136,6 @@ fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Stat
                             param.name,
                             StrictEquality,
                             Expression::Literal(Value::Undefined)
-                            "undefined".into(),
                         ),
                         LogicalAnd,
                         Expression::Binary {
@@ -154,7 +152,7 @@ fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Stat
     }
 }
 
-impl<'src> Transformable for Expression<'src> {
+impl Transformable for Expression {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             Expression::ArrowFunction {
@@ -361,14 +359,14 @@ impl<'src> Transformable for Expression<'src> {
                 match *operator {
                     Exponent => Expression::call(
                         Expression::member("Math", "pow"),
-                        vec![left.take(), right.take()]
+                        vec![*left.take(), *right.take()]
                     ),
 
                     ExponentAssign => {
                         *operator = Assign;
                         *right = Box::new(Expression::call(
                             Expression::member("Math", "pow"),
-                            vec![left.take(), right.take()]
+                            vec![*left.take(), *right.take()]
                         ));
                         return;
                     },
@@ -588,7 +586,7 @@ impl<'src> Transformable for Expression<'src> {
     }
 }
 
-impl<'src> Transformable for ObjectKey<'src> {
+impl Transformable for ObjectKey {
     #[inline]
     fn transform(&mut self, settings: &Settings) {
         match *self {
@@ -610,7 +608,7 @@ impl<'src> Transformable for ObjectKey<'src> {
     }
 }
 
-impl<'src> Transformable for ObjectMember<'src> {
+impl Transformable for ObjectMember {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
 
@@ -680,7 +678,7 @@ impl<'src> Transformable for ObjectMember<'src> {
     }
 }
 
-impl<'src> Transformable for ClassMember<'src> {
+impl Transformable for ClassMember {
     fn transform(&mut self, settings: &Settings) {
         match *self {
             Constructor {
@@ -714,7 +712,7 @@ impl<'src> Transformable for ClassMember<'src> {
     }
 }
 
-impl<'src> Transformable for VariableDeclarator<'src> {
+impl Transformable for VariableDeclarator {
     #[inline]
     fn transform(&mut self, settings: &Settings) {
         self.value.transform(settings);
@@ -749,8 +747,8 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
 }
 
 #[inline]
-fn class_transform_props<'src>(body: &mut Vec<ClassMember>, prop_count: usize)
-        -> (Vec<Parameter<'src>>, Vec<Statement<'src>>, Vec<ClassMember<'src>>) {
+fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
+        -> (Vec<Parameter>, Vec<Statement>, Vec<ClassMember>) {
     let mut constructor = None;
     let mut methods = Vec::with_capacity(body.len());
     let mut props = Vec::with_capacity(prop_count);
@@ -780,10 +778,10 @@ fn class_transform_props<'src>(body: &mut Vec<ClassMember>, prop_count: usize)
 }
 
 #[inline]
-fn class_transform_methods_to_prototype<'src>(
-    methods: &'src mut Vec<ClassMember<'src>>,
-    body: &'src mut Vec<Statement<'src>>,
-    name: OwnedSlice
+fn class_transform_methods_to_prototype(
+    methods: &mut Vec<ClassMember>,
+    body: &mut Vec<Statement>,
+    name: Ident
 ) {
     for method in methods.iter_mut() {
         if let &mut ClassMember::Method {
@@ -822,7 +820,7 @@ fn class_prop_count(body: &mut Vec<ClassMember>) -> usize {
 }
 
 #[inline]
-fn class_key_to_member<'src>(object: Expression<'src>, key: &'src mut ClassKey) -> Expression<'src> {
+fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
     let expr = match *key {
         ClassKey::Literal(ref name) => {
             return Expression::member(object, *name);
@@ -845,7 +843,7 @@ fn class_key_to_member<'src>(object: Expression<'src>, key: &'src mut ClassKey) 
     }
 }
 
-impl<'src> Transformable for Statement<'src> {
+impl Transformable for Statement {
     fn transform(&mut self, settings: &Settings) {
         *self = match *self {
             Statement::Block {

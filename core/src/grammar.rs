@@ -1,7 +1,7 @@
 use operator::OperatorKind;
 use std::{slice, str, ptr, mem};
 
-const INLINE_STR_CAP: u8 = 22;
+const INLINE_STR_CAP: usize = 22;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Slice {
@@ -11,7 +11,7 @@ pub struct Slice {
 
 impl Slice {
     #[inline]
-    fn new(begin: usize, end: usize) -> Self {
+    pub fn new(begin: usize, end: usize) -> Self {
         Slice {
             begin: begin,
             end: end
@@ -19,8 +19,13 @@ impl Slice {
     }
 
     #[inline]
-    fn as_str(&self, src: &str) -> &str {
+    pub fn as_str<'id, 'src>(&'id self, src: &'src str) -> &'src str {
         &src[self.begin..self.end]
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.end - self.begin
     }
 }
 
@@ -34,7 +39,7 @@ impl InlineStr {
     /// Create a new empty InlineStr
     #[inline]
     pub fn new() -> InlineStr {
-        let s = mem::uninitialized();
+        let mut s: InlineStr = unsafe { mem::uninitialized() };
 
         s.len = 0;
         s
@@ -49,20 +54,24 @@ impl InlineStr {
     /// Creates an InlineStr from a &str. This will drop any characters that don't fit on the
     /// internal buffer (InlineStr::cap(), default 22).
     pub fn from_str(src: &str) -> InlineStr {
-        let len = if src.len() <= INLINE_STR_CAP { src.len() } else {
-            let mut len = INLINE_STR_CAP;
+        let len = match src.len() <= INLINE_STR_CAP {
+            true => src.len(),
+            false => {
+                let mut len = INLINE_STR_CAP;
 
-            // Make sure we are slicing the &str at character boundary
-            while !src.is_char_boundary(len - 1) && len > 0 {
-                len -= 1;
+                // Make sure we are slicing the &str at character boundary
+                while !src.is_char_boundary(len - 1) && len > 0 {
+                    len -= 1;
+                }
+
+                len
             }
-
-            len;
         };
 
-        let mut s = mem::uninitialized();
+        let mut s: InlineStr;
 
         unsafe {
+            s = mem::uninitialized();
             ptr::copy_nonoverlapping(src.as_ptr(), s.buf.as_mut_ptr(), len);
             s.len = len as u8;
         }
@@ -84,9 +93,10 @@ impl InlineStr {
     /// behavior should capacity of the buffer be exceeded.
     #[inline]
     pub unsafe fn push(&mut self, byte: u8) {
-        debug_assert(self.len as usize < INLINE_STR_CAP);
+        debug_assert!(INLINE_STR_CAP > self.len as usize);
 
-        self.set(self.len as usize, byte);
+        let len = self.len;
+        self.set(len as usize, byte);
         self.len += 1;
     }
 
@@ -94,7 +104,7 @@ impl InlineStr {
     /// static strings
     #[inline]
     pub unsafe fn from_raw_parts(buf: [u8; INLINE_STR_CAP], len: u8) -> Self {
-        debug_assert!(len as usize <= INLINE_STR_CAP);
+        debug_assert!(INLINE_STR_CAP >= len as usize);
 
         InlineStr {
             buf: buf,
@@ -157,7 +167,7 @@ impl Ident {
         match *self {
             Ident::Insitu(ref s) => s.as_str(src),
             Ident::Static(ref s) => s,
-            Ident::Stack(ref s) => s.as_str()
+            Ident::Inline(ref s) => s.as_str()
         }
     }
 
@@ -193,10 +203,12 @@ impl Ident {
 
         let mut s = InlineStr::new();
 
-        loop id >= 52 {
+        while id >= 52 {
             // At 22 bytes with 52 possibilities, we will exhaust u64 without ever getting
             // close to overloading the buffer.
-            unsafe { s.push(ALPHA[id % 52]) };
+            unsafe {
+                s.push(ALPHA[(id % 52) as usize]);
+            }
             id /= 52;
 
             if id == 0 {
@@ -242,7 +254,7 @@ impl From<&'static str> for Ident {
 impl From<InlineStr> for Ident {
     #[inline]
     fn from(s: InlineStr) -> Self {
-        Ident::Inline(InlineStr)
+        Ident::Inline(s)
     }
 }
 
@@ -259,7 +271,7 @@ pub enum Value {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    pub name: &'src str,
+    pub name: Ident,
     pub default: Option<Box<Expression>>
 }
 
@@ -283,7 +295,7 @@ pub enum Expression {
     Object(Vec<ObjectMember>),
     Member {
         object: Box<Expression>,
-        property: Slice,
+        property: Ident,
     },
     ComputedMember {
         object: Box<Expression>,
@@ -366,8 +378,9 @@ impl Expression {
     }
 
     #[inline]
-    pub fn binary<E>(left: E, operator: OperatorKind, right: E) -> Self where
-        E: Into<Expression>
+    pub fn binary<L, R>(left: L, operator: OperatorKind, right: R) -> Self where
+        L: Into<Expression>,
+        R: Into<Expression>,
     {
         Expression::Binary {
             parenthesized: false,
@@ -442,12 +455,33 @@ impl Expression {
     }
 }
 
-impl From<I> for Expression where I: Into<Ident> {
+impl From<Slice> for Expression {
     #[inline]
-    fn from(ident: I) -> Self {
-        Expression::Identifier(ident.into())
+    fn from(slice: Slice) -> Expression {
+        Expression::Identifier(slice.into())
     }
 }
+
+impl From<&'static str> for Expression {
+    #[inline]
+    fn from(string: &'static str) -> Expression {
+        Expression::Identifier(string.into())
+    }
+}
+
+impl From<Ident> for Expression {
+    #[inline]
+    fn from(ident: Ident) -> Self {
+        Expression::Identifier(ident)
+    }
+}
+
+// impl<I> From<I> for Expression where I: Into<Ident> {
+//     #[inline]
+//     fn from(ident: I) -> Self {
+//         Expression::Identifier(ident.into())
+//     }
+// }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectMember {
@@ -468,7 +502,7 @@ pub enum ObjectMember {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectKey {
     Computed(Expression),
-    Literal(Slice),
+    Literal(Ident),
     Binary(u64),
 }
 
@@ -494,16 +528,16 @@ pub enum ClassMember {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ClassKey {
     Computed(Expression),
-    Literal(Slice),
+    Literal(Ident),
     Number(Slice),
     Binary(u64),
 }
 
 impl ClassKey {
     #[inline]
-    pub fn is_constructor(&self) -> bool {
+    pub fn is_constructor(&self, source: &str) -> bool {
         match *self {
-            ClassKey::Literal(ref name) => name.as_str() == "constructor",
+            ClassKey::Literal(ref name) => name.as_str(source) == "constructor",
 
             _ => false
         }
