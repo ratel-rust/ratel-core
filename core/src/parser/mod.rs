@@ -103,6 +103,20 @@ mod test {
     }
 
     #[test]
+    fn empty_statements() {
+        let program = parse(";;;").unwrap();
+
+        assert_eq!(program.items.len(), 3);
+
+        // Statements are linked
+        let mut stmts = program.statements();
+        assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
+        assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
+        assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
+        assert_eq!(stmts.next(), None);
+    }
+
+    #[test]
     fn parse_ident_expr() {
         let src = "foo; bar; baz;";
 
@@ -166,5 +180,4 @@ mod test {
         });
         assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
     }
-
 }

@@ -4,12 +4,13 @@ use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
 use ast::{Node, Item};
+use ast::Item::*;
 
 impl<'src> Parser<'src> {
     #[inline]
     pub fn statement(&mut self, token: Token) -> Result<Node> {
         match token {
-            // Semicolon          => Ok(Statement::Empty),
+            Semicolon          => Ok(EmptyStatement.at(0, 0)),
             // BraceOpen          => self.block_statement(),
             // Declaration(kind)  => self.variable_declaration_statement(kind),
             // Return             => self.return_statement(),
@@ -37,6 +38,6 @@ impl<'src> Parser<'src> {
 
         expect_semicolon!(self);
 
-        Ok(Item::ExpressionStatement(index).at(start, end))
+        Ok(ExpressionStatement(index).at(start, end))
     }
 }

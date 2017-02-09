@@ -52,6 +52,7 @@ pub enum Item {
     },
 
     // Statements
+    EmptyStatement,
     ExpressionStatement(Index),
 }
 
