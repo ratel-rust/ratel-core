@@ -1,4 +1,4 @@
-/// Peek on the next token. Return with an error if tokenizer fails.
+/// Peek on the next token. Return with an error if lexer fails.
 #[macro_export]
 macro_rules! peek {
     ($parser:ident) => {
@@ -6,7 +6,7 @@ macro_rules! peek {
             Some(token) => token,
 
             None => {
-                let token = try!($parser.tokenizer.get_token());
+                let token = try!($parser.lexer.get_token());
 
                 $parser.token = Some(token);
 
@@ -16,7 +16,7 @@ macro_rules! peek {
     }
 }
 
-/// Get the next token. Return with an error if tokenizer fails.
+/// Get the next token. Return with an error if lexer fails.
 #[macro_export]
 macro_rules! next {
     ($parser:ident) => {
@@ -26,7 +26,7 @@ macro_rules! next {
 
                 token
             },
-            None => try!($parser.tokenizer.get_token())
+            None => try!($parser.lexer.get_token())
         }
     }
 }
@@ -73,7 +73,7 @@ macro_rules! expect_identifier {
 #[macro_export]
 macro_rules! expect_semicolon {
     ($parser:ident) => {
-        // TODO: Tokenizer needs to flag when a new line character has been
+        // TODO: Lexer needs to flag when a new line character has been
         //       consumed to satisfy all ASI rules
         match peek!($parser) {
             Semicolon     => $parser.consume(),
@@ -83,7 +83,7 @@ macro_rules! expect_semicolon {
             EndOfProgram  => {},
 
             _             => {
-                if !$parser.tokenizer.asi() {
+                if !$parser.lexer.asi() {
                     unexpected_token!($parser)
                 }
             }
@@ -95,6 +95,6 @@ macro_rules! expect_semicolon {
 #[macro_export]
 macro_rules! unexpected_token {
     ($parser:ident) => {
-        return Err($parser.tokenizer.invalid_token())
+        return Err($parser.lexer.invalid_token())
     };
 }

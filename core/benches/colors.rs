@@ -10,7 +10,7 @@ static SOURCE: &'static str = r#"
 'use strict';
 
 /**
- * Extranct red color out of a color integer:
+ * Extract red color out of a color integer:
  *
  * 0x00DEAD -> 0x00
  *
@@ -24,7 +24,7 @@ function red( color )
 }
 
 /**
- * Extranct red color out of a color integer:
+ * Extract green out of a color integer:
  *
  * 0x00DEAD -> 0xDE
  *
@@ -38,7 +38,7 @@ function green( color )
 
 
 /**
- * Extranct red color out of a color integer:
+ * Extract blue color out of a color integer:
  *
  * 0x00DEAD -> 0xAD
  *

@@ -1,63 +1,60 @@
 mod ident;
 mod variable;
 mod operator;
-mod statement;
-mod expression;
+mod item;
 
-use std::ops::{Index, IndexMut};
+use std::ops;
 
 pub use ast::ident::*;
 pub use ast::variable::*;
 pub use ast::operator::*;
-pub use ast::expression::Expression;
-pub use ast::statement::Statement;
+pub use ast::item::Item;
 
-pub type ExpressionId = usize;
-pub type StatementId = usize;
+pub type Index = usize;
 
 #[derive(Debug, PartialEq)]
-pub struct Node<T> {
+pub struct Node {
     pub start: usize,
     pub end: usize,
-    pub value: T,
-    pub next: Option<usize>,
+    pub item: Item,
+    pub next: Option<Index>,
 }
 
-pub struct Store<T>(Vec<Node<T>>);
+pub struct Store(Vec<Node>);
 
-pub struct List<'store, T: 'store> {
-    next: Option<usize>,
-    store: &'store Store<T>,
+pub struct List<'store> {
+    next: Option<Index>,
+    store: &'store Store,
 }
 
 pub struct Program<'src> {
     pub source: &'src str,
-    pub expressions: Store<Expression>,
-    pub statements: Store<Statement>,
+    pub root: Option<Index>,
+    pub items: Store,
 }
 
-impl<T> Node<T> {
+impl Node {
     #[inline]
-    pub fn new(start: usize, end: usize, val: T) -> Self {
+    pub fn new(start: usize, end: usize, item: Item) -> Self {
         Node {
             start: start,
             end: end,
-            value: val,
+            item: item,
             next: None
         }
     }
 }
 
-impl<T> Store<T> {
+impl Store {
     #[inline]
     pub fn new() -> Self {
         Store(Vec::new())
     }
 
     #[inline]
-    pub fn insert(&mut self, start: usize, end: usize, val: T) -> usize {
+    pub fn insert(&mut self, start: usize, end: usize, item: Item) -> usize {
         let index = self.len();
-        self.0.push(Node::new(start, end, val));
+        self.0.push(Node::new(start, end, item));
         index
     }
 
@@ -67,7 +64,7 @@ impl<T> Store<T> {
     }
 
     #[inline]
-    pub fn list(&self, from: usize) -> List<T> {
+    pub fn list(&self, from: Index) -> List {
         List {
             store: &self,
             next: if self.len() > from { Some(from) } else { None },
@@ -75,33 +72,43 @@ impl<T> Store<T> {
     }
 }
 
-impl<T> Index<usize> for Store<T> {
-    type Output = Node<T>;
+impl<'store, 'src: 'store> Program<'src> {
+    #[inline]
+    pub fn statements(&'src self) -> List<'store> {
+        List {
+            store: &self.items,
+            next: self.root,
+        }
+    }
+}
+
+impl ops::Index<usize> for Store {
+    type Output = Node;
 
     #[inline]
-    fn index(&self, index: usize) -> &Node<T> {
+    fn index(&self, index: usize) -> &Node {
         &self.0[index]
     }
 }
 
-impl<T> IndexMut<usize> for Store<T> {
+impl ops::IndexMut<usize> for Store {
     #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Node<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Node {
         &mut self.0[index]
     }
 }
 
-impl<'store, T> Iterator for List<'store, T> {
-    type Item = &'store T;
+impl<'store> Iterator for List<'store> {
+    type Item = &'store Item;
 
     #[inline]
-    fn next(&mut self) -> Option<&'store T> {
+    fn next(&mut self) -> Option<&'store Item> {
         let next = self.next;
 
         next.map(|id| {
             let node = &self.store[id];
             self.next = node.next;
-            &node.value
+            &node.item
         })
     }
 }

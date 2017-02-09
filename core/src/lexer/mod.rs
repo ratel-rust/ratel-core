@@ -1,12 +1,15 @@
+mod token;
+
+pub use lexer::token::*;
+
+use lexer::token::Token::*;
+use lexer::ReservedKind::*;
+use lexer::TemplateKind;
+
 use std::str;
 use ast::Slice;
 use ast::OperatorKind::*;
 use ast::VariableDeclarationKind::*;
-use lexicon::Token;
-use lexicon::Token::*;
-use lexicon::ReservedKind::*;
-use lexicon::TemplateKind;
-// use grammar::Expression;
 use error::{ Error, Result };
 
 /// Helper macro for declaring byte-handler functions with correlating constants.
@@ -14,9 +17,9 @@ use error::{ Error, Result };
 macro_rules! define_handlers {
     { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:block)* } => {
         $(
-            fn $name($tok: &mut Tokenizer, $byte: u8) -> Result<Token> $code
+            fn $name($tok: &mut Lexer, $byte: u8) -> Result<Token> $code
 
-            const $static_name: fn(&mut Tokenizer, u8) -> Result<Token> = $name;
+            const $static_name: fn(&mut Lexer, u8) -> Result<Token> = $name;
         )*
     }
 }
@@ -35,7 +38,7 @@ macro_rules! expect_byte {
 }
 
 /// Lookup table mapping any incoming byte to a handler function defined below.
-static BYTE_HANDLERS: [fn(&mut Tokenizer, u8) -> Result<Token>; 256] = [
+static BYTE_HANDLERS: [fn(&mut Lexer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
@@ -882,7 +885,7 @@ mod ident_lookup {
     ];
 }
 
-pub struct Tokenizer<'src> {
+pub struct Lexer<'src> {
     /// Flags whether or not a new line was read before the token
     consumed_new_line: bool,
 
@@ -897,10 +900,10 @@ pub struct Tokenizer<'src> {
 }
 
 
-impl<'src> Tokenizer<'src> {
+impl<'src> Lexer<'src> {
     #[inline]
     pub fn new(source: &'src str) -> Self {
-        Tokenizer {
+        Lexer {
             consumed_new_line: false,
             source: source,
             index: 0,

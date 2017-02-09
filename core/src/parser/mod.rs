@@ -2,16 +2,15 @@
 mod macros;
 
 use std::mem;
-
-use ast::{Program, Store, Statement, Expression, OperatorKind};
 use error::{Error, ParseResult, Result};
-use tokenizer::Tokenizer;
-use lexicon::Token;
-use lexicon::Token::*;
+
+use ast::{Program, Store, Index, Item, OperatorKind};
+use lexer::{Lexer, Token};
+use lexer::Token::*;
 
 pub struct Parser<'src> {
-    /// Tokenizer will produce tokens from the source
-    tokenizer: Tokenizer<'src>,
+    /// Lexer will produce tokens from the source
+    lexer: Lexer<'src>,
 
     /// Current token, to be used by peek! and next! macros
     token: Option<Token>,
@@ -23,12 +22,12 @@ pub struct Parser<'src> {
 impl<'src> Parser<'src> {
     pub fn new(source: &'src str) -> Self {
         Parser {
-            tokenizer: Tokenizer::new(source),
+            lexer: Lexer::new(source),
             token: None,
             program: Program {
                 source: source,
-                expressions: Store::new(),
-                statements: Store::new(),
+                root: None,
+                items: Store::new(),
             }
         }
     }
@@ -39,7 +38,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    fn statement(&mut self, token: Token) -> Result<Statement> {
+    fn statement(&mut self, token: Token) -> Result<Item> {
         match token {
             // Semicolon          => Ok(Statement::Empty),
             // BraceOpen          => self.block_statement(),
@@ -60,15 +59,15 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    fn expression(&mut self, lbp: u8) -> Result<Expression> {
+    fn expression(&mut self, lbp: u8) -> Result<Item> {
         let token = next!(self);
         self.expression_from(token, lbp)
     }
 
     #[inline]
-    fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Expression> {
+    fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Item> {
         let left = match token {
-            Identifier(value)  => Expression::Identifier(value.into()),
+            Identifier(value)  => Item::Identifier(value.into()),
             _                  => unexpected_token!(self)
         };
 
@@ -76,7 +75,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    fn complex_expression(&mut self, mut left: Expression, lbp: u8) -> Result<Expression> {
+    fn complex_expression(&mut self, mut left: Item, lbp: u8) -> Result<Item> {
         loop {
             left = match peek!(self) {
                 Operator(op) => {
@@ -100,13 +99,13 @@ impl<'src> Parser<'src> {
 
 
     #[inline]
-    fn infix_expression(&mut self, left: Expression, bp: u8, op: OperatorKind) -> Result<Expression> {
+    fn infix_expression(&mut self, left: Item, bp: u8, op: OperatorKind) -> Result<Item> {
         use ast::OperatorKind::*;
 
         Ok(match op {
-            Increment | Decrement => Expression::Postfix {
+            Increment | Decrement => Item::PostfixExpr {
                 operator: op,
-                operand: self.program.expressions.insert(0, 0, left),
+                operand: self.program.items.insert(0, 0, left),
             },
 
             _ => {
@@ -120,23 +119,25 @@ impl<'src> Parser<'src> {
 
                 let right = self.expression(bp)?;
 
-                Expression::Binary {
+                Item::BinaryExpr {
                     parenthesized: false,
                     operator: op,
-                    left: self.program.expressions.insert(0, 0, left),
-                    right: self.program.expressions.insert(0, 0, right),
+                    left: self.program.items.insert(0, 0, left),
+                    right: self.program.items.insert(0, 0, right),
                 }
             }
         })
     }
 
     #[inline]
-    fn expression_statement(&mut self, token: Token) -> Result<Statement> {
+    fn expression_statement(&mut self, token: Token) -> Result<Item> {
         let expression = try!(self.expression_from(token, 0));
+
+        let index = self.program.items.insert(0, 0, expression);
 
         expect_semicolon!(self);
 
-        Ok(Statement::Expression(expression))
+        Ok(Item::ExpressionStatement(index))
     }
 
     #[inline]
@@ -146,7 +147,9 @@ impl<'src> Parser<'src> {
             token        => try!(self.statement(token))
         };
 
-        let mut previous = self.program.statements.insert(0, 0, statement);
+        let mut previous = self.program.items.insert(0, 0, statement);
+
+        self.program.root = Some(previous);
 
         loop {
             statement = match next!(self) {
@@ -154,11 +157,11 @@ impl<'src> Parser<'src> {
                 token        => try!(self.statement(token))
             };
 
-            let id = self.program.statements.insert(0, 0, statement);
+            let index = self.program.items.insert(0, 0, statement);
 
-            self.program.statements[previous].next = Some(id);
+            self.program.items[previous].next = Some(index);
 
-            previous = id;
+            previous = index;
         }
 
         Ok(())
@@ -178,39 +181,49 @@ mod test {
     use super::*;
     use ast::{Ident, Slice, OperatorKind};
 
+    macro_rules! assert_item {
+        ($item:expr, $m:pat => $eval:expr) => {
+            match $item {
+                $m => assert!($eval),
+                _ => panic!("Failed assert_item")
+            }
+        }
+    }
+
+    #[test]
+    fn empty_parse() {
+        let program = parse("").unwrap();
+
+        assert_eq!(program.items.len(), 0);
+        assert_eq!(program.root, None);
+        assert_eq!(program.statements().next(), None);
+    }
+
     #[test]
     fn parse_ident_expr() {
         let src = "foo; bar; baz;";
 
         let program = parse(src).unwrap();
 
-        let exprs = &program.expressions;
-        let stmts = &program.statements;
+        let items = &program.items;
 
-        // Statements are there
-        assert_eq!(stmts.len(), 3);
+        // 3 times statement and expression
+        assert_eq!(items.len(), 6);
+
+        // First statement is after first expression
+        assert_eq!(program.root, Some(1));
 
         // Statements are linked
-        assert_eq!(stmts[0].next, Some(1));
-        assert_eq!(stmts[1].next, Some(2));
-        assert_eq!(stmts[2].next, None);
-
-        // No nested expressions
-        assert_eq!(exprs.len(), 0);
+        let mut stmts = program.statements();
+        assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(0));
+        assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(2));
+        assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(4));
+        assert_eq!(stmts.next(), None);
 
         // Match identifiers
-        match stmts[0].value {
-            Statement::Expression(Expression::Identifier(ref ident)) => assert_eq!(ident.as_str(src), "foo"),
-            _ => panic!()
-        }
-        match stmts[1].value {
-            Statement::Expression(Expression::Identifier(ref ident)) => assert_eq!(ident.as_str(src), "bar"),
-            _ => panic!()
-        }
-        match stmts[2].value {
-            Statement::Expression(Expression::Identifier(ref ident)) => assert_eq!(ident.as_str(src), "baz"),
-            _ => panic!()
-        }
+        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "foo");
+        assert_item!(items[2].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
+        assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
     }
 
     #[test]
@@ -219,43 +232,36 @@ mod test {
 
         let program = parse(src).unwrap();
 
-        let exprs = &program.expressions;
-        let stmts = &program.statements;
+        let items = &program.items;
 
-        // Statements are there and refer to correct expressions
-        assert_eq!(stmts.len(), 2);
-        assert_eq!(stmts[0].next, Some(1));
-        assert_eq!(stmts[0].value, Statement::Expression(
-            Expression::Binary {
-                parenthesized: false,
-                operator: OperatorKind::Addition,
-                left: 0,
-                right: 1,
-            }
-        ));
-        assert_eq!(stmts[1].next, None);
-        assert_eq!(stmts[1].value, Statement::Expression(
-            Expression::Postfix {
-                operator: OperatorKind::Increment,
-                operand: 2
-            }
-        ));
+        // 2 statements, 3 simple expressions, one binary expression, one postfix expression
+        assert_eq!(items.len(), 7);
 
-        // Nested expressions
-        assert_eq!(exprs.len(), 3);
+        // First statement is after binary expression and two of it's side expressions
+        assert_eq!(program.root, Some(3));
 
-        match exprs[0].value {
-            Expression::Identifier(ref ident) => assert_eq!(ident.as_str(src), "foo"),
-            _ => panic!()
-        }
-        match exprs[1].value {
-            Expression::Identifier(ref ident) => assert_eq!(ident.as_str(src), "bar"),
-            _ => panic!()
-        }
-        match exprs[2].value {
-            Expression::Identifier(ref ident) => assert_eq!(ident.as_str(src), "baz"),
-            _ => panic!()
-        }
+        // Statements are linked
+        let mut stmts = program.statements();
+        assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(2));
+        assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(5));
+        assert_eq!(stmts.next(), None);
+
+        // Binary expression
+        assert_eq!(items[2].item, Item::BinaryExpr {
+            parenthesized: false,
+            operator: OperatorKind::Addition,
+            left: 0,
+            right: 1,
+        });
+        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "foo");
+        assert_item!(items[1].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
+
+        // Postfix expression
+        assert_eq!(items[5].item, Item::PostfixExpr {
+            operator: OperatorKind::Increment,
+            operand: 4
+        });
+        assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
     }
 
 }
