@@ -677,7 +677,7 @@ define_handlers! {
 
         tok.consume_label_characters();
 
-        let ident = Slice::new(start, tok.index);
+        let ident = Slice(start, tok.index);
 
         Ok(Identifier(ident))
     }
@@ -728,7 +728,7 @@ define_handlers! {
             }
         }
 
-        let value = Slice::new(start, tok.index);
+        let value = Slice(start, tok.index);
 
         Ok(LitNumber(value))
     }
@@ -757,7 +757,7 @@ define_handlers! {
             }
         }
 
-        let value = Slice::new(start, tok.index);
+        let value = Slice(start, tok.index);
 
         Ok(LitNumber(value))
     }
@@ -811,7 +811,7 @@ define_handlers! {
             }
         }
 
-        let value = Slice::new(start, tok.index);
+        let value = Slice(start, tok.index);
 
         Ok(LitString(value))
     }
@@ -938,7 +938,7 @@ impl<'src> Tokenizer<'src> {
 
             match ch {
                 b'`' => {
-                    let quasi = Slice::new(start, self.index - 1);
+                    let quasi = Slice(start, self.index - 1);
 
                     return Ok(TemplateKind::Closed(quasi));
                 },
@@ -949,7 +949,7 @@ impl<'src> Tokenizer<'src> {
                         continue;
                     }
 
-                    let quasi = Slice::new(start, self.index - 2);
+                    let quasi = Slice(start, self.index - 2);
 
                     return Ok(TemplateKind::Open(quasi));
                 },
@@ -1080,7 +1080,7 @@ impl<'src> Tokenizer<'src> {
             self.bump();
         }
 
-        Slice::new(start, self.index)
+        Slice(start, self.index)
     }
 
     #[inline]
@@ -1092,7 +1092,7 @@ impl<'src> Tokenizer<'src> {
             };
         }
 
-        LitNumber(Slice::new(start, self.index))
+        LitNumber(Slice(start, self.index))
     }
 
     #[inline]
@@ -1108,7 +1108,7 @@ impl<'src> Tokenizer<'src> {
             self.bump();
         }
 
-        LitNumber(Slice::new(start, self.index))
+        LitNumber(Slice(start, self.index))
     }
 
     #[inline]
@@ -1125,7 +1125,7 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        let value = Slice::new(start, self.index);
+        let value = Slice(start, self.index);
 
         LitNumber(value)
     }
@@ -1147,7 +1147,7 @@ impl<'src> Tokenizer<'src> {
             }
         }
 
-        let value = Slice::new(start, self.index);
+        let value = Slice(start, self.index);
 
         LitNumber(value)
     }
@@ -1184,7 +1184,7 @@ impl<'src> Tokenizer<'src> {
     //         }
     //     }
 
-    //     let pattern = Slice::new(start, self.index - 1);
+    //     let pattern = Slice(start, self.index - 1);
     //     let flags_start = self.index;
 
     //     while !self.is_eof() {
@@ -1201,7 +1201,7 @@ impl<'src> Tokenizer<'src> {
 
     //     Ok(Expression::RegEx{
     //         pattern: pattern,
-    //         flags: Slice::new(flags_start, self.index)
+    //         flags: Slice(flags_start, self.index)
     //     })
     // }
 }

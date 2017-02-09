@@ -4,33 +4,17 @@ use std::{slice, str, ptr, mem};
 const INLINE_STR_CAP: usize = 22;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Slice {
-    begin: usize,
-    end: usize
-}
+pub struct Slice(pub usize, pub usize);
 
 impl Slice {
     #[inline]
-    pub fn new(begin: usize, end: usize) -> Self {
-        Slice {
-            begin: begin,
-            end: end
-        }
-    }
-
-    #[inline]
-    pub fn as_ptr(&self, src: &str) -> *const u8 {
-        unsafe { src.as_ptr().offset(self.begin as isize) }
-    }
-
-    #[inline]
     pub fn as_str<'id, 'src>(&'id self, src: &'src str) -> &'src str {
-        &src[self.begin..self.end]
+        &src[self.0..self.1]
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.end - self.begin
+        self.1 - self.0
     }
 }
 

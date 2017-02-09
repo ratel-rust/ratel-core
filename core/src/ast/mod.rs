@@ -1,25 +1,79 @@
 mod ident;
 mod variable;
 mod operator;
+mod statement;
+mod expression;
 
-pub struct Expression;
-pub struct Statement;
+use std::ops::{Index, IndexMut};
 
 pub use ast::ident::*;
 pub use ast::variable::*;
 pub use ast::operator::*;
+pub use ast::expression::Expression;
+pub use ast::statement::Statement;
 
-pub struct Index(usize);
+pub type ExpressionId = usize;
+pub type StatementId = usize;
 
+#[derive(Debug, PartialEq)]
 pub struct Node<T> {
-    begin: usize,
-    end: usize,
-    value: T,
-    next: Option<Index>,
+    pub start: usize,
+    pub end: usize,
+    pub value: T,
+    pub next: Option<usize>,
 }
+
+pub struct Store<T>(Vec<Node<T>>);
 
 pub struct Program<'src> {
     pub source: &'src str,
-    pub expressions: Vec<Node<Expression>>,
-    pub statements: Vec<Node<Statement>>,
+    pub expressions: Store<Expression>,
+    pub statements: Store<Statement>,
+}
+
+impl<T> Node<T> {
+    #[inline]
+    pub fn new(start: usize, end: usize, val: T) -> Self {
+        Node {
+            start: start,
+            end: end,
+            value: val,
+            next: None
+        }
+    }
+}
+
+impl<T> Store<T> {
+    #[inline]
+    pub fn new() -> Self {
+        Store(Vec::new())
+    }
+
+    #[inline]
+    pub fn insert(&mut self, start: usize, end: usize, val: T) -> usize {
+        let index = self.len();
+        self.0.push(Node::new(start, end, val));
+        index
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<T> Index<usize> for Store<T> {
+    type Output = Node<T>;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Node<T> {
+        &self.0[index]
+    }
+}
+
+impl<T> IndexMut<usize> for Store<T> {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut Node<T> {
+        &mut self.0[index]
+    }
 }
