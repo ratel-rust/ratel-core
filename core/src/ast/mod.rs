@@ -25,6 +25,11 @@ pub struct Node<T> {
 
 pub struct Store<T>(Vec<Node<T>>);
 
+pub struct List<'store, T: 'store> {
+    next: Option<usize>,
+    store: &'store Store<T>,
+}
+
 pub struct Program<'src> {
     pub source: &'src str,
     pub expressions: Store<Expression>,
@@ -60,6 +65,14 @@ impl<T> Store<T> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    #[inline]
+    pub fn list(&self, from: usize) -> List<T> {
+        List {
+            store: &self,
+            next: if self.len() > from { Some(from) } else { None },
+        }
+    }
 }
 
 impl<T> Index<usize> for Store<T> {
@@ -75,5 +88,20 @@ impl<T> IndexMut<usize> for Store<T> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut Node<T> {
         &mut self.0[index]
+    }
+}
+
+impl<'store, T> Iterator for List<'store, T> {
+    type Item = &'store T;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'store T> {
+        let next = self.next;
+
+        next.map(|id| {
+            let node = &self.store[id];
+            self.next = node.next;
+            &node.value
+        })
     }
 }
