@@ -1,10 +1,11 @@
 #[macro_use]
 mod macros;
+mod expression;
+mod statement;
 
-use std::mem;
-use error::{Error, ParseResult, Result};
+use error::Result;
 
-use ast::{Program, Store, Index, Item, OperatorKind};
+use ast::{Program, Store, Item};
 use lexer::{Lexer, Token};
 use lexer::Token::*;
 
@@ -35,109 +36,6 @@ impl<'src> Parser<'src> {
     #[inline]
     fn consume(&mut self) {
         self.token = None;
-    }
-
-    #[inline]
-    fn statement(&mut self, token: Token) -> Result<Item> {
-        match token {
-            // Semicolon          => Ok(Statement::Empty),
-            // BraceOpen          => self.block_statement(),
-            // Declaration(kind)  => self.variable_declaration_statement(kind),
-            // Return             => self.return_statement(),
-            // Break              => self.break_statement(),
-            // Function           => self.function_statement(),
-            // Class              => self.class_statement(),
-            // If                 => self.if_statement(),
-            // While              => self.while_statement(),
-            // Do                 => self.do_statement(),
-            // For                => self.for_statement(),
-            // Identifier(label)  => self.labeled_or_expression_statement(label),
-            // Throw              => self.throw_statement(),
-            // Try                => self.try_statement(),
-            _                  => self.expression_statement(token),
-        }
-    }
-
-    #[inline]
-    fn expression(&mut self, lbp: u8) -> Result<Item> {
-        let token = next!(self);
-        self.expression_from(token, lbp)
-    }
-
-    #[inline]
-    fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Item> {
-        let left = match token {
-            Identifier(value)  => Item::Identifier(value.into()),
-            _                  => unexpected_token!(self)
-        };
-
-        self.complex_expression(left, lbp)
-    }
-
-    #[inline]
-    fn complex_expression(&mut self, mut left: Item, lbp: u8) -> Result<Item> {
-        loop {
-            left = match peek!(self) {
-                Operator(op) => {
-                    let rbp = op.binding_power();
-
-                    if lbp > rbp {
-                        break;
-                    }
-
-                    self.consume();
-
-                    try!(self.infix_expression(left, rbp, op))
-                },
-
-                _ => break
-            }
-        }
-
-        Ok(left)
-    }
-
-
-    #[inline]
-    fn infix_expression(&mut self, left: Item, bp: u8, op: OperatorKind) -> Result<Item> {
-        use ast::OperatorKind::*;
-
-        Ok(match op {
-            Increment | Decrement => Item::PostfixExpr {
-                operator: op,
-                operand: self.program.items.insert(0, 0, left),
-            },
-
-            _ => {
-                if !op.infix() {
-                    unexpected_token!(self);
-                }
-
-                if op.assignment() {
-                    // TODO: verify that left is assignable
-                }
-
-                let right = self.expression(bp)?;
-
-                Item::BinaryExpr {
-                    parenthesized: false,
-                    operator: op,
-                    left: self.program.items.insert(0, 0, left),
-                    right: self.program.items.insert(0, 0, right),
-                }
-            }
-        })
-    }
-
-    #[inline]
-    fn expression_statement(&mut self, token: Token) -> Result<Item> {
-        let expression = try!(self.expression_from(token, 0));
-
-        let index = self.program.items.insert(0, 0, expression);
-
-        expect_semicolon!(self);
-
-        Ok(Item::ExpressionStatement(index))
     }
 
     #[inline]
@@ -179,7 +77,7 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ast::{Ident, Slice, OperatorKind};
+    use ast::OperatorKind;
 
     macro_rules! assert_item {
         ($item:expr, $m:pat => $eval:expr) => {
