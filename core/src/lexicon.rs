@@ -1,6 +1,4 @@
-use grammar::Slice;
-use grammar::VariableDeclarationKind;
-use operator::OperatorKind;
+use ast::{Slice, OperatorKind, VariableDeclarationKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -61,7 +59,8 @@ pub enum Token {
     Static,
     Undefined,
     Null,
-    LitBoolean(bool),
+    True,
+    False,
     LitNumber(Slice),
     LitBinary(u64),
     LitString(Slice),
@@ -74,7 +73,7 @@ pub enum Token {
 impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
-        use operator::OperatorKind::*;
+        use ast::OperatorKind::*;
 
         match *self {
             Break                => Some("break"),
@@ -108,8 +107,8 @@ impl Token {
             Operator(Void)       => Some("void"),
             Operator(Delete)     => Some("delete"),
             Operator(Instanceof) => Some("instanceof"),
-            LitBoolean(true)     => Some("true"),
-            LitBoolean(false)    => Some("false"),
+            True                 => Some("true"),
+            False                => Some("false"),
             Null                 => Some("null"),
             Undefined            => Some("undefined"),
 

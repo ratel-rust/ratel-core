@@ -1419,7 +1419,7 @@ fn class_with_static_property_statement() {
             ClassMember::Property {
                 is_static: true,
                 key: ClassKey::Literal("bar".into()),
-                value: num!("100"),
+                value: Slice::new(39, 42).into(),
             }
         ],
     });
@@ -1428,16 +1428,16 @@ fn class_with_static_property_statement() {
 #[test]
 fn regular_expression() {
     assert_expression!("/[\\w.]+/i", Expression::RegEx {
-        pattern: "[\\w.]+".into(),
-        flags: "i".into()
+        pattern: Slice::new(1, 7),
+        flags: Slice::new(8, 9)
     });
 }
 
 #[test]
 fn regular_expression_escaping() {
     assert_expression!("/^\\a/i", Expression::RegEx {
-        pattern: "^\\a".into(),
-        flags: "i".into()
+        pattern: Slice::new(1, 5),
+        flags: Slice::new(6, 7),
     });
 }
 
@@ -1455,7 +1455,7 @@ fn try_catch_statement() {
         body: Box::new(Statement::Block {
             body: vec![
                 Statement::Expression {
-                    value: Expression::Literal(Value::True)
+                    value: Expression::Literal(Value::Boolean(true))
                 }
             ]
         }),
@@ -1463,7 +1463,7 @@ fn try_catch_statement() {
         handler: Box::new(Statement::Block {
             body: vec![
                 Statement::Expression {
-                    value: Expression::Literal(Value::False)
+                    value: Expression::Literal(Value::Boolean(false))
                 }
             ]
         }),
