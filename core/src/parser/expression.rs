@@ -3,19 +3,33 @@ use error::{Error, Result};
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{Item, OperatorKind};
+use ast::{Node, Item, OperatorKind};
 
 impl<'src> Parser<'src> {
     #[inline]
-    pub fn expression(&mut self, lbp: u8) -> Result<Item> {
+    pub fn expression(&mut self, lbp: u8) -> Result<Node> {
         let token = next!(self);
         self.expression_from(token, lbp)
     }
 
     #[inline]
-    pub fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Item> {
+    pub fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Node> {
         let left = match token {
-            Identifier(value)  => Item::Identifier(value.into()),
+            // This               => Expression::This,
+            // LitBoolean(value)  => Expression::Literal(Value::Boolean(value)),
+            // LitBinary(value)   => Expression::Literal(Value::Binary(value)),
+            // LitNumber(value)   => Expression::Literal(Value::Number(value)),
+            // LitString(value)   => Expression::Literal(Value::String(value)),
+            // LitQuasi(value)    => Expression::Literal(Value::RawQuasi(value)),
+            Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
+            // Operator(Division) => try!(self.regular_expression()),
+            // Operator(optype)   => try!(self.prefix_expression(optype)),
+            // ParenOpen          => try!(self.paren_expression()),
+            // BracketOpen        => try!(self.array_expression()),
+            // BraceOpen          => try!(self.object_expression()),
+            // Function           => try!(self.function_expression()),
+            // Class              => try!(self.class_expression()),
+            // Template(kind)     => try!(self.template_expression(None, kind)),
             _                  => unexpected_token!(self)
         };
 
@@ -23,7 +37,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    pub fn complex_expression(&mut self, mut left: Item, lbp: u8) -> Result<Item> {
+    pub fn complex_expression(&mut self, mut left: Node, lbp: u8) -> Result<Node> {
         loop {
             left = match peek!(self) {
                 Operator(op) => {
@@ -47,15 +61,17 @@ impl<'src> Parser<'src> {
 
 
     #[inline]
-    pub fn infix_expression(&mut self, left: Item, bp: u8, op: OperatorKind) -> Result<Item> {
+    pub fn infix_expression(&mut self, left: Node, bp: u8, op: OperatorKind) -> Result<Node> {
         use ast::OperatorKind::*;
 
         Ok(match op {
-            Increment | Decrement => Item::PostfixExpr {
-                operator: op,
-                operand: self.program.items.insert(0, 0, left),
+            Increment | Decrement => {
+                // TODO: op.end
+                Node::new(left.start, left.end, Item::PostfixExpr {
+                    operator: op,
+                    operand: self.store(left),
+                })
             },
-
             _ => {
                 if !op.infix() {
                     unexpected_token!(self);
@@ -67,12 +83,12 @@ impl<'src> Parser<'src> {
 
                 let right = self.expression(bp)?;
 
-                Item::BinaryExpr {
+                Node::new(left.start, right.end, Item::BinaryExpr {
                     parenthesized: false,
                     operator: op,
-                    left: self.program.items.insert(0, 0, left),
-                    right: self.program.items.insert(0, 0, right),
-                }
+                    left: self.store(left),
+                    right: self.store(right),
+                })
             }
         })
     }

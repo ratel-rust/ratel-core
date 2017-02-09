@@ -52,9 +52,9 @@ impl Store {
     }
 
     #[inline]
-    pub fn insert(&mut self, start: usize, end: usize, item: Item) -> usize {
+    pub fn insert(&mut self, node: Node) -> usize {
         let index = self.len();
-        self.0.push(Node::new(start, end, item));
+        self.0.push(node);
         index
     }
 

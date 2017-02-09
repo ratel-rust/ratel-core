@@ -5,7 +5,7 @@ mod statement;
 
 use error::Result;
 
-use ast::{Program, Store, Item};
+use ast::{Program, Store, Node, Index, Item};
 use lexer::{Lexer, Token};
 use lexer::Token::*;
 
@@ -39,23 +39,28 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
+    fn store(&mut self, node: Node) -> Index {
+        self.program.items.insert(node)
+    }
+
+    #[inline]
     fn parse(&mut self) -> Result<()> {
-        let mut statement = match next!(self) {
+        let statement = match next!(self) {
             EndOfProgram => return Ok(()),
             token        => try!(self.statement(token))
         };
 
-        let mut previous = self.program.items.insert(0, 0, statement);
+        let mut previous = self.store(statement);
 
         self.program.root = Some(previous);
 
         loop {
-            statement = match next!(self) {
+            let statement = match next!(self) {
                 EndOfProgram => break,
                 token        => try!(self.statement(token))
             };
 
-            let index = self.program.items.insert(0, 0, statement);
+            let index = self.store(statement);
 
             self.program.items[previous].next = Some(index);
 

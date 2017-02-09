@@ -3,11 +3,11 @@ use error::{Error, Result};
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::Item;
+use ast::{Node, Item};
 
 impl<'src> Parser<'src> {
     #[inline]
-    pub fn statement(&mut self, token: Token) -> Result<Item> {
+    pub fn statement(&mut self, token: Token) -> Result<Node> {
         match token {
             // Semicolon          => Ok(Statement::Empty),
             // BraceOpen          => self.block_statement(),
@@ -28,13 +28,15 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    pub fn expression_statement(&mut self, token: Token) -> Result<Item> {
+    pub fn expression_statement(&mut self, token: Token) -> Result<Node> {
         let expression = try!(self.expression_from(token, 0));
 
-        let index = self.program.items.insert(0, 0, expression);
+        let start = expression.start;
+        let end = expression.end;
+        let index = self.store(expression);
 
         expect_semicolon!(self);
 
-        Ok(Item::ExpressionStatement(index))
+        Ok(Item::ExpressionStatement(index).at(start, end))
     }
 }
