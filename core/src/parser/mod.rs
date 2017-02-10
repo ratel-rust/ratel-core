@@ -69,6 +69,103 @@ impl<'src> Parser<'src> {
 
         Ok(())
     }
+
+    #[inline]
+    fn block_body_tail(&mut self) -> Result<Option<Index>> {
+        let statement = match next!(self) {
+            BraceClose => return Ok(None),
+            token      => try!(self.statement(token)),
+        };
+
+        let mut previous = self.store(statement);
+        let root = Some(previous);
+
+        loop {
+            let statement = match next!(self) {
+                BraceClose => break,
+                token      => try!(self.statement(token)),
+            };
+
+            let index = self.store(statement);
+            self.program.items[previous].next = Some(index);
+
+            previous = index;
+        }
+
+        Ok(root)
+    }
+
+    #[inline]
+    fn block_body(&mut self) -> Result<Option<Index>> {
+        expect!(self, BraceOpen);
+        self.block_body_tail()
+    }
+
+    fn parameter_list(&mut self) -> Result<Option<Index>> {
+        let name = match next!(self) {
+            ParenClose       => return Ok(None),
+            Identifier(name) => name,
+            _                => unexpected_token!(self),
+        };
+
+        let mut previous = self.store(Item::Identifier(name.into()).at(0, 0));
+        let root = Some(previous);
+
+        loop {
+            let name = match next!(self) {
+                ParenClose => break,
+                Comma      => expect_identifier!(self),
+                _          => unexpected_token!(self),
+            };
+
+            let index = self.store(Item::Identifier(name.into()).at(0, 0));
+            self.program.items[previous].next = Some(index);
+
+            previous = index;
+        }
+
+        Ok(root)
+
+        // let mut default_params = false;
+
+        // loop {
+        //     let name = match next!(self) {
+        //         ParenClose       => break,
+        //         Identifier(name) => name,
+        //         _ => unexpected_token!(self)
+        //     };
+
+        //     list.push(match peek!(self) {
+        //         Operator(Assign) => {
+        //             self.consume();
+        //             let expression = try!(self.expression(0));
+        //             default_params = true;
+        //             Parameter {
+        //                 name: name.into(),
+        //                 default: Some(Box::new(expression))
+        //             }
+        //         }
+        //         _ => {
+        //             if default_params {
+        //                 unexpected_token!(self);
+        //             }
+        //             Parameter {
+        //                 name: name.into(),
+        //                 default: None
+        //             }
+        //         }
+        //     });
+
+        //     match next!(self) {
+        //         ParenClose => break,
+        //         Comma      => {},
+        //         _          => unexpected_token!(self)
+        //     }
+        // }
+
+        // Ok(list)
+    }
+
 }
 
 pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
@@ -179,5 +276,53 @@ mod test {
             operand: 4
         });
         assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
+    }
+
+    #[test]
+    fn function_statement_empty() {
+        let src = "function foo() {}";
+
+        let program = parse(src).unwrap();
+
+        let mut stmts = program.statements();
+
+        match *stmts.next().unwrap() {
+            Item::FunctionStatement {
+                ref name,
+                params: None,
+                body: None,
+            } => assert_eq!(name.as_str(src), "foo"),
+            _ => panic!()
+        }
+
+        assert_eq!(stmts.next(), None);
+    }
+
+    #[test]
+    fn function_statement_params() {
+        let src = "function foo(bar, baz) {}";
+
+        let program = parse(src).unwrap();
+
+        let items = &program.items;
+        let mut stmts = program.statements();
+
+        match *stmts.next().unwrap() {
+            Item::FunctionStatement {
+                ref name,
+                params: Some(0),
+                body: None,
+            } => assert_eq!(name.as_str(src), "foo"),
+            _ => panic!()
+        }
+
+        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
+        assert_item!(items[1].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
+
+        // Params are linked
+        let mut params = program.items.list(0);
+        assert_item!(*params.next().unwrap(), Item::Identifier(ref i) => i.as_str(src) == "bar");
+        assert_item!(*params.next().unwrap(), Item::Identifier(ref i) => i.as_str(src) == "baz");
+        assert_eq!(params.next(), None);
     }
 }

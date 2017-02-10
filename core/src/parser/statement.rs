@@ -15,7 +15,7 @@ impl<'src> Parser<'src> {
             // Declaration(kind)  => self.variable_declaration_statement(kind),
             // Return             => self.return_statement(),
             // Break              => self.break_statement(),
-            // Function           => self.function_statement(),
+            Function           => self.function_statement(),
             // Class              => self.class_statement(),
             // If                 => self.if_statement(),
             // While              => self.while_statement(),
@@ -39,5 +39,18 @@ impl<'src> Parser<'src> {
         expect_semicolon!(self);
 
         Ok(ExpressionStatement(index).at(start, end))
+    }
+
+    #[inline]
+    pub fn function_statement(&mut self) -> Result<Node> {
+        let name = expect_identifier!(self);
+
+        expect!(self, ParenOpen);
+
+        Ok(Item::FunctionStatement {
+            name: name.into(),
+            params: try!(self.parameter_list()),
+            body: try!(self.block_body()),
+        }.at(0, 0))
     }
 }

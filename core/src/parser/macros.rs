@@ -62,8 +62,8 @@ macro_rules! expect {
 macro_rules! expect_identifier {
     ($parser:ident) => {
         match next!($parser) {
-            Identifier(ident) => ident,
-            _                 => unexpected_token!($parser)
+            Token::Identifier(ident) => ident,
+            _                        => unexpected_token!($parser)
         }
     }
 }

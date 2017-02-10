@@ -54,6 +54,11 @@ pub enum Item {
     // Statements
     EmptyStatement,
     ExpressionStatement(Index),
+    FunctionStatement {
+        name: Ident,
+        params: Option<Index>,
+        body: Option<Index>,
+    },
 }
 
 impl Item {
