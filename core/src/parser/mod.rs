@@ -190,6 +190,12 @@ mod test {
         }
     }
 
+    macro_rules! assert_ident {
+        ($item.expr, $src:ident, $expect:expr) => {
+            assert_item!($item, Item::Identifier(ref i) => i.as_str($src) == $expect);
+        }
+    }
+
     #[test]
     fn empty_parse() {
         let program = parse("").unwrap();
@@ -235,9 +241,9 @@ mod test {
         assert_eq!(stmts.next(), None);
 
         // Match identifiers
-        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "foo");
-        assert_item!(items[2].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
-        assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
+        assert_ident!(items[0].item, src, "foo");
+        assert_ident!(items[0].item, src, "bar");
+        assert_ident!(items[0].item, src, "baz");
     }
 
     #[test]
@@ -267,15 +273,15 @@ mod test {
             left: 0,
             right: 1,
         });
-        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "foo");
-        assert_item!(items[1].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
+        assert_ident!(items[0].item, src, "foo");
+        assert_ident!(items[1].item, src, "foo");
 
         // Postfix expression
         assert_eq!(items[5].item, Item::PostfixExpr {
             operator: OperatorKind::Increment,
             operand: 4
         });
-        assert_item!(items[4].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
+        assert_ident!(items[1].item, src, "baz");
     }
 
     #[test]
@@ -316,13 +322,10 @@ mod test {
             _ => panic!()
         }
 
-        assert_item!(items[0].item, Item::Identifier(ref i) => i.as_str(src) == "bar");
-        assert_item!(items[1].item, Item::Identifier(ref i) => i.as_str(src) == "baz");
-
         // Params are linked
         let mut params = program.items.list(0);
-        assert_item!(*params.next().unwrap(), Item::Identifier(ref i) => i.as_str(src) == "bar");
-        assert_item!(*params.next().unwrap(), Item::Identifier(ref i) => i.as_str(src) == "baz");
+        assert_ident!(*params.next().unwrap(), src, "bar");
+        assert_ident!(*params.next().unwrap(), src, "baz");
         assert_eq!(params.next(), None);
     }
 }
