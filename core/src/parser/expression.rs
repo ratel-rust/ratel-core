@@ -3,7 +3,7 @@ use error::{Error, Result};
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{Node, Item, OperatorKind};
+use ast::{Node, Index, Item, OperatorKind};
 
 impl<'src> Parser<'src> {
     #[inline]
@@ -52,6 +52,19 @@ impl<'src> Parser<'src> {
                     try!(self.infix_expression(left, rbp, op))
                 },
 
+                ParenOpen => {
+                    if lbp > 18 {
+                        break;
+                    }
+
+                    self.consume();
+
+                    Item::CallExpr {
+                        callee: self.store(left),
+                        arguments: try!(self.expression_list()),
+                    }.at(0, 0)
+                },
+
                 _ => break
             }
         }
@@ -72,6 +85,16 @@ impl<'src> Parser<'src> {
                     operand: self.store(left),
                 })
             },
+
+            Accessor => {
+                let right = try!(self.expression(bp));
+
+                Node::new(left.start, right.end, Item::MemberExpr {
+                    object: self.store(left),
+                    property: self.store(right),
+                })
+            },
+
             _ => {
                 if !op.infix() {
                     unexpected_token!(self);
@@ -81,7 +104,7 @@ impl<'src> Parser<'src> {
                     // TODO: verify that left is assignable
                 }
 
-                let right = self.expression(bp)?;
+                let right = try!(self.expression(bp));
 
                 Node::new(left.start, right.end, Item::BinaryExpr {
                     parenthesized: false,
@@ -91,5 +114,30 @@ impl<'src> Parser<'src> {
                 })
             }
         })
+    }
+
+    pub fn expression_list(&mut self) -> Result<Option<Index>> {
+        let expression = match next!(self) {
+            ParenClose => return Ok(None),
+            token      => try!(self.expression_from(token, 0)),
+        };
+
+        let mut previous = self.store(expression);
+        let root = Some(previous);
+
+        loop {
+            let expression = match next!(self) {
+                ParenClose => break,
+                Comma      => try!(self.expression(0)),
+                _          => unexpected_token!(self),
+            };
+
+            let index = self.store(expression);
+            self.program.items[previous].next = Some(index);
+
+            previous = index;
+        }
+
+        Ok(root)
     }
 }

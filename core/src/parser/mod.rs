@@ -328,4 +328,25 @@ mod test {
         assert_ident!(*params.next().unwrap(), src, "baz");
         assert_eq!(params.next(), None);
     }
+
+    #[test]
+    fn function_statement_body() {
+        let src = "function foo() { bar; baz; }";
+
+        let program = parse(src).unwrap();
+    }
+
+    #[test]
+    fn call_expression() {
+        let src = "foo();";
+
+        let program = parse(src).unwrap();
+    }
+
+    #[test]
+    fn member_expression() {
+        let src = "foo.bar";
+
+        let program = parse(src).unwrap();
+    }
 }
