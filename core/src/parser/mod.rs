@@ -191,7 +191,7 @@ mod test {
     }
 
     macro_rules! assert_ident {
-        ($item.expr, $src:ident, $expect:expr) => {
+        ($item:expr, $src:ident, $expect:expr) => {
             assert_item!($item, Item::Identifier(ref i) => i.as_str($src) == $expect);
         }
     }
@@ -242,8 +242,8 @@ mod test {
 
         // Match identifiers
         assert_ident!(items[0].item, src, "foo");
-        assert_ident!(items[0].item, src, "bar");
-        assert_ident!(items[0].item, src, "baz");
+        assert_ident!(items[2].item, src, "bar");
+        assert_ident!(items[4].item, src, "baz");
     }
 
     #[test]
@@ -274,14 +274,14 @@ mod test {
             right: 1,
         });
         assert_ident!(items[0].item, src, "foo");
-        assert_ident!(items[1].item, src, "foo");
+        assert_ident!(items[1].item, src, "bar");
 
         // Postfix expression
         assert_eq!(items[5].item, Item::PostfixExpr {
             operator: OperatorKind::Increment,
             operand: 4
         });
-        assert_ident!(items[1].item, src, "baz");
+        assert_ident!(items[4].item, src, "baz");
     }
 
     #[test]
