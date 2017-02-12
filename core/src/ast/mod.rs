@@ -48,7 +48,7 @@ impl Node {
 impl Store {
     #[inline]
     pub fn new() -> Self {
-        Store(Vec::new())
+        Store(Vec::with_capacity(128))
     }
 
     #[inline]
