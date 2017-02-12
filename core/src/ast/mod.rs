@@ -8,7 +8,7 @@ use std::ops;
 pub use ast::ident::*;
 pub use ast::variable::*;
 pub use ast::operator::*;
-pub use ast::item::Item;
+pub use ast::item::{Item, Value};
 
 pub type Index = usize;
 

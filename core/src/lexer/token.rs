@@ -1,4 +1,4 @@
-use ast::{Slice, OperatorKind, VariableDeclarationKind};
+use ast::{Slice, Value, OperatorKind, VariableDeclarationKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -57,14 +57,7 @@ pub enum Token {
     Import,
     Try,
     Static,
-    Undefined,
-    Null,
-    True,
-    False,
-    LitNumber(Slice),
-    LitBinary(u64),
-    LitString(Slice),
-    LitQuasi(Slice),
+    Literal(Value),
     Reserved(ReservedKind),
     Identifier(Slice),
     Template(TemplateKind),
@@ -74,6 +67,7 @@ impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
         use ast::OperatorKind::*;
+        use ast::Value::*;
 
         match *self {
             Break                => Some("break"),
@@ -107,10 +101,10 @@ impl Token {
             Operator(Void)       => Some("void"),
             Operator(Delete)     => Some("delete"),
             Operator(Instanceof) => Some("instanceof"),
-            True                 => Some("true"),
-            False                => Some("false"),
-            Null                 => Some("null"),
-            Undefined            => Some("undefined"),
+            Literal(True)        => Some("true"),
+            Literal(False)       => Some("false"),
+            Literal(Null)        => Some("null"),
+            Literal(Undefined)   => Some("undefined"),
 
             _                    => None,
         }

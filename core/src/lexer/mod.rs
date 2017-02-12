@@ -7,7 +7,7 @@ use lexer::ReservedKind::*;
 use lexer::TemplateKind;
 
 use std::str;
-use ast::Slice;
+use ast::{Slice, Value};
 use ast::OperatorKind::*;
 use ast::VariableDeclarationKind::*;
 use error::{ Error, Result };
@@ -529,7 +529,7 @@ define_handlers! {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
-            "false"      => False,
+            "false"      => Literal(Value::False),
             _            => Identifier(slice),
         })
     }
@@ -565,7 +565,7 @@ define_handlers! {
 
         Ok(match slice.as_str(tok.source) {
             "new"        => Operator(New),
-            "null"       => Null,
+            "null"       => Literal(Value::Null),
             _            => Identifier(slice),
         })
     }
@@ -614,7 +614,7 @@ define_handlers! {
             "this"       => This,
             "throw"      => Throw,
             "try"        => Try,
-            "true"       => True,
+            "true"       => Literal(Value::True),
             _            => Identifier(slice),
         })
     }
@@ -624,7 +624,7 @@ define_handlers! {
         let slice = tok.consume_label_characters();
 
         Ok(match slice.as_str(tok.source) {
-            "undefined"  => Undefined,
+            "undefined"  => Literal(Value::Undefined),
             _            => Identifier(slice),
         })
     }
@@ -733,7 +733,7 @@ define_handlers! {
 
         let value = Slice(start, tok.index);
 
-        Ok(LitNumber(value))
+        Ok(Literal(Value::Number(value)))
     }
 
     // 1 to 9
@@ -762,7 +762,7 @@ define_handlers! {
 
         let value = Slice(start, tok.index);
 
-        Ok(LitNumber(value))
+        Ok(Literal(Value::Number(value)))
     }
 
     // .
@@ -816,7 +816,7 @@ define_handlers! {
 
         let value = Slice(start, tok.index);
 
-        Ok(LitString(value))
+        Ok(Literal(Value::String(value)))
     }
 
     // `
@@ -1068,7 +1068,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        LitBinary(value)
+        Literal(Value::Binary(value))
     }
 
     #[inline]
@@ -1095,7 +1095,9 @@ impl<'src> Lexer<'src> {
             };
         }
 
-        LitNumber(Slice(start, self.index))
+        let value = Slice(start, self.index);
+
+        Literal(Value::Number(value))
     }
 
     #[inline]
@@ -1111,7 +1113,9 @@ impl<'src> Lexer<'src> {
             self.bump();
         }
 
-        LitNumber(Slice(start, self.index))
+        let value = Slice(start, self.index);
+
+        Literal(Value::Number(value))
     }
 
     #[inline]
@@ -1130,7 +1134,7 @@ impl<'src> Lexer<'src> {
 
         let value = Slice(start, self.index);
 
-        LitNumber(value)
+        Literal(Value::Number(value))
     }
 
     #[inline]
@@ -1152,7 +1156,7 @@ impl<'src> Lexer<'src> {
 
         let value = Slice(start, self.index);
 
-        LitNumber(value)
+        Literal(Value::Number(value))
     }
 
     // #[inline]

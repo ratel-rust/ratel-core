@@ -80,13 +80,13 @@ function hexToInt( hex )
     return parseInt( hex.substring( 1 ), 16 );
 }
 
-module.exports = {
-    red,
-    green,
-    blue,
-    intToHex,
-    hexToInt,
-};
+// module.exports = {
+//     red,
+//     green,
+//     blue,
+//     intToHex,
+//     hexToInt,
+// };
 
 "#;
 
@@ -95,41 +95,42 @@ fn parse_to_ast(b: &mut Bencher) {
     b.bytes = SOURCE.len() as u64;
 
     b.iter(|| {
-        let ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
+        // let ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
+        let ast = ratel::parser::parse(SOURCE).expect("Must parse");
 
         ast
     });
 }
 
 
-#[bench]
-fn parse_to_ast_and_transform_es5(b: &mut Bencher) {
-    b.bytes = SOURCE.len() as u64;
+// #[bench]
+// fn parse_to_ast_and_transform_es5(b: &mut Bencher) {
+//     b.bytes = SOURCE.len() as u64;
 
-    b.iter(|| {
-        let mut ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
+//     b.iter(|| {
+//         let mut ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
 
-        let settings = ratel::transformer::Settings::target_es5();
+//         let settings = ratel::transformer::Settings::target_es5();
 
-        ratel::transformer::transform(&mut ast, settings);
+//         ratel::transformer::transform(&mut ast, settings);
 
-        ast
-    });
-}
+//         ast
+//     });
+// }
 
-#[bench]
-fn codegen_from_ast(b: &mut Bencher) {
-    let mut ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
+// #[bench]
+// fn codegen_from_ast(b: &mut Bencher) {
+//     let mut ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
 
-    let settings = ratel::transformer::Settings::target_es5();
+//     let settings = ratel::transformer::Settings::target_es5();
 
-    ratel::transformer::transform(&mut ast, settings);
+//     ratel::transformer::transform(&mut ast, settings);
 
-    let output = ratel::codegen::generate_code(&ast, true);
+//     let output = ratel::codegen::generate_code(&ast, true);
 
-    b.bytes = output.len() as u64;
+//     b.bytes = output.len() as u64;
 
-    b.iter(|| {
-        ratel::codegen::generate_code(&ast, true)
-    });
-}
+//     b.iter(|| {
+//         ratel::codegen::generate_code(&ast, true)
+//     });
+// }

@@ -1,4 +1,16 @@
-use ast::{Node, Index, Ident, OperatorKind};
+use ast::{Node, Index, Slice, Ident, OperatorKind, VariableDeclarationKind};
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Value {
+    Undefined,
+    Null,
+    True,
+    False,
+    Number(Slice),
+    Binary(u64),
+    String(Slice),
+    RawQuasi(Slice),
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Item {
@@ -7,6 +19,7 @@ pub enum Item {
     This,
 
     // Expressions
+    ValueExpr(Value),
     ArrayExpr(Index),
     SequenceExpr(Index),
     MemberExpr {
@@ -51,14 +64,29 @@ pub enum Item {
         body: Option<Index>,
     },
 
+
+    // Declaration
+    VariableDeclarator {
+        name: Index,
+        value: Option<Index>,
+    },
+
     // Statements
     EmptyStatement,
     ExpressionStatement(Index),
+    DeclarationStatemenet {
+        kind: VariableDeclarationKind,
+        declarators: Index,
+    },
     FunctionStatement {
         name: Ident,
         params: Option<Index>,
         body: Option<Index>,
     },
+    ReturnStatement {
+        value: Option<Index>,
+    }
+
 }
 
 impl Item {

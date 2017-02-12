@@ -15,7 +15,8 @@ impl<'src> Parser<'src> {
     #[inline]
     pub fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Node> {
         let left = match token {
-            // This               => Expression::This,
+            This               => Item::This.at(0, 0),
+            Literal(value)     => Item::ValueExpr(value).at(0, 0),
             // LitBoolean(value)  => Expression::Literal(Value::Boolean(value)),
             // LitBinary(value)   => Expression::Literal(Value::Binary(value)),
             // LitNumber(value)   => Expression::Literal(Value::Number(value)),
@@ -24,7 +25,7 @@ impl<'src> Parser<'src> {
             Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
             // Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
-            // ParenOpen          => try!(self.paren_expression()),
+            ParenOpen          => try!(self.paren_expression()),
             // BracketOpen        => try!(self.array_expression()),
             // BraceOpen          => try!(self.object_expression()),
             // Function           => try!(self.function_expression()),
@@ -139,5 +140,26 @@ impl<'src> Parser<'src> {
         }
 
         Ok(root)
+    }
+
+    #[inline]
+    fn paren_expression(&mut self) -> Result<Node> {
+        match next!(self) {
+            // ParenClose => {
+            //     expect!(self, Operator(FatArrow));
+
+            //     self.arrow_function_expression(None)
+            // },
+            token => {
+                let expression = try!(self.expression_from(token, 0));
+                // let expression = try!(self.sequence_or(expression));
+
+                expect!(self, ParenClose);
+
+                Ok(expression)
+
+                // Ok(expression.parenthesize())
+            }
+        }
     }
 }
