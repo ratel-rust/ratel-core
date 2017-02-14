@@ -7,7 +7,7 @@ use ast::{Node, Index, Item, OperatorKind, VariableDeclarationKind};
 use ast::Item::*;
 
 impl<'src> Parser<'src> {
-    #[inline]
+    #[inline(always)]
     pub fn statement(&mut self, token: Token) -> Result<Node> {
         match token {
             Semicolon          => Ok(EmptyStatement.at(0, 0)),
@@ -28,7 +28,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn expression_statement(&mut self, token: Token) -> Result<Node> {
         let expression = try!(self.expression_from(token, 0));
 
@@ -41,7 +41,7 @@ impl<'src> Parser<'src> {
         Ok(ExpressionStatement(index).at(start, end))
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn function_statement(&mut self) -> Result<Node> {
         let name = expect_identifier!(self);
 
@@ -54,7 +54,7 @@ impl<'src> Parser<'src> {
         }.at(0, 0))
     }
 
-    #[inline]
+    #[inline(always)]
     fn return_statement(&mut self) -> Result<Node> {
         let value = match peek!(self) {
             EndOfProgram => None,
@@ -77,7 +77,7 @@ impl<'src> Parser<'src> {
         }.at(0, 0))
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Node> {
         let declaration = Item::DeclarationStatemenet {
             kind: kind,
@@ -89,7 +89,7 @@ impl<'src> Parser<'src> {
         Ok(declaration)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn variable_declarators(&mut self) -> Result<Index> {
         let name = expect_identifier!(self);
 

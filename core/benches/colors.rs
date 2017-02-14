@@ -103,6 +103,20 @@ fn parse_to_ast(b: &mut Bencher) {
 }
 
 
+#[bench]
+fn tokenize(b: &mut Bencher) {
+    b.bytes = SOURCE.len() as u64;
+
+    b.iter(|| {
+        let mut lexer = ratel::lexer::Lexer::new(SOURCE);
+
+        while lexer.get_token().unwrap() != ratel::lexer::Token::EndOfProgram {
+
+        }
+    });
+}
+
+
 // #[bench]
 // fn parse_to_ast_and_transform_es5(b: &mut Bencher) {
 //     b.bytes = SOURCE.len() as u64;

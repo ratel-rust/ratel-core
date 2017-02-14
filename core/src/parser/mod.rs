@@ -33,17 +33,17 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn consume(&mut self) {
         self.token = None;
     }
 
-    #[inline]
+    #[inline(always)]
     fn store(&mut self, node: Node) -> Index {
         self.program.items.insert(node)
     }
 
-    #[inline]
+    #[inline(always)]
     fn parse(&mut self) -> Result<()> {
         let statement = match next!(self) {
             EndOfProgram => return Ok(()),
@@ -70,7 +70,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn block_body_tail(&mut self) -> Result<Option<Index>> {
         let statement = match next!(self) {
             BraceClose => return Ok(None),
@@ -95,7 +95,7 @@ impl<'src> Parser<'src> {
         Ok(root)
     }
 
-    #[inline]
+    #[inline(always)]
     fn block_body(&mut self) -> Result<Option<Index>> {
         expect!(self, BraceOpen);
         self.block_body_tail()

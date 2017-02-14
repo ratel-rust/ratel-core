@@ -6,13 +6,13 @@ use lexer::Token;
 use ast::{Node, Index, Item, OperatorKind};
 
 impl<'src> Parser<'src> {
-    #[inline]
+    #[inline(always)]
     pub fn expression(&mut self, lbp: u8) -> Result<Node> {
         let token = next!(self);
         self.expression_from(token, lbp)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Node> {
         let left = match token {
             This               => Item::This.at(0, 0),
@@ -37,7 +37,7 @@ impl<'src> Parser<'src> {
         self.complex_expression(left, lbp)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn complex_expression(&mut self, mut left: Node, lbp: u8) -> Result<Node> {
         loop {
             left = match peek!(self) {
@@ -74,7 +74,7 @@ impl<'src> Parser<'src> {
     }
 
 
-    #[inline]
+    #[inline(always)]
     pub fn infix_expression(&mut self, left: Node, bp: u8, op: OperatorKind) -> Result<Node> {
         use ast::OperatorKind::*;
 
@@ -142,7 +142,7 @@ impl<'src> Parser<'src> {
         Ok(root)
     }
 
-    #[inline]
+    #[inline(always)]
     fn paren_expression(&mut self) -> Result<Node> {
         match next!(self) {
             // ParenClose => {

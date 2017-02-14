@@ -37,6 +37,24 @@ macro_rules! expect_byte {
     })
 }
 
+macro_rules! unwind_loop {
+    ($iteration:expr) => ({
+        $iteration
+        $iteration
+        $iteration
+        $iteration
+        $iteration
+
+        loop {
+            $iteration
+            $iteration
+            $iteration
+            $iteration
+            $iteration
+        }
+    })
+}
+
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [fn(&mut Lexer, u8) -> Result<Token>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
@@ -419,11 +437,12 @@ define_handlers! {
                 tok.bump();
 
                 // Keep consuming bytes until new line or end of source
-                while !tok.is_eof() && tok.read_byte() != b'\n' {
+                unwind_loop!({
+                    if tok.is_eof() || tok.read_byte() == b'\n' {
+                        return tok.get_token();
+                    }
                     tok.bump();
-                }
-
-                return tok.get_token();
+                });
             },
 
             // block comment
@@ -431,10 +450,11 @@ define_handlers! {
                 tok.bump();
 
                 // Keep consuming bytes until */ happens in a row
-                while expect_byte!(tok) != b'*' ||
-                      expect_byte!(tok) != b'/' {}
-
-                return tok.get_token();
+                unwind_loop!({
+                    if expect_byte!(tok) == b'*' && expect_byte!(tok) == b'/' {
+                        return tok.get_token();
+                    }
+                });
             },
 
             b'=' => {
@@ -911,19 +931,30 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get_token(&mut self) -> Result<Token> {
-        self.consume_whitespace();
+        self.consumed_new_line = false;
 
-        self.token_start = self.index;
+        unwind_loop!({
+            if self.is_eof() {
+                return Ok(EndOfProgram);
+            }
 
-        if self.is_eof() {
-            return Ok(EndOfProgram);
-        }
+            let ch = self.read_byte();
 
-        let ch = self.read_byte();
+            // if ch <= 0x20 {
+            if whitespace::TABLE[ch as usize] {
+                if ch == b'\n' {
+                    self.consumed_new_line = true;
+                }
 
-        BYTE_HANDLERS[ch as usize](self, ch)
+                self.bump();
+            } else {
+                self.token_start = self.index;
+
+                return BYTE_HANDLERS[ch as usize](self, ch);
+            }
+        })
     }
 
     /// On top of being called when the opening backtick (`) of a template
@@ -1025,28 +1056,6 @@ impl<'src> Lexer<'src> {
     #[inline]
     fn bump(&mut self) {
         self.index += 1;
-    }
-
-
-    #[inline]
-    fn consume_whitespace(&mut self) {
-        self.consumed_new_line = false;
-
-        while !self.is_eof() {
-            let ch = self.read_byte();
-
-            // if ch <= 0x20 {
-            if whitespace::TABLE[ch as usize] {
-                if ch == b'\n' {
-                    self.consumed_new_line = true;
-                }
-
-                self.bump();
-                continue;
-            }
-
-            return;
-        }
     }
 
     #[inline]
