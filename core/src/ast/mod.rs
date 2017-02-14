@@ -82,6 +82,15 @@ impl<'store, 'src: 'store> Program<'src> {
     }
 }
 
+impl<'src> ops::Index<usize> for Program<'src> {
+    type Output = Item<'src>;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Item<'src> {
+        &self.items[index].item
+    }
+}
+
 impl<'src> ops::Index<usize> for Store<'src> {
     type Output = Node<'src>;
 

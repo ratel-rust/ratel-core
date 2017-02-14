@@ -1,4 +1,4 @@
-use ast::{Slice, Value, OperatorKind, VariableDeclarationKind};
+use ast::{Value, OperatorKind, VariableDeclarationKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -12,9 +12,9 @@ pub enum ReservedKind {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum TemplateKind {
-    Open(Slice),
-    Closed(Slice),
+pub enum TemplateKind<'src> {
+    Open(&'src str),
+    Closed(&'src str),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -57,10 +57,10 @@ pub enum Token<'src> {
     Import,
     Try,
     Static,
-    Literal(Value),
+    Literal(Value<'src>),
     Reserved(ReservedKind),
     Identifier(&'src str),
-    Template(TemplateKind),
+    Template(TemplateKind<'src>),
 }
 
 impl<'src> Token<'src> {

@@ -1,4 +1,4 @@
-use error::{Error, Result};
+use error::Result;
 
 use parser::Parser;
 use lexer::Token::*;
@@ -133,10 +133,7 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            let index = self.store(expression);
-            self.program.items[previous].next = Some(index);
-
-            previous = index;
+            previous = self.chain(previous, expression);
         }
 
         Ok(root)

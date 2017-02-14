@@ -1,25 +1,25 @@
-use ast::{Node, Index, Slice, Ident, OperatorKind, VariableDeclarationKind};
+use ast::{Node, Index, Ident, OperatorKind, VariableDeclarationKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Value {
+pub enum Value<'src> {
     Undefined,
     Null,
     True,
     False,
-    Number(Slice),
+    Number(&'src str),
     Binary(u64),
-    String(Slice),
-    RawQuasi(Slice),
+    String(&'src str),
+    RawQuasi(&'src str),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Item<'src> {
     // Identifiers
     Identifier(Ident<'src>),
     This,
 
     // Expressions
-    ValueExpr(Value),
+    ValueExpr(Value<'src>),
     ArrayExpr(Index),
     SequenceExpr(Index),
     MemberExpr {

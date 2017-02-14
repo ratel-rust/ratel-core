@@ -1,4 +1,4 @@
-use error::{Error, Result};
+use error::Result;
 
 use parser::Parser;
 use lexer::Token::*;
@@ -55,7 +55,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn return_statement(&mut self) -> Result<Node<'src>> {
+    pub fn return_statement(&mut self) -> Result<Node<'src>> {
         let value = match peek!(self) {
             EndOfProgram => None,
             Semicolon    => None,

@@ -44,6 +44,13 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
+    fn chain(&mut self, previous: Index, node: Node<'src>) -> Index {
+        let index = self.store(node);
+        self.program.items[previous].next = Some(index);
+        index
+    }
+
+    #[inline(always)]
     fn parse(&mut self) -> Result<()> {
         let statement = match next!(self) {
             EndOfProgram => return Ok(()),
@@ -60,11 +67,7 @@ impl<'src> Parser<'src> {
                 token        => try!(self.statement(token))
             };
 
-            let index = self.store(statement);
-
-            self.program.items[previous].next = Some(index);
-
-            previous = index;
+            previous = self.chain(previous, statement);
         }
 
         Ok(())
@@ -86,10 +89,7 @@ impl<'src> Parser<'src> {
                 token      => try!(self.statement(token)),
             };
 
-            let index = self.store(statement);
-            self.program.items[previous].next = Some(index);
-
-            previous = index;
+            previous = self.chain(previous, statement);
         }
 
         Ok(root)
@@ -101,6 +101,7 @@ impl<'src> Parser<'src> {
         self.block_body_tail()
     }
 
+    #[inline(always)]
     fn parameter_list(&mut self) -> Result<Option<Index>> {
         let name = match next!(self) {
             ParenClose       => return Ok(None),
@@ -118,10 +119,7 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            let index = self.store(Item::Identifier(name.into()).at(0, 0));
-            self.program.items[previous].next = Some(index);
-
-            previous = index;
+            previous = self.chain(previous, Item::Identifier(name.into()).at(0, 0));
         }
 
         Ok(root)
@@ -176,177 +174,212 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
     Ok(parser.program)
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use ast::OperatorKind;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ast::OperatorKind;
 
-//     macro_rules! assert_item {
-//         ($item:expr, $m:pat => $eval:expr) => {
-//             match $item {
-//                 $m => assert!($eval),
-//                 _ => panic!("Failed assert_item")
-//             }
-//         }
-//     }
+    macro_rules! assert_ident {
+        ($expect:expr, $item:expr) => {
+            assert_eq!(Item::Identifier($expect.into()), $item);
+        }
+    }
 
-//     macro_rules! assert_ident {
-//         ($item:expr, $src:ident, $expect:expr) => {
-//             assert_item!($item, Item::Identifier(ref i) => i.as_str($src) == $expect);
-//         }
-//     }
+    macro_rules! assert_list {
+        ($iter:expr $( ,$item:expr)*) => ({
+            let mut iter = $iter;
+            $(
+                assert_eq!($item, *iter.next().unwrap());
+            )*
+            assert_eq!(None, iter.next());
+        })
+    }
 
-//     #[test]
-//     fn empty_parse() {
-//         let program = parse("").unwrap();
+    #[test]
+    fn empty_parse() {
+        let program = parse("").unwrap();
 
-//         assert_eq!(program.items.len(), 0);
-//         assert_eq!(program.root, None);
-//         assert_eq!(program.statements().next(), None);
-//     }
+        assert_eq!(0, program.items.len());
+        assert_eq!(None, program.root);
+        assert_list!(program.statements());
+    }
 
-//     #[test]
-//     fn empty_statements() {
-//         let program = parse(";;;").unwrap();
+    #[test]
+    fn empty_statements() {
+        let program = parse(";;;").unwrap();
 
-//         assert_eq!(program.items.len(), 3);
+        assert_eq!(3, program.items.len());
 
-//         // Statements are linked
-//         let mut stmts = program.statements();
-//         assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
-//         assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
-//         assert_eq!(stmts.next().unwrap(), &Item::EmptyStatement);
-//         assert_eq!(stmts.next(), None);
-//     }
+        // Statements are linked
+        assert_list!(
+            program.statements(),
+            Item::EmptyStatement,
+            Item::EmptyStatement,
+            Item::EmptyStatement
+        );
+    }
 
-//     #[test]
-//     fn parse_ident_expr() {
-//         let src = "foo; bar; baz;";
+    #[test]
+    fn parse_ident_expr() {
+        let src = "foo; bar; baz;";
 
-//         let program = parse(src).unwrap();
+        let program = parse(src).unwrap();
 
-//         let items = &program.items;
+        // 3 times statement and expression
+        assert_eq!(6, program.items.len());
 
-//         // 3 times statement and expression
-//         assert_eq!(items.len(), 6);
+        // Statements are linked
+        assert_list!(
+            program.statements(),
+            Item::ExpressionStatement(0),
+            Item::ExpressionStatement(2),
+            Item::ExpressionStatement(4)
+        );
 
-//         // First statement is after first expression
-//         assert_eq!(program.root, Some(1));
+        // Match identifiers
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[2]);
+        assert_ident!("baz", program[4]);
+    }
 
-//         // Statements are linked
-//         let mut stmts = program.statements();
-//         assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(0));
-//         assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(2));
-//         assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(4));
-//         assert_eq!(stmts.next(), None);
+    #[test]
+    fn parse_binary_and_postfix_expr() {
+        let src = "foo + bar; baz++;";
 
-//         // Match identifiers
-//         assert_ident!(items[0].item, src, "foo");
-//         assert_ident!(items[2].item, src, "bar");
-//         assert_ident!(items[4].item, src, "baz");
-//     }
+        let program = parse(src).unwrap();
 
-//     #[test]
-//     fn parse_binary_and_postfix_expr() {
-//         let src = "foo + bar; baz++;";
+        // 2 statements, 3 simple expressions, one binary expression, one postfix expression
+        assert_eq!(7, program.items.len());
 
-//         let program = parse(src).unwrap();
+        // Statements are linked
+        assert_list!(
+            program.statements(),
+            Item::ExpressionStatement(2),
+            Item::ExpressionStatement(5)
+        );
 
-//         let items = &program.items;
+        // Binary expression
+        assert_eq!(Item::BinaryExpr {
+            parenthesized: false,
+            operator: OperatorKind::Addition,
+            left: 0,
+            right: 1,
+        }, program[2]);
 
-//         // 2 statements, 3 simple expressions, one binary expression, one postfix expression
-//         assert_eq!(items.len(), 7);
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[1]);
 
-//         // First statement is after binary expression and two of it's side expressions
-//         assert_eq!(program.root, Some(3));
+        // Postfix expression
+        assert_eq!(Item::PostfixExpr {
+            operator: OperatorKind::Increment,
+            operand: 4
+        }, program[5]);
 
-//         // Statements are linked
-//         let mut stmts = program.statements();
-//         assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(2));
-//         assert_eq!(stmts.next().unwrap(), &Item::ExpressionStatement(5));
-//         assert_eq!(stmts.next(), None);
+        assert_ident!("baz", program[4]);
+    }
 
-//         // Binary expression
-//         assert_eq!(items[2].item, Item::BinaryExpr {
-//             parenthesized: false,
-//             operator: OperatorKind::Addition,
-//             left: 0,
-//             right: 1,
-//         });
-//         assert_ident!(items[0].item, src, "foo");
-//         assert_ident!(items[1].item, src, "bar");
+    #[test]
+    fn function_statement_empty() {
+        let src = "function foo() {}";
 
-//         // Postfix expression
-//         assert_eq!(items[5].item, Item::PostfixExpr {
-//             operator: OperatorKind::Increment,
-//             operand: 4
-//         });
-//         assert_ident!(items[4].item, src, "baz");
-//     }
+        let program = parse(src).unwrap();
 
-//     #[test]
-//     fn function_statement_empty() {
-//         let src = "function foo() {}";
+        assert_list!(
+            program.statements(),
 
-//         let program = parse(src).unwrap();
+            Item::FunctionStatement {
+                name: "foo".into(),
+                params: None,
+                body: None,
+            }
+        );
+    }
 
-//         let mut stmts = program.statements();
+    #[test]
+    fn function_statement_params() {
+        let src = "function foo(bar, baz) {}";
 
-//         match *stmts.next().unwrap() {
-//             Item::FunctionStatement {
-//                 ref name,
-//                 params: None,
-//                 body: None,
-//             } => assert_eq!(name.as_str(src), "foo"),
-//             _ => panic!()
-//         }
+        let program = parse(src).unwrap();
 
-//         assert_eq!(stmts.next(), None);
-//     }
+        assert_list!(
+            program.statements(),
 
-//     #[test]
-//     fn function_statement_params() {
-//         let src = "function foo(bar, baz) {}";
+            Item::FunctionStatement {
+                name: "foo".into(),
+                params: Some(0),
+                body: None,
+            }
+        );
 
-//         let program = parse(src).unwrap();
+        assert_list!(
+            program.items.list(0),
+            Item::Identifier("bar".into()),
+            Item::Identifier("baz".into())
+        );
+    }
 
-//         let items = &program.items;
-//         let mut stmts = program.statements();
+    #[test]
+    fn function_statement_body() {
+        let src = "function foo() { bar; baz; }";
 
-//         match *stmts.next().unwrap() {
-//             Item::FunctionStatement {
-//                 ref name,
-//                 params: Some(0),
-//                 body: None,
-//             } => assert_eq!(name.as_str(src), "foo"),
-//             _ => panic!()
-//         }
+        let program = parse(src).unwrap();
 
-//         // Params are linked
-//         let mut params = program.items.list(0);
-//         assert_ident!(*params.next().unwrap(), src, "bar");
-//         assert_ident!(*params.next().unwrap(), src, "baz");
-//         assert_eq!(params.next(), None);
-//     }
+        assert_list!(
+            program.statements(),
 
-//     #[test]
-//     fn function_statement_body() {
-//         let src = "function foo() { bar; baz; }";
+            Item::FunctionStatement {
+                name: "foo".into(),
+                params: None,
+                body: Some(1),
+            }
+        );
 
-//         let program = parse(src).unwrap();
-//     }
+        assert_list!(
+            program.items.list(1),
+            Item::ExpressionStatement(0),
+            Item::ExpressionStatement(2)
+        );
 
-//     #[test]
-//     fn call_expression() {
-//         let src = "foo();";
+        assert_ident!("bar", program[0]);
+        assert_ident!("baz", program[2]);
+    }
 
-//         let program = parse(src).unwrap();
-//     }
+    #[test]
+    fn call_expression() {
+        let src = "foo();";
 
-//     #[test]
-//     fn member_expression() {
-//         let src = "foo.bar";
+        let program = parse(src).unwrap();
 
-//         let program = parse(src).unwrap();
-//     }
-// }
+        assert_list!(
+            program.statements(),
+            Item::ExpressionStatement(1)
+        );
+
+        assert_eq!(Item::CallExpr {
+            callee: 0,
+            arguments: None,
+        }, program[1]);
+
+        assert_ident!("foo", program[0]);
+    }
+
+    #[test]
+    fn member_expression() {
+        let src = "foo.bar";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+            Item::ExpressionStatement(2)
+        );
+
+        assert_eq!(Item::MemberExpr {
+            object: 0,
+            property: 1,
+        }, program[2]);
+
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[1]);
+    }
+}

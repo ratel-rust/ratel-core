@@ -7,7 +7,7 @@ use lexer::ReservedKind::*;
 use lexer::TemplateKind;
 
 use std::str;
-use ast::{Slice, Value};
+use ast::Value;
 use ast::OperatorKind::*;
 use ast::VariableDeclarationKind::*;
 use error::{ Error, Result };
@@ -15,9 +15,9 @@ use error::{ Error, Result };
 /// Helper macro for declaring byte-handler functions with correlating constants.
 /// This becomes handy due to a lookup table present below.
 macro_rules! define_handlers {
-    { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:block)* } => {
+    { $(const $static_name:ident: $name:ident |$lex:pat, $byte:pat| $code:block)* } => {
         $(
-            fn $name<'src>($tok: &mut Lexer<'src>, $byte: u8) -> Result<Token<'src>> $code
+            fn $name<'src>($lex: &mut Lexer<'src>, $byte: u8) -> Result<Token<'src>> $code
 
             const $static_name: for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>> = $name;
         )*
@@ -25,13 +25,13 @@ macro_rules! define_handlers {
 }
 
 macro_rules! expect_byte {
-    ($tok:ident) => ({
-        if $tok.is_eof() {
+    ($lex:ident) => ({
+        if $lex.is_eof() {
             return Err(Error::UnexpectedEndOfProgram);
         }
 
-        let byte = $tok.read_byte();
-        $tok.bump();
+        let byte = $lex.read_byte();
+        $lex.bump();
 
         byte
     })
@@ -58,7 +58,7 @@ macro_rules! unwind_loop {
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, NLN, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
     ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
     ZER, DIG, DIG, DIG, DIG,DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
@@ -78,84 +78,92 @@ static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>>
 
 // Handler function definitions:
 define_handlers! {
-    const ___: invalid_byte |tok, _| {
-        Err(tok.invalid_character())
+    const ___: invalid_byte |lex, _| {
+        Err(lex.invalid_character())
+    }
+
+    const NLN: newline |lex, _| {
+        lex.bump();
+
+        lex.consumed_new_line = true;
+
+        lex.get_token_no_asi()
     }
 
     // ;
-    const SEM: semicolon |tok, _| {
-        tok.bump();
+    const SEM: semicolon |lex, _| {
+        lex.bump();
 
         Ok(Semicolon)
     }
 
     // :
-    const COL: colon |tok, _| {
-        tok.bump();
+    const COL: colon |lex, _| {
+        lex.bump();
 
         Ok(Colon)
     }
 
     // ,
-    const COM: comma |tok, _| {
-        tok.bump();
+    const COM: comma |lex, _| {
+        lex.bump();
 
         Ok(Comma)
     }
 
     // (
-    const PNO: paren_open |tok, _| {
-        tok.bump();
+    const PNO: paren_open |lex, _| {
+        lex.bump();
 
         Ok(ParenOpen)
     }
 
     // )
-    const PNC: paren_close |tok, _| {
-        tok.bump();
+    const PNC: paren_close |lex, _| {
+        lex.bump();
 
         Ok(ParenClose)
     }
 
     // [
-    const BTO: bracket_open |tok, _| {
-        tok.bump();
+    const BTO: bracket_open |lex, _| {
+        lex.bump();
 
         Ok(BracketOpen)
     }
 
     // ]
-    const BTC: bracket_close |tok, _| {
-        tok.bump();
+    const BTC: bracket_close |lex, _| {
+        lex.bump();
 
         Ok(BracketClose)
     }
 
     // {
-    const BEO: brace_open |tok, _| {
-        tok.bump();
+    const BEO: brace_open |lex, _| {
+        lex.bump();
 
         Ok(BraceOpen)
     }
 
     // }
-    const BEC: brace_close |tok, _| {
-        tok.bump();
+    const BEC: brace_close |lex, _| {
+        lex.bump();
 
         Ok(BraceClose)
     }
 
     // =
-    const EQL: equal_sign |tok, _| {
-        tok.bump();
+    const EQL: equal_sign |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'=' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'=' => {
-                        tok.bump();
+                        lex.bump();
 
                         StrictEquality
                     },
@@ -165,7 +173,7 @@ define_handlers! {
             },
 
             b'>' => {
-                tok.bump();
+                lex.bump();
 
                 FatArrow
             },
@@ -177,16 +185,16 @@ define_handlers! {
     }
 
     // !
-    const EXL: exclamation_mark |tok, _| {
-        tok.bump();
+    const EXL: exclamation_mark |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'=' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'=' => {
-                        tok.bump();
+                        lex.bump();
 
                         StrictInequality
                     },
@@ -202,16 +210,16 @@ define_handlers! {
     }
 
     // <
-    const LSS: less_sign |tok, _| {
-        tok.bump();
+    const LSS: less_sign |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'<' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'=' => {
-                        tok.bump();
+                        lex.bump();
 
                         BSLAssign
                     },
@@ -221,7 +229,7 @@ define_handlers! {
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 LesserEquals
             },
@@ -233,20 +241,20 @@ define_handlers! {
     }
 
     // >
-    const MOR: more_sign |tok, _| {
-        tok.bump();
+    const MOR: more_sign |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'>' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'>' => {
-                        tok.bump();
+                        lex.bump();
 
-                        match tok.peek_byte() {
+                        match lex.peek_byte() {
                             b'=' => {
-                                tok.bump();
+                                lex.bump();
 
                                 UBSRAssign
                             }
@@ -262,7 +270,7 @@ define_handlers! {
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 GreaterEquals
             },
@@ -274,26 +282,26 @@ define_handlers! {
     }
 
     // ?
-    const QST: question_mark |tok, _| {
-        tok.bump();
+    const QST: question_mark |lex, _| {
+        lex.bump();
 
         Ok(Operator(Conditional))
     }
 
     // ~
-    const TLD: tilde |tok, _| {
-        tok.bump();
+    const TLD: tilde |lex, _| {
+        lex.bump();
 
         Ok(Operator(BitwiseNot))
     }
 
     // ^
-    const CRT: caret |tok, _| {
-        tok.bump();
+    const CRT: caret |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 BitXorAssign
             },
@@ -305,18 +313,18 @@ define_handlers! {
     }
 
     // &
-    const AMP: ampersand |tok, _| {
-        tok.bump();
+    const AMP: ampersand |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'&' => {
-                tok.bump();
+                lex.bump();
 
                 LogicalAnd
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 BitAndAssign
             },
@@ -328,18 +336,18 @@ define_handlers! {
     }
 
     // |
-    const PIP: pipe |tok, _| {
-        tok.bump();
+    const PIP: pipe |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'|' => {
-                tok.bump();
+                lex.bump();
 
                 LogicalOr
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 BitOrAssign
             },
@@ -351,18 +359,18 @@ define_handlers! {
     }
 
     // +
-    const PLS: plus_sign |tok, _| {
-        tok.bump();
+    const PLS: plus_sign |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'+' => {
-                tok.bump();
+                lex.bump();
 
                 Increment
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 AddAssign
             },
@@ -374,18 +382,18 @@ define_handlers! {
     }
 
     // -
-    const MIN: minus_sign |tok, _| {
-        tok.bump();
+    const MIN: minus_sign |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'-' => {
-                tok.bump();
+                lex.bump();
 
                 Decrement
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 SubstractAssign
             },
@@ -397,16 +405,16 @@ define_handlers! {
     }
 
     // *
-    const ATR: asterisk |tok, _| {
-        tok.bump();
+    const ATR: asterisk |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'*' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'=' => {
-                        tok.bump();
+                        lex.bump();
 
                         ExponentAssign
                     },
@@ -416,7 +424,7 @@ define_handlers! {
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 MultiplyAssign
             },
@@ -428,37 +436,37 @@ define_handlers! {
     }
 
     // /
-    const SLH: slash |tok, _| {
-        tok.bump();
+    const SLH: slash |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             // regular comment
             b'/' => {
-                tok.bump();
+                lex.bump();
 
                 // Keep consuming bytes until new line or end of source
                 unwind_loop!({
-                    if tok.is_eof() || tok.read_byte() == b'\n' {
-                        return tok.get_token();
+                    if lex.is_eof() || lex.read_byte() == b'\n' {
+                        return lex.get_token();
                     }
-                    tok.bump();
+                    lex.bump();
                 });
             },
 
             // block comment
             b'*' => {
-                tok.bump();
+                lex.bump();
 
                 // Keep consuming bytes until */ happens in a row
                 unwind_loop!({
-                    if expect_byte!(tok) == b'*' && expect_byte!(tok) == b'/' {
-                        return tok.get_token();
+                    if expect_byte!(lex) == b'*' && expect_byte!(lex) == b'/' {
+                        return lex.get_token();
                     }
                 });
             },
 
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 DivideAssign
             }
@@ -470,12 +478,12 @@ define_handlers! {
     }
 
     // %
-    const PRC: percent |tok, _| {
-        tok.bump();
+    const PRC: percent |lex, _| {
+        lex.bump();
 
-        let op = match tok.peek_byte() {
+        let op = match lex.peek_byte() {
             b'=' => {
-                tok.bump();
+                lex.bump();
 
                 RemainderAssign
             },
@@ -487,205 +495,173 @@ define_handlers! {
     }
 
     // Non-keyword Identifier: starting with a letter, _ or $
-    const IDT: identifier |tok, _| {
-        Ok(Identifier(tok.consume_label_characters()))
+    const IDT: identifier |lex, _| {
+        Ok(Identifier(lex.consume_label_characters()))
     }
 
     // Identifier or keyword starting with a letter `b`
-    const L_B: label_b |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_B: label_b |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "break"      => Break,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `c`
-    const L_C: label_c |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_C: label_c |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "const"      => Declaration(Const),
             "case"       => Case,
             "class"      => Class,
             "catch"      => Catch,
             "continue"   => Continue,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `d`
-    const L_D: label_d |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_D: label_d |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "delete"     => Operator(Delete),
             "do"         => Do,
             "debugger"   => Debugger,
             "default"    => Default,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `e`
-    const L_E: label_e |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_E: label_e |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "else"       => Else,
             "export"     => Export,
             "extends"    => Extends,
             "enum"       => Reserved(Enum),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `f`
-    const L_F: label_f |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_F: label_f |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
             "false"      => Literal(Value::False),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `i`
-    const L_I: label_i |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_I: label_i |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
             "if"         => If,
             "import"     => Import,
             "implements" => Reserved(Implements),
             "interface"  => Reserved(Interface),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `l`
-    const L_L: label_l |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_L: label_l |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "let"        => Declaration(Let),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `n`
-    const L_N: label_n |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_N: label_n |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "new"        => Operator(New),
             "null"       => Literal(Value::Null),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `p`
-    const L_P: label_p |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_P: label_p |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "package"    => Reserved(Package),
             "protected"  => Reserved(Protected),
             "private"    => Reserved(Private),
             "public"     => Reserved(Public),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `r`
-    const L_R: label_r |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_R: label_r |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "return"     => Return,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `s`
-    const L_S: label_s |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_S: label_s |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "super"      => Super,
             "switch"     => Switch,
             "static"     => Static,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `t`
-    const L_T: label_t |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_T: label_t |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "typeof"     => Operator(Typeof),
             "this"       => This,
             "throw"      => Throw,
             "try"        => Try,
             "true"       => Literal(Value::True),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `u`
-    const L_U: label_u |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_U: label_u |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "undefined"  => Literal(Value::Undefined),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `v`
-    const L_V: label_v |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_V: label_v |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "void"       => Operator(Void),
             "var"        => Declaration(Var),
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `w`
-    const L_W: label_w |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_W: label_w |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "while"      => While,
             "with"       => With,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Identifier or keyword starting with a letter `y`
-    const L_Y: label_y |tok, _| {
-        let slice = tok.consume_label_characters();
-
-        Ok(match slice {
+    const L_Y: label_y |lex, _| {
+        Ok(match lex.consume_label_characters() {
             "yield"      => Yield,
-            _            => Identifier(slice),
+            slice        => Identifier(slice),
         })
     }
 
     // Unicode character
-    const UNI: unicode |tok, _| {
-        let start = tok.index;
+    const UNI: unicode |lex, _| {
+        let start = lex.index;
 
-        let first = tok.source[start..].chars().next().expect("Has to have one");
+        let first = lex.source[start..].chars().next().expect("Has to have one");
 
         if !first.is_alphanumeric() {
             return Err(Error::UnexpectedToken {
@@ -696,120 +672,119 @@ define_handlers! {
 
         // `consume_label_characters` bumps one at the beginning,
         // so we subtract it here.
-        tok.index += first.len_utf8() - 1;
+        lex.index += first.len_utf8() - 1;
 
-        tok.consume_label_characters();
+        lex.consume_label_characters();
 
-        let ident = &tok.source[start..tok.index];
-        // let ident = Slice(start, tok.index);
+        let ident = lex.slice_from(start);
 
         Ok(Identifier(ident))
     }
 
     // 0
-    const ZER: zero |tok, _| {
-        let start = tok.index;
+    const ZER: zero |lex, _| {
+        let start = lex.index;
 
-        tok.bump();
+        lex.bump();
 
-        match tok.peek_byte() {
+        match lex.peek_byte() {
             b'b' | b'B' => {
-                tok.bump();
+                lex.bump();
 
-                return Ok(tok.read_binary());
+                return Ok(lex.read_binary());
             },
 
             b'o' | b'O' => {
-                tok.bump();
+                lex.bump();
 
-                return Ok(tok.read_octal(start));
+                return Ok(lex.read_octal(start));
             },
 
             b'x' | b'X' => {
-                tok.bump();
+                lex.bump();
 
-                return Ok(tok.read_hexadec(start));
+                return Ok(lex.read_hexadec(start));
             },
 
             _ => {}
         }
 
-        while !tok.is_eof() {
-            match tok.read_byte() {
+        while !lex.is_eof() {
+            match lex.read_byte() {
                 b'0'...b'9' => {
-                    tok.bump();
+                    lex.bump();
                 },
                 b'.' => {
-                    tok.bump();
+                    lex.bump();
 
-                    return Ok(tok.read_float(start));
+                    return Ok(lex.read_float(start));
                 },
                 b'e' | b'E' => {
-                    tok.bump();
-                    return Ok(tok.read_scientific(start));
+                    lex.bump();
+                    return Ok(lex.read_scientific(start));
                 }
                 _ => break,
             }
         }
 
-        let value = Slice(start, tok.index);
+        let value = lex.slice_from(start);
 
         Ok(Literal(Value::Number(value)))
     }
 
     // 1 to 9
-    const DIG: digit |tok, _| {
-        let start = tok.index;
+    const DIG: digit |lex, _| {
+        let start = lex.index;
 
-        tok.bump();
+        lex.bump();
 
-        while !tok.is_eof() {
-            match tok.read_byte() {
+        while !lex.is_eof() {
+            match lex.read_byte() {
                 b'0'...b'9' => {
-                    tok.bump();
+                    lex.bump();
                 },
                 b'.' => {
-                    tok.bump();
+                    lex.bump();
 
-                    return Ok(tok.read_float(start));
+                    return Ok(lex.read_float(start));
                 },
                 b'e' | b'E' => {
-                    tok.bump();
-                    return Ok(tok.read_scientific(start));
+                    lex.bump();
+                    return Ok(lex.read_scientific(start));
                 },
                 _ => break,
             }
         }
 
-        let value = Slice(start, tok.index);
+        let value = lex.slice_from(start);
 
         Ok(Literal(Value::Number(value)))
     }
 
     // .
-    const PRD: period |tok, _| {
-        let start = tok.index;
+    const PRD: period |lex, _| {
+        let start = lex.index;
 
-        tok.bump();
+        lex.bump();
 
-        match tok.peek_byte() {
+        match lex.peek_byte() {
             b'0'...b'9' => {
-                tok.bump();
+                lex.bump();
 
-                Ok(tok.read_float(start))
+                Ok(lex.read_float(start))
             },
 
             b'.' => {
-                tok.bump();
+                lex.bump();
 
-                match tok.peek_byte() {
+                match lex.peek_byte() {
                     b'.' => {
-                        tok.bump();
+                        lex.bump();
 
                         Ok(Operator(Spread))
                     },
 
-                    _ => Err(tok.invalid_character())
+                    _ => Err(lex.invalid_character())
                 }
             },
 
@@ -818,33 +793,33 @@ define_handlers! {
     }
 
     // " or '
-    const QOT: quote |tok, byte| {
-        let start = tok.index;
+    const QOT: quote |lex, byte| {
+        let start = lex.index;
 
-        tok.bump();
+        lex.bump();
 
         loop {
-            let ch = expect_byte!(tok);
+            let ch = expect_byte!(lex);
 
             if ch == byte {
                 break;
             }
 
             if ch == b'\\' {
-                expect_byte!(tok);
+                expect_byte!(lex);
             }
         }
 
-        let value = Slice(start, tok.index);
+        let value = lex.slice_from(start);
 
         Ok(Literal(Value::String(value)))
     }
 
     // `
-    const TPL: template |tok, _| {
-        tok.bump();
+    const TPL: template |lex, _| {
+        lex.bump();
 
-        let template_kind = try!(tok.read_template_kind());
+        let template_kind = try!(lex.read_template_kind());
 
         Ok(Template(template_kind))
     }
@@ -856,7 +831,7 @@ mod whitespace {
 
     pub static TABLE: [bool; 256] = [
     // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      __, __, __, __, __, __, __, __, __, WH, WH, __, __, WH, __, __, // 0
+      __, __, __, __, __, __, __, __, __, WH, __, __, __, WH, __, __, // 0
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
       WH, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
       __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
@@ -936,6 +911,11 @@ impl<'src> Lexer<'src> {
     pub fn get_token(&mut self) -> Result<Token<'src>> {
         self.consumed_new_line = false;
 
+        self.get_token_no_asi()
+    }
+
+    #[inline(always)]
+    fn get_token_no_asi(&mut self) -> Result<Token<'src>> {
         unwind_loop!({
             if self.is_eof() {
                 return Ok(EndOfProgram);
@@ -943,18 +923,13 @@ impl<'src> Lexer<'src> {
 
             let ch = self.read_byte();
 
-            // if ch <= 0x20 {
-            if whitespace::TABLE[ch as usize] {
-                if ch == b'\n' {
-                    self.consumed_new_line = true;
-                }
-
-                self.bump();
-            } else {
+            if !whitespace::TABLE[ch as usize] {
                 self.token_start = self.index;
 
                 return BYTE_HANDLERS[ch as usize](self, ch);
             }
+
+            self.bump();
         })
     }
 
@@ -965,7 +940,7 @@ impl<'src> Lexer<'src> {
     /// **Note:** Parser needs to expect a BraceClose token before calling
     /// this method to ensure that the tokenizer state is not corrupted.
     #[inline]
-    pub fn read_template_kind(&mut self) -> Result<TemplateKind> {
+    pub fn read_template_kind(&mut self) -> Result<TemplateKind<'src>> {
         let start = self.index;
 
         loop {
@@ -973,7 +948,7 @@ impl<'src> Lexer<'src> {
 
             match ch {
                 b'`' => {
-                    let quasi = Slice(start, self.index - 1);
+                    let quasi = &self.source[start..self.index - 1];
 
                     return Ok(TemplateKind::Closed(quasi));
                 },
@@ -984,7 +959,7 @@ impl<'src> Lexer<'src> {
                         continue;
                     }
 
-                    let quasi = Slice(start, self.index - 2);
+                    let quasi = &self.source[start..self.index - 2];
 
                     return Ok(TemplateKind::Open(quasi));
                 },
@@ -1087,12 +1062,52 @@ impl<'src> Lexer<'src> {
 
         let start = self.index;
 
+        if self.index + 8 < self.source.len() {
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+            self.bump();
+            if !ident_lookup::TABLE[self.read_byte() as usize] {
+                return self.slice_from(start);
+            }
+        }
+
         self.bump();
 
         while !self.is_eof() && ident_lookup::TABLE[self.read_byte() as usize] {
             self.bump();
         }
 
+        self.slice_from(start)
+    }
+
+    #[inline(always)]
+    fn slice_from(&self, start: usize) -> &'src str {
         unsafe { self.source.slice_unchecked(start, self.index) }
     }
 
@@ -1105,7 +1120,7 @@ impl<'src> Lexer<'src> {
             };
         }
 
-        let value = Slice(start, self.index);
+        let value = self.slice_from(start);
 
         Literal(Value::Number(value))
     }
@@ -1123,7 +1138,7 @@ impl<'src> Lexer<'src> {
             self.bump();
         }
 
-        let value = Slice(start, self.index);
+        let value = self.slice_from(start);
 
         Literal(Value::Number(value))
     }
@@ -1142,7 +1157,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let value = Slice(start, self.index);
+        let value = self.slice_from(start);
 
         Literal(Value::Number(value))
     }
@@ -1164,7 +1179,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let value = Slice(start, self.index);
+        let value = self.slice_from(start);
 
         Literal(Value::Number(value))
     }

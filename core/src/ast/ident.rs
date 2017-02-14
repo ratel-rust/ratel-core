@@ -1,24 +1,7 @@
-use ast::OperatorKind;
 use std::{slice, str, ptr, mem};
 use std::marker::PhantomData;
 
 const INLINE_STR_CAP: usize = 22;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Slice(pub usize, pub usize);
-
-impl Slice {
-    #[inline(always)]
-    pub fn as_str<'id, 'src>(&'id self, src: &'src str) -> &'src str {
-        unsafe { src.slice_unchecked(self.0, self.1) }
-        // &src[self.0..self.1]
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.1 - self.0
-    }
-}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct InlineStr<'src> {
