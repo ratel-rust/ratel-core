@@ -12,10 +12,10 @@ pub enum Value {
     RawQuasi(Slice),
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Item {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Item<'src> {
     // Identifiers
-    Identifier(Ident),
+    Identifier(Ident<'src>),
     This,
 
     // Expressions
@@ -54,13 +54,13 @@ pub enum Item {
         body: Option<Index>,
     },
     FunctionExpr {
-        name: Option<Ident>,
+        name: Option<Ident<'src>>,
         params: Option<Index>,
         body: Option<Index>,
     },
     ClassExpr {
-        name: Option<Ident>,
-        extends: Option<Ident>,
+        name: Option<Ident<'src>>,
+        extends: Option<Ident<'src>>,
         body: Option<Index>,
     },
 
@@ -79,7 +79,7 @@ pub enum Item {
         declarators: Index,
     },
     FunctionStatement {
-        name: Ident,
+        name: Ident<'src>,
         params: Option<Index>,
         body: Option<Index>,
     },
@@ -89,9 +89,9 @@ pub enum Item {
 
 }
 
-impl Item {
+impl<'src> Item<'src> {
     #[inline]
-    pub fn at(self, start: usize, end: usize) -> Node {
+    pub fn at(self, start: usize, end: usize) -> Node<'src> {
         Node::new(start, end, self)
     }
 }

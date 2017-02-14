@@ -18,7 +18,7 @@ pub enum TemplateKind {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Token {
+pub enum Token<'src> {
     EndOfProgram,
     Semicolon,
     Colon,
@@ -59,11 +59,11 @@ pub enum Token {
     Static,
     Literal(Value),
     Reserved(ReservedKind),
-    Identifier(Slice),
+    Identifier(&'src str),
     Template(TemplateKind),
 }
 
-impl Token {
+impl<'src> Token<'src> {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
         use ast::OperatorKind::*;

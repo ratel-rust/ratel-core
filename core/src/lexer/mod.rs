@@ -17,9 +17,9 @@ use error::{ Error, Result };
 macro_rules! define_handlers {
     { $(const $static_name:ident: $name:ident |$tok:pat, $byte:pat| $code:block)* } => {
         $(
-            fn $name($tok: &mut Lexer, $byte: u8) -> Result<Token> $code
+            fn $name<'src>($tok: &mut Lexer<'src>, $byte: u8) -> Result<Token<'src>> $code
 
-            const $static_name: fn(&mut Lexer, u8) -> Result<Token> = $name;
+            const $static_name: for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>> = $name;
         )*
     }
 }
@@ -56,12 +56,12 @@ macro_rules! unwind_loop {
 }
 
 /// Lookup table mapping any incoming byte to a handler function defined below.
-static BYTE_HANDLERS: [fn(&mut Lexer, u8) -> Result<Token>; 256] = [
+static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
     ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
-    ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
+    ZER, DIG, DIG, DIG, DIG,DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
     IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, IDT, BTC, CRT, IDT, // 5
     TPL, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
@@ -495,7 +495,7 @@ define_handlers! {
     const L_B: label_b |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "break"      => Break,
             _            => Identifier(slice),
         })
@@ -505,7 +505,7 @@ define_handlers! {
     const L_C: label_c |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "const"      => Declaration(Const),
             "case"       => Case,
             "class"      => Class,
@@ -519,7 +519,7 @@ define_handlers! {
     const L_D: label_d |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "delete"     => Operator(Delete),
             "do"         => Do,
             "debugger"   => Debugger,
@@ -532,7 +532,7 @@ define_handlers! {
     const L_E: label_e |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "else"       => Else,
             "export"     => Export,
             "extends"    => Extends,
@@ -545,7 +545,7 @@ define_handlers! {
     const L_F: label_f |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
@@ -558,7 +558,7 @@ define_handlers! {
     const L_I: label_i |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
             "if"         => If,
@@ -573,7 +573,7 @@ define_handlers! {
     const L_L: label_l |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "let"        => Declaration(Let),
             _            => Identifier(slice),
         })
@@ -583,7 +583,7 @@ define_handlers! {
     const L_N: label_n |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "new"        => Operator(New),
             "null"       => Literal(Value::Null),
             _            => Identifier(slice),
@@ -594,7 +594,7 @@ define_handlers! {
     const L_P: label_p |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "package"    => Reserved(Package),
             "protected"  => Reserved(Protected),
             "private"    => Reserved(Private),
@@ -607,7 +607,7 @@ define_handlers! {
     const L_R: label_r |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "return"     => Return,
             _            => Identifier(slice),
         })
@@ -617,7 +617,7 @@ define_handlers! {
     const L_S: label_s |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "super"      => Super,
             "switch"     => Switch,
             "static"     => Static,
@@ -629,7 +629,7 @@ define_handlers! {
     const L_T: label_t |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "typeof"     => Operator(Typeof),
             "this"       => This,
             "throw"      => Throw,
@@ -643,7 +643,7 @@ define_handlers! {
     const L_U: label_u |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "undefined"  => Literal(Value::Undefined),
             _            => Identifier(slice),
         })
@@ -653,7 +653,7 @@ define_handlers! {
     const L_V: label_v |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "void"       => Operator(Void),
             "var"        => Declaration(Var),
             _            => Identifier(slice),
@@ -664,7 +664,7 @@ define_handlers! {
     const L_W: label_w |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "while"      => While,
             "with"       => With,
             _            => Identifier(slice),
@@ -675,7 +675,7 @@ define_handlers! {
     const L_Y: label_y |tok, _| {
         let slice = tok.consume_label_characters();
 
-        Ok(match slice.as_str(tok.source) {
+        Ok(match slice {
             "yield"      => Yield,
             _            => Identifier(slice),
         })
@@ -700,7 +700,8 @@ define_handlers! {
 
         tok.consume_label_characters();
 
-        let ident = Slice(start, tok.index);
+        let ident = &tok.source[start..tok.index];
+        // let ident = Slice(start, tok.index);
 
         Ok(Identifier(ident))
     }
@@ -932,7 +933,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    pub fn get_token(&mut self) -> Result<Token> {
+    pub fn get_token(&mut self) -> Result<Token<'src>> {
         self.consumed_new_line = false;
 
         unwind_loop!({
@@ -1059,7 +1060,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_binary(&mut self) -> Token {
+    fn read_binary(&mut self) -> Token<'src> {
         let mut value = 0;
 
         while !self.is_eof() {
@@ -1080,8 +1081,8 @@ impl<'src> Lexer<'src> {
         Literal(Value::Binary(value))
     }
 
-    #[inline]
-    fn consume_label_characters(&mut self) -> Slice {
+    #[inline(always)]
+    fn consume_label_characters(&mut self) -> &'src str {
         // TODO: Reject invalid unicode and escaped unicode character
 
         let start = self.index;
@@ -1092,11 +1093,11 @@ impl<'src> Lexer<'src> {
             self.bump();
         }
 
-        Slice(start, self.index)
+        unsafe { self.source.slice_unchecked(start, self.index) }
     }
 
     #[inline]
-    fn read_octal(&mut self, start: usize) -> Token {
+    fn read_octal(&mut self, start: usize) -> Token<'src> {
         while !self.is_eof() {
             match self.read_byte() {
                 b'0'...b'7' => self.bump(),
@@ -1110,7 +1111,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_hexadec(&mut self, start: usize) -> Token {
+    fn read_hexadec(&mut self, start: usize) -> Token<'src> {
         while !self.is_eof() {
             match self.read_byte() {
                 b'0'...b'9' => (),
@@ -1128,7 +1129,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) -> Token {
+    fn read_float(&mut self, start: usize) -> Token<'src> {
         while !self.is_eof() {
             let ch = self.read_byte();
             match ch {
@@ -1147,7 +1148,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_scientific(&mut self, start: usize) -> Token {
+    fn read_scientific(&mut self, start: usize) -> Token<'src> {
         if !self.is_eof() {
             match self.read_byte() {
                 b'-' | b'+' => self.bump(),

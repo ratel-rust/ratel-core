@@ -8,7 +8,7 @@ use ast::Item::*;
 
 impl<'src> Parser<'src> {
     #[inline(always)]
-    pub fn statement(&mut self, token: Token) -> Result<Node> {
+    pub fn statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         match token {
             Semicolon          => Ok(EmptyStatement.at(0, 0)),
             // BraceOpen          => self.block_statement(),
@@ -29,7 +29,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn expression_statement(&mut self, token: Token) -> Result<Node> {
+    pub fn expression_statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         let expression = try!(self.expression_from(token, 0));
 
         let start = expression.start;
@@ -42,7 +42,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn function_statement(&mut self) -> Result<Node> {
+    pub fn function_statement(&mut self) -> Result<Node<'src>> {
         let name = expect_identifier!(self);
 
         expect!(self, ParenOpen);
@@ -55,7 +55,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn return_statement(&mut self) -> Result<Node> {
+    fn return_statement(&mut self) -> Result<Node<'src>> {
         let value = match peek!(self) {
             EndOfProgram => None,
             Semicolon    => None,
@@ -78,7 +78,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Node> {
+    pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Node<'src>> {
         let declaration = Item::DeclarationStatemenet {
             kind: kind,
             declarators: try!(self.variable_declarators())

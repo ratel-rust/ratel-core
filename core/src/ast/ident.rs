@@ -1,5 +1,6 @@
 use ast::OperatorKind;
 use std::{slice, str, ptr, mem};
+use std::marker::PhantomData;
 
 const INLINE_STR_CAP: usize = 22;
 
@@ -7,9 +8,10 @@ const INLINE_STR_CAP: usize = 22;
 pub struct Slice(pub usize, pub usize);
 
 impl Slice {
-    #[inline]
+    #[inline(always)]
     pub fn as_str<'id, 'src>(&'id self, src: &'src str) -> &'src str {
-        &src[self.0..self.1]
+        unsafe { src.slice_unchecked(self.0, self.1) }
+        // &src[self.0..self.1]
     }
 
     #[inline]
@@ -19,15 +21,16 @@ impl Slice {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct InlineStr {
+pub struct InlineStr<'src> {
     len: u8,
-    buf: [u8; INLINE_STR_CAP]
+    buf: [u8; INLINE_STR_CAP],
+    phantom: PhantomData<&'src u8>
 }
 
-impl InlineStr {
+impl<'src> InlineStr<'src> {
     /// Create a new empty InlineStr
     #[inline]
-    pub fn new() -> InlineStr {
+    pub fn new() -> Self {
         let mut s: InlineStr = unsafe { mem::uninitialized() };
 
         s.len = 0;
@@ -42,7 +45,7 @@ impl InlineStr {
 
     /// Creates an InlineStr from a &str. This will drop any characters that don't fit on the
     /// internal buffer (InlineStr::cap(), default 22).
-    pub fn from_str(src: &str) -> InlineStr {
+    pub fn from_str(src: &str) -> Self {
         let len = match src.len() <= INLINE_STR_CAP {
             true => src.len(),
             false => {
@@ -70,7 +73,7 @@ impl InlineStr {
 
     /// Cheaply converts `InlineStr` to `&str`.
     #[inline]
-    pub fn as_str<'a>(&'a self) -> &'a str {
+    pub fn as_str(&self) -> &'src str {
         unsafe {
             str::from_utf8_unchecked(
                 slice::from_raw_parts(self.buf.as_ptr(), self.len as usize)
@@ -97,7 +100,8 @@ impl InlineStr {
 
         InlineStr {
             buf: buf,
-            len: len
+            len: len,
+            phantom: PhantomData,
         }
     }
 
@@ -131,7 +135,7 @@ impl InlineStr {
     }
 }
 
-impl<'a> From<&'a str> for InlineStr {
+impl<'src> From<&'src str> for InlineStr<'src> {
     #[inline]
     fn from(val: &str) -> InlineStr {
         InlineStr::from_str(val)
@@ -139,30 +143,26 @@ impl<'a> From<&'a str> for InlineStr {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Ident {
-    /// Position of the identifier in the source code.
-    Insitu(Slice),
-
-    /// A static string slice. Allows `Ident`s to be created via `"foobar".into()`.
-    Static(&'static str),
+pub enum Ident<'src> {
+    /// Reference of the identifier in the source code.
+    Insitu(&'src str),
 
     /// Inline-allocated string. Useful for dynamically created identifiers (mangler).
-    Inline(InlineStr),
+    Inline(InlineStr<'src>),
 }
 
-impl Ident {
+impl<'src> Ident<'src> {
     #[inline]
-    pub fn as_str<'id, 'src: 'id>(&'id self, src: &'src str) -> &'id str {
+    pub fn as_str(&self) -> &'src str {
         match *self {
-            Ident::Insitu(ref s) => s.as_str(src),
-            Ident::Static(ref s) => s,
+            Ident::Insitu(s) => s,
             Ident::Inline(ref s) => s.as_str()
         }
     }
 
     #[inline]
-    pub fn equals(&self, other: Ident, src: &str) -> bool {
-        self.as_str(src) == other.as_str(src)
+    pub fn equals(&self, other: Ident) -> bool {
+        self.as_str() == other.as_str()
     }
 
     /// Create a new identifier from an index number using the 26 basic ASCII alphabet
@@ -187,7 +187,7 @@ impl Ident {
     /// ```
     ///
     /// Note that unlike decimal numbers, the format is little-endian for better performance.
-    pub fn unique(mut id: u64) -> Ident {
+    pub fn unique(mut id: u64) -> Ident<'src> {
         static ALPHA: [u8; 52] = *b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         let mut s = InlineStr::new();
@@ -212,10 +212,9 @@ impl Ident {
     ///
     /// **Note:** While this doesn't panic and is generally safe, it will drop excess characters
     /// which don't fit on `InlineStr`.
-    pub fn get_mut_inline_str(&mut self, src: &str) -> &mut InlineStr {
+    pub fn get_mut_inline_str(&mut self) -> &mut InlineStr<'src> {
         *self = match *self {
-            Ident::Insitu(s)         => Ident::Inline(s.as_str(src).into()),
-            Ident::Static(s)         => Ident::Inline(s.into()),
+            Ident::Insitu(s)         => Ident::Inline(s.into()),
             Ident::Inline(ref mut s) => return s,
         };
 
@@ -226,23 +225,23 @@ impl Ident {
     }
 }
 
-impl From<Slice> for Ident {
+// impl From<Slice> for Ident {
+//     #[inline]
+//     fn from(s: Slice) -> Self {
+//         Ident::Insitu(s)
+//     }
+// }
+
+impl<'src> From<&'src str> for Ident<'src> {
     #[inline]
-    fn from(s: Slice) -> Self {
+    fn from(s: &'src str) -> Self {
         Ident::Insitu(s)
     }
 }
 
-impl From<&'static str> for Ident {
+impl<'src> From<InlineStr<'src>> for Ident<'src> {
     #[inline]
-    fn from(s: &'static str) -> Self {
-        Ident::Static(s)
-    }
-}
-
-impl From<InlineStr> for Ident {
-    #[inline]
-    fn from(s: InlineStr) -> Self {
+    fn from(s: InlineStr<'src>) -> Self {
         Ident::Inline(s)
     }
 }

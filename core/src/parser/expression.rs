@@ -7,13 +7,13 @@ use ast::{Node, Index, Item, OperatorKind};
 
 impl<'src> Parser<'src> {
     #[inline(always)]
-    pub fn expression(&mut self, lbp: u8) -> Result<Node> {
+    pub fn expression(&mut self, lbp: u8) -> Result<Node<'src>> {
         let token = next!(self);
         self.expression_from(token, lbp)
     }
 
     #[inline(always)]
-    pub fn expression_from(&mut self, token: Token, lbp: u8) -> Result<Node> {
+    pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Result<Node<'src>> {
         let left = match token {
             This               => Item::This.at(0, 0),
             Literal(value)     => Item::ValueExpr(value).at(0, 0),
@@ -38,7 +38,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn complex_expression(&mut self, mut left: Node, lbp: u8) -> Result<Node> {
+    pub fn complex_expression(&mut self, mut left: Node<'src>, lbp: u8) -> Result<Node<'src>> {
         loop {
             left = match peek!(self) {
                 Operator(op) => {
@@ -75,7 +75,7 @@ impl<'src> Parser<'src> {
 
 
     #[inline(always)]
-    pub fn infix_expression(&mut self, left: Node, bp: u8, op: OperatorKind) -> Result<Node> {
+    pub fn infix_expression(&mut self, left: Node<'src>, bp: u8, op: OperatorKind) -> Result<Node<'src>> {
         use ast::OperatorKind::*;
 
         Ok(match op {
@@ -143,7 +143,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn paren_expression(&mut self) -> Result<Node> {
+    fn paren_expression(&mut self) -> Result<Node<'src>> {
         match next!(self) {
             // ParenClose => {
             //     expect!(self, Operator(FatArrow));
