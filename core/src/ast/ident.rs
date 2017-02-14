@@ -225,13 +225,6 @@ impl<'src> Ident<'src> {
     }
 }
 
-// impl From<Slice> for Ident {
-//     #[inline]
-//     fn from(s: Slice) -> Self {
-//         Ident::Insitu(s)
-//     }
-// }
-
 impl<'src> From<&'src str> for Ident<'src> {
     #[inline]
     fn from(s: &'src str) -> Self {
