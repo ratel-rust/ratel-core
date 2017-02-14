@@ -176,12 +176,13 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use ast::OperatorKind;
+    use ast::{OperatorKind, Item};
+    use super::parse;
+    use super::Item::*;
 
     macro_rules! assert_ident {
         ($expect:expr, $item:expr) => {
-            assert_eq!(Item::Identifier($expect.into()), $item);
+            assert_eq!(Identifier($expect.into()), $item);
         }
     }
 
@@ -213,9 +214,10 @@ mod test {
         // Statements are linked
         assert_list!(
             program.statements(),
-            Item::EmptyStatement,
-            Item::EmptyStatement,
-            Item::EmptyStatement
+
+            EmptyStatement,
+            EmptyStatement,
+            EmptyStatement
         );
     }
 
@@ -231,9 +233,10 @@ mod test {
         // Statements are linked
         assert_list!(
             program.statements(),
-            Item::ExpressionStatement(0),
-            Item::ExpressionStatement(2),
-            Item::ExpressionStatement(4)
+
+            ExpressionStatement(0),
+            ExpressionStatement(2),
+            ExpressionStatement(4)
         );
 
         // Match identifiers
@@ -254,26 +257,35 @@ mod test {
         // Statements are linked
         assert_list!(
             program.statements(),
-            Item::ExpressionStatement(2),
-            Item::ExpressionStatement(5)
+
+            ExpressionStatement(2),
+            ExpressionStatement(5)
         );
 
         // Binary expression
-        assert_eq!(Item::BinaryExpr {
-            parenthesized: false,
-            operator: OperatorKind::Addition,
-            left: 0,
-            right: 1,
-        }, program[2]);
+        assert_eq!(
+            program[2],
+
+            BinaryExpr {
+                parenthesized: false,
+                operator: OperatorKind::Addition,
+                left: 0,
+                right: 1,
+            }
+        );
 
         assert_ident!("foo", program[0]);
         assert_ident!("bar", program[1]);
 
         // Postfix expression
-        assert_eq!(Item::PostfixExpr {
-            operator: OperatorKind::Increment,
-            operand: 4
-        }, program[5]);
+        assert_eq!(
+            program[5],
+
+            PostfixExpr {
+                operator: OperatorKind::Increment,
+                operand: 4
+            }
+        );
 
         assert_ident!("baz", program[4]);
     }
@@ -287,7 +299,7 @@ mod test {
         assert_list!(
             program.statements(),
 
-            Item::FunctionStatement {
+            FunctionStatement {
                 name: "foo".into(),
                 params: None,
                 body: None,
@@ -304,7 +316,7 @@ mod test {
         assert_list!(
             program.statements(),
 
-            Item::FunctionStatement {
+            FunctionStatement {
                 name: "foo".into(),
                 params: Some(0),
                 body: None,
@@ -313,8 +325,9 @@ mod test {
 
         assert_list!(
             program.items.list(0),
-            Item::Identifier("bar".into()),
-            Item::Identifier("baz".into())
+
+            Identifier("bar".into()),
+            Identifier("baz".into())
         );
     }
 
@@ -327,7 +340,7 @@ mod test {
         assert_list!(
             program.statements(),
 
-            Item::FunctionStatement {
+            FunctionStatement {
                 name: "foo".into(),
                 params: None,
                 body: Some(1),
@@ -336,8 +349,9 @@ mod test {
 
         assert_list!(
             program.items.list(1),
-            Item::ExpressionStatement(0),
-            Item::ExpressionStatement(2)
+
+            ExpressionStatement(0),
+            ExpressionStatement(2)
         );
 
         assert_ident!("bar", program[0]);
@@ -352,13 +366,18 @@ mod test {
 
         assert_list!(
             program.statements(),
-            Item::ExpressionStatement(1)
+
+            ExpressionStatement(1)
         );
 
-        assert_eq!(Item::CallExpr {
-            callee: 0,
-            arguments: None,
-        }, program[1]);
+        assert_eq!(
+            program[1],
+
+            CallExpr {
+                callee: 0,
+                arguments: None,
+            }
+        );
 
         assert_ident!("foo", program[0]);
     }
@@ -371,13 +390,18 @@ mod test {
 
         assert_list!(
             program.statements(),
-            Item::ExpressionStatement(2)
+
+            ExpressionStatement(2)
         );
 
-        assert_eq!(Item::MemberExpr {
-            object: 0,
-            property: 1,
-        }, program[2]);
+        assert_eq!(
+            program[2],
+
+            MemberExpr {
+                object: 0,
+                property: 1,
+            }
+        );
 
         assert_ident!("foo", program[0]);
         assert_ident!("bar", program[1]);

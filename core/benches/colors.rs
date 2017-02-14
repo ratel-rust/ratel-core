@@ -80,13 +80,13 @@ function hexToInt( hex )
     return parseInt( hex.substring( 1 ), 16 );
 }
 
-// module.exports = {
-//     red,
-//     green,
-//     blue,
-//     intToHex,
-//     hexToInt,
-// };
+module.exports = {
+    red,
+    green,
+    blue,
+    intToHex,
+    hexToInt,
+};
 
 "#;
 

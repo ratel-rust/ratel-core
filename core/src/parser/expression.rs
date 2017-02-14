@@ -27,7 +27,7 @@ impl<'src> Parser<'src> {
             // Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
             // BracketOpen        => try!(self.array_expression()),
-            // BraceOpen          => try!(self.object_expression()),
+            BraceOpen          => try!(self.object_expression()),
             // Function           => try!(self.function_expression()),
             // Class              => try!(self.class_expression()),
             // Template(kind)     => try!(self.template_expression(None, kind)),
@@ -158,5 +158,65 @@ impl<'src> Parser<'src> {
                 // Ok(expression.parenthesize())
             }
         }
+    }
+
+    #[inline(always)]
+    fn object_expression(&mut self) -> Result<Node<'src>> {
+        let member = match next!(self) {
+            BraceClose => return Ok(Item::ObjectExpr { body: None }.at(0, 0)),
+
+            Identifier(ident) => {
+                let ident = ident.into();
+
+                match next!(self) {
+                    Comma => Item::ShorthandMember(ident).at(0, 0),
+                    BraceClose => {
+                        let member = Item::ShorthandMember(ident).at(0, 0);
+
+                        return Ok(Item::ObjectExpr { body: Some(self.store(member)) }.at(0, 0))
+                    },
+                    _ => unexpected_token!(self)
+                }
+            },
+
+            _ => unexpected_token!(self)
+        };
+
+        let mut previous = self.store(member);
+        let root = Some(previous);
+
+        loop {
+            match next!(self) {
+                Identifier(ident) => {
+                    let ident = ident.into();
+
+                    match next!(self) {
+                        Comma => {
+                            previous = self.chain(previous, Item::ShorthandMember(ident).at(0, 0));
+
+                            continue;
+                        },
+                        BraceClose => {
+                            self.chain(previous, Item::ShorthandMember(ident).at(0, 0));
+
+                            break;
+                        },
+                        _ => unexpected_token!(self),
+                    }
+                },
+
+                BraceClose => break,
+
+                _ => unexpected_token!(self),
+            }
+
+            // match next!(self) {
+            //     Comma => {},
+            //     BraceClose => break,
+            //     _ => unexpected_token!(self)
+            // }
+        }
+
+        Ok(Item::ObjectExpr { body: root }.at(0, 0))
     }
 }

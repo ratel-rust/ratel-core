@@ -58,12 +58,25 @@ pub enum Item<'src> {
         params: Option<Index>,
         body: Option<Index>,
     },
+    ObjectExpr {
+        body: Option<Index>,
+    },
     ClassExpr {
         name: Option<Ident<'src>>,
         extends: Option<Ident<'src>>,
         body: Option<Index>,
     },
 
+    // Object
+    ShorthandMember(Ident<'src>),
+    ObjectMember {
+        key: Ident<'src>,
+        value: Index,
+    },
+    ComputedMember {
+        key: Index,
+        value: Index,
+    },
 
     // Declaration
     VariableDeclarator {
