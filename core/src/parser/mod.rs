@@ -438,7 +438,7 @@ mod test {
 
         assert_list!(
             program.statements(),
-            DeclarationStatemenet { kind: VariableDeclarationKind::Var, declarators: 6 }
+            DeclarationStatement { kind: VariableDeclarationKind::Var, declarators: 6 }
         );
 
         assert_eq!(program[6], VariableDeclarator { name: 5, value: Some(4) });
@@ -453,7 +453,7 @@ mod test {
 
         assert_list!(
             program.statements(),
-            DeclarationStatemenet { kind: VariableDeclarationKind::Let, declarators: 6 }
+            DeclarationStatement { kind: VariableDeclarationKind::Let, declarators: 6 }
         );
 
         assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
@@ -474,7 +474,7 @@ mod test {
 
         assert_list!(
             program.statements(),
-            DeclarationStatemenet { kind: VariableDeclarationKind::Const, declarators: 6 }
+            DeclarationStatement { kind: VariableDeclarationKind::Const, declarators: 6 }
         );
 
         assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });

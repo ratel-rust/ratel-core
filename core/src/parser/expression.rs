@@ -217,6 +217,7 @@ impl<'src> Parser<'src> {
         Ok(Item::ObjectExpr { body: root }.at(0, 0))
     }
 
+    #[inline(always)]
     pub fn array_expression(&mut self) -> Result<Node<'src>> {
         let expression = match next!(self) {
             BracketClose => {
