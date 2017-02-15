@@ -219,7 +219,9 @@ impl<'src> Parser<'src> {
 
     pub fn array_expression(&mut self) -> Result<Node<'src>> {
         let expression = match next!(self) {
-            BracketClose => (Item::EmptyStatement { }).at(0,0),
+            BracketClose => {
+                return Ok(Item::ArrayExpr(None).at(0,0))
+            },
             token      => {
                 try!(self.expression_from(token, 0))
             }
@@ -241,7 +243,7 @@ impl<'src> Parser<'src> {
             previous = index;
         }
 
-        Ok(Item::ArrayExpr(root).at(0,0))
+        Ok(Item::ArrayExpr(Some(root)).at(0,0))
     }
 
 }

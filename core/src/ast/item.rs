@@ -24,7 +24,7 @@ pub enum Item<'src> {
 
     // Expressions
     ValueExpr(Value<'src>),
-    ArrayExpr(Index),
+    ArrayExpr(Option<Index>),
     SequenceExpr(Index),
     MemberExpr {
         object: Index,
