@@ -96,7 +96,21 @@ impl<'src> Parser<'src> {
             let index = match peek!(self) {
                 BraceOpen => {
                     self.consume();
-                    unimplemented!()
+                    let id = try!(self.object_expression());
+                    let name = self.store(id);
+
+                    let value = match peek!(self) {
+                        Operator(Assign) => {
+                            self.consume();
+                            let value = try!(self.expression(0));
+                            Some(self.store(value))
+                        },
+                        _ => None
+                    };
+                    self.store(Item::VariableDeclarator {
+                        name: name,
+                        value: value,
+                    }.at(0, 0))
                 },
                 BracketOpen => {
                     self.consume();

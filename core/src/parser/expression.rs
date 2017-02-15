@@ -156,7 +156,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn object_expression(&mut self) -> Result<Node<'src>> {
+    pub fn object_expression(&mut self) -> Result<Node<'src>> {
         let member = match next!(self) {
             BraceClose => return Ok(self.in_loc(Item::ObjectExpr { body: None })),
 

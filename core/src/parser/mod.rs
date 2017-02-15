@@ -195,8 +195,11 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
 
 #[cfg(test)]
 mod test {
+
     use parser::parse;
     use parser::Item::*;
+
+    use ast::{OperatorKind, Value, VariableDeclarationKind};
 
     #[test]
     fn empty_parse() {
@@ -414,12 +417,74 @@ mod test {
         let src = "[0, 1, 2]";
 
         let program = parse(src).unwrap();
+
+        assert_eq!(5, program.items.len());
+        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_list!(
+            program.statements(),
+            ExpressionStatement(3)
+        );
+
+        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_eq!(program[0], ValueExpr(Value::Number("0")));
+        assert_eq!(program[1], ValueExpr(Value::Number("1")));
+        assert_eq!(program[2], ValueExpr(Value::Number("2")));
     }
 
     #[test]
     fn variable_declaration_statement() {
         let src = "var x, y, z = 42;";
         let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+            DeclarationStatemenet { kind: VariableDeclarationKind::Var, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 5, value: Some(4) });
+        assert_ident!("z", program[5]);
+        assert_eq!(ValueExpr(Value::Number("42")), program[4]);
     }
 
+    #[test]
+    fn variable_declaration_statement_destructuring_array() {
+        let src = "let [x, y] = [1, 2];";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+            DeclarationStatemenet { kind: VariableDeclarationKind::Let, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
+
+        assert_eq!(program[2], ArrayExpr(Some(0)));
+        assert_ident!("x", program[0]);
+        assert_ident!("y", program[1]);
+
+        assert_eq!(program[5], ArrayExpr(Some(3)));
+        assert_eq!(ValueExpr(Value::Number("1")), program[3]);
+        assert_eq!(ValueExpr(Value::Number("2")), program[4]);
+    }
+
+    #[test]
+    fn variable_declaration_statement_destructuring_object() {
+        let src = "const { x, y } = { a, b };";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+            DeclarationStatemenet { kind: VariableDeclarationKind::Const, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
+
+        assert_eq!(program[2], ObjectExpr { body: Some(0) });
+        assert_eq!(ShorthandMember("x".into()), program[0]);
+        assert_eq!(ShorthandMember("y".into()), program[1]);
+
+        assert_eq!(program[5], ObjectExpr { body: Some(3) });
+        assert_eq!(ShorthandMember("a".into()), program[3]);
+        assert_eq!(ShorthandMember("b".into()), program[4]);
+    }
 }
