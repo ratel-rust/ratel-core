@@ -91,21 +91,69 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn variable_declarators(&mut self) -> Result<Index> {
-        let name = expect_identifier!(self);
+        let mut previous = None;
+        loop {
+            let index = match peek!(self) {
+                BraceOpen => {
+                    self.consume();
+                    unimplemented!()
+                },
+                BracketOpen => {
+                    self.consume();
 
-        expect!(self, Operator(OperatorKind::Assign));
+                    let id = try!(self.array_expression());
+                    let name = self.store(id);
 
-        let value = try!(self.expression(0));
+                    let value = match peek!(self) {
+                        Operator(Assign) => {
+                            self.consume();
+                            let value = try!(self.expression(0));
+                            Some(self.store(value))
+                        },
+                        _ => None
+                    };
+                    self.store(Item::VariableDeclarator {
+                        name: name,
+                        value: value,
+                    }.at(0, 0))
+                },
+                _        => {
+                    let name = expect_identifier!(self);
+                    let value = match peek!(self) {
+                        Operator(Assign) => {
+                            self.consume();
+                            let value = try!(self.expression(0));
+                            Some(self.store(value))
+                        },
+                        _ => None
+                    };
 
-        let name = self.store(Item::Identifier(name.into()).at(0, 0));
-        let value = self.store(value);
+                    let name = self.store(Item::Identifier(name.into()).at(0, 0));
+                    self.store(Item::VariableDeclarator {
+                        name: name,
+                        value: value,
+                    }.at(0, 0))
+                }
+            };
 
-        let id = self.store(Item::VariableDeclarator {
-            name: name,
-            value: Some(value),
-        }.at(0, 0));
+            allow!(self, Comma => continue);
 
-        Ok(id)
+            match previous {
+                Some(previous) => {
+                    self.program.items[previous].next = Some(index);
+                },
+                _ => {}
+            };
+
+            previous = Some(index);
+            break;
+        }
+
+        if let Some(index) = previous {
+            return Ok(index)
+        }
+
+        unexpected_token!(self)
     }
 
     #[inline(always)]

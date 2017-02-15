@@ -21,7 +21,7 @@ impl<'src> Parser<'src> {
             // Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
-            // BracketOpen        => try!(self.array_expression()),
+            BracketOpen        => try!(self.array_expression()),
             BraceOpen          => try!(self.object_expression()),
             // Function           => try!(self.function_expression()),
             // Class              => try!(self.class_expression()),
@@ -216,6 +216,34 @@ impl<'src> Parser<'src> {
 
         Ok(Item::ObjectExpr { body: root }.at(0, 0))
     }
+
+    pub fn array_expression(&mut self) -> Result<Node<'src>> {
+        let expression = match next!(self) {
+            BracketClose => (Item::EmptyStatement { }).at(0,0),
+            token      => {
+                try!(self.expression_from(token, 0))
+            }
+        };
+
+        let mut previous = self.store(expression);
+        let root = previous;
+
+        loop {
+            let expression = match next!(self) {
+                BracketClose => break,
+                Comma      => try!(self.expression(0)),
+                _          => unexpected_token!(self),
+            };
+
+            let index = self.store(expression);
+            self.program.items[previous].next = Some(index);
+
+            previous = index;
+        }
+
+        Ok(Item::ArrayExpr(root).at(0,0))
+    }
+
 }
 
 #[cfg(test)]
