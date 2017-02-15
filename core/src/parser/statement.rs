@@ -79,7 +79,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Node<'src>> {
-        let declaration = Item::DeclarationStatemenet {
+        let declaration = Item::DeclarationStatement {
             kind: kind,
             declarators: try!(self.variable_declarators())
         }.at(0, 0);

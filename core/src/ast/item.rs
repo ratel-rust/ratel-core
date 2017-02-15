@@ -91,7 +91,7 @@ pub enum Item<'src> {
     // Statements
     EmptyStatement,
     ExpressionStatement(Index),
-    DeclarationStatemenet {
+    DeclarationStatement {
         kind: VariableDeclarationKind,
         declarators: Index,
     },
