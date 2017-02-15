@@ -825,62 +825,6 @@ define_handlers! {
     }
 }
 
-mod whitespace {
-    const __: bool = false;
-    const WH: bool = true;
-
-    pub static TABLE: [bool; 256] = [
-    // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      __, __, __, __, __, __, __, __, __, WH, __, __, __, WH, __, __, // 0
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-      WH, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 5
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
-    ];
-}
-
-mod ident_lookup {
-    // Look up table that marks which ASCII characters are allowed in identifiers
-    pub const NU: bool = true; // digit
-    pub const AL: bool = true; // alphabet
-    pub const DO: bool = true; // dollar sign $
-    pub const US: bool = true; // underscore
-    pub const UN: bool = true; // unicode
-    pub const BS: bool = true; // backslash
-    pub const __: bool = false;
-
-    pub static TABLE: [bool; 256] = [
-    // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-      __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-      NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
-      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, BS, __, __, US, // 5
-      __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-      AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // B
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // C
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // D
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // E
-      UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // F
-    ];
-}
-
 pub struct Lexer<'src> {
     /// Flags whether or not a new line was read before the token
     consumed_new_line: bool,
@@ -923,10 +867,10 @@ impl<'src> Lexer<'src> {
 
             let ch = self.read_byte();
 
-            if !whitespace::TABLE[ch as usize] {
+            if ch > 0x20 || ch == 0x0A {
                 self.token_start = self.index;
 
-                return BYTE_HANDLERS[ch as usize](self, ch);
+                return unsafe { BYTE_HANDLERS.get_unchecked(ch as usize)(self, ch) };
             }
 
             self.bump();
@@ -1058,48 +1002,75 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn consume_label_characters(&mut self) -> &'src str {
-        // TODO: Reject invalid unicode and escaped unicode character
+        // Look up table that marks which ASCII characters are allowed in identifiers
+        const NU: bool = true; // digit
+        const AL: bool = true; // alphabet
+        const DO: bool = true; // dollar sign $
+        const US: bool = true; // underscore
+        const UN: bool = true; // unicode
+        const BS: bool = true; // backslash
+        const __: bool = false;
+
+        static TABLE: [bool; 256] = [
+        // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
+          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
+          __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
+          NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
+          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
+          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, BS, __, __, US, // 5
+          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
+          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // B
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // C
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // D
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // E
+          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // F
+        ];
 
         let start = self.index;
 
         if self.index + 8 < self.source.len() {
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
             self.bump();
-            if !ident_lookup::TABLE[self.read_byte() as usize] {
+            if !TABLE[self.read_byte() as usize] {
                 return self.slice_from(start);
             }
         }
 
         self.bump();
 
-        while !self.is_eof() && ident_lookup::TABLE[self.read_byte() as usize] {
+        while !self.is_eof() && TABLE[self.read_byte() as usize] {
             self.bump();
         }
 

@@ -176,7 +176,7 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
 
 #[cfg(test)]
 mod test {
-    use ast::{OperatorKind, Item};
+    use ast::OperatorKind;
     use super::parse;
     use super::Item::*;
 
