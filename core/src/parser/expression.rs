@@ -19,6 +19,8 @@ impl<'src> Parser<'src> {
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
             // Operator(Division) => try!(self.regular_expression()),
+            // Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
+            Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
             BracketOpen        => try!(self.array_expression()),
@@ -238,13 +240,18 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            let index = self.store(expression);
-            self.program.items[previous].next = Some(index);
-
-            previous = index;
+            previous = self.chain(previous, expression);
         }
 
         Ok(Item::ArrayExpr(Some(root)).at(0,0))
+    }
+
+    #[inline(always)]
+    pub fn regular_expression(&mut self) -> Result<Node<'src>> {
+        match self.lexer.read_regular_expression() {
+            Ok(value) => Ok(Item::ValueExpr(value).at(0,0)),
+            Err(e) => Err(e)
+        }
     }
 
 }

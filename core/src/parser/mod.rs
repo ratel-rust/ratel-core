@@ -487,4 +487,12 @@ mod test {
         assert_eq!(ShorthandMember("a".into()), program[3]);
         assert_eq!(ShorthandMember("b".into()), program[4]);
     }
+
+    #[test]
+    fn regular_expression() {
+        let src = r#"/^[A-Z]+\/[\d]+/g"#;
+        let program = parse(src).unwrap();
+        assert_eq!(ValueExpr(Value::RegEx { pattern: "/^[A-Z]+\\/[\\d]+", flags: "g" }), program[0]);
+    }
+
 }

@@ -11,9 +11,9 @@ pub enum Value<'src> {
     String(&'src str),
     RawQuasi(&'src str),
     RegEx {
-         pattern: &'src str,
-         flags: &'src str
-    },
+        pattern: &'src str,
+        flags: &'src str
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
