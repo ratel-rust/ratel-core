@@ -248,10 +248,9 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn regular_expression(&mut self) -> Result<Node<'src>> {
-        match self.lexer.read_regular_expression() {
-            Ok(value) => Ok(Item::ValueExpr(value).at(0,0)),
-            Err(e) => Err(e)
-        }
+        let value = try!(self.lexer.read_regular_expression());
+
+        Ok(Item::ValueExpr(value).at(0, 0))
     }
 
 }

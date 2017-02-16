@@ -1167,9 +1167,8 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     pub fn read_regular_expression(&mut self) -> Result<Value<'src>> {
-        let start = self.index - 1;
+        let start = self.index;
         let mut in_class = false;
-
         loop {
             let ch = expect_byte!(self);
             match ch {
@@ -1197,7 +1196,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let pattern = unsafe { self.source.slice_unchecked(start, self.index - 1) };
+        let pattern = &self.source[start..self.index - 1];
         let flags_start = self.index;
 
         while !self.is_eof() {
