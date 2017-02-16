@@ -139,9 +139,9 @@ pub enum Item<'src> {
         value: Index
     },
     TryStatement {
-        body: Index,
+        body: Option<Index>,
         error: Ident<'src>,
-        handler: Index
+        handler: Option<Index>
     }
 
 }
