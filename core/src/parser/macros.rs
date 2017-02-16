@@ -20,13 +20,9 @@ macro_rules! peek {
 #[macro_export]
 macro_rules! next {
     ($parser:ident) => {
-        match $parser.token {
-            Some(token) => {
-                $parser.consume();
-
-                token
-            },
-            None => try!($parser.lexer.get_token())
+        match $parser.token.take() {
+            Some(token) => token,
+            None        => try!($parser.lexer.get_token())
         }
     }
 }

@@ -5,8 +5,8 @@ const INLINE_STR_CAP: usize = 22;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct InlineStr<'src> {
-    len: u8,
     buf: [u8; INLINE_STR_CAP],
+    len: u8,
     phantom: PhantomData<&'src u8>
 }
 

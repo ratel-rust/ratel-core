@@ -48,7 +48,7 @@ impl<'src> Node<'src> {
 impl<'src> Store<'src> {
     #[inline]
     pub fn new() -> Self {
-        Store(Vec::with_capacity(128))
+        Store(Vec::with_capacity(256))
     }
 
     #[inline]

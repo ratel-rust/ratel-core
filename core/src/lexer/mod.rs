@@ -58,10 +58,10 @@ macro_rules! unwind_loop {
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, NLN, ___, ___, ___, ___, ___, // 0
+    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
     ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
-    ZER, DIG, DIG, DIG, DIG,DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
+    ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
     ___, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, // 4
     IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, IDT, BTO, IDT, BTC, CRT, IDT, // 5
     TPL, IDT, L_B, L_C, L_D, L_E, L_F, IDT, IDT, L_I, IDT, IDT, L_L, IDT, L_N, IDT, // 6
@@ -80,14 +80,6 @@ static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Result<Token<'src>>
 define_handlers! {
     const ___: invalid_byte |lex, _| {
         Err(lex.invalid_character())
-    }
-
-    const NLN: newline |lex, _| {
-        lex.bump();
-
-        lex.consumed_new_line = true;
-
-        lex.get_token_no_asi()
     }
 
     // ;
@@ -832,6 +824,9 @@ pub struct Lexer<'src> {
     /// String slice to parse
     source: &'src str,
 
+    /// ptr
+    ptr: *const u8,
+
     /// Current index
     index: usize,
 
@@ -846,6 +841,7 @@ impl<'src> Lexer<'src> {
         Lexer {
             consumed_new_line: false,
             source: source,
+            ptr: source.as_ptr(),
             index: 0,
             token_start: 0,
         }
@@ -855,11 +851,6 @@ impl<'src> Lexer<'src> {
     pub fn get_token(&mut self) -> Result<Token<'src>> {
         self.consumed_new_line = false;
 
-        self.get_token_no_asi()
-    }
-
-    #[inline(always)]
-    fn get_token_no_asi(&mut self) -> Result<Token<'src>> {
         unwind_loop!({
             if self.is_eof() {
                 return Ok(EndOfProgram);
@@ -867,10 +858,14 @@ impl<'src> Lexer<'src> {
 
             let ch = self.read_byte();
 
-            if ch > 0x20 || ch == 0x0A {
+            if ch > 0x20 {
                 self.token_start = self.index;
 
                 return unsafe { BYTE_HANDLERS.get_unchecked(ch as usize)(self, ch) };
+            }
+
+            if ch == b'\n' {
+                self.consumed_new_line = true;
             }
 
             self.bump();
@@ -959,7 +954,7 @@ impl<'src> Lexer<'src> {
     // is virtually irrelevant.
     #[inline]
     fn read_byte(&self) -> u8 {
-        unsafe { *self.source.as_ptr().offset(self.index as isize) }
+        unsafe { *self.ptr.offset(self.index as isize) }
     }
 
     #[inline]
