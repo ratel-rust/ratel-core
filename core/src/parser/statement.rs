@@ -125,7 +125,7 @@ impl<'src> Parser<'src> {
                 }
             }
         };
-
+        expect_semicolon!(self);
         Ok(statement.at(0, 0))
     }
 

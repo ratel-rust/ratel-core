@@ -414,8 +414,7 @@ mod test {
         let program = parse(src).unwrap();
         assert_list!(
             program.statements(),
-            BreakStatement { label: None },
-            EmptyStatement
+            BreakStatement { label: None }
         );
     }
 
@@ -425,8 +424,7 @@ mod test {
         let program = parse(src).unwrap();
         assert_list!(
             program.statements(),
-            BreakStatement { label: Some(0) },
-            EmptyStatement
+            BreakStatement { label: Some(0) }
         );
         assert_ident!("foo", program[0]);
     }
