@@ -15,14 +15,14 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Result<Node<'src>> {
         let left = match token {
-            This               => Item::This.at(0, 0),
-            Literal(value)     => Item::ValueExpr(value).at(0, 0),
+            This               => self.in_loc(Item::This),
+            Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             // LitBoolean(value)  => Expression::Literal(Value::Boolean(value)),
             // LitBinary(value)   => Expression::Literal(Value::Binary(value)),
             // LitNumber(value)   => Expression::Literal(Value::Number(value)),
             // LitString(value)   => Expression::Literal(Value::String(value)),
             // LitQuasi(value)    => Expression::Literal(Value::RawQuasi(value)),
-            Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
+            Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
             // Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
@@ -163,17 +163,18 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     fn object_expression(&mut self) -> Result<Node<'src>> {
         let member = match next!(self) {
-            BraceClose => return Ok(Item::ObjectExpr { body: None }.at(0, 0)),
+            BraceClose => return Ok(self.in_loc(Item::ObjectExpr { body: None })),
 
             Identifier(ident) => {
                 let ident = ident.into();
+                let (start, end) = self.lexer.loc();
 
                 match next!(self) {
-                    Comma => Item::ShorthandMember(ident).at(0, 0),
+                    Comma => Item::ShorthandMember(ident).at(start, end),
                     BraceClose => {
-                        let member = Item::ShorthandMember(ident).at(0, 0);
+                        let member = Item::ShorthandMember(ident).at(start, end);
 
-                        return Ok(Item::ObjectExpr { body: Some(self.store(member)) }.at(0, 0))
+                        return Ok(Item::ObjectExpr { body: Some(self.store(member)) }.at(start, end))
                     },
                     _ => unexpected_token!(self)
                 }
@@ -189,15 +190,16 @@ impl<'src> Parser<'src> {
             match next!(self) {
                 Identifier(ident) => {
                     let ident = ident.into();
+                    let (start, end) = self.lexer.loc();
 
                     match next!(self) {
                         Comma => {
-                            previous = self.chain(previous, Item::ShorthandMember(ident).at(0, 0));
+                            previous = self.chain(previous, Item::ShorthandMember(ident).at(start, end));
 
                             continue;
                         },
                         BraceClose => {
-                            self.chain(previous, Item::ShorthandMember(ident).at(0, 0));
+                            self.chain(previous, Item::ShorthandMember(ident).at(start, end));
 
                             break;
                         },

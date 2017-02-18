@@ -39,8 +39,21 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
+    fn in_loc(&self, item: Item<'src>) -> Node<'src> {
+        let (start, end) = self.lexer.loc();
+
+        Node::new(start, end, item)
+    }
+
+    #[inline(always)]
     fn store(&mut self, node: Node<'src>) -> Index {
         self.program.items.insert(node)
+    }
+
+    #[inline(always)]
+    fn store_in_loc(&mut self, item: Item<'src>) -> Index {
+        let node = self.in_loc(item);
+        self.store(node)
     }
 
     #[inline(always)]
@@ -48,6 +61,12 @@ impl<'src> Parser<'src> {
         let index = self.store(node);
         self.program.items[previous].next = Some(index);
         index
+    }
+
+    #[inline(always)]
+    fn chain_in_loc(&mut self, previous: Index, item: Item<'src>) -> Index {
+        let node = self.in_loc(item);
+        self.chain(previous, node)
     }
 
     #[inline(always)]
@@ -109,7 +128,7 @@ impl<'src> Parser<'src> {
             _                => unexpected_token!(self),
         };
 
-        let mut previous = self.store(Item::Identifier(name.into()).at(0, 0));
+        let mut previous = self.store_in_loc(Item::Identifier(name.into()));
         let root = Some(previous);
 
         loop {
@@ -119,7 +138,7 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            previous = self.chain(previous, Item::Identifier(name.into()).at(0, 0));
+            previous = self.chain_in_loc(previous, Item::Identifier(name.into()));
         }
 
         Ok(root)

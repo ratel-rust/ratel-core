@@ -10,7 +10,7 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         match token {
-            Semicolon          => Ok(EmptyStatement.at(0, 0)),
+            Semicolon          => Ok(self.in_loc(EmptyStatement)),
             // BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),

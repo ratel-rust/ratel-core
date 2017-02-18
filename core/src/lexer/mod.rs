@@ -872,6 +872,21 @@ impl<'src> Lexer<'src> {
         })
     }
 
+    #[inline(always)]
+    pub fn loc(&self) -> (usize, usize) {
+        (self.token_start, self.index)
+    }
+
+    #[inline(always)]
+    pub fn loc_start(&self) -> usize {
+        self.token_start
+    }
+
+    #[inline(always)]
+    pub fn loc_end(&self) -> usize {
+        self.index
+    }
+
     /// On top of being called when the opening backtick (`) of a template
     /// literal occurs, this method needs to be used by the parser while
     /// parsing a complex template string expression.
