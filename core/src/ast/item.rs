@@ -10,6 +10,10 @@ pub enum Value<'src> {
     Binary(u64),
     String(&'src str),
     RawQuasi(&'src str),
+    RegEx {
+         pattern: &'src str,
+         flags: &'src str
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -98,6 +102,46 @@ pub enum Item<'src> {
     },
     ReturnStatement {
         value: Option<Index>,
+    },
+    BreakStatement {
+        label: Option<Index>,
+    },
+    IfStatement {
+        test: Index,
+        consequent: Index,
+        alternate: Option<Index>
+    },
+    WhileStatement {
+        test: Index,
+        body: Index,
+    },
+    DoStatement {
+        test: Index,
+        body: Index,
+    },
+    ForStatement {
+        init: Option<Index>,
+        test: Option<Index>,
+        update: Option<Index>,
+        body: Index
+    },
+    ForIn {
+        left: Index,
+        right: Index,
+        body: Index
+    },
+    ForOf {
+        left: Index,
+        right: Index,
+        body: Index
+    },
+    ThrowStatement {
+        value: Index
+    },
+    TryStatement {
+        body: Option<Index>,
+        error: Ident<'src>,
+        handler: Option<Index>
     }
 
 }

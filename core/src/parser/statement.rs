@@ -14,7 +14,7 @@ impl<'src> Parser<'src> {
             // BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),
-            // Break              => self.break_statement(),
+            Break              => self.break_statement(),
             Function           => self.function_statement(),
             // Class              => self.class_statement(),
             // If                 => self.if_statement(),
@@ -22,8 +22,8 @@ impl<'src> Parser<'src> {
             // Do                 => self.do_statement(),
             // For                => self.for_statement(),
             // Identifier(label)  => self.labeled_or_expression_statement(label),
-            // Throw              => self.throw_statement(),
-            // Try                => self.try_statement(),
+            Throw              => self.throw_statement(),
+            Try                => self.try_statement(),
             _                  => self.expression_statement(token),
         }
     }
@@ -107,4 +107,55 @@ impl<'src> Parser<'src> {
 
         Ok(id)
     }
+
+    #[inline(always)]
+    pub fn break_statement(&mut self) -> Result<Node<'src>> {
+        let tok = peek!(self);
+        let statement = Item::BreakStatement {
+            label: match tok {
+                Semicolon | EndOfProgram => None,
+                _ => {
+                    if self.lexer.asi() {
+                        None
+                    } else {
+                        let label = expect_identifier!(self);
+                        let id = self.store(Item::Identifier(label.into()).at(0, 0));
+                        Some(id)
+                    }
+                }
+            }
+        };
+        expect_semicolon!(self);
+        Ok(statement.at(0, 0))
+    }
+
+    #[inline(always)]
+    pub fn throw_statement(&mut self) -> Result<Node<'src>> {
+        let value = try!(self.expression(0));
+        expect_semicolon!(self);
+
+        Ok(Item::ThrowStatement {
+            value: self.store(value)
+        }.at(0, 0))
+    }
+
+    #[inline(always)]
+    pub fn try_statement(&mut self) -> Result<Node<'src>> {
+        let body = try!(self.block_body());
+        expect!(self, Catch);
+        expect!(self, ParenOpen);
+
+        let error = expect_identifier!(self);
+        expect!(self, ParenClose);
+
+        let handler = try!(self.block_body());
+        expect_semicolon!(self);
+
+        Ok(Item::TryStatement {
+            body: body,
+            error: error.into(),
+            handler: handler
+        }.at(0, 0))
+    }
+
 }
