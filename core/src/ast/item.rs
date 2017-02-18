@@ -12,7 +12,7 @@ pub enum Value<'src> {
     RawQuasi(&'src str),
     RegEx {
         pattern: &'src str,
-        flags: &'src str
+        flags: &'src str,
     }
 }
 
