@@ -94,3 +94,23 @@ macro_rules! unexpected_token {
         return Err($parser.lexer.invalid_token())
     };
 }
+
+#[cfg(test)]
+#[macro_rules]
+macro_rules! assert_ident {
+    ($expect:expr, $item:expr) => {
+        assert_eq!(Identifier($expect.into()), $item);
+    }
+}
+
+#[cfg(test)]
+#[macro_rules]
+macro_rules! assert_list {
+    ($iter:expr $( ,$item:expr)*) => ({
+        let mut iter = $iter;
+        $(
+            assert_eq!($item, *iter.next().unwrap());
+        )*
+        assert_eq!(None, iter.next());
+    })
+}

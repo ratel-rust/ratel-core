@@ -17,11 +17,6 @@ impl<'src> Parser<'src> {
         let left = match token {
             This               => self.in_loc(Item::This),
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
-            // LitBoolean(value)  => Expression::Literal(Value::Boolean(value)),
-            // LitBinary(value)   => Expression::Literal(Value::Binary(value)),
-            // LitNumber(value)   => Expression::Literal(Value::Number(value)),
-            // LitString(value)   => Expression::Literal(Value::String(value)),
-            // LitQuasi(value)    => Expression::Literal(Value::RawQuasi(value)),
             Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
             // Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
@@ -220,5 +215,130 @@ impl<'src> Parser<'src> {
         }
 
         Ok(Item::ObjectExpr { body: root }.at(0, 0))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ast::OperatorKind;
+    use parser::parse;
+    use parser::Item::*;
+
+    #[test]
+    fn parse_ident_expr() {
+        let src = "foo; bar; baz;";
+
+        let program = parse(src).unwrap();
+
+        // 3 times statement and expression
+        assert_eq!(6, program.items.len());
+
+        // Statements are linked
+        assert_list!(
+            program.statements(),
+
+            ExpressionStatement(0),
+            ExpressionStatement(2),
+            ExpressionStatement(4)
+        );
+
+        // Match identifiers
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[2]);
+        assert_ident!("baz", program[4]);
+    }
+
+    #[test]
+    fn parse_binary_and_postfix_expr() {
+        let src = "foo + bar; baz++;";
+
+        let program = parse(src).unwrap();
+
+        // 2 statements, 3 simple expressions, one binary expression, one postfix expression
+        assert_eq!(7, program.items.len());
+
+        // Statements are linked
+        assert_list!(
+            program.statements(),
+
+            ExpressionStatement(2),
+            ExpressionStatement(5)
+        );
+
+        // Binary expression
+        assert_eq!(
+            program[2],
+
+            BinaryExpr {
+                parenthesized: false,
+                operator: OperatorKind::Addition,
+                left: 0,
+                right: 1,
+            }
+        );
+
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[1]);
+
+        // Postfix expression
+        assert_eq!(
+            program[5],
+
+            PostfixExpr {
+                operator: OperatorKind::Increment,
+                operand: 4
+            }
+        );
+
+        assert_ident!("baz", program[4]);
+    }
+
+    #[test]
+    fn call_expression() {
+        let src = "foo();";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            ExpressionStatement(1)
+        );
+
+        assert_eq!(
+            program[1],
+
+            CallExpr {
+                callee: 0,
+                arguments: None,
+            }
+        );
+
+        assert_ident!("foo", program[0]);
+    }
+
+    #[test]
+    fn member_expression() {
+        let src = "foo.bar";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            ExpressionStatement(2)
+        );
+
+        assert_eq!(
+            program[2],
+
+            MemberExpr {
+                object: 0,
+                property: 1,
+            }
+        );
+
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[1]);
     }
 }

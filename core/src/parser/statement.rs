@@ -157,5 +157,135 @@ impl<'src> Parser<'src> {
             handler: handler
         }.at(0, 0))
     }
+}
 
+#[cfg(test)]
+mod test {
+    use ast::Value;
+    use ast::Item::*;
+    use parser::parse;
+
+    #[test]
+    fn function_statement_empty() {
+        let src = "function foo() {}";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            FunctionStatement {
+                name: "foo".into(),
+                params: None,
+                body: None,
+            }
+        );
+    }
+
+    #[test]
+    fn function_statement_params() {
+        let src = "function foo(bar, baz) {}";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            FunctionStatement {
+                name: "foo".into(),
+                params: Some(0),
+                body: None,
+            }
+        );
+
+        assert_list!(
+            program.items.list(0),
+
+            Identifier("bar".into()),
+            Identifier("baz".into())
+        );
+    }
+
+    #[test]
+    fn function_statement_body() {
+        let src = "function foo() { bar; baz; }";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            FunctionStatement {
+                name: "foo".into(),
+                params: None,
+                body: Some(1),
+            }
+        );
+
+        assert_list!(
+            program.items.list(1),
+
+            ExpressionStatement(0),
+            ExpressionStatement(2)
+        );
+
+        assert_ident!("bar", program[0]);
+        assert_ident!("baz", program[2]);
+    }
+
+    #[test]
+    fn break_statement() {
+        let src = "break;";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            BreakStatement { label: None }
+        );
+    }
+
+    #[test]
+    fn break_statement_label() {
+        let src = "break foo;";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            BreakStatement { label: Some(0) }
+        );
+        assert_ident!("foo", program[0]);
+    }
+
+    #[test]
+    fn throw_statement() {
+        let src = "throw '3'";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            ThrowStatement { value: 0 }
+        );
+        assert_eq!(program[0], ValueExpr(Value::String("'3'")));
+    }
+
+    #[test]
+    fn try_statement_empty() {
+        let src = "try {} catch (err) {}";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            TryStatement { body: None, error: "err".into(), handler: None }
+        );
+    }
+
+    #[test]
+    fn try_statement() {
+        let src = "try { foo; } catch (err) { bar; }";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            TryStatement { body: Some(1), error: "err".into(), handler: Some(3) }
+        );
+        assert_eq!(program[1], ExpressionStatement(0));
+        assert_eq!(program[3], ExpressionStatement(2));
+        assert_ident!("foo", program[0]);
+        assert_ident!("bar", program[2]);
+    }
 }
