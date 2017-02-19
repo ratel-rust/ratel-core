@@ -110,22 +110,26 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn break_statement(&mut self) -> Result<Node<'src>> {
-        let tok = peek!(self);
         let statement = Item::BreakStatement {
-            label: match tok {
-                Semicolon | EndOfProgram => None,
+            label: match peek!(self) {
+                Semicolon => {
+                    self.consume();
+                    None
+                },
+                EndOfProgram => None,
                 _ => {
                     if self.lexer.asi() {
                         None
                     } else {
                         let label = expect_identifier!(self);
                         let id = self.store(Item::Identifier(label.into()).at(0, 0));
+                        expect_semicolon!(self);
                         Some(id)
                     }
                 }
             }
         };
-        expect_semicolon!(self);
+
         Ok(statement.at(0, 0))
     }
 
