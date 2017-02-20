@@ -142,8 +142,10 @@ pub enum Item<'src> {
         body: Option<Index>,
         error: Ident<'src>,
         handler: Option<Index>
+    },
+    BlockStatement {
+        body: Option<Index>
     }
-
 }
 
 impl<'src> Item<'src> {

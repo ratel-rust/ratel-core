@@ -11,21 +11,34 @@ impl<'src> Parser<'src> {
     pub fn statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         match token {
             Semicolon          => Ok(self.in_loc(EmptyStatement)),
-            // BraceOpen          => self.block_statement(),
+            BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),
             Break              => self.break_statement(),
             Function           => self.function_statement(),
             // Class              => self.class_statement(),
-            // If                 => self.if_statement(),
-            // While              => self.while_statement(),
-            // Do                 => self.do_statement(),
+            If                 => self.if_statement(),
+            While              => self.while_statement(),
+            Do                 => self.do_statement(),
             // For                => self.for_statement(),
             // Identifier(label)  => self.labeled_or_expression_statement(label),
             Throw              => self.throw_statement(),
             Try                => self.try_statement(),
             _                  => self.expression_statement(token),
         }
+    }
+
+    #[inline]
+    fn expect_statement(&mut self) -> Result<Node<'src>> {
+        let token = next!(self);
+        self.statement(token)
+    }
+
+    #[inline(always)]
+    pub fn block_statement(&mut self) -> Result<Node<'src>> {
+        Ok(Item::BlockStatement {
+            body: try!(self.block_body_tail())
+        }.at(0, 0))
     }
 
     #[inline(always)]
@@ -223,6 +236,64 @@ impl<'src> Parser<'src> {
             handler: handler
         }.at(0, 0))
     }
+
+    #[inline(always)]
+    pub fn if_statement(&mut self) -> Result<Node<'src>> {
+        expect!(self, ParenOpen);
+
+        let test = try!(self.expression(0));
+        let test = self.store(test);
+        expect!(self, ParenClose);
+
+        let consequent = try!(self.expect_statement());
+        let consequent = self.store(consequent);
+
+        let alternate = match peek!(self) {
+            Else => {
+                self.consume();
+                let statement = try!(self.expect_statement());
+                Some(self.store(statement))
+            },
+            _ => None
+        };
+
+        Ok(Item::IfStatement {
+            test: test,
+            consequent: consequent,
+            alternate: alternate
+        }.at(0, 0))
+    }
+
+    #[inline(always)]
+    pub fn while_statement(&mut self) -> Result<Node<'src>> {
+        expect!(self, ParenOpen);
+
+        let test = try!(self.expression(0));
+        let test = self.store(test);
+        expect!(self, ParenClose);
+
+        let body = try!(self.expect_statement());
+
+        Ok(Item::WhileStatement {
+            test: test,
+            body: self.store(body)
+        }.at(0, 0))
+    }
+
+    #[inline(always)]
+    pub fn do_statement(&mut self) -> Result<Node<'src>> {
+        let body = try!(self.expect_statement());
+        let body = self.store(body);
+        expect!(self, While);
+
+        let test = try!(self.expression(0));
+        let test = self.store(test);
+
+        Ok(Item::DoStatement {
+            test: test,
+            body: body
+        }.at(0, 0))
+    }
 }
 
 #[cfg(test)]
@@ -297,6 +368,114 @@ mod test {
 
         assert_ident!("bar", program[0]);
         assert_ident!("baz", program[2]);
+    }
+
+    #[test]
+    fn block_statement() {
+        let src = "{ true }";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+            BlockStatement { body: Some(1) }
+        );
+        assert_eq!(program[1], ExpressionStatement(0));
+        assert_eq!(program[0], ValueExpr(Value::True));
+    }
+
+    #[test]
+    fn if_statement() {
+        let src = "if (true) foo;";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+
+            IfStatement {
+                test: 0,
+                consequent: 2,
+                alternate: None,
+            }
+        );
+        assert_eq!(program[0], ValueExpr(Value::True));
+        assert_eq!(program[2], ExpressionStatement(1));
+        assert_ident!("foo", program[1]);
+    }
+
+    #[test]
+    fn if_else_statement() {
+        let src = "if (true) foo; else { bar; }";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements(),
+
+            IfStatement {
+                test: 0,
+                consequent: 2,
+                alternate: Some(5),
+            }
+        );
+        assert_eq!(program[0], ValueExpr(Value::True));
+        assert_eq!(program[2], ExpressionStatement(1));
+        assert_eq!(program[5], BlockStatement {
+            body: Some(4)
+        });
+        assert_ident!("foo", program[1]);
+        assert_eq!(program[4], ExpressionStatement(3));
+        assert_ident!("bar", program[3]);
+    }
+
+    #[test]
+    fn while_statement() {
+        let src = "while (true) foo;";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+
+            WhileStatement {
+                test: 0,
+                body: 2
+            }
+        );
+        assert_eq!(program[0], ValueExpr(Value::True));
+        assert_eq!(program[2], ExpressionStatement(1));
+        assert_ident!("foo", program[1]);
+    }
+
+    #[test]
+    fn while_statement_block() {
+        let src = "while (true) { foo; }";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+
+            WhileStatement {
+                test: 0,
+                body: 3
+            }
+        );
+        assert_eq!(program[0], ValueExpr(Value::True));
+        assert_eq!(program[3], BlockStatement {
+            body: Some(2)
+        });
+        assert_eq!(program[2], ExpressionStatement(1));
+        assert_ident!("foo", program[1]);
+    }
+
+    #[test]
+    fn do_statement() {
+        let src = "do foo; while (true)";
+        let program = parse(src).unwrap();
+        assert_list!(
+            program.statements(),
+
+            DoStatement {
+                test: 2,
+                body: 1
+            }
+        );
+        assert_eq!(program[1], ExpressionStatement(0));
+        assert_ident!("foo", program[0]);
+        assert_eq!(program[2], ValueExpr(Value::True));
     }
 
     #[test]

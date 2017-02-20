@@ -18,7 +18,6 @@ impl<'src> Parser<'src> {
             This               => self.in_loc(Item::This),
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
-            // Operator(Division) => try!(self.regular_expression()),
             // Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
             Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
