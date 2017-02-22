@@ -116,8 +116,8 @@ pub enum Item<'src> {
         body: Index,
     },
     DoStatement {
-        test: Index,
         body: Index,
+        test: Index,
     },
     ForStatement {
         init: Option<Index>,

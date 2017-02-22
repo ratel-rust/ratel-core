@@ -283,15 +283,13 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn do_statement(&mut self) -> Result<Node<'src>> {
         let body = try!(self.expect_statement());
-        let body = self.store(body);
         expect!(self, While);
 
         let test = try!(self.expression(0));
-        let test = self.store(test);
 
         Ok(Item::DoStatement {
-            test: test,
-            body: body
+            body: self.store(body),
+            test: self.store(test),
         }.at(0, 0))
     }
 }
@@ -469,8 +467,8 @@ mod test {
             program.statements(),
 
             DoStatement {
-                test: 2,
-                body: 1
+                body: 1,
+                test: 2
             }
         );
         assert_eq!(program[1], ExpressionStatement(0));
