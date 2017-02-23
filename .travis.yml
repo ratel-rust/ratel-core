@@ -10,7 +10,6 @@ matrix:
     - rust: nightly
 
 os:
-  - osx
   - linux
 
 script: cd core && cargo build --verbose && cargo test --verbose
