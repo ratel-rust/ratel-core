@@ -18,10 +18,11 @@ impl<'src> Parser<'src> {
             This               => self.in_loc(Item::This),
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
-            // Operator(Division) => try!(self.regular_expression()),
+            // Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
+            Operator(Division) => try!(self.regular_expression()),
             // Operator(optype)   => try!(self.prefix_expression(optype)),
             ParenOpen          => try!(self.paren_expression()),
-            // BracketOpen        => try!(self.array_expression()),
+            BracketOpen        => try!(self.array_expression()),
             BraceOpen          => try!(self.object_expression()),
             // Function           => try!(self.function_expression()),
             // Class              => try!(self.class_expression()),
@@ -156,7 +157,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn object_expression(&mut self) -> Result<Node<'src>> {
+    pub fn object_expression(&mut self) -> Result<Node<'src>> {
         let member = match next!(self) {
             BraceClose => return Ok(self.in_loc(Item::ObjectExpr { body: None })),
 
@@ -216,6 +217,41 @@ impl<'src> Parser<'src> {
 
         Ok(Item::ObjectExpr { body: root }.at(0, 0))
     }
+
+    #[inline(always)]
+    pub fn array_expression(&mut self) -> Result<Node<'src>> {
+        let expression = match next!(self) {
+            BracketClose => {
+                return Ok(Item::ArrayExpr(None).at(0,0))
+            },
+            token      => {
+                try!(self.expression_from(token, 0))
+            }
+        };
+
+        let mut previous = self.store(expression);
+        let root = previous;
+
+        loop {
+            let expression = match next!(self) {
+                BracketClose => break,
+                Comma      => try!(self.expression(0)),
+                _          => unexpected_token!(self),
+            };
+
+            previous = self.chain(previous, expression);
+        }
+
+        Ok(Item::ArrayExpr(Some(root)).at(0,0))
+    }
+
+    #[inline(always)]
+    pub fn regular_expression(&mut self) -> Result<Node<'src>> {
+        let value = try!(self.lexer.read_regular_expression());
+
+        Ok(Item::ValueExpr(value).at(0, 0))
+    }
+
 }
 
 #[cfg(test)]

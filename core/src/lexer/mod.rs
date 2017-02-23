@@ -1165,56 +1165,55 @@ impl<'src> Lexer<'src> {
         Literal(Value::Number(value))
     }
 
-    // #[inline]
-    // pub fn read_regular_expression(&mut self) -> Result<Expression> {
-    //     let start = self.index;
-    //     let mut in_class = false;
+    #[inline]
+    pub fn read_regular_expression(&mut self) -> Result<Value<'src>> {
+        let start = self.index;
+        let mut in_class = false;
+        loop {
+            let ch = expect_byte!(self);
+            match ch {
+                b'['  => {
+                    in_class = true;
+                },
+                b']'  => {
+                    in_class = false;
+                },
+                b'/'  => {
+                    if !in_class {
+                        break;
+                    }
+                },
+                b'\\' => {
+                    expect_byte!(self);
+                },
+                b'\n' => {
+                    return Err(Error::UnexpectedToken {
+                        start: self.index,
+                        end: self.index + 1
+                    });
+                },
+                _     => {}
+            }
+        }
 
-    //     loop {
-    //         let ch = expect_byte!(self);
-    //         match ch {
-    //             b'['  => {
-    //                 in_class = true;
-    //             },
-    //             b']'  => {
-    //                 in_class = false;
-    //             },
-    //             b'/'  => {
-    //                 if !in_class {
-    //                     break;
-    //                 }
-    //             },
-    //             b'\\' => {
-    //                 expect_byte!(self);
-    //             },
-    //             b'\n' => {
-    //                 return Err(Error::UnexpectedToken {
-    //                     start: self.index,
-    //                     end: self.index + 1
-    //                 });
-    //             },
-    //             _     => {}
-    //         }
-    //     }
+        let pattern = &self.source[start..self.index - 1];
+        let flags_start = self.index;
 
-    //     let pattern = Slice(start, self.index - 1);
-    //     let flags_start = self.index;
+        while !self.is_eof() {
+            let ch = self.peek_byte();
+            match ch {
+                b'g' | b'i' | b'm' | b'u' | b'y' => {
+                    self.bump();
+                },
+                _                                => {
+                    break;
+                }
+            }
+        }
 
-    //     while !self.is_eof() {
-    //         let ch = self.peek_byte();
-    //         match ch {
-    //             b'g' | b'i' | b'm' | b'u' | b'y' => {
-    //                 self.bump();
-    //             },
-    //             _                                => {
-    //                 break;
-    //             }
-    //         }
-    //     }
-
-    //     Ok(Expression::RegEx{
-    //         pattern: pattern,
-    //         flags: Slice(flags_start, self.index)
-    //     })
-    // }
+        Ok(Value::RegEx{
+            pattern: pattern,
+            flags: self.slice_from(flags_start)
+        })
+    }
 }

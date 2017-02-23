@@ -11,9 +11,9 @@ pub enum Value<'src> {
     String(&'src str),
     RawQuasi(&'src str),
     RegEx {
-         pattern: &'src str,
-         flags: &'src str
-    },
+        pattern: &'src str,
+        flags: &'src str,
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -24,7 +24,7 @@ pub enum Item<'src> {
 
     // Expressions
     ValueExpr(Value<'src>),
-    ArrayExpr(Index),
+    ArrayExpr(Option<Index>),
     SequenceExpr(Index),
     MemberExpr {
         object: Index,
@@ -91,7 +91,7 @@ pub enum Item<'src> {
     // Statements
     EmptyStatement,
     ExpressionStatement(Index),
-    DeclarationStatemenet {
+    DeclarationStatement {
         kind: VariableDeclarationKind,
         declarators: Index,
     },
@@ -116,8 +116,8 @@ pub enum Item<'src> {
         body: Index,
     },
     DoStatement {
-        test: Index,
         body: Index,
+        test: Index,
     },
     ForStatement {
         init: Option<Index>,
@@ -142,8 +142,10 @@ pub enum Item<'src> {
         body: Option<Index>,
         error: Ident<'src>,
         handler: Option<Index>
+    },
+    BlockStatement {
+        body: Option<Index>
     }
-
 }
 
 impl<'src> Item<'src> {
