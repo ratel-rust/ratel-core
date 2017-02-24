@@ -7,7 +7,7 @@ use ast::{Node, Index, Item, VariableDeclarationKind};
 use ast::OperatorKind::*;
 
 impl<'src> Parser<'src> {
-    #[inline(always)]
+    #[inline]
     pub fn statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         match token {
             Semicolon          => Ok(self.in_loc(Item::EmptyStatement)),
@@ -28,7 +28,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn expect_statement(&mut self) -> Result<Node<'src>> {
         let token = next!(self);
         self.statement(token)
@@ -37,13 +37,13 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn block_statement(&mut self) -> Result<Node<'src>> {
         Ok(Item::BlockStatement {
-            body: try!(self.block_body_tail())
+            body: self.block_body_tail()?
         }.at(0, 0))
     }
 
     #[inline(always)]
     pub fn expression_statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
-        let expression = try!(self.expression_from(token, 0));
+        let expression = self.expression_from(token, 0)?;
 
         let start = expression.start;
         let end = expression.end;
@@ -62,8 +62,8 @@ impl<'src> Parser<'src> {
 
         Ok(Item::FunctionStatement {
             name: name.into(),
-            params: try!(self.parameter_list()),
-            body: try!(self.block_body()),
+            params: self.parameter_list()?,
+            body: self.block_body()?,
         }.at(0, 0))
     }
 
@@ -76,7 +76,7 @@ impl<'src> Parser<'src> {
                 if self.lexer.asi() {
                     None
                 } else {
-                    let expression = try!(self.expression(0));
+                    let expression = self.expression(0)?;
 
                     Some(self.store(expression))
                 }
@@ -94,7 +94,7 @@ impl<'src> Parser<'src> {
     pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Node<'src>> {
         let declaration = Item::DeclarationStatement {
             kind: kind,
-            declarators: try!(self.variable_declarators())
+            declarators: self.variable_declarators()?
         }.at(0, 0);
 
         expect_semicolon!(self);
@@ -103,35 +103,36 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn variable_declarator_value(&mut self) -> Result<Option<Index>> {
-        Ok(match peek!(self) {
-            Operator(Assign) => {
-                self.consume();
-                let value = try!(self.expression(0));
-                Some(self.store(value))
-            },
-            _ => None
-        })
-    }
-
-    #[inline(always)]
-    pub fn variable_declarators(&mut self) -> Result<Index> {
+    pub fn variable_declarator(&mut self) -> Result<Node<'src>> {
         let name = match next!(self) {
             BraceOpen        => self.object_expression()?,
             BracketOpen      => self.array_expression()?,
             Identifier(name) => Item::Identifier(name.into()).at(0, 0),
             _                => unexpected_token!(self),
         };
-
         let name = self.store(name);
-        let value = self.variable_declarator_value()?;
 
-        let root = self.store(Item::VariableDeclarator {
+        let value = match peek!(self) {
+            Operator(Assign) => {
+                self.consume();
+                let value = self.expression(0)?;
+                Some(self.store(value))
+            },
+            _ => None
+        };
+
+        Ok(Item::VariableDeclarator {
             name: name,
             value: value,
-        }.at(0, 0));
+        }.at(0, 0))
+    }
 
-        let mut previous = root;
+    #[inline(always)]
+    pub fn variable_declarators(&mut self) -> Result<Index> {
+        let node = self.variable_declarator()?;
+
+        let mut previous = self.store(node);
+        let root = previous;
 
         match peek!(self) {
             Comma => self.consume(),
@@ -139,21 +140,9 @@ impl<'src> Parser<'src> {
         }
 
         loop {
-            let name = match next!(self) {
-                BraceOpen        => self.object_expression()?,
-                BracketOpen      => self.array_expression()?,
-                Identifier(name) => Item::Identifier(name.into()).at(0, 0),
-                _                => unexpected_token!(self),
-            };
+            let node = self.variable_declarator()?;
 
-            let name = self.store(name);
-
-            let value = self.variable_declarator_value()?;
-
-            previous = self.chain(previous, Item::VariableDeclarator {
-                name: name,
-                value: value,
-            }.at(0, 0));
+            previous = self.chain(previous, node);
 
             match peek!(self) {
                 Comma => self.consume(),
@@ -189,7 +178,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn throw_statement(&mut self) -> Result<Node<'src>> {
-        let value = try!(self.expression(0));
+        let value = self.expression(0)?;
         expect_semicolon!(self);
 
         Ok(Item::ThrowStatement {
@@ -199,14 +188,14 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn try_statement(&mut self) -> Result<Node<'src>> {
-        let body = try!(self.block_body());
+        let body = self.block_body()?;
         expect!(self, Catch);
         expect!(self, ParenOpen);
 
         let error = expect_identifier!(self);
         expect!(self, ParenClose);
 
-        let handler = try!(self.block_body());
+        let handler = self.block_body()?;
         expect_semicolon!(self);
 
         Ok(Item::TryStatement {
@@ -220,17 +209,17 @@ impl<'src> Parser<'src> {
     pub fn if_statement(&mut self) -> Result<Node<'src>> {
         expect!(self, ParenOpen);
 
-        let test = try!(self.expression(0));
+        let test = self.expression(0)?;
         let test = self.store(test);
         expect!(self, ParenClose);
 
-        let consequent = try!(self.expect_statement());
+        let consequent = self.expect_statement()?;
         let consequent = self.store(consequent);
 
         let alternate = match peek!(self) {
             Else => {
                 self.consume();
-                let statement = try!(self.expect_statement());
+                let statement = self.expect_statement()?;
                 Some(self.store(statement))
             },
             _ => None
@@ -247,11 +236,11 @@ impl<'src> Parser<'src> {
     pub fn while_statement(&mut self) -> Result<Node<'src>> {
         expect!(self, ParenOpen);
 
-        let test = try!(self.expression(0));
+        let test = self.expression(0)?;
         let test = self.store(test);
         expect!(self, ParenClose);
 
-        let body = try!(self.expect_statement());
+        let body = self.expect_statement()?;
 
         Ok(Item::WhileStatement {
             test: test,
@@ -261,10 +250,10 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn do_statement(&mut self) -> Result<Node<'src>> {
-        let body = try!(self.expect_statement());
+        let body = self.expect_statement()?;
         expect!(self, While);
 
-        let test = try!(self.expression(0));
+        let test = self.expression(0)?;
 
         Ok(Item::DoStatement {
             body: self.store(body),
@@ -578,11 +567,17 @@ mod test {
         assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
 
         assert_eq!(program[2], ObjectExpr { body: Some(0) });
-        assert_eq!(ShorthandMember("x".into()), program[0]);
-        assert_eq!(ShorthandMember("y".into()), program[1]);
+        assert_list!(
+            program.store.nodes(0).items(),
+            ShorthandMember(Insitu("x")),
+            ShorthandMember(Insitu("y"))
+        );
 
         assert_eq!(program[5], ObjectExpr { body: Some(3) });
-        assert_eq!(ShorthandMember("a".into()), program[3]);
-        assert_eq!(ShorthandMember("b".into()), program[4]);
+        assert_list!(
+            program.store.nodes(3).items(),
+            ShorthandMember(Insitu("a")),
+            ShorthandMember(Insitu("b"))
+        );
     }
 }

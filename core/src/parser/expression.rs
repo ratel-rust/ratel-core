@@ -20,14 +20,14 @@ impl<'src> Parser<'src> {
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
             // Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
-            Operator(Division) => try!(self.regular_expression()),
-            // Operator(optype)   => try!(self.prefix_expression(optype)),
-            ParenOpen          => try!(self.paren_expression()),
-            BracketOpen        => try!(self.array_expression()),
-            BraceOpen          => try!(self.object_expression()),
-            // Function           => try!(self.function_expression()),
-            // Class              => try!(self.class_expression()),
-            // Template(kind)     => try!(self.template_expression(None, kind)),
+            Operator(Division) => self.regular_expression()?,
+            // Operator(optype)   => self.prefix_expression(optype)?,
+            ParenOpen          => self.paren_expression()?,
+            BracketOpen        => self.array_expression()?,
+            BraceOpen          => self.object_expression()?,
+            // Function           => self.function_expression()?,
+            // Class              => self.class_expression()?,
+            // Template(kind)     => self.template_expression(None, kind)?,
             _                  => unexpected_token!(self)
         };
 
@@ -47,7 +47,7 @@ impl<'src> Parser<'src> {
 
                     self.consume();
 
-                    try!(self.infix_expression(left, rbp, op))
+                    self.infix_expression(left, rbp, op)?
                 },
 
                 ParenOpen => {
@@ -59,7 +59,7 @@ impl<'src> Parser<'src> {
 
                     Item::CallExpr {
                         callee: self.store(left),
-                        arguments: try!(self.expression_list()),
+                        arguments: self.expression_list()?,
                     }.at(0, 0)
                 },
 
@@ -85,7 +85,7 @@ impl<'src> Parser<'src> {
             },
 
             Accessor => {
-                let right = try!(self.expression(bp));
+                let right = self.expression(bp)?;
 
                 Node::new(left.start, right.end, Item::MemberExpr {
                     object: self.store(left),
@@ -102,7 +102,7 @@ impl<'src> Parser<'src> {
                     // TODO: verify that left is assignable
                 }
 
-                let right = try!(self.expression(bp));
+                let right = self.expression(bp)?;
 
                 Node::new(left.start, right.end, Item::BinaryExpr {
                     parenthesized: false,
@@ -117,7 +117,7 @@ impl<'src> Parser<'src> {
     pub fn expression_list(&mut self) -> Result<Option<Index>> {
         let expression = match next!(self) {
             ParenClose => return Ok(None),
-            token      => try!(self.expression_from(token, 0)),
+            token      => self.expression_from(token, 0)?,
         };
 
         let mut previous = self.store(expression);
@@ -126,7 +126,7 @@ impl<'src> Parser<'src> {
         loop {
             let expression = match next!(self) {
                 ParenClose => break,
-                Comma      => try!(self.expression(0)),
+                Comma      => self.expression(0)?,
                 _          => unexpected_token!(self),
             };
 
@@ -145,8 +145,8 @@ impl<'src> Parser<'src> {
             //     self.arrow_function_expression(None)
             // },
             token => {
-                let expression = try!(self.expression_from(token, 0));
-                // let expression = try!(self.sequence_or(expression));
+                let expression = self.expression_from(token, 0)?;
+                // let expression = self.sequence_or(expression)?;
 
                 expect!(self, ParenClose);
 
@@ -225,9 +225,7 @@ impl<'src> Parser<'src> {
             BracketClose => {
                 return Ok(Item::ArrayExpr(None).at(0,0))
             },
-            token      => {
-                try!(self.expression_from(token, 0))
-            }
+            token => self.expression_from(token, 0)?
         };
 
         let mut previous = self.store(expression);
@@ -236,7 +234,7 @@ impl<'src> Parser<'src> {
         loop {
             let expression = match next!(self) {
                 BracketClose => break,
-                Comma      => try!(self.expression(0)),
+                Comma      => self.expression(0)?,
                 _          => unexpected_token!(self),
             };
 
@@ -248,7 +246,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn regular_expression(&mut self) -> Result<Node<'src>> {
-        let value = try!(self.lexer.read_regular_expression());
+        let value = self.lexer.read_regular_expression()?;
 
         Ok(Item::ValueExpr(value).at(0, 0))
     }

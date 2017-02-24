@@ -96,7 +96,7 @@ impl<'src> Parser<'src> {
     fn block_body_tail(&mut self) -> Result<Option<Index>> {
         let statement = match next!(self) {
             BraceClose => return Ok(None),
-            token      => try!(self.statement(token)),
+            token      => self.statement(token)?,
         };
 
         let mut previous = self.store(statement);
@@ -105,7 +105,7 @@ impl<'src> Parser<'src> {
         loop {
             let statement = match next!(self) {
                 BraceClose => break,
-                token      => try!(self.statement(token)),
+                token      => self.statement(token)?,
             };
 
             previous = self.chain(previous, statement);

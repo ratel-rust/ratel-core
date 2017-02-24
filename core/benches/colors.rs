@@ -95,7 +95,6 @@ fn parse_to_ast(b: &mut Bencher) {
     b.bytes = SOURCE.len() as u64;
 
     b.iter(|| {
-        // let ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
         let ast = ratel::parser::parse(SOURCE).expect("Must parse");
 
         ast
