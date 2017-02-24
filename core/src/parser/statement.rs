@@ -4,14 +4,13 @@ use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
 use ast::{Node, Index, Item, VariableDeclarationKind};
-use ast::Item::*;
 use ast::OperatorKind::*;
 
 impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn statement(&mut self, token: Token<'src>) -> Result<Node<'src>> {
         match token {
-            Semicolon          => Ok(self.in_loc(EmptyStatement)),
+            Semicolon          => Ok(self.in_loc(Item::EmptyStatement)),
             BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),
@@ -52,7 +51,7 @@ impl<'src> Parser<'src> {
 
         expect_semicolon!(self);
 
-        Ok(ExpressionStatement(index).at(start, end))
+        Ok(Item::ExpressionStatement(index).at(start, end))
     }
 
     #[inline(always)]
@@ -104,84 +103,63 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
+    fn variable_declarator_value(&mut self) -> Result<Option<Index>> {
+        Ok(match peek!(self) {
+            Operator(Assign) => {
+                self.consume();
+                let value = try!(self.expression(0));
+                Some(self.store(value))
+            },
+            _ => None
+        })
+    }
+
+    #[inline(always)]
     pub fn variable_declarators(&mut self) -> Result<Index> {
-        let mut previous = None;
+        let name = match next!(self) {
+            BraceOpen        => self.object_expression()?,
+            BracketOpen      => self.array_expression()?,
+            Identifier(name) => Item::Identifier(name.into()).at(0, 0),
+            _                => unexpected_token!(self),
+        };
+
+        let name = self.store(name);
+        let value = self.variable_declarator_value()?;
+
+        let root = self.store(Item::VariableDeclarator {
+            name: name,
+            value: value,
+        }.at(0, 0));
+
+        let mut previous = root;
+
+        match peek!(self) {
+            Comma => self.consume(),
+            _     => return Ok(root),
+        }
+
         loop {
-            let index = match peek!(self) {
-                BraceOpen => {
-                    self.consume();
-                    let id = try!(self.object_expression());
-                    let name = self.store(id);
-
-                    let value = match peek!(self) {
-                        Operator(Assign) => {
-                            self.consume();
-                            let value = try!(self.expression(0));
-                            Some(self.store(value))
-                        },
-                        _ => None
-                    };
-                    self.store(Item::VariableDeclarator {
-                        name: name,
-                        value: value,
-                    }.at(0, 0))
-                },
-                BracketOpen => {
-                    self.consume();
-
-                    let id = try!(self.array_expression());
-                    let name = self.store(id);
-
-                    let value = match peek!(self) {
-                        Operator(Assign) => {
-                            self.consume();
-                            let value = try!(self.expression(0));
-                            Some(self.store(value))
-                        },
-                        _ => None
-                    };
-                    self.store(Item::VariableDeclarator {
-                        name: name,
-                        value: value,
-                    }.at(0, 0))
-                },
-                _        => {
-                    let name = expect_identifier!(self);
-                    let value = match peek!(self) {
-                        Operator(Assign) => {
-                            self.consume();
-                            let value = try!(self.expression(0));
-                            Some(self.store(value))
-                        },
-                        _ => None
-                    };
-
-                    let name = self.store(Item::Identifier(name.into()).at(0, 0));
-                    self.store(Item::VariableDeclarator {
-                        name: name,
-                        value: value,
-                    }.at(0, 0))
-                }
+            let name = match next!(self) {
+                BraceOpen        => self.object_expression()?,
+                BracketOpen      => self.array_expression()?,
+                Identifier(name) => Item::Identifier(name.into()).at(0, 0),
+                _                => unexpected_token!(self),
             };
 
-            allow!(self, Comma => continue);
+            let name = self.store(name);
 
-            match previous {
-                Some(previous) => {
-                    self.program.store[previous].next = Some(index);
-                },
-                _ => {}
-            };
+            let value = self.variable_declarator_value()?;
 
-            previous = Some(index);
-            break;
+            previous = self.chain(previous, Item::VariableDeclarator {
+                name: name,
+                value: value,
+            }.at(0, 0));
+
+            match peek!(self) {
+                Comma => self.consume(),
+                _     => return Ok(root),
+            }
         }
-
-        if let Some(index) = previous {
-            return Ok(index)
-        }
-
-        unexpected_token!(self)
     }
 
     #[inline(always)]
@@ -298,6 +276,7 @@ impl<'src> Parser<'src> {
 #[cfg(test)]
 mod test {
     use ast::Item::*;
+    use ast::Ident::*;
     use ast::{Value, VariableDeclarationKind};
     use parser::parse;
 
@@ -540,12 +519,20 @@ mod test {
 
         assert_list!(
             program.statements().items(),
-            DeclarationStatement { kind: VariableDeclarationKind::Var, declarators: 6 }
+            DeclarationStatement { kind: VariableDeclarationKind::Var, declarators: 1 }
         );
 
-        assert_eq!(program[6], VariableDeclarator { name: 5, value: Some(4) });
-        assert_ident!("z", program[5]);
-        assert_eq!(ValueExpr(Value::Number("42")), program[4]);
+        assert_list!(
+            program.store.nodes(1).items(),
+            VariableDeclarator { name: 0, value: None },
+            VariableDeclarator { name: 2, value: None },
+            VariableDeclarator { name: 4, value: Some(5) }
+        );
+
+        assert_ident!("x", program[0]);
+        assert_ident!("y", program[2]);
+        assert_ident!("z", program[4]);
+        assert_eq!(ValueExpr(Value::Number("42")), program[5]);
     }
 
     #[test]
@@ -558,15 +545,24 @@ mod test {
             DeclarationStatement { kind: VariableDeclarationKind::Let, declarators: 6 }
         );
 
-        assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
+        assert_list!(
+            program.store.nodes(6).items(),
+            VariableDeclarator { name: 2, value: Some(5) }
+        );
 
         assert_eq!(program[2], ArrayExpr(Some(0)));
-        assert_ident!("x", program[0]);
-        assert_ident!("y", program[1]);
+        assert_list!(
+            program.store.nodes(0).items(),
+            Identifier(Insitu("x")),
+            Identifier(Insitu("y"))
+        );
 
         assert_eq!(program[5], ArrayExpr(Some(3)));
-        assert_eq!(ValueExpr(Value::Number("1")), program[3]);
-        assert_eq!(ValueExpr(Value::Number("2")), program[4]);
+        assert_list!(
+            program.store.nodes(3).items(),
+            ValueExpr(Value::Number("1")),
+            ValueExpr(Value::Number("2"))
+        );
     }
 
     #[test]
