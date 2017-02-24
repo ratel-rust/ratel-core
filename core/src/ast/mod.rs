@@ -22,15 +22,17 @@ pub struct Node<'src> {
 
 pub struct Store<'src>(Vec<Node<'src>>);
 
-pub struct List<'store, 'src: 'store> {
+pub struct Nodes<'store, 'src: 'store> {
     next: Option<Index>,
     store: &'store Store<'src>,
 }
 
+pub struct Items<'store, 'src: 'store>(Nodes<'store, 'src>);
+
 pub struct Program<'src> {
     pub source: &'src str,
     pub root: Option<Index>,
-    pub items: Store<'src>,
+    pub store: Store<'src>,
 }
 
 impl<'src> Node<'src> {
@@ -64,21 +66,20 @@ impl<'src> Store<'src> {
     }
 
     #[inline]
-    pub fn list<'store>(&'store self, from: Index) -> List<'store, 'src> {
-        List {
+    pub fn nodes<'store, I>(&'store self, from: I) -> Nodes<'store, 'src> where
+        I: Into<Option<Index>>
+    {
+        Nodes {
             store: &self,
-            next: if self.len() > from { Some(from) } else { None },
+            next: from.into(),
         }
     }
 }
 
 impl<'store, 'src: 'store> Program<'src> {
     #[inline]
-    pub fn statements(&'src self) -> List<'store, 'src> {
-        List {
-            store: &self.items,
-            next: self.root,
-        }
+    pub fn statements(&'src self) -> Nodes<'store, 'src> {
+        self.store.nodes(self.root)
     }
 }
 
@@ -87,7 +88,7 @@ impl<'src> ops::Index<usize> for Program<'src> {
 
     #[inline]
     fn index(&self, index: usize) -> &Item<'src> {
-        &self.items[index].item
+        &self.store[index].item
     }
 }
 
@@ -107,17 +108,33 @@ impl<'src> ops::IndexMut<usize> for Store<'src> {
     }
 }
 
-impl<'store, 'src: 'store> Iterator for List<'store, 'src> {
-    type Item = &'store Item<'src>;
+impl<'store, 'src: 'store> Nodes<'store, 'src> {
+    #[inline]
+    pub fn items(self) -> Items<'store, 'src> {
+        Items(self)
+    }
+}
+
+impl<'store, 'src: 'store> Iterator for Nodes<'store, 'src> {
+    type Item = &'store Node<'src>;
 
     #[inline]
-    fn next(&mut self) -> Option<&'store Item<'src>> {
+    fn next(&mut self) -> Option<&'store Node<'src>> {
         let next = self.next;
 
         next.map(|id| {
             let node = &self.store[id];
             self.next = node.next;
-            &node.item
+            node
         })
+    }
+}
+
+impl<'store, 'src: 'store> Iterator for Items<'store, 'src> {
+    type Item = &'store Item<'src>;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'store Item<'src>> {
+        self.0.next().map(|node| &node.item)
     }
 }

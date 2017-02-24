@@ -3,8 +3,9 @@ use error::Result;
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{Node, Index, Item, OperatorKind, VariableDeclarationKind};
+use ast::{Node, Index, Item, VariableDeclarationKind};
 use ast::Item::*;
+use ast::OperatorKind::*;
 
 impl<'src> Parser<'src> {
     #[inline(always)]
@@ -167,7 +168,7 @@ impl<'src> Parser<'src> {
 
             match previous {
                 Some(previous) => {
-                    self.program.items[previous].next = Some(index);
+                    self.program.store[previous].next = Some(index);
                 },
                 _ => {}
             };
@@ -296,8 +297,8 @@ impl<'src> Parser<'src> {
 
 #[cfg(test)]
 mod test {
-    use ast::Value;
     use ast::Item::*;
+    use ast::{Value, VariableDeclarationKind};
     use parser::parse;
 
     #[test]
@@ -307,7 +308,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             FunctionStatement {
                 name: "foo".into(),
@@ -324,7 +325,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             FunctionStatement {
                 name: "foo".into(),
@@ -334,7 +335,7 @@ mod test {
         );
 
         assert_list!(
-            program.items.list(0),
+            program.store.nodes(0).items(),
 
             Identifier("bar".into()),
             Identifier("baz".into())
@@ -348,7 +349,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             FunctionStatement {
                 name: "foo".into(),
@@ -358,7 +359,7 @@ mod test {
         );
 
         assert_list!(
-            program.items.list(1),
+            program.store.nodes(1).items(),
 
             ExpressionStatement(0),
             ExpressionStatement(2)
@@ -373,7 +374,7 @@ mod test {
         let src = "{ true }";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             BlockStatement { body: Some(1) }
         );
         assert_eq!(program[1], ExpressionStatement(0));
@@ -385,7 +386,7 @@ mod test {
         let src = "if (true) foo;";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             IfStatement {
                 test: 0,
@@ -404,7 +405,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             IfStatement {
                 test: 0,
@@ -427,7 +428,7 @@ mod test {
         let src = "while (true) foo;";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             WhileStatement {
                 test: 0,
@@ -444,7 +445,7 @@ mod test {
         let src = "while (true) { foo; }";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             WhileStatement {
                 test: 0,
@@ -464,7 +465,7 @@ mod test {
         let src = "do foo; while (true)";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             DoStatement {
                 body: 1,
@@ -481,7 +482,7 @@ mod test {
         let src = "break;";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             BreakStatement { label: None }
         );
     }
@@ -491,7 +492,7 @@ mod test {
         let src = "break foo;";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             BreakStatement { label: Some(0) }
         );
         assert_ident!("foo", program[0]);
@@ -502,7 +503,7 @@ mod test {
         let src = "throw '3'";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             ThrowStatement { value: 0 }
         );
         assert_eq!(program[0], ValueExpr(Value::String("'3'")));
@@ -513,7 +514,7 @@ mod test {
         let src = "try {} catch (err) {}";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             TryStatement { body: None, error: "err".into(), handler: None }
         );
     }
@@ -523,12 +524,69 @@ mod test {
         let src = "try { foo; } catch (err) { bar; }";
         let program = parse(src).unwrap();
         assert_list!(
-            program.statements(),
+            program.statements().items(),
             TryStatement { body: Some(1), error: "err".into(), handler: Some(3) }
         );
         assert_eq!(program[1], ExpressionStatement(0));
         assert_eq!(program[3], ExpressionStatement(2));
         assert_ident!("foo", program[0]);
         assert_ident!("bar", program[2]);
+    }
+
+    #[test]
+    fn variable_declaration_statement() {
+        let src = "var x, y, z = 42;";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements().items(),
+            DeclarationStatement { kind: VariableDeclarationKind::Var, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 5, value: Some(4) });
+        assert_ident!("z", program[5]);
+        assert_eq!(ValueExpr(Value::Number("42")), program[4]);
+    }
+
+    #[test]
+    fn variable_declaration_statement_destructuring_array() {
+        let src = "let [x, y] = [1, 2];";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements().items(),
+            DeclarationStatement { kind: VariableDeclarationKind::Let, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
+
+        assert_eq!(program[2], ArrayExpr(Some(0)));
+        assert_ident!("x", program[0]);
+        assert_ident!("y", program[1]);
+
+        assert_eq!(program[5], ArrayExpr(Some(3)));
+        assert_eq!(ValueExpr(Value::Number("1")), program[3]);
+        assert_eq!(ValueExpr(Value::Number("2")), program[4]);
+    }
+
+    #[test]
+    fn variable_declaration_statement_destructuring_object() {
+        let src = "const { x, y } = { a, b };";
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements().items(),
+            DeclarationStatement { kind: VariableDeclarationKind::Const, declarators: 6 }
+        );
+
+        assert_eq!(program[6], VariableDeclarator { name: 2, value: Some(5) });
+
+        assert_eq!(program[2], ObjectExpr { body: Some(0) });
+        assert_eq!(ShorthandMember("x".into()), program[0]);
+        assert_eq!(ShorthandMember("y".into()), program[1]);
+
+        assert_eq!(program[5], ObjectExpr { body: Some(3) });
+        assert_eq!(ShorthandMember("a".into()), program[3]);
+        assert_eq!(ShorthandMember("b".into()), program[4]);
     }
 }

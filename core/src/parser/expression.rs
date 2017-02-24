@@ -4,6 +4,7 @@ use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
 use ast::{Node, Index, Item, OperatorKind};
+use ast::OperatorKind::*;
 
 impl<'src> Parser<'src> {
     #[inline(always)]
@@ -256,7 +257,7 @@ impl<'src> Parser<'src> {
 
 #[cfg(test)]
 mod test {
-    use ast::OperatorKind;
+    use ast::{OperatorKind, Value};
     use parser::parse;
     use parser::Item::*;
 
@@ -267,11 +268,11 @@ mod test {
         let program = parse(src).unwrap();
 
         // 3 times statement and expression
-        assert_eq!(6, program.items.len());
+        assert_eq!(6, program.store.len());
 
         // Statements are linked
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             ExpressionStatement(0),
             ExpressionStatement(2),
@@ -291,11 +292,11 @@ mod test {
         let program = parse(src).unwrap();
 
         // 2 statements, 3 simple expressions, one binary expression, one postfix expression
-        assert_eq!(7, program.items.len());
+        assert_eq!(7, program.store.len());
 
         // Statements are linked
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             ExpressionStatement(2),
             ExpressionStatement(5)
@@ -336,7 +337,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             ExpressionStatement(1)
         );
@@ -360,7 +361,7 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_list!(
-            program.statements(),
+            program.statements().items(),
 
             ExpressionStatement(2)
         );
@@ -376,5 +377,31 @@ mod test {
 
         assert_ident!("foo", program[0]);
         assert_ident!("bar", program[1]);
+    }
+
+    #[test]
+    fn regular_expression() {
+        let src = r#"/^[A-Z]+\/[\d]+/g"#;
+        let program = parse(src).unwrap();
+        assert_eq!(ValueExpr(Value::RegEx { pattern: "^[A-Z]+\\/[\\d]+", flags: "g" }), program[0]);
+    }
+
+    #[test]
+    fn array_expression() {
+        let src = "[0, 1, 2]";
+
+        let program = parse(src).unwrap();
+
+        assert_eq!(5, program.store.len());
+        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_list!(
+            program.statements().items(),
+            ExpressionStatement(3)
+        );
+
+        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_eq!(program[0], ValueExpr(Value::Number("0")));
+        assert_eq!(program[1], ValueExpr(Value::Number("1")));
+        assert_eq!(program[2], ValueExpr(Value::Number("2")));
     }
 }
