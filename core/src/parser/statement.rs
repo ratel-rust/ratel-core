@@ -36,8 +36,8 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn block_statement(&mut self) -> Result<Node<'src>> {
-        Ok(Item::BlockStatement {
-            body: self.block_body_tail()?
+        self.block_body_tail().map(|body| Item::BlockStatement {
+            body: body
         }.at(0, 0))
     }
 

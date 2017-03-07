@@ -85,7 +85,9 @@ impl<'src> Parser<'src> {
             },
 
             Accessor => {
-                let right = self.expression(bp)?;
+                let member = expect_raw_ident!(self);
+
+                let right = self.in_loc(Item::Identifier(member.into()));
 
                 Node::new(left.start, right.end, Item::MemberExpr {
                     object: self.store(left),
@@ -246,7 +248,10 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn regular_expression(&mut self) -> Result<Node<'src>> {
-        let value = self.lexer.read_regular_expression()?;
+        let value = match self.lexer.read_regular_expression() {
+            Literal(value) => value,
+            _              => unexpected_token!(self),
+        };
 
         Ok(Item::ValueExpr(value).at(0, 0))
     }
@@ -375,6 +380,31 @@ mod test {
 
         assert_ident!("foo", program[0]);
         assert_ident!("bar", program[1]);
+    }
+
+    #[test]
+    fn keyword_member_expression() {
+        let src = "foo.function";
+
+        let program = parse(src).unwrap();
+
+        assert_list!(
+            program.statements().items(),
+
+            ExpressionStatement(2)
+        );
+
+        assert_eq!(
+            program[2],
+
+            MemberExpr {
+                object: 0,
+                property: 1,
+            }
+        );
+
+        assert_ident!("foo", program[0]);
+        assert_ident!("function", program[1]);
     }
 
     #[test]

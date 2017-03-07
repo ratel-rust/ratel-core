@@ -109,7 +109,7 @@ fn tokenize(b: &mut Bencher) {
     b.iter(|| {
         let mut lexer = ratel::lexer::Lexer::new(SOURCE);
 
-        while lexer.get_token().unwrap() != ratel::lexer::Token::EndOfProgram {
+        while lexer.get_token() != ratel::lexer::Token::EndOfProgram {
 
         }
     });

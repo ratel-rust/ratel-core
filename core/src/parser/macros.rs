@@ -6,7 +6,7 @@ macro_rules! peek {
             Some(token) => token,
 
             None => {
-                let token = try!($parser.lexer.get_token());
+                let token = $parser.lexer.get_token();
 
                 $parser.token = Some(token);
 
@@ -22,9 +22,68 @@ macro_rules! next {
     ($parser:ident) => {
         match $parser.token.take() {
             Some(token) => token,
-            None        => try!($parser.lexer.get_token())
+            None        => $parser.lexer.get_token()
         }
     }
+}
+
+// #[macro_export]
+// macro_rules! next_raw_ident {
+//     ($parser:ident) => ({
+//         use ast::OperatorKind::*;
+//         use ast::Value::*;
+
+//         match next!($parser) {
+//             Identifier(ident)    => ident,
+//             Break                => "break",
+//             Do                   => "do",
+//             Case                 => "case",
+//             Else                 => "else",
+//             Catch                => "catch",
+//             Export               => "export",
+//             Class                => "class",
+//             Extends              => "extends",
+//             Return               => "return",
+//             While                => "while",
+//             Finally              => "finally",
+//             Super                => "super",
+//             With                 => "with",
+//             Continue             => "continue",
+//             For                  => "for",
+//             Switch               => "switch",
+//             Yield                => "yield",
+//             Debugger             => "debugger",
+//             Function             => "function",
+//             This                 => "this",
+//             Default              => "default",
+//             If                   => "if",
+//             Throw                => "throw",
+//             Import               => "import",
+//             Try                  => "try",
+//             Static               => "static",
+//             Operator(New)        => "new",
+//             Operator(Typeof)     => "typeof",
+//             Operator(Void)       => "void",
+//             Operator(Delete)     => "delete",
+//             Operator(Instanceof) => "instanceof",
+//             Literal(True)        => "true",
+//             Literal(False)       => "false",
+//             Literal(Null)        => "null",
+//             Literal(Undefined)   => "undefined",
+
+//             _                    => unexpected_token!($parser),
+//         }
+//     })
+// }
+macro_rules! expect_raw_ident {
+    ($parser:ident) => ({
+        debug_assert!($parser.token == None);
+
+        match $parser.lexer.get_raw_identifier() {
+            Identifier(ident) => ident,
+            _                 => unexpected_token!($parser)
+        }
+    })
 }
 
 /// If the next token matches `$p`, consume that token and execute `$eval`.
