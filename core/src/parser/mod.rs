@@ -1,11 +1,13 @@
 #[macro_use]
 mod macros;
+mod error;
 mod expression;
 mod statement;
 
+// use parser::error::Handle;
 use error::Result;
 
-use ast::{Program, Store, Node, Index, Item};
+use ast::{idx, null, Program, Store, Node, Index, OptIndex, Item};
 use lexer::{Lexer, Token};
 use lexer::Token::*;
 
@@ -27,8 +29,9 @@ impl<'src> Parser<'src> {
             token: None,
             program: Program {
                 source: source,
-                root: None,
+                root: null(),
                 store: Store::new(),
+                errors: 0,
             }
         }
     }
@@ -59,7 +62,8 @@ impl<'src> Parser<'src> {
     #[inline(always)]
     fn chain(&mut self, previous: Index, node: Node<'src>) -> Index {
         let index = self.store(node);
-        self.program.store[previous].next = Some(index);
+        debug_assert!(index > previous);
+        self.program.store[previous].next = idx(index);
         index
     }
 
@@ -70,66 +74,64 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn parse(&mut self) -> Result<()> {
+    fn parse(&mut self) {
         let statement = match next!(self) {
-            EndOfProgram => return Ok(()),
-            token        => try!(self.statement(token))
+            EndOfProgram => return,
+            token        => self.statement(token)
         };
 
         let mut previous = self.store(statement);
 
-        self.program.root = Some(previous);
+        self.program.root = idx(previous);
 
         loop {
             let statement = match next!(self) {
                 EndOfProgram => break,
-                token        => try!(self.statement(token))
+                token        => self.statement(token)
             };
 
             previous = self.chain(previous, statement);
         }
-
-        Ok(())
     }
 
     #[inline(always)]
-    fn block_body_tail(&mut self) -> Result<Option<Index>> {
+    fn block_body_tail(&mut self) -> OptIndex {
         let statement = match next!(self) {
-            BraceClose => return Ok(None),
-            token      => self.statement(token)?,
+            BraceClose => return null(),
+            token      => self.statement(token),
         };
 
         let mut previous = self.store(statement);
-        let root = Some(previous);
+        let root = idx(previous);
 
         loop {
             let statement = match next!(self) {
                 BraceClose => break,
-                token      => self.statement(token)?,
+                token      => self.statement(token),
             };
 
             previous = self.chain(previous, statement);
         }
 
-        Ok(root)
+        root
     }
 
     #[inline(always)]
-    fn block_body(&mut self) -> Result<Option<Index>> {
+    fn block_body(&mut self) -> OptIndex {
         expect!(self, BraceOpen);
         self.block_body_tail()
     }
 
     #[inline(always)]
-    fn parameter_list(&mut self) -> Result<Option<Index>> {
+    fn parameter_list(&mut self) -> OptIndex {
         let name = match next!(self) {
-            ParenClose       => return Ok(None),
+            ParenClose       => return null(),
             Identifier(name) => name,
             _                => unexpected_token!(self),
         };
 
-        let mut previous = self.store_in_loc(Item::Identifier(name.into()));
-        let root = Some(previous);
+        let mut previous = self.store_in_loc(Item::identifier(name));
+        let root = idx(previous);
 
         loop {
             let name = match next!(self) {
@@ -138,10 +140,10 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            previous = self.chain_in_loc(previous, Item::Identifier(name.into()));
+            previous = self.chain_in_loc(previous, Item::identifier(name));
         }
 
-        Ok(root)
+        root
 
         // let mut default_params = false;
 
@@ -155,7 +157,7 @@ impl<'src> Parser<'src> {
         //     list.push(match peek!(self) {
         //         Operator(Assign) => {
         //             self.consume();
-        //             let expression = try!(self.expression(0));
+        //             let expression = self.expression(0);
         //             default_params = true;
         //             Parameter {
         //                 name: name.into(),
@@ -188,7 +190,7 @@ impl<'src> Parser<'src> {
 pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
     let mut parser = Parser::new(source);
 
-    parser.parse()?;
+    parser.parse();
 
     Ok(parser.program)
 }
@@ -197,13 +199,14 @@ pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
 mod test {
     use parser::parse;
     use parser::Item::*;
+    use ast::null;
 
     #[test]
     fn empty_parse() {
         let program = parse("").unwrap();
 
         assert_eq!(0, program.store.len());
-        assert_eq!(None, program.root);
+        assert_eq!(null(), program.root);
         assert_list!(program.statements().items());
     }
 

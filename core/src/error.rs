@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Error type used by the tokenizer and the parser internally.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Error {
     UnexpectedEndOfProgram,
     UnexpectedToken {

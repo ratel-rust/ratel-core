@@ -1,7 +1,6 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperatorKind {
     FatArrow,         //   …  => …
-    Accessor,         //   …  .  …
     New,              //     new …
     Increment,        //      ++ … | … ++
     Decrement,        //      -- … | … --
@@ -58,7 +57,6 @@ impl OperatorKind {
     pub fn as_str(&self) -> &'static str {
         match *self {
             FatArrow         => "=>",
-            Accessor         => ".",
             New              => "new",
             Increment        => "++",
             Decrement        => "--",
@@ -114,8 +112,7 @@ impl OperatorKind {
     #[inline]
     pub fn binding_power(&self) -> u8 {
         match *self {
-            FatArrow         |
-            Accessor         => 18,
+            FatArrow         => 18,
 
             New              => 17,
 
@@ -200,7 +197,6 @@ impl OperatorKind {
     pub fn infix(&self) -> bool {
         match *self {
             FatArrow         |
-            Accessor         |
             Multiplication   |
             Division         |
             Remainder        |

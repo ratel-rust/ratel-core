@@ -1,4 +1,5 @@
-use ast::{Node, Index, Ident, OperatorKind, VariableDeclarationKind};
+use ast::{Node, Index, OptIndex, Ident, OperatorKind, VariableDeclarationKind};
+use error::Error;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Value<'src> {
@@ -18,13 +19,16 @@ pub enum Value<'src> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Item<'src> {
+    // Error
+    Error(Error),
+
     // Identifiers
     Identifier(Ident<'src>),
     This,
 
     // Expressions
     ValueExpr(Value<'src>),
-    ArrayExpr(Option<Index>),
+    ArrayExpr(OptIndex),
     SequenceExpr(Index),
     MemberExpr {
         object: Index,
@@ -32,7 +36,7 @@ pub enum Item<'src> {
     },
     CallExpr {
         callee: Index,
-        arguments: Option<Index>,
+        arguments: OptIndex,
     },
     BinaryExpr {
         parenthesized: bool,
@@ -54,21 +58,21 @@ pub enum Item<'src> {
         alternate: Index,
     },
     ArrowExpr {
-        params: Option<Index>,
-        body: Option<Index>,
+        params: OptIndex,
+        body: OptIndex,
     },
     FunctionExpr {
         name: Option<Ident<'src>>,
-        params: Option<Index>,
-        body: Option<Index>,
+        params: OptIndex,
+        body: OptIndex,
     },
     ObjectExpr {
-        body: Option<Index>,
+        body: OptIndex,
     },
     ClassExpr {
         name: Option<Ident<'src>>,
         extends: Option<Ident<'src>>,
-        body: Option<Index>,
+        body: OptIndex,
     },
 
     // Object
@@ -85,7 +89,7 @@ pub enum Item<'src> {
     // Declaration
     VariableDeclarator {
         name: Index,
-        value: Option<Index>,
+        value: OptIndex,
     },
 
     // Statements
@@ -97,19 +101,19 @@ pub enum Item<'src> {
     },
     FunctionStatement {
         name: Ident<'src>,
-        params: Option<Index>,
-        body: Option<Index>,
+        params: OptIndex,
+        body: OptIndex,
     },
     ReturnStatement {
-        value: Option<Index>,
+        value: OptIndex,
     },
     BreakStatement {
-        label: Option<Index>,
+        label: OptIndex,
     },
     IfStatement {
         test: Index,
         consequent: Index,
-        alternate: Option<Index>
+        alternate: OptIndex
     },
     WhileStatement {
         test: Index,
@@ -120,9 +124,9 @@ pub enum Item<'src> {
         test: Index,
     },
     ForStatement {
-        init: Option<Index>,
-        test: Option<Index>,
-        update: Option<Index>,
+        init: OptIndex,
+        test: OptIndex,
+        update: OptIndex,
         body: Index
     },
     ForIn {
@@ -139,18 +143,23 @@ pub enum Item<'src> {
         value: Index
     },
     TryStatement {
-        body: Option<Index>,
+        body: OptIndex,
         error: Ident<'src>,
-        handler: Option<Index>
+        handler: OptIndex
     },
     BlockStatement {
-        body: Option<Index>
+        body: OptIndex
     }
 }
 
 impl<'src> Item<'src> {
-    #[inline]
+    #[inline(always)]
     pub fn at(self, start: usize, end: usize) -> Node<'src> {
         Node::new(start, end, self)
+    }
+
+    #[inline(always)]
+    pub fn identifier<I: Into<Ident<'src>>>(ident: I) -> Item<'src> {
+        Item::Identifier(ident.into())
     }
 }

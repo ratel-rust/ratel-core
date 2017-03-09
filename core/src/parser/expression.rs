@@ -1,33 +1,30 @@
-use error::Result;
-
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{Node, Index, Item, OperatorKind};
+use ast::{null, idx, OptIndex, Item, Node};
 use ast::OperatorKind::*;
 
 impl<'src> Parser<'src> {
     #[inline(always)]
-    pub fn expression(&mut self, lbp: u8) -> Result<Node<'src>> {
+    pub fn expression(&mut self, lbp: u8) -> Node<'src> {
         let token = next!(self);
         self.expression_from(token, lbp)
     }
 
     #[inline(always)]
-    pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Result<Node<'src>> {
+    pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Node<'src> {
         let left = match token {
             This               => self.in_loc(Item::This),
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
-            Identifier(value)  => self.in_loc(Item::Identifier(value.into())),
-            // Identifier(value)  => Item::Identifier(value.into()).at(0, 0),
-            Operator(Division) => self.regular_expression()?,
-            // Operator(optype)   => self.prefix_expression(optype)?,
-            ParenOpen          => self.paren_expression()?,
-            BracketOpen        => self.array_expression()?,
-            BraceOpen          => self.object_expression()?,
-            // Function           => self.function_expression()?,
-            // Class              => self.class_expression()?,
-            // Template(kind)     => self.template_expression(None, kind)?,
+            Identifier(value)  => self.in_loc(Item::identifier(value)),
+            Operator(Division) => self.regular_expression(),
+            // Operator(optype)   => self.prefix_expression(optype),
+            ParenOpen          => self.paren_expression(),
+            BracketOpen        => self.array_expression(),
+            BraceOpen          => self.object_expression(),
+            // Function           => self.function_expression(),
+            // Class              => self.class_expression(),
+            // Template(kind)     => self.template_expression(None, kind),
             _                  => unexpected_token!(self)
         };
 
@@ -35,19 +32,56 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn complex_expression(&mut self, mut left: Node<'src>, lbp: u8) -> Result<Node<'src>> {
+    pub fn complex_expression(&mut self, mut left: Node<'src>, lbp: u8) -> Node<'src> {
         loop {
             left = match peek!(self) {
+                Operator(op @ Increment) |
+                Operator(op @ Decrement) => {
+                    self.consume();
+
+                    // TODO: op.end
+                    Node::new(left.start, left.end, Item::PostfixExpr {
+                        operator: op,
+                        operand: self.store(left),
+                    })
+                }
+
                 Operator(op) => {
+                    self.consume();
+
                     let rbp = op.binding_power();
 
                     if lbp > rbp {
                         break;
                     }
 
+                    if !op.infix() {
+                        unexpected_token!(self);
+                    }
+
+                    if op.assignment() {
+                        // TODO: verify that left is assignable
+                    }
+
+                    let right = self.expression(rbp);
+
+                    Node::new(left.start, right.end, Item::BinaryExpr {
+                        parenthesized: false,
+                        operator: op,
+                        left: self.store(left),
+                        right: self.store(right),
+                    })
+                },
+
+                Accessor(member) => {
                     self.consume();
 
-                    self.infix_expression(left, rbp, op)?
+                    let right = self.in_loc(Item::identifier(member));
+
+                    Node::new(left.start, right.end, Item::MemberExpr {
+                        object: self.store(left),
+                        property: self.store(right),
+                    })
                 },
 
                 ParenOpen => {
@@ -59,7 +93,7 @@ impl<'src> Parser<'src> {
 
                     Item::CallExpr {
                         callee: self.store(left),
-                        arguments: self.expression_list()?,
+                        arguments: self.expression_list(),
                     }.at(0, 0)
                 },
 
@@ -67,79 +101,33 @@ impl<'src> Parser<'src> {
             }
         }
 
-        Ok(left)
+        left
     }
 
-
-    #[inline(always)]
-    pub fn infix_expression(&mut self, left: Node<'src>, bp: u8, op: OperatorKind) -> Result<Node<'src>> {
-        use ast::OperatorKind::*;
-
-        Ok(match op {
-            Increment | Decrement => {
-                // TODO: op.end
-                Node::new(left.start, left.end, Item::PostfixExpr {
-                    operator: op,
-                    operand: self.store(left),
-                })
-            },
-
-            Accessor => {
-                let member = expect_raw_ident!(self);
-
-                let right = self.in_loc(Item::Identifier(member.into()));
-
-                Node::new(left.start, right.end, Item::MemberExpr {
-                    object: self.store(left),
-                    property: self.store(right),
-                })
-            },
-
-            _ => {
-                if !op.infix() {
-                    unexpected_token!(self);
-                }
-
-                if op.assignment() {
-                    // TODO: verify that left is assignable
-                }
-
-                let right = self.expression(bp)?;
-
-                Node::new(left.start, right.end, Item::BinaryExpr {
-                    parenthesized: false,
-                    operator: op,
-                    left: self.store(left),
-                    right: self.store(right),
-                })
-            }
-        })
-    }
-
-    pub fn expression_list(&mut self) -> Result<Option<Index>> {
+    pub fn expression_list(&mut self) -> OptIndex {
         let expression = match next!(self) {
-            ParenClose => return Ok(None),
-            token      => self.expression_from(token, 0)?,
+            ParenClose => return null(),
+            token      => self.expression_from(token, 0),
         };
 
         let mut previous = self.store(expression);
-        let root = Some(previous);
+        let root = idx(previous);
 
         loop {
             let expression = match next!(self) {
                 ParenClose => break,
-                Comma      => self.expression(0)?,
+                Comma      => self.expression(0),
                 _          => unexpected_token!(self),
             };
 
             previous = self.chain(previous, expression);
         }
 
-        Ok(root)
+        root
     }
 
     #[inline(always)]
-    fn paren_expression(&mut self) -> Result<Node<'src>> {
+    fn paren_expression(&mut self) -> Node<'src> {
         match next!(self) {
             // ParenClose => {
             //     expect!(self, Operator(FatArrow));
@@ -147,12 +135,12 @@ impl<'src> Parser<'src> {
             //     self.arrow_function_expression(None)
             // },
             token => {
-                let expression = self.expression_from(token, 0)?;
-                // let expression = self.sequence_or(expression)?;
+                let expression = self.expression_from(token, 0);
+                // let expression = self.sequence_or(expression);
 
                 expect!(self, ParenClose);
 
-                Ok(expression)
+                expression
 
                 // Ok(expression.parenthesize())
             }
@@ -160,9 +148,9 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    pub fn object_expression(&mut self) -> Result<Node<'src>> {
+    pub fn object_expression(&mut self) -> Node<'src> {
         let member = match next!(self) {
-            BraceClose => return Ok(self.in_loc(Item::ObjectExpr { body: None })),
+            BraceClose => return self.in_loc(Item::ObjectExpr { body: null() }),
 
             Identifier(ident) => {
                 let ident = ident.into();
@@ -173,7 +161,7 @@ impl<'src> Parser<'src> {
                     BraceClose => {
                         let member = Item::ShorthandMember(ident).at(start, end);
 
-                        return Ok(Item::ObjectExpr { body: Some(self.store(member)) }.at(start, end))
+                        return Item::ObjectExpr { body: self.store(member).into() }.at(start, end)
                     },
                     _ => unexpected_token!(self)
                 }
@@ -183,7 +171,7 @@ impl<'src> Parser<'src> {
         };
 
         let mut previous = self.store(member);
-        let root = Some(previous);
+        let root = idx(previous);
 
         loop {
             match next!(self) {
@@ -218,16 +206,16 @@ impl<'src> Parser<'src> {
             // }
         }
 
-        Ok(Item::ObjectExpr { body: root }.at(0, 0))
+        Item::ObjectExpr { body: root }.at(0, 0)
     }
 
     #[inline(always)]
-    pub fn array_expression(&mut self) -> Result<Node<'src>> {
+    pub fn array_expression(&mut self) -> Node<'src> {
         let expression = match next!(self) {
             BracketClose => {
-                return Ok(Item::ArrayExpr(None).at(0,0))
+                return Item::ArrayExpr(null()).at(0,0)
             },
-            token => self.expression_from(token, 0)?
+            token => self.expression_from(token, 0)
         };
 
         let mut previous = self.store(expression);
@@ -236,31 +224,31 @@ impl<'src> Parser<'src> {
         loop {
             let expression = match next!(self) {
                 BracketClose => break,
-                Comma      => self.expression(0)?,
+                Comma      => self.expression(0),
                 _          => unexpected_token!(self),
             };
 
             previous = self.chain(previous, expression);
         }
 
-        Ok(Item::ArrayExpr(Some(root)).at(0,0))
+        Item::ArrayExpr(root.into()).at(0,0)
     }
 
     #[inline(always)]
-    pub fn regular_expression(&mut self) -> Result<Node<'src>> {
+    pub fn regular_expression(&mut self) -> Node<'src> {
         let value = match self.lexer.read_regular_expression() {
             Literal(value) => value,
             _              => unexpected_token!(self),
         };
 
-        Ok(Item::ValueExpr(value).at(0, 0))
+        Item::ValueExpr(value).at(0, 0)
     }
 
 }
 
 #[cfg(test)]
 mod test {
-    use ast::{OperatorKind, Value};
+    use ast::{null, idx, OperatorKind, Value};
     use parser::parse;
     use parser::Item::*;
 
@@ -350,7 +338,7 @@ mod test {
 
             CallExpr {
                 callee: 0,
-                arguments: None,
+                arguments: null(),
             }
         );
 
@@ -421,13 +409,13 @@ mod test {
         let program = parse(src).unwrap();
 
         assert_eq!(5, program.store.len());
-        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_eq!(program[3], ArrayExpr(idx(0)));
         assert_list!(
             program.statements().items(),
             ExpressionStatement(3)
         );
 
-        assert_eq!(program[3], ArrayExpr(Some(0)));
+        assert_eq!(program[3], ArrayExpr(idx(0)));
         assert_eq!(program[0], ValueExpr(Value::Number("0")));
         assert_eq!(program[1], ValueExpr(Value::Number("1")));
         assert_eq!(program[2], ValueExpr(Value::Number("2")));

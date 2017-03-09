@@ -60,6 +60,7 @@ pub enum Token<'src> {
     Literal(Value<'src>),
     Reserved(ReservedKind),
     Identifier(&'src str),
+    Accessor(&'src str),
     Template(TemplateKind<'src>),
     UnexpectedToken,
     UnexpectedEndOfProgram,

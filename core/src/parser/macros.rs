@@ -149,9 +149,14 @@ macro_rules! expect_semicolon {
 /// Return an error for current token.
 #[macro_export]
 macro_rules! unexpected_token {
-    ($parser:ident) => {
-        return Err($parser.lexer.invalid_token())
-    };
+    ($parser:ident) => ({
+        // return Err($parser.lexer.invalid_token())
+        use parser::error::Handle;
+
+        let err = $parser.lexer.invalid_token();
+
+        return Handle::handle_error($parser, err);
+    });
 }
 
 #[cfg(test)]

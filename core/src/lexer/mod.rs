@@ -792,7 +792,7 @@ define_handlers! {
                 }
             },
 
-            _ => Operator(Accessor)
+            _ => lex.read_accessor()
         }
     }
 
@@ -1017,7 +1017,7 @@ impl<'src> Lexer<'src> {
     /// The perf gain here comes mainly from avoiding having to first match the `&str`
     /// to a keyword token, and then match that token back to a `&str`.
     #[inline(always)]
-    pub fn get_raw_identifier(&mut self) -> Token<'src> {
+    pub fn read_accessor(&mut self) -> Token<'src> {
         // Look up table that marks which ASCII characters are allowed to start an ident
         const AL: bool = true; // alphabet
         const DO: bool = true; // dollar sign $
@@ -1050,7 +1050,7 @@ impl<'src> Lexer<'src> {
                 return if ch > 127 {
                     unicode(self, ch)
                 } else if TABLE[ch as usize] {
-                    identifier(self, ch)
+                    Accessor(self.consume_label_characters())
                 } else {
                     UnexpectedToken
                 };
@@ -1238,5 +1238,125 @@ impl<'src> Lexer<'src> {
             pattern: pattern,
             flags: self.slice_from(flags_start)
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn assert_lex<'src, T: AsRef<[Token<'src>]>>(source: &str, tokens: T) {
+        let mut lex = Lexer::new(source);
+
+        for token in tokens.as_ref() {
+            assert_eq!(lex.get_token(), *token);
+        }
+
+        assert_eq!(lex.get_token(), EndOfProgram);
+    }
+
+    #[test]
+    fn empty_lexer() {
+        assert_lex("   ", []);
+    }
+
+    #[test]
+    fn line_comment() {
+        assert_lex(" // foo", []);
+    }
+
+    #[test]
+    fn block_comment() {
+        assert_lex(" /* foo */ bar", [Identifier("bar")]);
+    }
+
+    #[test]
+    fn method_call() {
+        assert_lex(
+            "foo.bar();",
+            [
+                Identifier("foo"),
+                Accessor("bar"),
+                ParenOpen,
+                ParenClose,
+                Semicolon,
+            ]
+        );
+    }
+
+    #[test]
+    fn method_call_with_keyword() {
+        assert_lex(
+            "foo.function();",
+            [
+                Identifier("foo"),
+                Accessor("function"),
+                ParenOpen,
+                ParenClose,
+                Semicolon,
+            ]
+        );
+    }
+
+    #[test]
+    fn simple_math() {
+        assert_lex(
+            "let foo = 2 + 2;",
+            [
+                Declaration(Let),
+                Identifier("foo"),
+                Operator(Assign),
+                Literal(Value::Number("2")),
+                Operator(Addition),
+                Literal(Value::Number("2")),
+                Semicolon,
+            ]
+        );
+    }
+
+    #[test]
+    fn variable_declaration() {
+        assert_lex(
+            "var x, y, z = 42;",
+            [
+                Declaration(Var),
+                Identifier("x"),
+                Comma,
+                Identifier("y"),
+                Comma,
+                Identifier("z"),
+                Operator(Assign),
+                Literal(Value::Number("42")),
+                Semicolon,
+            ]
+        );
+    }
+
+    #[test]
+    fn function_statement() {
+        assert_lex(
+            "function foo(bar) { return bar }",
+            [
+                Function,
+                Identifier("foo"),
+                ParenOpen,
+                Identifier("bar"),
+                ParenClose,
+                BraceOpen,
+                Return,
+                Identifier("bar"),
+                BraceClose,
+            ]
+        );
+    }
+
+    #[test]
+    fn unexpected_token() {
+        assert_lex("..", [UnexpectedToken]);
+    }
+
+    #[test]
+    fn unexpected_end() {
+        assert_lex("'foo", [UnexpectedEndOfProgram])
     }
 }
