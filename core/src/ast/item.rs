@@ -11,12 +11,26 @@ pub enum Value<'src> {
     Binary(u64),
     String(&'src str),
     RawQuasi(&'src str),
-    RegEx {
-        pattern: &'src str,
-        flags: &'src str,
-    }
+    RegEx(&'src str),
 }
 
+// Individual variants of this enum should not exceed 4 pointer-sized words.
+// Due to alignment something like `Option<Indent<'src>>` is already 4 words,
+// when possible things like identifiers should be stored as their own items.
+//
+// Also note that `OptIndex` is a single word, just as a regular `Index`, so
+// doing optional fields this way is best.
+
+/// `Item` contains all elements of JS syntax necessary to construct an AST.
+/// This includes things like statements and expressions, as well as lower
+/// level elements such as `Identifier`s.
+///
+/// All `Item`s are stored inside `Node` wrappers on a single `Vec` based store.
+/// Recursion within the tree is achieved by referencing other `Node`s (and thus
+/// `Item`s) by indices within that store. There are two kinds of indices:
+///
+/// * `Index` - alias to `usize`.
+/// * `OptIndex` - Nullable index that's isomorphic to `usize`.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Item<'src> {
     // Error
@@ -62,7 +76,7 @@ pub enum Item<'src> {
         body: OptIndex,
     },
     FunctionExpr {
-        name: Option<Ident<'src>>,
+        name: OptIndex,
         params: OptIndex,
         body: OptIndex,
     },
@@ -70,18 +84,14 @@ pub enum Item<'src> {
         body: OptIndex,
     },
     ClassExpr {
-        name: Option<Ident<'src>>,
-        extends: Option<Ident<'src>>,
+        name: OptIndex,
+        extends: OptIndex,
         body: OptIndex,
     },
 
     // Object
     ShorthandMember(Ident<'src>),
     ObjectMember {
-        key: Ident<'src>,
-        value: Index,
-    },
-    ComputedMember {
         key: Index,
         value: Index,
     },
@@ -100,7 +110,7 @@ pub enum Item<'src> {
         declarators: Index,
     },
     FunctionStatement {
-        name: Ident<'src>,
+        name: Index,
         params: OptIndex,
         body: OptIndex,
     },
@@ -144,7 +154,7 @@ pub enum Item<'src> {
     },
     TryStatement {
         body: OptIndex,
-        error: Ident<'src>,
+        error: Index,
         handler: OptIndex
     },
     BlockStatement {

@@ -24,6 +24,14 @@ macro_rules! define_handlers {
     }
 }
 
+macro_rules! eof_check {
+    ($lex:ident) => (
+        if $lex.is_eof() {
+            return UnexpectedEndOfProgram;
+        }
+    )
+}
+
 macro_rules! expect_byte {
     ($lex:ident) => ({
         if $lex.is_eof() {
@@ -68,6 +76,18 @@ macro_rules! unwind_loop {
     })
 }
 
+/// Describes the state of Automatic Semicolon Insertion
+///
+/// * `ExplicitSemicolon` - a `Semicolon` token has been issued.
+/// * `ImplicitSemicolon` - issued a token that permits semicolon insertion.
+/// * `NoSemicolon`       - issued a token that does not permit semicolon insertion.
+#[derive(Clone, Copy)]
+pub enum Asi {
+    ExplicitSemicolon,
+    ImplicitSemicolon,
+    NoSemicolon,
+}
+
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Token<'src>; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
@@ -101,6 +121,8 @@ define_handlers! {
     const SEM: semicolon |lex, _| {
         lex.bump();
 
+        lex.asi = Asi::ExplicitSemicolon;
+
         Semicolon
     }
 
@@ -129,6 +151,8 @@ define_handlers! {
     const PNC: paren_close |lex, _| {
         lex.bump();
 
+        lex.asi = Asi::ImplicitSemicolon;
+
         ParenClose
     }
 
@@ -156,6 +180,8 @@ define_handlers! {
     // }
     const BEC: brace_close |lex, _| {
         lex.bump();
+
+        lex.asi = Asi::ImplicitSemicolon;
 
         BraceClose
     }
@@ -466,8 +492,22 @@ define_handlers! {
 
                 // Keep consuming bytes until */ happens in a row
                 unwind_loop!({
-                    if expect_byte!(lex) == b'*' && expect_byte!(lex) == b'/' {
-                        return lex.get_token();
+                    eof_check!(lex);
+
+                    if lex.read_byte() == b'*' {
+                        lex.bump();
+
+                        eof_check!(lex);
+
+                        if lex.read_byte() == b'/' {
+                            lex.bump();
+
+                            return lex.get_token();
+                        } else {
+                            lex.bump();
+                        }
+                    } else {
+                        lex.bump();
                     }
                 });
             },
@@ -503,12 +543,12 @@ define_handlers! {
 
     // Non-keyword Identifier: starting with a letter, _ or $
     const IDT: identifier |lex, _| {
-        Identifier(lex.consume_label_characters())
+        Identifier(lex.read_label())
     }
 
     // Identifier or keyword starting with a letter `b`
     const L_B: label_b |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "break"      => Break,
             slice        => Identifier(slice),
         }
@@ -516,7 +556,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `c`
     const L_C: label_c |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "const"      => Declaration(Const),
             "case"       => Case,
             "class"      => Class,
@@ -528,7 +568,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `d`
     const L_D: label_d |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "delete"     => Operator(Delete),
             "do"         => Do,
             "debugger"   => Debugger,
@@ -539,7 +579,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `e`
     const L_E: label_e |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "else"       => Else,
             "export"     => Export,
             "extends"    => Extends,
@@ -550,7 +590,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `f`
     const L_F: label_f |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "finally"    => Finally,
             "for"        => For,
             "function"   => Function,
@@ -561,7 +601,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `i`
     const L_I: label_i |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
             "if"         => If,
@@ -574,7 +614,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `l`
     const L_L: label_l |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "let"        => Declaration(Let),
             slice        => Identifier(slice),
         }
@@ -582,7 +622,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `n`
     const L_N: label_n |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "new"        => Operator(New),
             "null"       => Literal(Value::Null),
             slice        => Identifier(slice),
@@ -591,7 +631,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `p`
     const L_P: label_p |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "package"    => Reserved(Package),
             "protected"  => Reserved(Protected),
             "private"    => Reserved(Private),
@@ -602,7 +642,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `r`
     const L_R: label_r |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "return"     => Return,
             slice        => Identifier(slice),
         }
@@ -610,7 +650,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `s`
     const L_S: label_s |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "super"      => Super,
             "switch"     => Switch,
             "static"     => Static,
@@ -620,7 +660,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `t`
     const L_T: label_t |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "typeof"     => Operator(Typeof),
             "this"       => This,
             "throw"      => Throw,
@@ -632,7 +672,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `u`
     const L_U: label_u |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "undefined"  => Literal(Value::Undefined),
             slice        => Identifier(slice),
         }
@@ -640,7 +680,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `v`
     const L_V: label_v |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "void"       => Operator(Void),
             "var"        => Declaration(Var),
             slice        => Identifier(slice),
@@ -649,7 +689,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `w`
     const L_W: label_w |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "while"      => While,
             "with"       => With,
             slice        => Identifier(slice),
@@ -658,7 +698,7 @@ define_handlers! {
 
     // Identifier or keyword starting with a letter `y`
     const L_Y: label_y |lex, _| {
-        match lex.consume_label_characters() {
+        match lex.read_label() {
             "yield"      => Yield,
             slice        => Identifier(slice),
         }
@@ -674,11 +714,11 @@ define_handlers! {
             return UnexpectedToken;
         }
 
-        // `consume_label_characters` bumps one at the beginning,
+        // `read_label` bumps one at the beginning,
         // so we subtract it here.
         lex.index += first.len_utf8() - 1;
 
-        lex.consume_label_characters();
+        lex.read_label();
 
         let ident = lex.slice_from(start);
 
@@ -802,17 +842,23 @@ define_handlers! {
 
         lex.bump();
 
+        let mut ch;
+
         unwind_loop!({
-            let ch = expect_byte!(lex);
+            eof_check!(lex);
+
+            ch = lex.read_byte();
 
             if ch == byte {
-                let value = lex.slice_from(start);
+                lex.bump();
+                return Literal(Value::String(lex.slice_from(start)));
+            } else {
+                lex.bump();
 
-                return Literal(Value::String(value));
-            }
-
-            if ch == b'\\' {
-                expect_byte!(lex);
+                if ch == b'\\' {
+                    eof_check!(lex);
+                    lex.bump();
+                }
             }
         });
     }
@@ -827,7 +873,7 @@ define_handlers! {
 
 pub struct Lexer<'src> {
     /// Flags whether or not a new line was read before the token
-    consumed_new_line: bool,
+    asi: Asi,
 
     /// String slice to parse
     source: &'src str,
@@ -851,7 +897,7 @@ impl<'src> Lexer<'src> {
     #[inline]
     pub fn new(source: &'src str) -> Self {
         Lexer {
-            consumed_new_line: false,
+            asi: Asi::NoSemicolon,
             source: source,
             handlers: BYTE_HANDLERS.as_ptr(),
             ptr: source.as_ptr(),
@@ -862,27 +908,36 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     pub fn get_token(&mut self) -> Token<'src> {
-        self.consumed_new_line = false;
+        self.asi = Asi::NoSemicolon;
+
+        let mut ch;
 
         unwind_loop!({
             if self.is_eof() {
+                self.asi = Asi::ImplicitSemicolon;
+
                 return EndOfProgram;
             }
 
-            let ch = self.read_byte();
+            ch = self.read_byte();
 
             if ch > 0x20 {
                 self.token_start = self.index;
 
-                return unsafe { (*self.handlers.offset(ch as isize))(self, ch) };
+                return self.token_from_byte(ch);
             }
 
             if ch == b'\n' {
-                self.consumed_new_line = true;
+                self.asi = Asi::ImplicitSemicolon;
             }
 
             self.bump();
         })
+    }
+
+    #[inline]
+    fn token_from_byte(&mut self, byte: u8) -> Token<'src> {
+        unsafe { (*self.handlers.offset(byte as isize))(self, byte) }
     }
 
     #[inline(always)]
@@ -940,8 +995,8 @@ impl<'src> Lexer<'src> {
 
     /// Check if Automatic Semicolon Insertion rules can be applied
     #[inline]
-    pub fn asi(&self) -> bool {
-        self.consumed_new_line
+    pub fn asi(&self) -> Asi {
+        self.asi
     }
 
     pub fn invalid_token(&self) -> Error {
@@ -973,10 +1028,10 @@ impl<'src> Lexer<'src> {
     #[inline]
     fn peek_byte(&self) -> u8 {
         if self.is_eof() {
-            return 0;
+            0
+        } else {
+            self.read_byte()
         }
-
-        self.read_byte()
     }
 
     /// Manually increment the index. Calling `read_byte` and then `bump`
@@ -1037,23 +1092,25 @@ impl<'src> Lexer<'src> {
           AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
         ];
 
+        let mut ch;
+
         unwind_loop!({
             if self.is_eof() {
                 return EndOfProgram;
             }
 
-            let ch = self.read_byte();
+            ch = self.read_byte();
 
             if ch > 0x20 {
                 self.token_start = self.index;
 
-                return if ch > 127 {
-                    unicode(self, ch)
+                if ch > 127 {
+                    return unicode(self, ch)
                 } else if TABLE[ch as usize] {
-                    Accessor(self.consume_label_characters())
+                    return Accessor(self.read_label())
                 } else {
-                    UnexpectedToken
-                };
+                    return UnexpectedToken
+                }
             }
 
             self.bump();
@@ -1061,7 +1118,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn consume_label_characters(&mut self) -> &'src str {
+    fn read_label(&mut self) -> &'src str {
         // Look up table that marks which ASCII characters are allowed in identifiers
         const NU: bool = true; // digit
         const AL: bool = true; // alphabet
@@ -1136,13 +1193,11 @@ impl<'src> Lexer<'src> {
     fn read_hexadec(&mut self, start: usize) -> Token<'src> {
         while !self.is_eof() {
             match self.read_byte() {
-                b'0'...b'9' => (),
-                b'a'...b'f' => (),
-                b'A'...b'F' => (),
+                b'0'...b'9' |
+                b'a'...b'f' |
+                b'A'...b'F' => self.bump(),
                 _           => break
             };
-
-            self.bump();
         }
 
         let value = self.slice_from(start);
@@ -1153,8 +1208,7 @@ impl<'src> Lexer<'src> {
     #[inline]
     fn read_float(&mut self, start: usize) -> Token<'src> {
         while !self.is_eof() {
-            let ch = self.read_byte();
-            match ch {
+            match self.read_byte() {
                 b'0'...b'9'  => self.bump(),
                 b'e' | b'E'  => {
                     self.bump();
@@ -1193,7 +1247,7 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     pub fn read_regular_expression(&mut self) -> Token<'src> {
-        let start = self.index;
+        let start = self.index - 1;
         let mut in_class = false;
         loop {
             let ch = expect_byte!(self);
@@ -1219,9 +1273,6 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let pattern = &self.source[start..self.index - 1];
-        let flags_start = self.index;
-
         while !self.is_eof() {
             let ch = self.peek_byte();
             match ch {
@@ -1234,10 +1285,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        Literal(Value::RegEx{
-            pattern: pattern,
-            flags: self.slice_from(flags_start)
-        })
+        Literal(Value::RegEx(self.slice_from(start)))
     }
 }
 

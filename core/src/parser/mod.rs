@@ -4,18 +4,17 @@ mod error;
 mod expression;
 mod statement;
 
-// use parser::error::Handle;
-use error::Result;
+use error::Error;
 
 use ast::{idx, null, Program, Store, Node, Index, OptIndex, Item};
-use lexer::{Lexer, Token};
+use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
 pub struct Parser<'src> {
     /// Lexer will produce tokens from the source
     lexer: Lexer<'src>,
 
-    /// Current token, to be used by peek! and next! macros
+    /// Set to `Some` whenever peek is called
     token: Option<Token<'src>>,
 
     /// AST under construction
@@ -36,14 +35,56 @@ impl<'src> Parser<'src> {
         }
     }
 
+    /// Get the next token.
+    #[inline(always)]
+    fn next(&mut self) -> Token<'src> {
+        match self.token {
+            None => self.lexer.get_token(),
+
+            Some(token) => {
+                self.token = None;
+
+                token
+            }
+        }
+    }
+
+    /// Peek on the next token.
+    #[inline(always)]
+    fn peek(&mut self) -> Token<'src> {
+        match self.token {
+            None => {
+                let token = self.lexer.get_token();
+
+                self.token = Some(token);
+
+                token
+            },
+
+            Some(token) => token
+        }
+    }
+
+    #[inline(always)]
+    fn asi(&mut self) -> Asi {
+        self.peek();
+
+        self.lexer.asi()
+    }
+
     #[inline(always)]
     fn consume(&mut self) {
         self.token = None;
     }
 
     #[inline(always)]
+    fn loc(&self) -> (usize, usize) {
+        self.lexer.loc()
+    }
+
+    #[inline(always)]
     fn in_loc(&self, item: Item<'src>) -> Node<'src> {
-        let (start, end) = self.lexer.loc();
+        let (start, end) = self.loc();
 
         Node::new(start, end, item)
     }
@@ -75,7 +116,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     fn parse(&mut self) {
-        let statement = match next!(self) {
+        let statement = match self.next() {
             EndOfProgram => return,
             token        => self.statement(token)
         };
@@ -85,7 +126,7 @@ impl<'src> Parser<'src> {
         self.program.root = idx(previous);
 
         loop {
-            let statement = match next!(self) {
+            let statement = match self.next() {
                 EndOfProgram => break,
                 token        => self.statement(token)
             };
@@ -96,7 +137,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     fn block_body_tail(&mut self) -> OptIndex {
-        let statement = match next!(self) {
+        let statement = match self.next() {
             BraceClose => return null(),
             token      => self.statement(token),
         };
@@ -105,7 +146,7 @@ impl<'src> Parser<'src> {
         let root = idx(previous);
 
         loop {
-            let statement = match next!(self) {
+            let statement = match self.next() {
                 BraceClose => break,
                 token      => self.statement(token),
             };
@@ -124,7 +165,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     fn parameter_list(&mut self) -> OptIndex {
-        let name = match next!(self) {
+        let name = match self.next() {
             ParenClose       => return null(),
             Identifier(name) => name,
             _                => unexpected_token!(self),
@@ -134,7 +175,7 @@ impl<'src> Parser<'src> {
         let root = idx(previous);
 
         loop {
-            let name = match next!(self) {
+            let name = match self.next() {
                 ParenClose => break,
                 Comma      => expect_identifier!(self),
                 _          => unexpected_token!(self),
@@ -148,13 +189,13 @@ impl<'src> Parser<'src> {
         // let mut default_params = false;
 
         // loop {
-        //     let name = match next!(self) {
+        //     let name = match self.next() {
         //         ParenClose       => break,
         //         Identifier(name) => name,
         //         _ => unexpected_token!(self)
         //     };
 
-        //     list.push(match peek!(self) {
+        //     list.push(match self.peek() {
         //         Operator(Assign) => {
         //             self.consume();
         //             let expression = self.expression(0);
@@ -175,7 +216,7 @@ impl<'src> Parser<'src> {
         //         }
         //     });
 
-        //     match next!(self) {
+        //     match self.next() {
         //         ParenClose => break,
         //         Comma      => {},
         //         _          => unexpected_token!(self)
@@ -187,12 +228,28 @@ impl<'src> Parser<'src> {
 
 }
 
-pub fn parse<'src>(source: &'src str) -> Result<Program<'src>> {
+pub fn parse<'src>(source: &'src str) -> Result<Program<'src>, Vec<Error>> {
     let mut parser = Parser::new(source);
 
     parser.parse();
 
-    Ok(parser.program)
+    let program = parser.program;
+
+    match program.errors {
+        0     => Ok(program),
+        count => {
+            let mut vec = Vec::with_capacity(count);
+
+            for node in program.store {
+                match node.item {
+                    Item::Error(err) => vec.push(err),
+                    _                => {},
+                }
+            }
+
+            Err(vec)
+        }
+    }
 }
 
 #[cfg(test)]

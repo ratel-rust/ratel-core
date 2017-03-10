@@ -55,8 +55,9 @@ impl<'src> Store<'src> {
     }
 
     #[inline]
-    pub fn insert(&mut self, node: Node<'src>) -> usize {
+    pub fn insert(&mut self, node: Node<'src>) -> Index {
         let index = self.len();
+
         if index != self.capacity() {
             unsafe {
                 *self.get_unchecked_mut(index) = node;
@@ -65,6 +66,7 @@ impl<'src> Store<'src> {
         } else {
             self.0.push(node);
         }
+
         index
     }
 
@@ -123,6 +125,16 @@ impl<'src> ops::IndexMut<usize> for Store<'src> {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut Node<'src> {
         &mut self.0[index]
+    }
+}
+
+impl<'src> IntoIterator for Store<'src> {
+    type Item = Node<'src>;
+    type IntoIter = ::std::vec::IntoIter<Node<'src>>;
+
+    #[inline(always)]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

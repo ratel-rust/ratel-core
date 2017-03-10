@@ -1,6 +1,6 @@
 use parser::Parser;
 use lexer::Token::*;
-use lexer::Token;
+use lexer::{Asi, Token};
 use ast::{null, idx, Index, Item, Node, VariableDeclarationKind};
 use ast::OperatorKind::*;
 
@@ -28,7 +28,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     fn expect_statement(&mut self) -> Node<'src> {
-        let token = next!(self);
+        let token = self.next();
         self.statement(token)
     }
 
@@ -56,10 +56,12 @@ impl<'src> Parser<'src> {
     pub fn function_statement(&mut self) -> Node<'src> {
         let name = expect_identifier!(self);
 
+        let name = self.store_in_loc(Item::identifier(name));
+
         expect!(self, ParenOpen);
 
         Item::FunctionStatement {
-            name: name.into(),
+            name: name,
             params: self.parameter_list(),
             body: self.block_body(),
         }.at(0, 0)
@@ -67,21 +69,22 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn return_statement(&mut self) -> Node<'src> {
-        let value = match peek!(self) {
-            EndOfProgram => null(),
-            Semicolon    => null(),
-            _            => {
-                if self.lexer.asi() {
-                    null()
-                } else {
-                    let expression = self.expression(0);
+        let value = match self.asi() {
+            Asi::NoSemicolon => {
+                let expression = self.expression(0);
 
-                    self.store(expression).into()
-                }
+                expect_semicolon!(self);
+
+                self.store(expression).into()
+            }
+
+            Asi::ImplicitSemicolon => null(),
+            Asi::ExplicitSemicolon => {
+                self.consume();
+
+                null()
             }
         };
-
-        expect_semicolon!(self);
 
         Item::ReturnStatement {
             value: value,
@@ -102,7 +105,7 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn variable_declarator(&mut self) -> Node<'src> {
-        let name = match next!(self) {
+        let name = match self.next() {
             BraceOpen        => self.object_expression(),
             BracketOpen      => self.array_expression(),
             Identifier(name) => self.in_loc(Item::identifier(name)),
@@ -110,7 +113,7 @@ impl<'src> Parser<'src> {
         };
         let name = self.store(name);
 
-        let value = match peek!(self) {
+        let value = match self.peek() {
             Operator(Assign) => {
                 self.consume();
                 let value = self.expression(0);
@@ -133,7 +136,7 @@ impl<'src> Parser<'src> {
         let mut previous = self.store(node);
         let root = previous;
 
-        match peek!(self) {
+        match self.peek() {
             Comma => self.consume(),
             _     => return root,
         }
@@ -143,7 +146,7 @@ impl<'src> Parser<'src> {
 
             previous = self.chain(previous, node);
 
-            match peek!(self) {
+            match self.peek() {
                 Comma => self.consume(),
                 _     => return root,
             }
@@ -152,28 +155,24 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn break_statement(&mut self) -> Node<'src> {
-        let statement = Item::BreakStatement {
-            label: match peek!(self) {
-                Semicolon => {
-                    self.consume();
-                    null()
-                },
-                EndOfProgram => null(),
-                _ => {
-                    if self.lexer.asi() {
-                        null()
-                    } else {
-                        let label = expect_identifier!(self);
-                        let id = self.store_in_loc(Item::identifier(label));
-                        expect_semicolon!(self);
+        let label = match self.asi() {
+            Asi::ExplicitSemicolon => {
+                self.consume();
+                null()
+            },
+            Asi::ImplicitSemicolon => null(),
+            Asi::NoSemicolon => {
+                let label = expect_identifier!(self);
 
-                        idx(id)
-                    }
-                }
+                expect_semicolon!(self);
+
+                idx(self.store_in_loc(Item::identifier(label)))
             }
         };
 
-        statement.at(0, 0)
+        Item::BreakStatement {
+            label: label
+        }.at(0, 0)
     }
 
     #[inline(always)]
@@ -193,6 +192,7 @@ impl<'src> Parser<'src> {
         expect!(self, ParenOpen);
 
         let error = expect_identifier!(self);
+        let error = self.store_in_loc(Item::identifier(error));
         expect!(self, ParenClose);
 
         let handler = self.block_body();
@@ -200,7 +200,7 @@ impl<'src> Parser<'src> {
 
         Item::TryStatement {
             body: body,
-            error: error.into(),
+            error: error,
             handler: handler
         }.at(0, 0)
     }
@@ -216,7 +216,7 @@ impl<'src> Parser<'src> {
         let consequent = self.expect_statement();
         let consequent = self.store(consequent);
 
-        let alternate = match peek!(self) {
+        let alternate = match self.peek() {
             Else => {
                 self.consume();
                 let statement = self.expect_statement();
@@ -279,11 +279,13 @@ mod test {
             program.statements().items(),
 
             FunctionStatement {
-                name: "foo".into(),
+                name: 0,
                 params: null(),
                 body: null(),
             }
         );
+
+        assert_ident!("foo", program[0]);
     }
 
     #[test]
@@ -296,14 +298,16 @@ mod test {
             program.statements().items(),
 
             FunctionStatement {
-                name: "foo".into(),
-                params: idx(0),
+                name: 0,
+                params: idx(1),
                 body: null(),
             }
         );
 
+        assert_ident!("foo", program[0]);
+
         assert_list!(
-            program.store.nodes(0).items(),
+            program.store.nodes(1).items(),
 
             Identifier("bar".into()),
             Identifier("baz".into())
@@ -320,21 +324,23 @@ mod test {
             program.statements().items(),
 
             FunctionStatement {
-                name: "foo".into(),
+                name: 0,
                 params: null(),
-                body: idx(1),
+                body: idx(2),
             }
         );
 
-        assert_list!(
-            program.store.nodes(1).items(),
+        assert_ident!("foo", program[0]);
 
-            ExpressionStatement(0),
-            ExpressionStatement(2)
+        assert_list!(
+            program.store.nodes(2).items(),
+
+            ExpressionStatement(1),
+            ExpressionStatement(3)
         );
 
-        assert_ident!("bar", program[0]);
-        assert_ident!("baz", program[2]);
+        assert_ident!("bar", program[1]);
+        assert_ident!("baz", program[3]);
     }
 
     #[test]
@@ -485,10 +491,12 @@ mod test {
             program.statements().items(),
             TryStatement {
                 body: null(),
-                error: "err".into(),
+                error: 0,
                 handler: null(),
             }
         );
+
+        assert_ident!("err", program[0]);
     }
 
     #[test]
@@ -499,14 +507,24 @@ mod test {
             program.statements().items(),
             TryStatement {
                 body: idx(1),
-                error: "err".into(),
-                handler: idx(3)
+                error: 2,
+                handler: idx(4)
             }
         );
-        assert_eq!(program[1], ExpressionStatement(0));
-        assert_eq!(program[3], ExpressionStatement(2));
+        assert_ident!("err", program[2]);
+
+        assert_list!(
+            program.store.nodes(1).items(),
+            ExpressionStatement(0)
+        );
+
+        assert_list!(
+            program.store.nodes(4).items(),
+            ExpressionStatement(3)
+        );
+
         assert_ident!("foo", program[0]);
-        assert_ident!("bar", program[2]);
+        assert_ident!("bar", program[3]);
     }
 
     #[test]

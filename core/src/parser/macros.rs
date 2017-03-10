@@ -1,39 +1,10 @@
-/// Peek on the next token. Return with an error if lexer fails.
-#[macro_export]
-macro_rules! peek {
-    ($parser:ident) => {
-        match $parser.token {
-            Some(token) => token,
-
-            None => {
-                let token = $parser.lexer.get_token();
-
-                $parser.token = Some(token);
-
-                token
-            }
-        }
-    }
-}
-
-/// Get the next token. Return with an error if lexer fails.
-#[macro_export]
-macro_rules! next {
-    ($parser:ident) => {
-        match $parser.token.take() {
-            Some(token) => token,
-            None        => $parser.lexer.get_token()
-        }
-    }
-}
-
 // #[macro_export]
 // macro_rules! next_raw_ident {
 //     ($parser:ident) => ({
 //         use ast::OperatorKind::*;
 //         use ast::Value::*;
 
-//         match next!($parser) {
+//         match $parser.next() {
 //             Identifier(ident)    => ident,
 //             Break                => "break",
 //             Do                   => "do",
@@ -75,22 +46,12 @@ macro_rules! next {
 //         }
 //     })
 // }
-macro_rules! expect_raw_ident {
-    ($parser:ident) => ({
-        debug_assert!($parser.token == None);
-
-        match $parser.lexer.get_raw_identifier() {
-            Identifier(ident) => ident,
-            _                 => unexpected_token!($parser)
-        }
-    })
-}
 
 /// If the next token matches `$p`, consume that token and execute `$eval`.
 #[macro_export]
 macro_rules! allow {
     ($parser:ident, $p:pat => $eval:expr) => {
-        match peek!($parser) {
+        match $parser.peek() {
             $p => {
                 $parser.consume();
                 $eval;
@@ -104,7 +65,7 @@ macro_rules! allow {
 #[macro_export]
 macro_rules! expect {
     ($parser:ident, $p:pat) => {
-        match next!($parser) {
+        match $parser.next() {
             $p => {},
             _  => unexpected_token!($parser)
         }
@@ -116,7 +77,7 @@ macro_rules! expect {
 #[macro_export]
 macro_rules! expect_identifier {
     ($parser:ident) => {
-        match next!($parser) {
+        match $parser.next() {
             Token::Identifier(ident) => ident,
             _                        => unexpected_token!($parser)
         }
@@ -128,20 +89,10 @@ macro_rules! expect_identifier {
 #[macro_export]
 macro_rules! expect_semicolon {
     ($parser:ident) => {
-        // TODO: Lexer needs to flag when a new line character has been
-        //       consumed to satisfy all ASI rules
-        match peek!($parser) {
-            Semicolon     => $parser.consume(),
-
-            ParenClose    |
-            BraceClose    |
-            EndOfProgram  => {},
-
-            _             => {
-                if !$parser.lexer.asi() {
-                    unexpected_token!($parser)
-                }
-            }
+        match $parser.asi() {
+            Asi::ExplicitSemicolon => $parser.consume(),
+            Asi::ImplicitSemicolon => {},
+            Asi::NoSemicolon       => unexpected_token!($parser),
         }
     }
 }

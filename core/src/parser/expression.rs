@@ -7,13 +7,13 @@ use ast::OperatorKind::*;
 impl<'src> Parser<'src> {
     #[inline(always)]
     pub fn expression(&mut self, lbp: u8) -> Node<'src> {
-        let token = next!(self);
+        let token = self.next();
         self.expression_from(token, lbp)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Node<'src> {
-        let left = match token {
+        let mut left = match token {
             This               => self.in_loc(Item::This),
             Literal(value)     => self.in_loc(Item::ValueExpr(value)),
             Identifier(value)  => self.in_loc(Item::identifier(value)),
@@ -28,13 +28,8 @@ impl<'src> Parser<'src> {
             _                  => unexpected_token!(self)
         };
 
-        self.complex_expression(left, lbp)
-    }
-
-    #[inline(always)]
-    pub fn complex_expression(&mut self, mut left: Node<'src>, lbp: u8) -> Node<'src> {
         loop {
-            left = match peek!(self) {
+            left = match self.peek() {
                 Operator(op @ Increment) |
                 Operator(op @ Decrement) => {
                     self.consume();
@@ -104,8 +99,9 @@ impl<'src> Parser<'src> {
         left
     }
 
+    #[inline(always)]
     pub fn expression_list(&mut self) -> OptIndex {
-        let expression = match next!(self) {
+        let expression = match self.next() {
             ParenClose => return null(),
             token      => self.expression_from(token, 0),
         };
@@ -114,7 +110,7 @@ impl<'src> Parser<'src> {
         let root = idx(previous);
 
         loop {
-            let expression = match next!(self) {
+            let expression = match self.next() {
                 ParenClose => break,
                 Comma      => self.expression(0),
                 _          => unexpected_token!(self),
@@ -127,8 +123,8 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn paren_expression(&mut self) -> Node<'src> {
-        match next!(self) {
+    pub fn paren_expression(&mut self) -> Node<'src> {
+        match self.next() {
             // ParenClose => {
             //     expect!(self, Operator(FatArrow));
 
@@ -149,14 +145,12 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn object_expression(&mut self) -> Node<'src> {
-        let member = match next!(self) {
-            BraceClose => return self.in_loc(Item::ObjectExpr { body: null() }),
-
+        let member = match self.next() {
             Identifier(ident) => {
                 let ident = ident.into();
-                let (start, end) = self.lexer.loc();
+                let (start, end) = self.loc();
 
-                match next!(self) {
+                match self.next() {
                     Comma => Item::ShorthandMember(ident).at(start, end),
                     BraceClose => {
                         let member = Item::ShorthandMember(ident).at(start, end);
@@ -167,6 +161,8 @@ impl<'src> Parser<'src> {
                 }
             },
 
+            BraceClose => return self.in_loc(Item::ObjectExpr { body: null() }),
+
             _ => unexpected_token!(self)
         };
 
@@ -174,12 +170,12 @@ impl<'src> Parser<'src> {
         let root = idx(previous);
 
         loop {
-            match next!(self) {
+            match self.next() {
                 Identifier(ident) => {
                     let ident = ident.into();
-                    let (start, end) = self.lexer.loc();
+                    let (start, end) = self.loc();
 
-                    match next!(self) {
+                    match self.next() {
                         Comma => {
                             previous = self.chain(previous, Item::ShorthandMember(ident).at(start, end));
 
@@ -199,7 +195,7 @@ impl<'src> Parser<'src> {
                 _ => unexpected_token!(self),
             }
 
-            // match next!(self) {
+            // match self.next() {
             //     Comma => {},
             //     BraceClose => break,
             //     _ => unexpected_token!(self)
@@ -211,27 +207,25 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     pub fn array_expression(&mut self) -> Node<'src> {
-        let expression = match next!(self) {
-            BracketClose => {
-                return Item::ArrayExpr(null()).at(0,0)
-            },
-            token => self.expression_from(token, 0)
+        let expression = match self.next() {
+            BracketClose => return Item::ArrayExpr(null()).at(0,0),
+            token        => self.expression_from(token, 0)
         };
 
         let mut previous = self.store(expression);
-        let root = previous;
+        let root = idx(previous);
 
         loop {
-            let expression = match next!(self) {
+            let expression = match self.next() {
                 BracketClose => break,
-                Comma      => self.expression(0),
-                _          => unexpected_token!(self),
+                Comma        => self.expression(0),
+                _            => unexpected_token!(self),
             };
 
             previous = self.chain(previous, expression);
         }
 
-        Item::ArrayExpr(root.into()).at(0,0)
+        Item::ArrayExpr(root).at(0,0)
     }
 
     #[inline(always)]
@@ -399,7 +393,7 @@ mod test {
     fn regular_expression() {
         let src = r#"/^[A-Z]+\/[\d]+/g"#;
         let program = parse(src).unwrap();
-        assert_eq!(ValueExpr(Value::RegEx { pattern: "^[A-Z]+\\/[\\d]+", flags: "g" }), program[0]);
+        assert_eq!(ValueExpr(Value::RegEx("/^[A-Z]+\\/[\\d]+/g")), program[0]);
     }
 
     #[test]
