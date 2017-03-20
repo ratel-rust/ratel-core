@@ -1,5 +1,3 @@
-![Ratel](http://maciej.codes/things/ratel-400.png)
-
 # ratel-core
 
 [![Travis CI](https://travis-ci.org/ratel-rust/ratel-core.svg)](https://travis-ci.org/ratel-rust/ratel-core)
@@ -27,10 +25,6 @@ This project is created and maintained by [Maciej Hirsz](https://github.com/maci
 
 - [cmtt](https://github.com/cmtt) for work on the Node.js FFI and testing.
 - [Jan Schulte](https://github.com/schultyy) for the initial version of transformer and codegen.
-
-## Logo
-
-The smirky **Ratel** by the courtesy of [A. L. Palmer](https://www.behance.net/alpalmer60b4).
 
 ## License
 
