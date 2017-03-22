@@ -1,4 +1,5 @@
-use ast::{Index, OptIndex, Item, Program};
+use ast::{Index, OptIndex, Item, Program, Ident};
+use ast::Item::*;
 
 /// The `Generator` is a wrapper around an owned `String` that's used to
 /// stringify the AST. There is a bunch of useful methods here to manage
@@ -136,8 +137,23 @@ trait ToCode {
     fn to_code(&self, gen: &mut Generator);
 }
 
+impl<'src> ToCode for Ident<'src> {
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            Ident::Insitu(ident) => gen.write_bytes(ident.as_bytes()),
+            Ident::Inline(_) => gen.write_bytes("💀".as_bytes()),
+        }
+    }
+}
+
 impl<'src> ToCode for Item<'src> {
-    fn to_code(&self, gen: &mut Generator) {}
+    fn to_code(&self, gen: &mut Generator) {
+        match *self {
+            Identifier(ref ident) => gen.write(ident),
+
+            _ => gen.write_bytes("💀".as_bytes())
+        }
+    }
 }
 
 // From: https://github.com/dtolnay/fastwrite/blob/master/src/lib.rs#L68
@@ -159,5 +175,25 @@ fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
             src.as_ptr(),
             dst.as_mut_ptr().offset(dst_len as isize),
             src_len);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parser::parse;
+
+    #[test]
+    fn should_die() {
+        let src = "break foo;";
+        let program = parse(src).unwrap();
+
+        let mut gen = Generator::new(&program, false);
+
+        gen.write_from_optindex(program.root);
+
+        let code = gen.consume();
+
+        panic!("{}", code);
     }
 }
