@@ -157,6 +157,19 @@ impl<'src> ToCode for Item<'src> {
         match *self {
             Identifier(ref ident) => gen.write(ident),
 
+            BreakStatement {
+                ref label
+            } => {
+                match label.as_option() {
+                    Some(label) => {
+                        gen.write_bytes(b"break ");
+                        gen.write_from_index(label);
+                        gen.write_byte(b';');
+                    },
+                    None => gen.write_bytes(b"break;"),
+                }
+            }
+
             _ => gen.write_bytes("💀".as_bytes())
         }
     }
