@@ -131,6 +131,12 @@ impl<'src> Generator<'src> {
     }
 }
 
+pub fn codegen<'src>(program: &Program<'src>, minify: bool) -> String {
+    let mut gen = Generator::new(&program, minify);
+    gen.write_from_optindex(program.root);
+    gen.consume()
+}
+
 /// The `ToCode` trait provides an interface to pieces of grammar, that allows
 /// to efficiently write characters and string slices to the code `Generator`.
 trait ToCode {
@@ -188,11 +194,7 @@ mod test {
         let src = "break foo;";
         let program = parse(src).unwrap();
 
-        let mut gen = Generator::new(&program, false);
-
-        gen.write_from_optindex(program.root);
-
-        let code = gen.consume();
+        let code = codegen(&program, true);
 
         panic!("{}", code);
     }
