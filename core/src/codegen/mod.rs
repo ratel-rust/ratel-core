@@ -147,7 +147,7 @@ impl<'src> ToCode for Ident<'src> {
     fn to_code(&self, gen: &mut Generator) {
         match *self {
             Ident::Insitu(ident) => gen.write_bytes(ident.as_bytes()),
-            Ident::Inline(_) => gen.write_bytes("💀".as_bytes()),
+            Ident::Inline(ref s) => gen.write_bytes(s.as_bytes()),
         }
     }
 }
