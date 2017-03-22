@@ -64,6 +64,14 @@ impl<'src> InlineStr<'src> {
         }
     }
 
+    /// Cheaply converts `InlineStr` to a byte slice.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+             slice::from_raw_parts(self.buf.as_ptr(), self.len as usize)
+        }
+    }
+
     /// Push a byte onto `InlineStr`. This will panic in debug mode and lead to undefined
     /// behavior should capacity of the buffer be exceeded.
     #[inline]
