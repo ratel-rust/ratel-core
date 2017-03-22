@@ -111,7 +111,7 @@ macro_rules! unexpected_token {
 }
 
 #[cfg(test)]
-#[macro_rules]
+#[macro_export]
 macro_rules! assert_ident {
     ($expect:expr, $item:expr) => {
         assert_eq!(Identifier($expect.into()), $item);
@@ -119,7 +119,7 @@ macro_rules! assert_ident {
 }
 
 #[cfg(test)]
-#[macro_rules]
+#[macro_export]
 macro_rules! assert_list {
     ($iter:expr $( ,$item:expr)*) => ({
         let mut iter = $iter;
