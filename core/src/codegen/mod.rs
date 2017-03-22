@@ -209,6 +209,6 @@ mod test {
 
         let code = codegen(&program, true);
 
-        panic!("{}", code);
+        assert_eq!(code, "break foo;");
     }
 }
