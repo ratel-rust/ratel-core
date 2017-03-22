@@ -160,13 +160,12 @@ impl<'src> ToCode for Item<'src> {
             BreakStatement {
                 ref label
             } => {
-                match label.as_option() {
-                    Some(label) => {
-                        gen.write_bytes(b"break ");
-                        gen.write_from_index(label);
-                        gen.write_byte(b';');
-                    },
-                    None => gen.write_bytes(b"break;"),
+                if label.is_null() {
+                    gen.write_bytes(b"break;");
+                } else {
+                    gen.write_bytes(b"break ");
+                    gen.write_from_index(label.unwrap());
+                    gen.write_byte(b';');
                 }
             }
 

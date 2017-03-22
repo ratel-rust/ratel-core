@@ -50,6 +50,13 @@ impl OptIndex {
     pub fn is_null(&self) -> bool {
         self.0 == NULL
     }
+
+    #[inline]
+    pub fn unwrap(self) -> Index {
+        debug_assert!(!self.is_null(), "Attempt to unwrap null OptIndex!");
+
+        self.0
+    }
 }
 
 #[inline]
