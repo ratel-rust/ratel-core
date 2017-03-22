@@ -3,6 +3,7 @@ mod ident;
 mod variable;
 mod operator;
 mod item;
+mod debug;
 
 use std::ops;
 
