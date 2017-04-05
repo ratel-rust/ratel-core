@@ -51,6 +51,34 @@ impl<'src> DebugGen<'src> {
     }
 
     #[inline]
+    fn write_list_from_optindex(&mut self, opt: OptIndex, f: &mut Formatter) -> Result {
+        f.write_str("[");
+        self.program.store.nodes(opt).items().fold(true, |acc, item| {
+          if !acc {
+            f.write_str(", ");
+          }
+          self.write(item, f);
+          false
+        });
+        f.write_str("]");
+        Ok(())
+    }
+
+    #[inline]
+    fn write_list_from_index(&mut self, index: Index, f: &mut Formatter) -> Result {
+        f.write_str("[");
+        self.program.store.nodes(index).fold(true, |acc, node| {
+          if !acc {
+            f.write_str(", ");
+          }
+          self.write(&node.item, f);
+          false
+        });
+        f.write_str("]");
+        Ok(())
+    }
+
+    #[inline]
     pub fn indent(&mut self) {
         self.dent += 1;
     }
@@ -189,13 +217,13 @@ impl<'src> AstDebug<'src> for Item<'src> {
                 f.write_str(")")?;
             },
             ArrayExpr(index) => {
-                f.write_str("ArrayExpr(")?;
-                gen.write_from_optindex(index, f);
-                f.write_str(")")?;
+                f.write_str("ArrayExpr[")?;
+                gen.write_list_from_optindex(index, f);
+                f.write_str("]")?;
             },
             SequenceExpr(index) => {
                 f.write_str("SequenceExpr(")?;
-                gen.write_from_index(index, f);
+                gen.write_list_from_index(index, f);
                 f.write_str(")")?;
             },
             MemberExpr { object, property } => {
@@ -209,7 +237,7 @@ impl<'src> AstDebug<'src> for Item<'src> {
                 f.write_str("CallExpr { callee: ")?;
                 gen.write_from_index(callee, f);
                 f.write_str(", arguments: ")?;
-                gen.write_from_optindex(arguments, f);
+                gen.write_list_from_optindex(arguments, f);
                 f.write_str(" }")?;
             },
             BinaryExpr { parenthesized, operator, left, right } => {
@@ -248,7 +276,7 @@ impl<'src> AstDebug<'src> for Item<'src> {
             },
             ArrowExpr { params, body } => {
                 f.write_str("ArrowExpr { params: ")?;
-                gen.write_from_optindex(params, f);
+                gen.write_list_from_optindex(params, f);
                 f.write_str(", body: ")?;
                 gen.write_from_optindex(body, f);
                 f.write_str(" }")?;
@@ -257,7 +285,7 @@ impl<'src> AstDebug<'src> for Item<'src> {
                 f.write_str("FunctionExpr { name: ")?;
                 gen.write_from_optindex(name, f);
                 f.write_str(", params: ")?;
-                gen.write_from_optindex(params, f);
+                gen.write_list_from_optindex(params, f);
                 f.write_str(", body: ")?;
                 gen.write_from_optindex(body, f);
                 f.write_str(" }")?;
