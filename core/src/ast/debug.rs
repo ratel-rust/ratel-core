@@ -37,6 +37,15 @@ impl<'src> DebugGen<'src> {
     }
 
     #[inline]
+    fn write_ast(&mut self, opt: OptIndex, f: &mut Formatter) -> Result {
+        for item in self.program.store.nodes(opt).items() {
+            self.write(item, f);
+            f.write_str("\n");
+        }
+        Ok(())
+    }
+
+    #[inline]
     fn write_from_index(&mut self, index: Index, f: &mut Formatter) -> Result {
         self.program[index].ast_fmt(self, f)
     }
@@ -444,7 +453,7 @@ impl<'src> AstDebug<'src> for Item<'src> {
 impl<'src> Debug for Program<'src> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let mut gen = DebugGen::new(self);
-        gen.write_from_optindex(self.root, f);
+        gen.write_ast(self.root, f);
         Ok(())
     }
 }
@@ -456,9 +465,9 @@ mod test {
 
     #[test]
     fn should_die() {
-        let src = "break foo;";
+        let src = "const a = [1, 2,3]; b; console.log('goo')";
         let program = parse(src).unwrap();
 
-        panic!("{:?}", program);
+        println!("{:?}", program);
     }
 }
