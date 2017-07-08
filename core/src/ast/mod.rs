@@ -1,170 +1,74 @@
-mod index;
-mod ident;
 mod variable;
 mod operator;
-mod item;
+mod expression;
+mod statement;
+mod function;
+mod value;
+mod ptr;
+mod list;
 
-use std::ops;
+use std::ops::Deref;
 
-pub use ast::index::*;
-pub use ast::ident::*;
 pub use ast::variable::*;
 pub use ast::operator::*;
-pub use ast::item::{Item, Value};
+pub use ast::ptr::Ptr;
+pub use ast::expression::{Expression, ObjectMember, Property};
+pub use ast::statement::{Statement, Declarator};
+pub use ast::function::{Function, Class, Name, OptionalName, MandatoryName};
+pub use ast::value::Value;
+pub use ast::list::{RawList, List, ListIter, ListBuilder};
 
-#[derive(Debug, PartialEq)]
-pub struct Node<'src> {
-    pub start: usize,
-    pub end: usize,
-    pub item: Item<'src>,
-    pub next: OptIndex,
+// Handful of useful aliases
+pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
+pub type ExpressionPtr<'ast> = Ptr<'ast, Loc<Expression<'ast>>>;
+pub type ExpressionList<'ast> = List<'ast, Loc<Expression<'ast>>>;
+pub type StatementPtr<'ast> = Ptr<'ast, Loc<Statement<'ast>>>;
+pub type StatementList<'ast> = List<'ast, Loc<Statement<'ast>>>;
+pub type IdentifierPtr<'ast> = Ptr<'ast, Loc<&'ast str>>;
+pub type IdentifierList<'ast> = List<'ast, Loc<&'ast str>>;
+
+#[derive(Debug, Clone)]
+pub struct Loc<T> {
+    pub start: u32,
+    pub end: u32,
+    pub item: T,
 }
 
-pub struct Store<'src>(Vec<Node<'src>>);
+impl<T> Deref for Loc<T> {
+    type Target = T;
 
-pub struct Nodes<'store, 'src: 'store> {
-    next: OptIndex,
-    store: &'store Store<'src>,
-}
-
-pub struct Items<'store, 'src: 'store>(Nodes<'store, 'src>);
-
-pub struct Program<'src> {
-    pub source: &'src str,
-    pub root: OptIndex,
-    pub store: Store<'src>,
-    pub errors: usize,
-}
-
-impl<'src> Node<'src> {
     #[inline]
-    pub fn new(start: usize, end: usize, item: Item<'src>) -> Self {
-        Node {
-            start: start,
-            end: end,
-            item: item,
-            next: null()
+    fn deref(&self) -> &T {
+        &self.item
+    }
+}
+
+pub struct Program<'ast> {
+    pub source: &'ast str,
+    pub body: List<'ast, Loc<Statement<'ast>>>,
+}
+
+impl<T> Loc<T> {
+    #[inline]
+    pub fn new(start: u32, end: u32, item: T) -> Self {
+        Loc {
+            start,
+            end,
+            item,
         }
     }
 }
 
-impl<'src> Store<'src> {
+impl<T: PartialEq> PartialEq for Loc<T> {
     #[inline]
-    pub fn new() -> Self {
-        Store(Vec::with_capacity(256))
-    }
-
-    #[inline]
-    pub fn insert(&mut self, node: Node<'src>) -> Index {
-        let index = self.len();
-
-        if index != self.capacity() {
-            unsafe {
-                *self.get_unchecked_mut(index) = node;
-                self.0.set_len(index + 1);
-            }
-        } else {
-            self.0.push(node);
-        }
-
-        index
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    #[inline]
-    pub fn capacity(&self) -> usize {
-        self.0.capacity()
-    }
-
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut Node<'src> {
-        self.0.get_unchecked_mut(index)
-    }
-
-    #[inline]
-    pub fn nodes<'store, I>(&'store self, from: I) -> Nodes<'store, 'src> where
-        I: Into<OptIndex>
-    {
-        Nodes {
-            store: &self,
-            next: from.into(),
-        }
+    fn eq(&self, other: &Self) -> bool {
+        self.item.eq(&other.item)
     }
 }
 
-impl<'store, 'src: 'store> Program<'src> {
+impl<'ast> Program<'ast> {
     #[inline]
-    pub fn statements(&'src self) -> Nodes<'store, 'src> {
-        self.store.nodes(self.root)
-    }
-}
-
-impl<'src> ops::Index<usize> for Program<'src> {
-    type Output = Item<'src>;
-
-    #[inline(always)]
-    fn index(&self, index: usize) -> &Item<'src> {
-        &self.store[index].item
-    }
-}
-
-impl<'src> ops::Index<usize> for Store<'src> {
-    type Output = Node<'src>;
-
-    #[inline(always)]
-    fn index(&self, index: usize) -> &Node<'src> {
-        &self.0[index]
-    }
-}
-
-impl<'src> ops::IndexMut<usize> for Store<'src> {
-    #[inline(always)]
-    fn index_mut(&mut self, index: usize) -> &mut Node<'src> {
-        &mut self.0[index]
-    }
-}
-
-impl<'src> IntoIterator for Store<'src> {
-    type Item = Node<'src>;
-    type IntoIter = ::std::vec::IntoIter<Node<'src>>;
-
-    #[inline(always)]
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<'store, 'src: 'store> Nodes<'store, 'src> {
-    #[inline]
-    pub fn items(self) -> Items<'store, 'src> {
-        Items(self)
-    }
-}
-
-impl<'store, 'src: 'store> Iterator for Nodes<'store, 'src> {
-    type Item = &'store Node<'src>;
-
-    #[inline]
-    fn next(&mut self) -> Option<&'store Node<'src>> {
-        let next = self.next;
-
-        next.map(|id| {
-            let node = &self.store[id];
-            self.next = node.next;
-            node
-        })
-    }
-}
-
-impl<'store, 'src: 'store> Iterator for Items<'store, 'src> {
-    type Item = &'store Item<'src>;
-
-    #[inline]
-    fn next(&mut self) -> Option<&'store Item<'src>> {
-        self.0.next().map(|node| &node.item)
+    pub fn statements(&'ast self) -> &'ast List<'ast, Loc<Statement<'ast>>> {
+        &self.body
     }
 }

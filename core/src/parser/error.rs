@@ -1,36 +1,62 @@
 use error::Error;
 
-use ast::{Index, OptIndex, Node, Item};
+use ast::{Ptr, Loc, List, Statement, Expression, Declarator, Function, Name};
 use parser::Parser;
+use arena::Arena;
 
-pub trait Handle<'src> {
-    fn handle_error(parser: &mut Parser<'src>, err: Error) -> Self;
+pub trait Handle<'ast> {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self;
 }
 
-impl<'src> Handle<'src> for Node<'src> {
-    fn handle_error(parser: &mut Parser<'src>, err: Error) -> Self {
-        parser.program.errors += 1;
+pub trait ToError<'ast> {
+    fn to_error(&'ast Arena) -> Self;
+}
 
-        parser.in_loc(Item::Error(err))
+impl<'ast> ToError<'ast> for Statement<'ast> {
+    fn to_error(_: &'ast Arena) -> Self {
+        Statement::Error
     }
 }
 
-impl<'src> Handle<'src> for Index {
-    fn handle_error(parser: &mut Parser<'src>, err: Error) -> Self {
-        parser.program.errors += 1;
-
-        let node = parser.in_loc(Item::Error(err));
-
-        parser.store(node)
+impl<'ast> ToError<'ast> for Expression<'ast> {
+    fn to_error(_: &'ast Arena) -> Self {
+        Expression::Error
     }
 }
 
-impl<'src> Handle<'src> for OptIndex {
-    fn handle_error(parser: &mut Parser<'src>, err: Error) -> Self {
-        parser.program.errors += 1;
+impl<'a, 'ast: 'a> ToError<'ast> for Declarator<'a> {
+    fn to_error(arena: &'ast Arena) -> Self {
+        Declarator {
+            name: Ptr::new(arena.alloc(Loc::new(0, 0, Expression::Error))),
+            value: None,
+        }
+    }
+}
 
-        let node = parser.in_loc(Item::Error(err));
+impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
+        parser.errors.push(err);
 
-        parser.store(node).into()
+        Function {
+            name: N::empty(&parser.arena),
+            params: List::empty(),
+            body: List::empty(),
+        }
+    }
+}
+
+impl<'ast, T: 'ast + ToError<'ast>> Handle<'ast> for Loc<T> {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
+        parser.errors.push(err);
+
+        parser.in_loc(ToError::to_error(parser.arena))
+    }
+}
+
+impl<'ast, T: 'ast> Handle<'ast> for List<'ast, Loc<T>> {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
+        parser.errors.push(err);
+
+        List::empty()
     }
 }

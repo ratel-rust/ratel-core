@@ -111,21 +111,18 @@ macro_rules! unexpected_token {
 }
 
 #[cfg(test)]
-#[macro_rules]
-macro_rules! assert_ident {
-    ($expect:expr, $item:expr) => {
-        assert_eq!(Identifier($expect.into()), $item);
-    }
-}
+#[macro_export]
+macro_rules! assert_expr {
+    ($module:expr, $expr:expr) => ({
+        let mut body = $module.body().iter();
 
-#[cfg(test)]
-#[macro_rules]
-macro_rules! assert_list {
-    ($iter:expr $( ,$item:expr)*) => ({
-        let mut iter = $iter;
-        $(
-            assert_eq!($item, *iter.next().unwrap());
-        )*
-        assert_eq!(None, iter.next());
+        match **body.next().unwrap() {
+            Statement::Expression {
+                ref expression
+            } => assert_eq!(expression.item, $expr),
+            _ => panic!("Statement isn't an expression!")
+        }
+
+        assert_eq!(body.next(), None);
     })
 }

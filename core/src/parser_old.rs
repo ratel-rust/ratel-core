@@ -673,7 +673,7 @@ impl<'src> Parser<'src> {
     }
 
     /// Helper for the `for` loops that doesn't consume semicolons
-    fn variable_declaration(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
+    fn variable_declaration(&mut self, kind: DeclarationKind) -> Result<Statement> {
         Ok(Statement::VariableDeclaration {
             kind: kind,
             declarators: try!(self.variable_declarators()),
@@ -706,7 +706,7 @@ impl<'src> Parser<'src> {
     }
 
     #[inline]
-    fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Result<Statement> {
+    fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> Result<Statement> {
         let statement = try!(self.variable_declaration(kind));
 
         expect_semicolon!(self);

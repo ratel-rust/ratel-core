@@ -1,4 +1,4 @@
-use ast::{Value, OperatorKind, VariableDeclarationKind};
+use ast::{Value, OperatorKind, DeclarationKind};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReservedKind {
@@ -30,7 +30,7 @@ pub enum Token<'src> {
     BraceOpen,
     BraceClose,
     Operator(OperatorKind),
-    Declaration(VariableDeclarationKind),
+    Declaration(DeclarationKind),
     Break,
     Do,
     Case,

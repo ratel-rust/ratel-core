@@ -275,7 +275,7 @@ impl Transformable for Expression {
                 let mut body = Vec::with_capacity(computed.len() + 2);
 
                 body.push(Statement::VariableDeclaration {
-                    kind: VariableDeclarationKind::Var,
+                    kind: DeclarationKind::Var,
                     declarators: vec![
                         VariableDeclarator {
                             name: "___".into(),
@@ -872,7 +872,7 @@ impl Transformable for Statement {
                     return;
                 }
 
-                *kind = VariableDeclarationKind::Var;
+                *kind = DeclarationKind::Var;
                 return;
             },
 

@@ -1,14 +1,14 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::{Asi, Token};
-use ast::{null, idx, Index, Item, Node, VariableDeclarationKind};
+use ast::{Loc, List, ListBuilder, Statement, Declarator, Expression, DeclarationKind};
 use ast::OperatorKind::*;
 
-impl<'src> Parser<'src> {
+impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn statement(&mut self, token: Token<'src>) -> Node<'src> {
+    pub fn statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
         match token {
-            Semicolon          => self.in_loc(Item::EmptyStatement),
+            Semicolon          => self.in_loc(Statement::Empty),
             BraceOpen          => self.block_statement(),
             Declaration(kind)  => self.variable_declaration_statement(kind),
             Return             => self.return_statement(),
@@ -26,74 +26,69 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline(always)]
-    fn expect_statement(&mut self) -> Node<'src> {
+    #[inline]
+    fn expect_statement(&mut self) -> Loc<Statement<'ast>> {
         let token = self.next();
         self.statement(token)
     }
 
-    #[inline(always)]
-    pub fn block_statement(&mut self) -> Node<'src> {
-        Item::BlockStatement {
+    #[inline]
+    pub fn block_statement(&mut self) -> Loc<Statement<'ast>> {
+        Statement::Block {
             body: self.block_body_tail()
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn expression_statement(&mut self, token: Token<'src>) -> Node<'src> {
+    #[inline]
+    pub fn expression_statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
         let expression = self.expression_from(token, 0);
 
         let start = expression.start;
         let end = expression.end;
-        let index = self.store(expression);
+        let expression = self.alloc(expression);
 
         expect_semicolon!(self);
 
-        Item::ExpressionStatement(index).at(start, end)
+        Statement::Expression { expression }.at(start, end)
     }
 
-    #[inline(always)]
-    pub fn function_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn function_statement(&mut self) -> Loc<Statement<'ast>> {
         let name = expect_identifier!(self);
+        let name = self.alloc_in_loc(name);
 
-        let name = self.store_in_loc(Item::identifier(name));
-
-        expect!(self, ParenOpen);
-
-        Item::FunctionStatement {
-            name: name,
-            params: self.parameter_list(),
-            body: self.block_body(),
+        Statement::Function {
+            function: self.function(name)
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn return_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn return_statement(&mut self) -> Loc<Statement<'ast>> {
         let value = match self.asi() {
             Asi::NoSemicolon => {
                 let expression = self.expression(0);
 
                 expect_semicolon!(self);
 
-                self.store(expression).into()
+                Some(self.alloc(expression))
             }
 
-            Asi::ImplicitSemicolon => null(),
+            Asi::ImplicitSemicolon => None,
             Asi::ExplicitSemicolon => {
                 self.consume();
 
-                null()
+                None
             }
         };
 
-        Item::ReturnStatement {
-            value: value,
+        Statement::Return {
+            value,
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn variable_declaration_statement(&mut self, kind: VariableDeclarationKind) -> Node<'src> {
-        let declaration = Item::DeclarationStatement {
+    #[inline]
+    pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> Loc<Statement<'ast>> {
+        let declaration = Statement::Declaration {
             kind: kind,
             declarators: self.variable_declarators()
         }.at(0, 0);
@@ -103,507 +98,536 @@ impl<'src> Parser<'src> {
         declaration
     }
 
-    #[inline(always)]
-    pub fn variable_declarator(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn variable_declarator(&mut self) -> Loc<Declarator<'ast>> {
         let name = match self.next() {
             BraceOpen        => self.object_expression(),
             BracketOpen      => self.array_expression(),
-            Identifier(name) => self.in_loc(Item::identifier(name)),
+            Identifier(name) => self.in_loc(Expression::Identifier(name)),
             _                => unexpected_token!(self),
         };
-        let name = self.store(name);
+        let name = self.alloc(name);
 
         let value = match self.peek() {
             Operator(Assign) => {
                 self.consume();
                 let value = self.expression(0);
 
-                self.store(value).into()
+                Some(self.alloc(value))
             },
-            _ => null()
+            _ => None
         };
 
-        Item::VariableDeclarator {
-            name: name,
-            value: value,
-        }.at(0, 0)
+        Loc::new(0, 0, Declarator {
+            name,
+            value,
+        })
     }
 
-    #[inline(always)]
-    pub fn variable_declarators(&mut self) -> Index {
-        let node = self.variable_declarator();
-
-        let mut previous = self.store(node);
-        let root = previous;
+    #[inline]
+    pub fn variable_declarators(&mut self) -> List<'ast, Loc<Declarator<'ast>>> {
+        let mut builder = ListBuilder::new(self.arena, self.variable_declarator());
 
         match self.peek() {
             Comma => self.consume(),
-            _     => return root,
+            _     => return builder.into_list(),
         }
 
         loop {
-            let node = self.variable_declarator();
-
-            previous = self.chain(previous, node);
+            builder.push(self.variable_declarator());
 
             match self.peek() {
                 Comma => self.consume(),
-                _     => return root,
+                _     => return builder.into_list(),
             }
         }
     }
 
-    #[inline(always)]
-    pub fn break_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn break_statement(&mut self) -> Loc<Statement<'ast>> {
         let label = match self.asi() {
             Asi::ExplicitSemicolon => {
                 self.consume();
-                null()
+                None
             },
-            Asi::ImplicitSemicolon => null(),
+            Asi::ImplicitSemicolon => None,
             Asi::NoSemicolon => {
                 let label = expect_identifier!(self);
 
                 expect_semicolon!(self);
 
-                idx(self.store_in_loc(Item::identifier(label)))
+                Some(self.alloc_in_loc(Expression::Identifier(label)))
             }
         };
 
-        Item::BreakStatement {
-            label: label
+        Statement::Break {
+            label
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn throw_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn throw_statement(&mut self) -> Loc<Statement<'ast>> {
         let value = self.expression(0);
         expect_semicolon!(self);
 
-        Item::ThrowStatement {
-            value: self.store(value)
+        Statement::Throw {
+            value: self.alloc(value)
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn try_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn try_statement(&mut self) -> Loc<Statement<'ast>> {
         let body = self.block_body();
         expect!(self, Catch);
         expect!(self, ParenOpen);
 
         let error = expect_identifier!(self);
-        let error = self.store_in_loc(Item::identifier(error));
+        let error = self.alloc_in_loc(Expression::Identifier(error));
         expect!(self, ParenClose);
 
         let handler = self.block_body();
         expect_semicolon!(self);
 
-        Item::TryStatement {
+        Statement::Try {
             body: body,
             error: error,
             handler: handler
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn if_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn if_statement(&mut self) -> Loc<Statement<'ast>> {
         expect!(self, ParenOpen);
 
         let test = self.expression(0);
-        let test = self.store(test);
+        let test = self.alloc(test);
         expect!(self, ParenClose);
 
         let consequent = self.expect_statement();
-        let consequent = self.store(consequent);
+        let consequent = self.alloc(consequent);
 
         let alternate = match self.peek() {
             Else => {
                 self.consume();
                 let statement = self.expect_statement();
-                self.store(statement).into()
+                Some(self.alloc(statement))
             },
-            _ => null()
+            _ => None
         };
 
-        Item::IfStatement {
-            test: test,
-            consequent: consequent,
-            alternate: alternate
+        Statement::If {
+            test,
+            consequent,
+            alternate,
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn while_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn while_statement(&mut self) -> Loc<Statement<'ast>> {
         expect!(self, ParenOpen);
 
         let test = self.expression(0);
-        let test = self.store(test);
+        let test = self.alloc(test);
         expect!(self, ParenClose);
 
         let body = self.expect_statement();
 
-        Item::WhileStatement {
-            test: test,
-            body: self.store(body)
+        Statement::While {
+            test,
+            body: self.alloc(body)
         }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn do_statement(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn do_statement(&mut self) -> Loc<Statement<'ast>> {
         let body = self.expect_statement();
         expect!(self, While);
 
         let test = self.expression(0);
 
-        Item::DoStatement {
-            body: self.store(body),
-            test: self.store(test),
+        Statement::Do {
+            body: self.alloc(body),
+            test: self.alloc(test),
         }.at(0, 0)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use ast::Item::*;
-    use ast::Ident::*;
-    use ast::{null, idx, Value, VariableDeclarationKind};
+    use super::*;
     use parser::parse;
+    use parser::mock::Mock;
+    use ast::{Value, ObjectMember, Function};
 
     #[test]
     fn function_statement_empty() {
         let src = "function foo() {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
-
-        assert_list!(
-            program.statements().items(),
-
-            FunctionStatement {
-                name: 0,
-                params: null(),
-                body: null(),
+        let expected = mock.list([
+            Statement::Function {
+                function: Function {
+                    name: mock.ptr("foo").into(),
+                    params: List::empty(),
+                    body: List::empty(),
+                }
             }
-        );
+        ]);
 
-        assert_ident!("foo", program[0]);
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn function_statement_params() {
         let src = "function foo(bar, baz) {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
-
-        assert_list!(
-            program.statements().items(),
-
-            FunctionStatement {
-                name: 0,
-                params: idx(1),
-                body: null(),
+        let expected = mock.list([
+            Statement::Function {
+                function: Function {
+                    name: mock.ptr("foo").into(),
+                    params: mock.list([
+                        "bar",
+                        "baz",
+                    ]),
+                    body: List::empty(),
+                }
             }
-        );
+        ]);
 
-        assert_ident!("foo", program[0]);
-
-        assert_list!(
-            program.store.nodes(1).items(),
-
-            Identifier("bar".into()),
-            Identifier("baz".into())
-        );
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn function_statement_body() {
         let src = "function foo() { bar; baz; }";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
-
-        assert_list!(
-            program.statements().items(),
-
-            FunctionStatement {
-                name: 0,
-                params: null(),
-                body: idx(2),
+        let expected = mock.list([
+            Statement::Function {
+                function: Function {
+                    name: mock.ptr("foo").into(),
+                    params: List::empty(),
+                    body: mock.list([
+                        Statement::Expression {
+                            expression: mock.ident("bar")
+                        },
+                        Statement::Expression {
+                            expression: mock.ident("baz")
+                        },
+                    ])
+                }
             }
-        );
+        ]);
 
-        assert_ident!("foo", program[0]);
+        assert_eq!(module.body(), expected);
+    }
 
-        assert_list!(
-            program.store.nodes(2).items(),
-
-            ExpressionStatement(1),
-            ExpressionStatement(3)
-        );
-
-        assert_ident!("bar", program[1]);
-        assert_ident!("baz", program[3]);
+    #[test]
+    #[should_panic]
+    fn function_statement_must_have_name() {
+        parse("function() {}").unwrap();
     }
 
     #[test]
     fn block_statement() {
         let src = "{ true }";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            BlockStatement { body: idx(1) }
-        );
-        assert_eq!(program[1], ExpressionStatement(0));
-        assert_eq!(program[0], ValueExpr(Value::True));
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Block {
+                body: mock.list([
+                    Statement::Expression {
+                        expression: mock.ptr(Expression::Value(Value::True))
+                    }
+                ])
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn if_statement() {
         let src = "if (true) foo;";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-            IfStatement {
-                test: 0,
-                consequent: 2,
-                alternate: null(),
+        let expected = mock.list([
+            Statement::If {
+                test: mock.ptr(Expression::Value(Value::True)),
+                consequent: mock.ptr(Statement::Expression {
+                    expression: mock.ident("foo")
+                }),
+                alternate: None
             }
-        );
-        assert_eq!(program[0], ValueExpr(Value::True));
-        assert_eq!(program[2], ExpressionStatement(1));
-        assert_ident!("foo", program[1]);
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn if_else_statement() {
         let src = "if (true) foo; else { bar; }";
-        let program = parse(src).unwrap();
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_list!(
-            program.statements().items(),
-
-            IfStatement {
-                test: 0,
-                consequent: 2,
-                alternate: idx(5),
+        let expected = mock.list([
+            Statement::If {
+                test: mock.ptr(Expression::Value(Value::True)),
+                consequent: mock.ptr(Statement::Expression {
+                    expression: mock.ident("foo")
+                }),
+                alternate: Some(mock.ptr(Statement::Block {
+                    body: mock.list([
+                        Statement::Expression {
+                            expression: mock.ident("bar")
+                        }
+                    ])
+                }))
             }
-        );
-        assert_eq!(program[0], ValueExpr(Value::True));
-        assert_eq!(program[2], ExpressionStatement(1));
-        assert_eq!(program[5], BlockStatement {
-            body: idx(4)
-        });
-        assert_ident!("foo", program[1]);
-        assert_eq!(program[4], ExpressionStatement(3));
-        assert_ident!("bar", program[3]);
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn while_statement() {
         let src = "while (true) foo;";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-            WhileStatement {
-                test: 0,
-                body: 2
+        let expected = mock.list([
+            Statement::While {
+                test: mock.ptr(Expression::Value(Value::True)),
+                body: mock.ptr(Statement::Expression {
+                    expression: mock.ident("foo")
+                })
             }
-        );
-        assert_eq!(program[0], ValueExpr(Value::True));
-        assert_eq!(program[2], ExpressionStatement(1));
-        assert_ident!("foo", program[1]);
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn while_statement_block() {
         let src = "while (true) { foo; }";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-            WhileStatement {
-                test: 0,
-                body: 3
+        let expected = mock.list([
+            Statement::While {
+                test: mock.ptr(Expression::Value(Value::True)),
+                body: mock.ptr(Statement::Block {
+                    body: mock.list([
+                        Statement::Expression {
+                            expression: mock.ident("foo")
+                        }
+                    ])
+                })
             }
-        );
-        assert_eq!(program[0], ValueExpr(Value::True));
-        assert_eq!(program[3], BlockStatement {
-            body: idx(2)
-        });
-        assert_eq!(program[2], ExpressionStatement(1));
-        assert_ident!("foo", program[1]);
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn do_statement() {
         let src = "do foo; while (true)";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-            DoStatement {
-                body: 1,
-                test: 2
+        let expected = mock.list([
+            Statement::Do {
+                body: mock.ptr(Statement::Expression {
+                    expression: mock.ident("foo")
+                }),
+                test: mock.ptr(Expression::Value(Value::True))
             }
-        );
-        assert_eq!(program[1], ExpressionStatement(0));
-        assert_ident!("foo", program[0]);
-        assert_eq!(program[2], ValueExpr(Value::True));
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn break_statement() {
         let src = "break;";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            BreakStatement { label: null() }
-        );
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Break {
+                label: None,
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn break_statement_label() {
         let src = "break foo;";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            BreakStatement { label: idx(0) }
-        );
-        assert_ident!("foo", program[0]);
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Break {
+                label: Some(mock.ident("foo")),
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn throw_statement() {
         let src = "throw '3'";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            ThrowStatement { value: 0 }
-        );
-        assert_eq!(program[0], ValueExpr(Value::String("'3'")));
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Throw {
+                value: mock.ptr(Expression::Value(Value::String("'3'"))),
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn try_statement_empty() {
         let src = "try {} catch (err) {}";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            TryStatement {
-                body: null(),
-                error: 0,
-                handler: null(),
-            }
-        );
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_ident!("err", program[0]);
+        let expected = mock.list([
+            Statement::Try {
+                body: List::empty(),
+                error: mock.ident("err"),
+                handler: List::empty()
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn try_statement() {
         let src = "try { foo; } catch (err) { bar; }";
-        let program = parse(src).unwrap();
-        assert_list!(
-            program.statements().items(),
-            TryStatement {
-                body: idx(1),
-                error: 2,
-                handler: idx(4)
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Try {
+                body: mock.list([
+                    Statement::Expression {
+                        expression: mock.ident("foo")
+                    }
+                ]),
+                error: mock.ident("err"),
+                handler: mock.list([
+                    Statement::Expression {
+                        expression: mock.ident("bar")
+                    }
+                ]),
             }
-        );
-        assert_ident!("err", program[2]);
+        ]);
 
-        assert_list!(
-            program.store.nodes(1).items(),
-            ExpressionStatement(0)
-        );
-
-        assert_list!(
-            program.store.nodes(4).items(),
-            ExpressionStatement(3)
-        );
-
-        assert_ident!("foo", program[0]);
-        assert_ident!("bar", program[3]);
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement() {
         let src = "var x, y, z = 42;";
-        let program = parse(src).unwrap();
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_list!(
-            program.statements().items(),
-            DeclarationStatement { kind: VariableDeclarationKind::Var, declarators: 1 }
-        );
+        let expected = mock.list([
+            Statement::Declaration {
+                kind: DeclarationKind::Var,
+                declarators: mock.list([
+                    Declarator {
+                        name: mock.ident("x"),
+                        value: None,
+                    },
+                    Declarator {
+                        name: mock.ident("y"),
+                        value: None,
+                    },
+                    Declarator {
+                        name: mock.ident("z"),
+                        value: Some(mock.number("42"))
+                    }
+                ])
+            }
+        ]);
 
-        assert_list!(
-            program.store.nodes(1).items(),
-            VariableDeclarator { name: 0, value: null() },
-            VariableDeclarator { name: 2, value: null() },
-            VariableDeclarator { name: 4, value: idx(5) }
-        );
-
-        assert_ident!("x", program[0]);
-        assert_ident!("y", program[2]);
-        assert_ident!("z", program[4]);
-        assert_eq!(ValueExpr(Value::Number("42")), program[5]);
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement_destructuring_array() {
         let src = "let [x, y] = [1, 2];";
-        let program = parse(src).unwrap();
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_list!(
-            program.statements().items(),
-            DeclarationStatement { kind: VariableDeclarationKind::Let, declarators: 6 }
-        );
+        let expected = mock.list([
+            Statement::Declaration {
+                kind: DeclarationKind::Let,
+                declarators: mock.list([
+                    Declarator {
+                        name: mock.ptr(Expression::Array {
+                            body: mock.list([
+                                Expression::Identifier("x"),
+                                Expression::Identifier("y"),
+                            ])
+                        }),
+                        value: Some(mock.ptr(Expression::Array {
+                            body: mock.list([
+                                Expression::Value(Value::Number("1")),
+                                Expression::Value(Value::Number("2")),
+                            ])
+                        })),
+                    },
+                ])
+            }
+        ]);
 
-        assert_list!(
-            program.store.nodes(6).items(),
-            VariableDeclarator { name: 2, value: idx(5) }
-        );
-
-        assert_eq!(program[2], ArrayExpr(idx(0)));
-        assert_list!(
-            program.store.nodes(0).items(),
-            Identifier(Insitu("x")),
-            Identifier(Insitu("y"))
-        );
-
-        assert_eq!(program[5], ArrayExpr(idx(3)));
-        assert_list!(
-            program.store.nodes(3).items(),
-            ValueExpr(Value::Number("1")),
-            ValueExpr(Value::Number("2"))
-        );
+        assert_eq!(module.body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement_destructuring_object() {
         let src = "const { x, y } = { a, b };";
-        let program = parse(src).unwrap();
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_list!(
-            program.statements().items(),
-            DeclarationStatement { kind: VariableDeclarationKind::Const, declarators: 6 }
-        );
+        let expected = mock.list([
+            Statement::Declaration {
+                kind: DeclarationKind::Const,
+                declarators: mock.list([
+                    Declarator {
+                        name: mock.ptr(Expression::Object {
+                            body: mock.list([
+                                ObjectMember::Shorthand("x"),
+                                ObjectMember::Shorthand("y"),
+                            ])
+                        }),
+                        value: Some(mock.ptr(Expression::Object {
+                            body: mock.list([
+                                ObjectMember::Shorthand("a"),
+                                ObjectMember::Shorthand("b"),
+                            ])
+                        })),
+                    },
+                ])
+            }
+        ]);
 
-        assert_eq!(program[6], VariableDeclarator { name: 2, value: idx(5) });
-
-        assert_eq!(program[2], ObjectExpr { body: idx(0) });
-        assert_list!(
-            program.store.nodes(0).items(),
-            ShorthandMember(Insitu("x")),
-            ShorthandMember(Insitu("y"))
-        );
-
-        assert_eq!(program[5], ObjectExpr { body: idx(3) });
-        assert_list!(
-            program.store.nodes(3).items(),
-            ShorthandMember(Insitu("a")),
-            ShorthandMember(Insitu("b"))
-        );
+        assert_eq!(module.body(), expected);
     }
 }

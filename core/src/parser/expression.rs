@@ -1,28 +1,29 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{null, idx, OptIndex, Item, Node};
+use ast::{Loc, List, ListBuilder, Expression, ObjectMember, OperatorKind};
 use ast::OperatorKind::*;
+use std::cell::Cell;
 
-impl<'src> Parser<'src> {
-    #[inline(always)]
-    pub fn expression(&mut self, lbp: u8) -> Node<'src> {
+impl<'ast> Parser<'ast> {
+    #[inline]
+    pub fn expression(&mut self, lbp: u8) -> Loc<Expression<'ast>> {
         let token = self.next();
         self.expression_from(token, lbp)
     }
 
     #[inline]
-    pub fn expression_from(&mut self, token: Token<'src>, lbp: u8) -> Node<'src> {
+    pub fn expression_from(&mut self, token: Token<'ast>, lbp: u8) -> Loc<Expression<'ast>> {
         let mut left = match token {
-            This               => self.in_loc(Item::This),
-            Literal(value)     => self.in_loc(Item::ValueExpr(value)),
-            Identifier(value)  => self.in_loc(Item::identifier(value)),
+            This               => self.in_loc(Expression::This),
+            Literal(value)     => self.in_loc(Expression::Value(value)),
+            Identifier(value)  => self.in_loc(Expression::Identifier(value)),
             Operator(Division) => self.regular_expression(),
-            // Operator(optype)   => self.prefix_expression(optype),
+            Operator(optype)   => self.prefix_expression(optype),
             ParenOpen          => self.paren_expression(),
             BracketOpen        => self.array_expression(),
             BraceOpen          => self.object_expression(),
-            // Function           => self.function_expression(),
+            Function           => self.function_expression(),
             // Class              => self.class_expression(),
             // Template(kind)     => self.template_expression(None, kind),
             _                  => unexpected_token!(self)
@@ -35,9 +36,9 @@ impl<'src> Parser<'src> {
                     self.consume();
 
                     // TODO: op.end
-                    Node::new(left.start, left.end, Item::PostfixExpr {
+                    Loc::new(left.start, left.end, Expression::Postfix {
                         operator: op,
-                        operand: self.store(left),
+                        operand: self.alloc(left),
                     })
                 }
 
@@ -60,22 +61,22 @@ impl<'src> Parser<'src> {
 
                     let right = self.expression(rbp);
 
-                    Node::new(left.start, right.end, Item::BinaryExpr {
-                        parenthesized: false,
+                    Loc::new(left.start, right.end, Expression::Binary {
+                        parenthesized: Cell::new(false),
                         operator: op,
-                        left: self.store(left),
-                        right: self.store(right),
+                        left: self.alloc(left),
+                        right: self.alloc(right),
                     })
                 },
 
                 Accessor(member) => {
                     self.consume();
 
-                    let right = self.in_loc(Item::identifier(member));
+                    let right = self.in_loc(member);
 
-                    Node::new(left.start, right.end, Item::MemberExpr {
-                        object: self.store(left),
-                        property: self.store(right),
+                    Loc::new(left.start, right.end, Expression::Member {
+                        object: self.alloc(left),
+                        property: self.alloc(right),
                     })
                 },
 
@@ -86,8 +87,8 @@ impl<'src> Parser<'src> {
 
                     self.consume();
 
-                    Item::CallExpr {
-                        callee: self.store(left),
+                    Expression::Call {
+                        callee: self.alloc(left),
                         arguments: self.expression_list(),
                     }.at(0, 0)
                 },
@@ -99,15 +100,14 @@ impl<'src> Parser<'src> {
         left
     }
 
-    #[inline(always)]
-    pub fn expression_list(&mut self) -> OptIndex {
+    #[inline]
+    pub fn expression_list(&mut self) -> List<'ast, Loc<Expression<'ast>>> {
         let expression = match self.next() {
-            ParenClose => return null(),
+            ParenClose => return List::empty(),
             token      => self.expression_from(token, 0),
         };
 
-        let mut previous = self.store(expression);
-        let root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
             let expression = match self.next() {
@@ -116,14 +116,14 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            previous = self.chain(previous, expression);
+            builder.push(expression);
         }
 
-        root
+        builder.into_list()
     }
 
-    #[inline(always)]
-    pub fn paren_expression(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn paren_expression(&mut self) -> Loc<Expression<'ast>> {
         match self.next() {
             // ParenClose => {
             //     expect!(self, Operator(FatArrow));
@@ -136,6 +136,7 @@ impl<'src> Parser<'src> {
 
                 expect!(self, ParenClose);
 
+                expression.item.parenthesize();
                 expression
 
                 // Ok(expression.parenthesize())
@@ -143,31 +144,44 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline(always)]
-    pub fn object_expression(&mut self) -> Node<'src> {
+    #[inline]
+    fn prefix_expression(&mut self, operator: OperatorKind) -> Loc<Expression<'ast>> {
+        if !operator.prefix() {
+            unexpected_token!(self);
+        }
+
+        let operand = self.expression(15);
+
+        Expression::Prefix {
+            operator: operator,
+            operand: self.alloc(operand),
+        }.at(0, 0)
+    }
+
+    #[inline]
+    pub fn object_expression(&mut self) -> Loc<Expression<'ast>> {
         let member = match self.next() {
             Identifier(ident) => {
-                let ident = ident.into();
                 let (start, end) = self.loc();
 
                 match self.next() {
-                    Comma => Item::ShorthandMember(ident).at(start, end),
+                    Comma => Loc::new(start, end, ObjectMember::Shorthand(ident)),
                     BraceClose => {
-                        let member = Item::ShorthandMember(ident).at(start, end);
+                        let member = Loc::new(start, end, ObjectMember::Shorthand(ident));
+                        let builder = ListBuilder::new(self.arena, member);
 
-                        return Item::ObjectExpr { body: self.store(member).into() }.at(start, end)
+                        return Expression::Object { body: builder.into_list() }.at(start, end)
                     },
                     _ => unexpected_token!(self)
                 }
             },
 
-            BraceClose => return self.in_loc(Item::ObjectExpr { body: null() }),
+            BraceClose => return self.in_loc(Expression::Object { body: List::empty() }),
 
             _ => unexpected_token!(self)
         };
 
-        let mut previous = self.store(member);
-        let root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, member);
 
         loop {
             match self.next() {
@@ -177,12 +191,12 @@ impl<'src> Parser<'src> {
 
                     match self.next() {
                         Comma => {
-                            previous = self.chain(previous, Item::ShorthandMember(ident).at(start, end));
+                            builder.push(Loc::new(start, end, ObjectMember::Shorthand(ident)));
 
                             continue;
                         },
                         BraceClose => {
-                            self.chain(previous, Item::ShorthandMember(ident).at(start, end));
+                            builder.push(Loc::new(start, end, ObjectMember::Shorthand(ident)));
 
                             break;
                         },
@@ -202,18 +216,19 @@ impl<'src> Parser<'src> {
             // }
         }
 
-        Item::ObjectExpr { body: root }.at(0, 0)
+        Expression::Object {
+            body: builder.into_list()
+        }.at(0, 0)
     }
 
-    #[inline(always)]
-    pub fn array_expression(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn array_expression(&mut self) -> Loc<Expression<'ast>> {
         let expression = match self.next() {
-            BracketClose => return Item::ArrayExpr(null()).at(0,0),
+            BracketClose => return Expression::Array { body: List::empty() }.at(0,0),
             token        => self.expression_from(token, 0)
         };
 
-        let mut previous = self.store(expression);
-        let root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
             let expression = match self.next() {
@@ -222,196 +237,184 @@ impl<'src> Parser<'src> {
                 _            => unexpected_token!(self),
             };
 
-            previous = self.chain(previous, expression);
+            builder.push(expression);
         }
 
-        Item::ArrayExpr(root).at(0,0)
+        Expression::Array {
+            body: builder.into_list()
+        }.at(0,0)
     }
 
-    #[inline(always)]
-    pub fn regular_expression(&mut self) -> Node<'src> {
+    #[inline]
+    pub fn regular_expression(&mut self) -> Loc<Expression<'ast>> {
         let value = match self.lexer.read_regular_expression() {
             Literal(value) => value,
             _              => unexpected_token!(self),
         };
 
-        Item::ValueExpr(value).at(0, 0)
+        Expression::Value(value).at(0, 0)
     }
 
+    #[inline]
+    pub fn function_expression(&mut self) -> Loc<Expression<'ast>> {
+        let name = match self.peek() {
+            Identifier(name) => {
+                self.consume();
+                Some(self.alloc_in_loc(name))
+            },
+            _ => None
+        };
+
+        Expression::Function {
+            function: self.function(name)
+        }.at(0, 0)
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use ast::{null, idx, OperatorKind, Value};
+    use super::*;
+    use ast::{OperatorKind, Value, Statement, Function};
     use parser::parse;
-    use parser::Item::*;
+    use parser::mock::Mock;
 
     #[test]
     fn parse_ident_expr() {
-        let src = "foo; bar; baz;";
+        let module = parse("foobar;").unwrap();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Identifier("foobar");
 
-        // 3 times statement and expression
-        assert_eq!(6, program.store.len());
-
-        // Statements are linked
-        assert_list!(
-            program.statements().items(),
-
-            ExpressionStatement(0),
-            ExpressionStatement(2),
-            ExpressionStatement(4)
-        );
-
-        // Match identifiers
-        assert_ident!("foo", program[0]);
-        assert_ident!("bar", program[2]);
-        assert_ident!("baz", program[4]);
+        assert_expr!(module, expected);
     }
 
     #[test]
-    fn parse_binary_and_postfix_expr() {
-        let src = "foo + bar; baz++;";
+    fn parse_binary_expr() {
+        let src = "foo + bar;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Binary {
+            parenthesized: Cell::new(false),
+            operator: OperatorKind::Addition,
+            left: mock.ident("foo"),
+            right: mock.ident("bar"),
+        };
 
-        // 2 statements, 3 simple expressions, one binary expression, one postfix expression
-        assert_eq!(7, program.store.len());
+        assert_expr!(module, expected);
+    }
 
-        // Statements are linked
-        assert_list!(
-            program.statements().items(),
+    #[test]
+    fn parse_parenthesized_binary_expr() {
+        let src = "(2 + 2);";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-            ExpressionStatement(2),
-            ExpressionStatement(5)
-        );
+        let expected = Expression::Binary {
+            parenthesized: Cell::new(true),
+            operator: OperatorKind::Addition,
+            left: mock.number("2"),
+            right: mock.number("2"),
+        };
 
-        // Binary expression
-        assert_eq!(
-            program[2],
+        assert_expr!(module, expected);
+    }
 
-            BinaryExpr {
-                parenthesized: false,
-                operator: OperatorKind::Addition,
-                left: 0,
-                right: 1,
-            }
-        );
+    #[test]
+    fn parse_postfix_expr() {
+        let src = "baz++;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        assert_ident!("foo", program[0]);
-        assert_ident!("bar", program[1]);
+        let expected = Expression::Postfix {
+            operator: OperatorKind::Increment,
+            operand: mock.ident("baz"),
+        };
 
-        // Postfix expression
-        assert_eq!(
-            program[5],
-
-            PostfixExpr {
-                operator: OperatorKind::Increment,
-                operand: 4
-            }
-        );
-
-        assert_ident!("baz", program[4]);
+        assert_expr!(module, expected);
     }
 
     #[test]
     fn call_expression() {
         let src = "foo();";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Call {
+            callee: mock.ident("foo"),
+            arguments: List::empty(),
+        };
 
-        assert_list!(
-            program.statements().items(),
-
-            ExpressionStatement(1)
-        );
-
-        assert_eq!(
-            program[1],
-
-            CallExpr {
-                callee: 0,
-                arguments: null(),
-            }
-        );
-
-        assert_ident!("foo", program[0]);
+        assert_expr!(module, expected);
     }
 
     #[test]
     fn member_expression() {
         let src = "foo.bar";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Member {
+            object: mock.ident("foo"),
+            property: mock.ptr("bar"),
+        };
 
-        assert_list!(
-            program.statements().items(),
-
-            ExpressionStatement(2)
-        );
-
-        assert_eq!(
-            program[2],
-
-            MemberExpr {
-                object: 0,
-                property: 1,
-            }
-        );
-
-        assert_ident!("foo", program[0]);
-        assert_ident!("bar", program[1]);
+        assert_expr!(module, expected);
     }
 
     #[test]
     fn keyword_member_expression() {
         let src = "foo.function";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Member {
+            object: mock.ident("foo"),
+            property: mock.ptr("function"),
+        };
 
-        assert_list!(
-            program.statements().items(),
-
-            ExpressionStatement(2)
-        );
-
-        assert_eq!(
-            program[2],
-
-            MemberExpr {
-                object: 0,
-                property: 1,
-            }
-        );
-
-        assert_ident!("foo", program[0]);
-        assert_ident!("function", program[1]);
+        assert_expr!(module, expected);
     }
 
     #[test]
     fn regular_expression() {
         let src = r#"/^[A-Z]+\/[\d]+/g"#;
-        let program = parse(src).unwrap();
-        assert_eq!(ValueExpr(Value::RegEx("/^[A-Z]+\\/[\\d]+/g")), program[0]);
+        let module = parse(src).unwrap();
+
+        let expected = Expression::Value(Value::RegEx("/^[A-Z]+\\/[\\d]+/g"));
+
+        assert_expr!(module, expected);
     }
 
     #[test]
     fn array_expression() {
         let src = "[0, 1, 2]";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let program = parse(src).unwrap();
+        let expected = Expression::Array {
+            body: mock.list([
+                Expression::Value(Value::Number("0")),
+                Expression::Value(Value::Number("1")),
+                Expression::Value(Value::Number("2")),
+            ])
+        };
 
-        assert_eq!(5, program.store.len());
-        assert_eq!(program[3], ArrayExpr(idx(0)));
-        assert_list!(
-            program.statements().items(),
-            ExpressionStatement(3)
-        );
+        assert_expr!(module, expected);
+    }
 
-        assert_eq!(program[3], ArrayExpr(idx(0)));
-        assert_eq!(program[0], ValueExpr(Value::Number("0")));
-        assert_eq!(program[1], ValueExpr(Value::Number("1")));
-        assert_eq!(program[2], ValueExpr(Value::Number("2")));
+    #[test]
+    fn function_expression() {
+        let src = "(function () {})";
+        let module = parse(src).unwrap();
+
+        let expected = Expression::Function {
+            function: Function {
+                name: None.into(),
+                params: List::empty(),
+                body: List::empty()
+            }
+        };
+
+        assert_expr!(module, expected);
     }
 }

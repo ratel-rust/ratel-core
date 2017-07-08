@@ -3,41 +3,45 @@ mod macros;
 mod error;
 mod expression;
 mod statement;
+mod function;
 
 use error::Error;
+use arena::Arena;
 
-use ast::{idx, null, Program, Store, Node, Index, OptIndex, Item};
+use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
-pub struct Parser<'src> {
+pub struct Parser<'ast> {
+    arena: &'ast Arena,
+
     /// Lexer will produce tokens from the source
-    lexer: Lexer<'src>,
+    lexer: Lexer<'ast>,
 
     /// Set to `Some` whenever peek is called
-    token: Option<Token<'src>>,
+    token: Option<Token<'ast>>,
+
+    /// Errors occurred during parsing
+    errors: Vec<Error>,
 
     /// AST under construction
-    program: Program<'src>,
+    body: List<'ast, Loc<Statement<'ast>>>,
 }
 
-impl<'src> Parser<'src> {
-    pub fn new(source: &'src str) -> Self {
+impl<'ast> Parser<'ast> {
+    pub fn new(source: &'ast str, arena: &'ast Arena) -> Self {
         Parser {
+            arena,
             lexer: Lexer::new(source),
             token: None,
-            program: Program {
-                source: source,
-                root: null(),
-                store: Store::new(),
-                errors: 0,
-            }
+            errors: Vec::new(),
+            body: List::empty(),
         }
     }
 
     /// Get the next token.
-    #[inline(always)]
-    fn next(&mut self) -> Token<'src> {
+    #[inline]
+    fn next(&mut self) -> Token<'ast> {
         match self.token {
             None => self.lexer.get_token(),
 
@@ -50,8 +54,8 @@ impl<'src> Parser<'src> {
     }
 
     /// Peek on the next token.
-    #[inline(always)]
-    fn peek(&mut self) -> Token<'src> {
+    #[inline]
+    fn peek(&mut self) -> Token<'ast> {
         match self.token {
             None => {
                 let token = self.lexer.get_token();
@@ -65,65 +69,49 @@ impl<'src> Parser<'src> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn asi(&mut self) -> Asi {
         self.peek();
 
         self.lexer.asi()
     }
 
-    #[inline(always)]
+    #[inline]
     fn consume(&mut self) {
         self.token = None;
     }
 
-    #[inline(always)]
-    fn loc(&self) -> (usize, usize) {
+    #[inline]
+    fn loc(&self) -> (u32, u32) {
         self.lexer.loc()
     }
 
-    #[inline(always)]
-    fn in_loc(&self, item: Item<'src>) -> Node<'src> {
+    #[inline]
+    fn in_loc<T>(&self, item: T) -> Loc<T> {
         let (start, end) = self.loc();
 
-        Node::new(start, end, item)
+        Loc::new(start, end, item)
     }
 
-    #[inline(always)]
-    fn store(&mut self, node: Node<'src>) -> Index {
-        self.program.store.insert(node)
+    #[inline]
+    fn alloc<T>(&mut self, val: T) -> Ptr<'ast, T> {
+        Ptr::new(self.arena.alloc(val))
     }
 
-    #[inline(always)]
-    fn store_in_loc(&mut self, item: Item<'src>) -> Index {
+    #[inline]
+    fn alloc_in_loc<T>(&mut self, item: T) -> Ptr<'ast, Loc<T>> {
         let node = self.in_loc(item);
-        self.store(node)
+        self.alloc(node)
     }
 
-    #[inline(always)]
-    fn chain(&mut self, previous: Index, node: Node<'src>) -> Index {
-        let index = self.store(node);
-        debug_assert!(index > previous);
-        self.program.store[previous].next = idx(index);
-        index
-    }
-
-    #[inline(always)]
-    fn chain_in_loc(&mut self, previous: Index, item: Item<'src>) -> Index {
-        let node = self.in_loc(item);
-        self.chain(previous, node)
-    }
-
-    #[inline(always)]
+    #[inline]
     fn parse(&mut self) {
         let statement = match self.next() {
             EndOfProgram => return,
             token        => self.statement(token)
         };
 
-        let mut previous = self.store(statement);
-
-        self.program.root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, statement);
 
         loop {
             let statement = match self.next() {
@@ -131,19 +119,20 @@ impl<'src> Parser<'src> {
                 token        => self.statement(token)
             };
 
-            previous = self.chain(previous, statement);
+            builder.push(statement);
         }
+
+        self.body = builder.into_list()
     }
 
-    #[inline(always)]
-    fn block_body_tail(&mut self) -> OptIndex {
+    #[inline]
+    fn block_body_tail(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
         let statement = match self.next() {
-            BraceClose => return null(),
+            BraceClose => return List::empty(),
             token      => self.statement(token),
         };
 
-        let mut previous = self.store(statement);
-        let root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, statement);
 
         loop {
             let statement = match self.next() {
@@ -151,28 +140,27 @@ impl<'src> Parser<'src> {
                 token      => self.statement(token),
             };
 
-            previous = self.chain(previous, statement);
+            builder.push(statement);
         }
 
-        root
+        builder.into_list()
     }
 
-    #[inline(always)]
-    fn block_body(&mut self) -> OptIndex {
+    #[inline]
+    fn block_body(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
         expect!(self, BraceOpen);
         self.block_body_tail()
     }
 
-    #[inline(always)]
-    fn parameter_list(&mut self) -> OptIndex {
+    #[inline]
+    fn parameter_list(&mut self) -> List<'ast, Loc<&'ast str>> {
         let name = match self.next() {
-            ParenClose       => return null(),
+            ParenClose       => return List::empty(),
             Identifier(name) => name,
             _                => unexpected_token!(self),
         };
 
-        let mut previous = self.store_in_loc(Item::identifier(name));
-        let root = idx(previous);
+        let mut builder = ListBuilder::new(self.arena, self.in_loc(name));
 
         loop {
             let name = match self.next() {
@@ -181,10 +169,10 @@ impl<'src> Parser<'src> {
                 _          => unexpected_token!(self),
             };
 
-            previous = self.chain_in_loc(previous, Item::identifier(name));
+            builder.push(self.in_loc(name));
         }
 
-        root
+        builder.into_list()
 
         // let mut default_params = false;
 
@@ -225,61 +213,101 @@ impl<'src> Parser<'src> {
 
         // Ok(list)
     }
-
 }
 
-pub fn parse<'src>(source: &'src str) -> Result<Program<'src>, Vec<Error>> {
-    let mut parser = Parser::new(source);
+pub struct Module {
+    body: RawList,
+    arena: Arena,
+}
 
-    parser.parse();
+impl Module {
+    pub fn body<'ast>(&'ast self) -> List<'ast, Loc<Statement<'ast>>> {
+        unsafe { self.body.into_list() }
+    }
 
-    let program = parser.program;
+    pub fn arena(&self) -> &Arena {
+        &self.arena
+    }
+}
 
-    match program.errors {
-        0     => Ok(program),
-        count => {
-            let mut vec = Vec::with_capacity(count);
+pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
+    let arena = Arena::new();
 
-            for node in program.store {
-                match node.item {
-                    Item::Error(err) => vec.push(err),
-                    _                => {},
-                }
+    let (body, errors) = {
+        let source = arena.alloc_str(source);
+        let mut parser = Parser::new(source, &arena);
+
+        parser.parse();
+
+        (parser.body.into_raw(), parser.errors)
+    };
+
+    match errors.len() {
+        0 => Ok(Module { body, arena }),
+        _ => Err(errors)
+    }
+}
+
+#[cfg(test)]
+mod mock {
+    use super::*;
+    use ast::{Expression, Value};
+
+    pub struct Mock {
+        arena: Arena
+    }
+
+    impl Mock {
+        pub fn new() -> Self {
+            Mock {
+                arena: Arena::new()
             }
+        }
 
-            Err(vec)
+        pub fn ptr<'a, T: 'a>(&'a self, val: T) -> Ptr<'a, Loc<T>> {
+            Ptr::new(self.arena.alloc(Loc::new(0, 0, val)))
+        }
+
+        pub fn ident<'a>(&'a self, ident: &'static str) -> Ptr<'a, Loc<Expression<'a>>> {
+            self.ptr(Expression::Identifier(ident))
+        }
+
+        pub fn number<'a>(&'a self, number: &'static str) -> Ptr<'a, Loc<Expression<'a>>> {
+            self.ptr(Expression::Value(Value::Number(number)))
+        }
+
+        pub fn list<'a, T, L>(&'a self, list: L) -> List<'a, Loc<T>> where
+            T: 'a + Clone,
+            L: AsRef<[T]>
+        {
+            List::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| Loc::new(0, 0, i)))
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use parser::parse;
-    use parser::Item::*;
-    use ast::null;
+    use super::*;
+    use parser::mock::Mock;
 
     #[test]
     fn empty_parse() {
-        let program = parse("").unwrap();
+        let module = parse("").unwrap();
 
-        assert_eq!(0, program.store.len());
-        assert_eq!(null(), program.root);
-        assert_list!(program.statements().items());
+        assert_eq!(module.body(), List::empty());
     }
 
     #[test]
     fn empty_statements() {
-        let program = parse(";;;").unwrap();
+        let module = parse(";;;").unwrap();
+        let mock = Mock::new();
 
-        assert_eq!(3, program.store.len());
+        let expected = mock.list([
+            Statement::Empty,
+            Statement::Empty,
+            Statement::Empty
+        ]);
 
-        // Statements are linked
-        assert_list!(
-            program.statements().items(),
-
-            EmptyStatement,
-            EmptyStatement,
-            EmptyStatement
-        );
+        assert_eq!(module.body(), expected);
     }
 }

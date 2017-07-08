@@ -264,6 +264,7 @@ impl OperatorKind {
     #[inline]
     pub fn is_word(&self) -> bool {
         match *self {
+            In         |
             New        |
             Typeof     |
             Void       |

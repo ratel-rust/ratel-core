@@ -9,7 +9,7 @@ use lexer::TemplateKind;
 use std::str;
 use ast::Value;
 use ast::OperatorKind::*;
-use ast::VariableDeclarationKind::*;
+use ast::DeclarationKind::*;
 use error::Error;
 
 /// Helper macro for declaring byte-handler functions with correlating constants.
@@ -296,9 +296,13 @@ define_handlers! {
                         }
                     },
 
-                    b'=' => BSRAssign,
+                    b'=' => {
+                        lex.bump();
 
-                    _    => BitShiftRight
+                        BSRAssign
+                    },
+
+                    _ => BitShiftRight
                 }
             },
 
@@ -906,7 +910,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn get_token(&mut self) -> Token<'src> {
         self.asi = Asi::NoSemicolon;
 
@@ -940,17 +944,17 @@ impl<'src> Lexer<'src> {
         unsafe { (*self.handlers.offset(byte as isize))(self, byte) }
     }
 
-    #[inline(always)]
-    pub fn loc(&self) -> (usize, usize) {
-        (self.token_start, self.index)
+    #[inline]
+    pub fn loc(&self) -> (u32, u32) {
+        (self.token_start as u32, self.index as u32)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn loc_start(&self) -> usize {
         self.token_start
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn loc_end(&self) -> usize {
         self.index
     }
@@ -1071,7 +1075,7 @@ impl<'src> Lexer<'src> {
     ///
     /// The perf gain here comes mainly from avoiding having to first match the `&str`
     /// to a keyword token, and then match that token back to a `&str`.
-    #[inline(always)]
+    #[inline]
     pub fn read_accessor(&mut self) -> Token<'src> {
         // Look up table that marks which ASCII characters are allowed to start an ident
         const AL: bool = true; // alphabet
@@ -1117,7 +1121,7 @@ impl<'src> Lexer<'src> {
         })
     }
 
-    #[inline(always)]
+    #[inline]
     fn read_label(&mut self) -> &'src str {
         // Look up table that marks which ASCII characters are allowed in identifiers
         const NU: bool = true; // digit
@@ -1170,7 +1174,7 @@ impl<'src> Lexer<'src> {
         self.slice_from(start)
     }
 
-    #[inline(always)]
+    #[inline]
     fn slice_from(&self, start: usize) -> &'src str {
         unsafe { self.source.slice_unchecked(start, self.index) }
     }

@@ -548,13 +548,13 @@ impl Code for Expression {
     }
 }
 
-impl Code for VariableDeclarationKind {
+impl Code for DeclarationKind {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
         gen.write_bytes(match *self {
-            VariableDeclarationKind::Var   => b"var",
-            VariableDeclarationKind::Let   => b"let",
-            VariableDeclarationKind::Const => b"const",
+            DeclarationKind::Var   => b"var",
+            DeclarationKind::Let   => b"let",
+            DeclarationKind::Const => b"const",
         })
     }
 }

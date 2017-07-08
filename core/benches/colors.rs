@@ -95,9 +95,7 @@ fn parse_to_ast(b: &mut Bencher) {
     b.bytes = SOURCE.len() as u64;
 
     b.iter(|| {
-        let ast = ratel::parser::parse(SOURCE).expect("Must parse");
-
-        ast
+        let _module = ratel::parser::parse(SOURCE).expect("Must parse");
     });
 }
 
@@ -114,7 +112,6 @@ fn tokenize(b: &mut Bencher) {
         }
     });
 }
-
 
 // #[bench]
 // fn parse_to_ast_and_transform_es5(b: &mut Bencher) {
