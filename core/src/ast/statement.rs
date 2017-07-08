@@ -77,4 +77,12 @@ impl<'ast> Statement<'ast> {
     pub fn at(self, start: u32, end: u32) -> Loc<Statement<'ast>> {
         Loc::new(start, end, self)
     }
+
+    #[inline]
+    pub fn is_block(&self) -> bool {
+        match *self {
+            Statement::Block { .. } => true,
+            _                       => false,
+        }
+    }
 }

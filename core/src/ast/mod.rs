@@ -14,7 +14,7 @@ pub use ast::operator::*;
 pub use ast::ptr::Ptr;
 pub use ast::expression::{Expression, ObjectMember, Property};
 pub use ast::statement::{Statement, Declarator};
-pub use ast::function::{Function, Class, Name, OptionalName, MandatoryName};
+pub use ast::function::{Function, Class, ClassMember, Name, OptionalName, MandatoryName};
 pub use ast::value::Value;
 pub use ast::list::{RawList, List, ListIter, ListBuilder};
 

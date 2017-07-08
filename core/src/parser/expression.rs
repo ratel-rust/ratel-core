@@ -42,6 +42,20 @@ impl<'ast> Parser<'ast> {
                     })
                 }
 
+                Operator(op @ Conditional) => {
+                    self.consume();
+
+                    let consequent = self.expression(op.binding_power());
+                    expect!(self, Colon);
+                    let alternate = self.expression(op.binding_power());
+
+                    Expression::Conditional {
+                        test: self.alloc(left),
+                        consequent: self.alloc(consequent),
+                        alternate: self.alloc(alternate),
+                    }.at(0, 0)
+                }
+
                 Operator(op) => {
                     self.consume();
 
@@ -90,6 +104,23 @@ impl<'ast> Parser<'ast> {
                     Expression::Call {
                         callee: self.alloc(left),
                         arguments: self.expression_list(),
+                    }.at(0, 0)
+                },
+
+                BracketOpen => {
+                    if lbp > 19 {
+                        break;
+                    }
+
+                    self.consume();
+
+                    let property = self.expression(0);
+
+                    expect!(self, BracketClose);
+
+                    Expression::ComputedMember {
+                        object: self.alloc(left),
+                        property: self.alloc(property),
                     }.at(0, 0)
                 },
 
@@ -279,7 +310,7 @@ mod test {
     use parser::mock::Mock;
 
     #[test]
-    fn parse_ident_expr() {
+    fn ident_expr() {
         let module = parse("foobar;").unwrap();
 
         let expected = Expression::Identifier("foobar");
@@ -288,7 +319,7 @@ mod test {
     }
 
     #[test]
-    fn parse_binary_expr() {
+    fn binary_expr() {
         let src = "foo + bar;";
         let module = parse(src).unwrap();
         let mock = Mock::new();
@@ -304,7 +335,7 @@ mod test {
     }
 
     #[test]
-    fn parse_parenthesized_binary_expr() {
+    fn parenthesized_binary_expr() {
         let src = "(2 + 2);";
         let module = parse(src).unwrap();
         let mock = Mock::new();
@@ -320,7 +351,23 @@ mod test {
     }
 
     #[test]
-    fn parse_postfix_expr() {
+    fn conditional_expr() {
+        let src = "true ? foo : bar";
+
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Conditional {
+            test: mock.ptr(Expression::Value(Value::True)),
+            consequent: mock.ident("foo"),
+            alternate: mock.ident("bar"),
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn postfix_expr() {
         let src = "baz++;";
         let module = parse(src).unwrap();
         let mock = Mock::new();
@@ -370,6 +417,20 @@ mod test {
         let expected = Expression::Member {
             object: mock.ident("foo"),
             property: mock.ptr("function"),
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn computed_member_expression() {
+        let src = "foo[10]";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::ComputedMember {
+            object: mock.ident("foo"),
+            property: mock.number("10"),
         };
 
         assert_expr!(module, expected);

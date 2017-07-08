@@ -1,4 +1,4 @@
-use ast::{Ptr, Loc, IdentifierPtr, IdentifierList, StatementList};
+use ast::{Ptr, Loc, List, IdentifierPtr, IdentifierList, ExpressionPtr, StatementList, Property};
 use arena::Arena;
 
 pub trait Name<'ast> {
@@ -51,9 +51,28 @@ pub struct Function<'ast, N: Name<'ast>> {
     pub body: StatementList<'ast>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ClassMember<'ast> {
+    Constructor {
+        params: IdentifierList<'ast>,
+        body: StatementList<'ast>,
+    },
+    Method {
+        is_static: bool,
+        property: Property<'ast>,
+        params: IdentifierList<'ast>,
+        body: StatementList<'ast>,
+    },
+    Value {
+        is_static: bool,
+        property: Property<'ast>,
+        value: ExpressionPtr<'ast>,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class<'ast, N: Name<'ast>> {
     pub name: N,
     pub extends: Option<IdentifierPtr<'ast>>,
-    pub body: StatementList<'ast>,
+    pub body: List<'ast, Loc<ClassMember<'ast>>>,
 }

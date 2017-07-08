@@ -101,7 +101,15 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 gen.write(consequent);
 
                 if let Some(ref alternate) = *alternate {
-                    gen.write_bytes(b" else ");
+                    match consequent.is_block() {
+                        true  => gen.write_pretty(b' '),
+                        false => gen.write_byte(b' '),
+                    }
+                    gen.write_bytes(b"else");
+                    match alternate.is_block() {
+                        true  => gen.write_pretty(b' '),
+                        false => gen.write_byte(b' '),
+                    }
                     gen.write(alternate);
                 }
             },
@@ -222,7 +230,7 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
             Class {
                 ref class,
             } => {
-                unimplemented!();
+                gen.write(class);
             }
         }
     }
@@ -254,5 +262,21 @@ mod test {
         assert_parse("var foo = 10, bar = 20;", "var foo=10,bar=20;");
         assert_parse("let foo = 10, bar = 20;", "let foo=10,bar=20;");
         assert_parse("const foo = 10, bar = 20;", "const foo=10,bar=20;");
+    }
+
+    #[test]
+    fn if_statement() {
+        assert_parse("if (true) foo;", "if(true)foo;");
+        assert_parse("if (true) { foo; }", "if(true){foo;}");
+        assert_parse("if (true) foo; else bar;", "if(true)foo; else bar;");
+        assert_parse("if (true) { foo; } else { bar; }", "if(true){foo;}else{bar;}");
+        assert_parse("if (true) foo; else { bar; }", "if(true)foo; else{bar;}");
+        assert_parse("if (true) { foo; } else bar;", "if(true){foo;}else bar;");
+    }
+
+    #[test]
+    fn while_statement() {
+        assert_parse("while (true) foo;", "while(true)foo;");
+        assert_parse("while (true) { foo; }", "while(true){foo;}");
     }
 }

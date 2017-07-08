@@ -13,11 +13,11 @@ pub enum Property<'ast> {
 pub enum ObjectMember<'ast> {
     Shorthand(&'ast str),
     Value {
-        key: PropertyPtr<'ast>,
+        property: PropertyPtr<'ast>,
         value: ExpressionPtr<'ast>,
     },
     Method {
-        key: PropertyPtr<'ast>,
+        property: PropertyPtr<'ast>,
         params: IdentifierList<'ast>,
         body: StatementList<'ast>,
     },

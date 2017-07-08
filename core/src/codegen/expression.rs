@@ -52,20 +52,20 @@ impl<'ast, G: Generator> ToCode<G> for ObjectMember<'ast> {
         match *self {
             Shorthand(ref label) => gen.write(label),
             Value {
-                ref key,
+                ref property,
                 ref value,
             } => {
-                gen.write(key);
+                gen.write(property);
                 gen.write_byte(b':');
                 gen.write_pretty(b' ');
                 gen.write(value);
             },
             Method {
-                ref key,
+                ref property,
                 ref params,
                 ref body,
             } => {
-                gen.write(key);
+                gen.write(property);
                 gen.write_byte(b'(');
                 gen.write_list(params);
                 gen.write_byte(b')');
@@ -252,7 +252,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Class {
                 ref class,
             } => {
-                unimplemented!();
+                gen.write(class);
             }
         }
     }
@@ -326,8 +326,28 @@ mod test {
     }
 
     #[test]
+    fn conditional_expression() {
+        assert_parse("true ? foo : bar", "true?foo:bar;")
+    }
+
+    #[test]
     fn function_expression() {
         assert_parse("(function () {})", "(function(){});");
         assert_parse("(function foo() {})", "(function foo(){});");
+    }
+
+    #[test]
+    fn call_expression() {
+        assert_parse("foobar();", "foobar();");
+        assert_parse("foobar(1, 2, 3);", "foobar(1,2,3);");
+    }
+
+    #[test]
+    fn member_expression() {
+        assert_parse("foo.bar", "foo.bar;");
+        assert_parse("this.bar", "this.bar;");
+        assert_parse("10..fooz", "10..fooz;");
+        assert_parse("foo[10]", "foo[10];");
+        assert_parse(r#"foo["bar"]"#, r#"foo["bar"];"#);
     }
 }
