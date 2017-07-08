@@ -63,13 +63,12 @@ pub trait Generator: Sized {
     }
 
     fn write_declaration_or_expression(&mut self, statement: &StatementPtr) {
-        match ***statement {
+        match statement.item {
             Statement::Declaration {
                 ref kind,
                 ref declarators,
             } => {
                 self.write(kind);
-                self.write_byte(b' ');
                 self.write_list(declarators);
             },
 
@@ -285,19 +284,3 @@ fn assert_parse(source: &str, expected: &str) {
 
     assert_eq!(codegen(&module, true).as_str(), expected);
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use parser::parse;
-
-//     #[test]
-//     fn should_die() {
-//         let src = "break foo;";
-//         let program = parse(src).unwrap();
-
-//         let code = codegen(&program, true);
-
-//         assert_eq!(code, "break foo;");
-//     }
-// }

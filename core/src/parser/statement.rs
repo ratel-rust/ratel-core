@@ -1,7 +1,8 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::{Asi, Token};
-use ast::{Loc, List, ListBuilder, Statement, Declarator, Expression, DeclarationKind};
+use ast::{Loc, List, ListBuilder, Declarator, DeclarationKind};
+use ast::{Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
@@ -18,7 +19,7 @@ impl<'ast> Parser<'ast> {
             If                 => self.if_statement(),
             While              => self.while_statement(),
             Do                 => self.do_statement(),
-            // For                => self.for_statement(),
+            For                => self.for_statement(),
             // Identifier(label)  => self.labeled_or_expression_statement(label),
             Throw              => self.throw_statement(),
             Try                => self.try_statement(),
@@ -250,6 +251,142 @@ impl<'ast> Parser<'ast> {
             test: self.alloc(test),
         }.at(0, 0)
     }
+
+    #[inline]
+    fn for_statement(&mut self) -> Loc<Statement<'ast>> {
+        expect!(self, ParenOpen);
+
+        let init = match self.next() {
+            Semicolon => None,
+
+            Declaration(kind) => {
+                let declarators = self.variable_declarators();
+
+                if let Some(&Loc {
+                    item: Declarator {
+                        value: Some(ref value),
+                        ..
+                    },
+                    ..
+                }) = declarators.only_element() {
+                    if let Expression::Binary { operator: In, ref right, .. } = value.item {
+                        let left = self.alloc(Statement::Declaration {
+                            kind,
+                            declarators,
+                        }.at(0, 0));
+
+                        return self.for_in_statement_from_parts(left, right.clone());
+                    }
+                }
+
+                Some(self.alloc(Statement::Declaration {
+                    kind,
+                    declarators,
+                }.at(0, 0)))
+            }
+
+            token => {
+                let expression = self.expression_from(token, 0);
+
+                if let Expression::Binary {
+                    operator: In,
+                    ref left,
+                    ref right,
+                    ..
+                } = expression.item {
+                    let left = self.alloc(Statement::Expression {
+                        expression: left.clone()
+                    }.at(0, 0));
+
+                    return self.for_in_statement_from_parts(left, right.clone());
+                }
+
+                let expression = self.alloc(expression);
+
+                Some(self.alloc(Statement::Expression {
+                    expression
+                }.at(0, 0)))
+            },
+        };
+
+        if let Some(ref init) = init {
+            match self.next() {
+                Operator(In)     => return self.for_in_statement(init.clone()),
+                Identifier("of") => return self.for_of_statement(init.clone()),
+                Semicolon        => {},
+                _                => unexpected_token!(self),
+            }
+        }
+
+        let test = match self.next() {
+            Semicolon => None,
+            token     => {
+                let test = self.expression_from(token, 0);
+                expect!(self, Semicolon);
+
+                Some(self.alloc(test))
+            }
+        };
+
+        let update = match self.next() {
+            ParenClose => None,
+            token      => {
+                let update = self.expression_from(token, 0);
+                expect!(self, ParenClose);
+
+                Some(self.alloc(update))
+            }
+        };
+
+        let body = self.expect_statement();
+
+        Statement::For {
+            init,
+            test,
+            update,
+            body: self.alloc(body),
+        }.at(0, 0)
+    }
+
+    fn for_in_statement_from_parts(&mut self, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> Loc<Statement<'ast>> {
+        expect!(self, ParenClose);
+
+        let body = self.expect_statement();
+
+        Statement::ForIn {
+            left,
+            right,
+            body: self.alloc(body),
+        }.at(0, 0)
+    }
+
+    fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
+        let right = self.expression(0);
+
+        expect!(self, ParenClose);
+
+        let body = self.expect_statement();
+
+        Statement::ForIn {
+            left,
+            right: self.alloc(right),
+            body: self.alloc(body),
+        }.at(0, 0)
+    }
+
+    fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
+        let right = self.expression(0);
+
+        expect!(self, ParenClose);
+
+        let body = self.expect_statement();
+
+        Statement::ForOf {
+            left,
+            right: self.alloc(right),
+            body: self.alloc(body),
+        }.at(0, 0)
+    }
 }
 
 #[cfg(test)]
@@ -257,7 +394,8 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{Value, ObjectMember, Function};
+    use ast::{List, Value, ObjectMember, Function, OperatorKind};
+    use std::cell::Cell;
 
     #[test]
     fn function_statement_empty() {
@@ -625,6 +763,42 @@ mod test {
                         })),
                     },
                 ])
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn for_statement() {
+        let src = "for (let i = 0; i < 10; i++) {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::For {
+                init: Some(mock.ptr(Statement::Declaration {
+                    kind: DeclarationKind::Let,
+                    declarators: mock.list([
+                        Declarator {
+                            name: mock.ident("i"),
+                            value: Some(mock.number("0")),
+                        }
+                    ]),
+                })),
+                test: Some(mock.ptr(Expression::Binary {
+                    parenthesized: Cell::new(false),
+                    operator: OperatorKind::Lesser,
+                    left: mock.ident("i"),
+                    right: mock.number("10"),
+                })),
+                update: Some(mock.ptr(Expression::Postfix {
+                    operator: OperatorKind::Increment,
+                    operand: mock.ident("i")
+                })),
+                body: mock.ptr(Statement::Block {
+                    body: List::empty()
+                })
             }
         ]);
 

@@ -129,7 +129,11 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 ref test,
                 ref body,
             } => {
-                gen.write_bytes(b"do ");
+                gen.write_bytes(b"do");
+                match body.is_block() {
+                    true  => gen.write_pretty(b' '),
+                    false => gen.write_byte(b' '),
+                }
                 gen.write(body);
                 gen.write_bytes(b"while");
                 gen.write_pretty(b' ');
@@ -278,5 +282,16 @@ mod test {
     fn while_statement() {
         assert_parse("while (true) foo;", "while(true)foo;");
         assert_parse("while (true) { foo; }", "while(true){foo;}");
+    }
+
+    #[test]
+    fn do_statement() {
+        assert_parse("do { foo; } while (true)", "do{foo;}while(true)");
+        assert_parse("do foo; while (true)", "do foo;while(true)");
+    }
+
+    #[test]
+    fn for_statement() {
+        assert_parse("for (var i = 0; i < 10; i++) {}", "for(var i=0;i<10;i++){}");
     }
 }

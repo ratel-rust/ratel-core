@@ -42,18 +42,18 @@ pub enum Statement<'ast> {
     },
     For {
         init: Option<StatementPtr<'ast>>,
-        test: Option<StatementPtr<'ast>>,
-        update: Option<StatementPtr<'ast>>,
+        test: Option<ExpressionPtr<'ast>>,
+        update: Option<ExpressionPtr<'ast>>,
         body: StatementPtr<'ast>
     },
     ForIn {
         left: StatementPtr<'ast>,
-        right: StatementPtr<'ast>,
+        right: ExpressionPtr<'ast>,
         body: StatementPtr<'ast>
     },
     ForOf {
         left: StatementPtr<'ast>,
-        right: StatementPtr<'ast>,
+        right: ExpressionPtr<'ast>,
         body: StatementPtr<'ast>
     },
     Try {

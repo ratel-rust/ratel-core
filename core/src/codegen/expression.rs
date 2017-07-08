@@ -199,17 +199,18 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
                 ref params,
                 ref body,
             } => {
-                if params.iter().take(2).count() == 1 {
-                    gen.write_list(params);
-                } else {
-                    gen.write_byte(b'(');
-                    gen.write_list(params);
-                    gen.write_byte(b')');
+                match params.only_element() {
+                    Some(param) => gen.write(param),
+                    None        => {
+                        gen.write_byte(b'(');
+                        gen.write_list(params);
+                        gen.write_byte(b')');
+                    }
                 }
                 gen.write_pretty(b' ');
                 gen.write_bytes(b"=>");
                 gen.write_pretty(b' ');
-                match ***body {
+                match body.item {
                     Statement::Expression {
                         ref expression,
                     } => gen.write(expression),

@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
-use ast::{PropertyPtr, ExpressionPtr, ExpressionList, StatementPtr, StatementList, IdentifierPtr, IdentifierList};
+use ast::{PropertyPtr, IdentifierPtr, IdentifierList};
+use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Property<'ast> {

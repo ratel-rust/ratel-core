@@ -118,6 +118,21 @@ impl<'ast, T: 'ast> List<'ast, T> {
         self.root.get().is_none()
     }
 
+    /// Returns the first element if, and only if, the list contains
+    /// just that single element.
+    #[inline]
+    pub fn only_element(&self) -> Option<&'ast T> {
+        match self.root.get() {
+            Some(&ListItem { ref value, ref next, .. }) => {
+                match next.get() {
+                    None => Some(value),
+                    _    => None,
+                }
+            },
+            None => None
+        }
+    }
+
     pub fn from_iter<I>(arena: &'ast Arena, source: I) -> List<'ast, T> where
         I: IntoIterator<Item = T>
     {
