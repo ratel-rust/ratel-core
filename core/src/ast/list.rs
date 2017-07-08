@@ -133,6 +133,16 @@ impl<'ast, T: 'ast> List<'ast, T> {
         }
     }
 
+    #[inline]
+    pub fn from(arena: &'ast Arena, value: T) -> List<'ast, T> {
+        List {
+            root: Cell::new(Some(arena.alloc(ListItem {
+                value,
+                next: Cell::new(None)
+            })))
+        }
+    }
+
     pub fn from_iter<I>(arena: &'ast Arena, source: I) -> List<'ast, T> where
         I: IntoIterator<Item = T>
     {

@@ -1,6 +1,6 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, Expression, Declarator, Function, Name};
+use ast::{Ptr, Loc, List, Statement, Expression, Declarator, ObjectMember, Function, Name};
 use parser::Parser;
 use arena::Arena;
 
@@ -30,6 +30,12 @@ impl<'a, 'ast: 'a> ToError<'ast> for Declarator<'a> {
             name: Ptr::new(arena.alloc(Loc::new(0, 0, Expression::Error))),
             value: None,
         }
+    }
+}
+
+impl<'ast> ToError<'ast> for ObjectMember<'ast> {
+    fn to_error(_: &'ast Arena) -> Self {
+        ObjectMember::Shorthand("")
     }
 }
 

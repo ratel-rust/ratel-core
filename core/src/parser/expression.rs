@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Token;
-use ast::{Loc, List, ListBuilder, Expression, ObjectMember, OperatorKind};
+use ast::{Loc, List, ListBuilder, Expression, ObjectMember, Property, OperatorKind, Value};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
@@ -227,59 +227,27 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn object_expression(&mut self) -> Loc<Expression<'ast>> {
         let member = match self.next() {
-            Identifier(ident) => {
-                let (start, end) = self.loc();
-
-                match self.next() {
-                    Comma => Loc::new(start, end, ObjectMember::Shorthand(ident)),
-                    BraceClose => {
-                        let member = Loc::new(start, end, ObjectMember::Shorthand(ident));
-                        let builder = ListBuilder::new(self.arena, member);
-
-                        return Expression::Object { body: builder.into_list() }.at(start, end)
-                    },
-                    _ => unexpected_token!(self)
-                }
+            BraceClose => {
+                return self.in_loc(Expression::Object {
+                    body: List::empty()
+                });
             },
-
-            BraceClose => return self.in_loc(Expression::Object { body: List::empty() }),
-
-            _ => unexpected_token!(self)
+            token => self.object_member(token),
         };
 
         let mut builder = ListBuilder::new(self.arena, member);
 
         loop {
             match self.next() {
-                Identifier(ident) => {
-                    let ident = ident.into();
-                    let (start, end) = self.loc();
-
-                    match self.next() {
-                        Comma => {
-                            builder.push(Loc::new(start, end, ObjectMember::Shorthand(ident)));
-
-                            continue;
-                        },
-                        BraceClose => {
-                            builder.push(Loc::new(start, end, ObjectMember::Shorthand(ident)));
-
-                            break;
-                        },
-                        _ => unexpected_token!(self),
-                    }
-                },
-
                 BraceClose => break,
-
-                _ => unexpected_token!(self),
+                Comma      => {},
+                _          => unexpected_token!(self)
             }
 
-            // match self.next() {
-            //     Comma => {},
-            //     BraceClose => break,
-            //     _ => unexpected_token!(self)
-            // }
+            match self.next() {
+                BraceClose => break,
+                token => builder.push(self.object_member(token)),
+            }
         }
 
         Expression::Object {
@@ -287,23 +255,106 @@ impl<'ast> Parser<'ast> {
         }.at(0, 0)
     }
 
+    pub fn object_member(&mut self, token: Token<'ast>) -> Loc<ObjectMember<'ast>> {
+        let property = match token {
+            Identifier(label) => {
+                match self.peek() {
+                    Colon | ParenOpen => self.in_loc(Property::Literal(label)),
+
+                    _ => return self.in_loc(ObjectMember::Shorthand(label)),
+                }
+            },
+
+            Literal(Value::String(key)) |
+            Literal(Value::Number(key)) => self.in_loc(Property::Literal(key)),
+            Literal(Value::Binary(num)) => self.in_loc(Property::Binary(num)),
+
+            BracketOpen => {
+                let expression = self.sequence_or_expression();
+                let property = Loc::new(0, 0, Property::Computed(self.alloc(expression)));
+
+                expect!(self, BracketClose);
+
+                property
+            },
+
+            _ => {
+                // Allow word tokens such as "null" and "typeof" as identifiers
+                match token.as_word() {
+                    Some(label) => self.in_loc(Property::Literal(label)),
+                    None        => unexpected_token!(self)
+                }
+            }
+        };
+
+        let property = self.alloc(property);
+
+        match self.next() {
+            Colon => {
+                let value = self.expression(0);
+
+                Loc::new(0, 0, ObjectMember::Value {
+                    property,
+                    value: self.alloc(value),
+                })
+            },
+            ParenOpen => {
+                Loc::new(0, 0, ObjectMember::Method {
+                    property,
+                    params: self.parameter_list(),
+                    body: self.block_body(),
+                })
+            },
+            _ => unexpected_token!(self)
+        }
+    }
+
     #[inline]
     pub fn array_expression(&mut self) -> Loc<Expression<'ast>> {
         let expression = match self.next() {
+            Comma        => self.in_loc(Expression::Void),
             BracketClose => return Expression::Array { body: List::empty() }.at(0,0),
-            token        => self.expression_from(token, 0)
+            token        => {
+                let expression = self.expression_from(token, 0);
+
+                match self.next() {
+                    BracketClose => {
+                        let body = List::from(self.arena, expression);
+
+                        return Expression::Array { body }.at(0, 0);
+                    },
+                    Comma        => expression,
+                    _            => unexpected_token!(self),
+                }
+            }
         };
 
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
-            let expression = match self.next() {
-                BracketClose => break,
-                Comma        => self.expression(0),
-                _            => unexpected_token!(self),
-            };
+            match self.next() {
+                Comma => {
+                    builder.push(self.in_loc(Expression::Void));
 
-            builder.push(expression);
+                    continue;
+                },
+                BracketClose => {
+                    builder.push(self.in_loc(Expression::Void));
+
+                    break;
+                },
+                token => {
+                    let expression = self.expression_from(token, 0);
+
+                    builder.push(expression);
+                }
+            }
+
+            match self.next() {
+                BracketClose => break,
+                Comma        => {},
+                _            => unexpected_token!(self),
+            }
         }
 
         Expression::Array {
@@ -507,6 +558,26 @@ mod test {
                 Expression::Value(Value::Number("0")),
                 Expression::Value(Value::Number("1")),
                 Expression::Value(Value::Number("2")),
+            ])
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn sparse_array_expression() {
+        let src = "[,,foo,bar,,]";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Array {
+            body: mock.list([
+                Expression::Void,
+                Expression::Void,
+                Expression::Identifier("foo"),
+                Expression::Identifier("bar"),
+                Expression::Void,
+                Expression::Void,
             ])
         };
 

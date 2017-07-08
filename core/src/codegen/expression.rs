@@ -85,6 +85,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
 
         match *self {
             Error => panic!("Module contains errors"),
+            Void => {},
             This => gen.write_bytes(b"this"),
             Identifier(ref ident) => gen.write(ident),
             Value(ref value) => gen.write(value),
@@ -278,6 +279,9 @@ mod test {
         assert_parse("foo, bar, baz;", "foo,bar,baz;");
         assert_parse("1, 2, 3;", "1,2,3;");
         assert_parse("1,2,3+4;", "1,2,3+4;");
+        assert_parse("1,2,(3+4);", "1,2,3+4;");
+        assert_parse("1+2,3,4;", "1+2,3,4;");
+        assert_parse("(1+2),3,4;", "1+2,3,4;");
         assert_parse("1+(2,3,4);", "1+(2,3,4);");
         assert_parse("(1,2,3)+4;", "(1,2,3)+4;");
     }
@@ -357,6 +361,25 @@ mod test {
         assert_parse("10..fooz", "10..fooz;");
         assert_parse("foo[10]", "foo[10];");
         assert_parse(r#"foo["bar"]"#, r#"foo["bar"];"#);
+    }
+
+    #[test]
+    fn array_expression() {
+        assert_parse("[]", "[];");
+        assert_parse("[foo]", "[foo];");
+        assert_parse("[foo,bar]", "[foo,bar];");
+        assert_parse("[foo,bar,baz]", "[foo,bar,baz];");
+    }
+
+    #[test]
+    fn sparse_array_expression() {
+        assert_parse("[]", "[];");
+        assert_parse("[,]", "[,];");
+        assert_parse("[1,]", "[1,];");
+        assert_parse("[,1]", "[,1];");
+        assert_parse("[,,];", "[,,];");
+        assert_parse("[1,,];", "[1,,];");
+        assert_parse("[,,1];", "[,,1];");
     }
 
     #[test]

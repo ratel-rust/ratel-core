@@ -26,6 +26,7 @@ pub enum ObjectMember<'ast> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression<'ast> {
     Error,
+    Void,
     This,
     Identifier(&'ast str),
     Value(Value<'ast>),
