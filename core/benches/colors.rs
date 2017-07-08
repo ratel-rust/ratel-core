@@ -128,19 +128,14 @@ fn tokenize(b: &mut Bencher) {
 //     });
 // }
 
-// #[bench]
-// fn codegen_from_ast(b: &mut Bencher) {
-//     let mut ast = ratel::parser::parse(SOURCE.to_owned()).expect("Must parse");
+#[bench]
+fn codegen_from_ast(b: &mut Bencher) {
+    let module = ratel::parser::parse(SOURCE).expect("Must parse");
+    let output = ratel::codegen::codegen(&module, true);
 
-//     let settings = ratel::transformer::Settings::target_es5();
+    b.bytes = output.len() as u64;
 
-//     ratel::transformer::transform(&mut ast, settings);
-
-//     let output = ratel::codegen::generate_code(&ast, true);
-
-//     b.bytes = output.len() as u64;
-
-//     b.iter(|| {
-//         ratel::codegen::generate_code(&ast, true)
-//     });
-// }
+    b.iter(|| {
+        ratel::codegen::codegen(&module, true)
+    });
+}
