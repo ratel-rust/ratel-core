@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
 use ast::{PropertyPtr, IdentifierPtr, IdentifierList};
 use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList};
@@ -49,7 +48,6 @@ pub enum Expression<'ast> {
         arguments: ExpressionList<'ast>,
     },
     Binary {
-        parenthesized: Cell<bool>,
         operator: OperatorKind,
         left: ExpressionPtr<'ast>,
         right: ExpressionPtr<'ast>,
@@ -89,13 +87,6 @@ impl<'ast> Expression<'ast> {
     }
 
     #[inline]
-    pub fn parenthesize(&self) {
-        if let Expression::Binary { ref parenthesized, .. } = *self {
-            parenthesized.set(true);
-        }
-    }
-
-    #[inline]
     pub fn binding_power(&self) -> u8 {
         use self::Expression::*;
 
@@ -111,19 +102,9 @@ impl<'ast> Expression<'ast> {
 
             Conditional { .. } => 4,
 
-            _  => 100,
-        }
-    }
+            Sequence { .. } => 0,
 
-    #[inline]
-    pub fn needs_parens(&self, bp: u8) -> bool {
-        match *self {
-            Expression::Binary {
-                ref parenthesized,
-                ref operator,
-                ..
-            } => parenthesized.get() && bp >= operator.binding_power(),
-            _ => false
+            _  => 100,
         }
     }
 

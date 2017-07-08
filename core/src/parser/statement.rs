@@ -42,7 +42,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
-        let expression = self.expression_from(token, 0);
+        let expression = self.sequence_or_expression_from(token);
 
         let start = expression.start;
         let end = expression.end;
@@ -67,7 +67,7 @@ impl<'ast> Parser<'ast> {
     pub fn return_statement(&mut self) -> Loc<Statement<'ast>> {
         let value = match self.asi() {
             Asi::NoSemicolon => {
-                let expression = self.expression(0);
+                let expression = self.sequence_or_expression();
 
                 expect_semicolon!(self);
 
@@ -168,7 +168,8 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn throw_statement(&mut self) -> Loc<Statement<'ast>> {
-        let value = self.expression(0);
+        let value = self.sequence_or_expression();
+
         expect_semicolon!(self);
 
         Statement::Throw {
@@ -361,7 +362,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
-        let right = self.expression(0);
+        let right = self.sequence_or_expression();
 
         expect!(self, ParenClose);
 
@@ -375,7 +376,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
-        let right = self.expression(0);
+        let right = self.sequence_or_expression();
 
         expect!(self, ParenClose);
 
@@ -395,7 +396,6 @@ mod test {
     use parser::parse;
     use parser::mock::Mock;
     use ast::{List, Value, ObjectMember, Function, OperatorKind};
-    use std::cell::Cell;
 
     #[test]
     fn function_statement_empty() {
@@ -787,7 +787,6 @@ mod test {
                     ]),
                 })),
                 test: Some(mock.ptr(Expression::Binary {
-                    parenthesized: Cell::new(false),
                     operator: OperatorKind::Lesser,
                     left: mock.ident("i"),
                     right: mock.number("10"),
@@ -796,6 +795,26 @@ mod test {
                     operator: OperatorKind::Increment,
                     operand: mock.ident("i")
                 })),
+                body: mock.ptr(Statement::Block {
+                    body: List::empty()
+                })
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn empty_for_statement() {
+        let src = "for (;;) {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::For {
+                init: None,
+                test: None,
+                update: None,
                 body: mock.ptr(Statement::Block {
                     body: List::empty()
                 })

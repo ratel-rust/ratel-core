@@ -3,7 +3,6 @@ use lexer::Token::*;
 use lexer::Token;
 use ast::{Loc, List, ListBuilder, Expression, ObjectMember, OperatorKind};
 use ast::OperatorKind::*;
-use std::cell::Cell;
 
 impl<'ast> Parser<'ast> {
     #[inline]
@@ -76,7 +75,6 @@ impl<'ast> Parser<'ast> {
                     let right = self.expression(rbp);
 
                     Loc::new(left.start, right.end, Expression::Binary {
-                        parenthesized: Cell::new(false),
                         operator: op,
                         left: self.alloc(left),
                         right: self.alloc(right),
@@ -114,7 +112,7 @@ impl<'ast> Parser<'ast> {
 
                     self.consume();
 
-                    let property = self.expression(0);
+                    let property = self.sequence_or_expression();
 
                     expect!(self, BracketClose);
 
@@ -129,6 +127,47 @@ impl<'ast> Parser<'ast> {
         }
 
         left
+    }
+
+
+    #[inline]
+    pub fn sequence_or_expression(&mut self) -> Loc<Expression<'ast>> {
+        let token = self.next();
+        self.sequence_or_expression_from(token)
+    }
+
+    #[inline]
+    pub fn sequence_or_expression_from(&mut self, token: Token<'ast>) -> Loc<Expression<'ast>> {
+        let first = self.expression_from(token, 0);
+        self.sequence_or(first)
+    }
+
+    #[inline]
+    pub fn sequence_or(&mut self, first: Loc<Expression<'ast>>) -> Loc<Expression<'ast>> {
+        match self.peek() {
+            Comma => {
+                self.consume();
+
+                let mut builder = ListBuilder::new(self.arena, first);
+                builder.push(self.expression(0));
+
+                loop {
+                    match self.peek() {
+                        Comma => {
+                            self.consume();
+
+                            builder.push(self.expression(0));
+                        },
+                        _ => break,
+                    }
+                }
+
+                Expression::Sequence {
+                    body: builder.into_list()
+                }.at(0, 0)
+            },
+            _ => first
+        }
     }
 
     #[inline]
@@ -162,15 +201,11 @@ impl<'ast> Parser<'ast> {
             //     self.arrow_function_expression(None)
             // },
             token => {
-                let expression = self.expression_from(token, 0);
-                // let expression = self.sequence_or(expression);
+                let expression = self.sequence_or_expression_from(token);
 
                 expect!(self, ParenClose);
 
-                expression.item.parenthesize();
                 expression
-
-                // Ok(expression.parenthesize())
             }
         }
     }
@@ -310,7 +345,7 @@ mod test {
     use parser::mock::Mock;
 
     #[test]
-    fn ident_expr() {
+    fn ident_expression() {
         let module = parse("foobar;").unwrap();
 
         let expected = Expression::Identifier("foobar");
@@ -319,13 +354,29 @@ mod test {
     }
 
     #[test]
-    fn binary_expr() {
+    fn sequence_expression() {
+        let src = "foo, bar, baz;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Sequence {
+            body: mock.list([
+                Expression::Identifier("foo"),
+                Expression::Identifier("bar"),
+                Expression::Identifier("baz"),
+            ])
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn binary_expression() {
         let src = "foo + bar;";
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Expression::Binary {
-            parenthesized: Cell::new(false),
             operator: OperatorKind::Addition,
             left: mock.ident("foo"),
             right: mock.ident("bar"),
@@ -335,13 +386,12 @@ mod test {
     }
 
     #[test]
-    fn parenthesized_binary_expr() {
+    fn parenthesized_binary_expression() {
         let src = "(2 + 2);";
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Expression::Binary {
-            parenthesized: Cell::new(true),
             operator: OperatorKind::Addition,
             left: mock.number("2"),
             right: mock.number("2"),
@@ -351,7 +401,7 @@ mod test {
     }
 
     #[test]
-    fn conditional_expr() {
+    fn conditional_expression() {
         let src = "true ? foo : bar";
 
         let module = parse(src).unwrap();
@@ -367,7 +417,7 @@ mod test {
     }
 
     #[test]
-    fn postfix_expr() {
+    fn postfix_expression() {
         let src = "baz++;";
         let module = parse(src).unwrap();
         let mock = Mock::new();

@@ -293,5 +293,11 @@ mod test {
     #[test]
     fn for_statement() {
         assert_parse("for (var i = 0; i < 10; i++) {}", "for(var i=0;i<10;i++){}");
+        assert_parse("for (i = 0; i < 10; i++) {}", "for(i=0;i<10;i++){}");
+        assert_parse("for (;;) {}", "for(;;){}");
+        assert_parse("for (foo in bar){}", "for(foo in bar){}");
+        assert_parse("for (let foo in bar){}", "for(let foo in bar){}");
+        assert_parse("for (foo of bar){}", "for(foo of bar){}");
+        assert_parse("for (let foo of bar){}", "for(let foo of bar){}");
     }
 }

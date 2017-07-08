@@ -91,9 +91,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Sequence {
                 ref body
             } => {
-                gen.write_byte(b'(');
                 gen.write_list(body.iter());
-                gen.write_byte(b')');
             },
             Array {
                 ref body
@@ -155,7 +153,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
                     false => gen.write_pretty(b' '),
                 }
 
-                if right.needs_parens(bp) {
+                if right.binding_power() < bp {
                     gen.write_byte(b'(');
                     gen.write(right);
                     gen.write_byte(b')');
@@ -276,6 +274,15 @@ mod test {
     }
 
     #[test]
+    fn sequence_expression() {
+        assert_parse("foo, bar, baz;", "foo,bar,baz;");
+        assert_parse("1, 2, 3;", "1,2,3;");
+        assert_parse("1,2,3+4;", "1,2,3+4;");
+        assert_parse("1+(2,3,4);", "1+(2,3,4);");
+        assert_parse("(1,2,3)+4;", "(1,2,3)+4;");
+    }
+
+    #[test]
     fn binary_expression() {
         assert_parse("a = 10", "a=10;");
         assert_parse("a == 10", "a==10;");
@@ -350,5 +357,16 @@ mod test {
         assert_parse("10..fooz", "10..fooz;");
         assert_parse("foo[10]", "foo[10];");
         assert_parse(r#"foo["bar"]"#, r#"foo["bar"];"#);
+    }
+
+    #[test]
+    fn object_expression() {
+        assert_parse("({});", "({});");
+        assert_parse("({ foo });", "({foo});");
+        assert_parse("({ foo: 10 });", "({foo:10});");
+        assert_parse("({ foo, bar });", "({foo,bar});");
+        assert_parse("({ foo: 10, bar: 20 });", "({foo:10,bar:20});");
+        assert_parse("({ foo: 10, bar() {} });", "({foo:10,bar(){}});");
+        assert_parse("({ foo(bar, baz) {} });", "({foo(bar,baz){}});");
     }
 }
