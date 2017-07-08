@@ -9,21 +9,21 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
         match token {
-            Semicolon          => self.in_loc(Statement::Empty),
-            BraceOpen          => self.block_statement(),
-            Declaration(kind)  => self.variable_declaration_statement(kind),
-            Return             => self.return_statement(),
-            Break              => self.break_statement(),
-            Function           => self.function_statement(),
-            // Class              => self.class_statement(),
-            If                 => self.if_statement(),
-            While              => self.while_statement(),
-            Do                 => self.do_statement(),
-            For                => self.for_statement(),
-            // Identifier(label)  => self.labeled_or_expression_statement(label),
-            Throw              => self.throw_statement(),
-            Try                => self.try_statement(),
-            _                  => self.expression_statement(token),
+            Semicolon         => self.in_loc(Statement::Empty),
+            Identifier(label) => self.labeled_or_expression_statement(label),
+            BraceOpen         => self.block_statement(),
+            Declaration(kind) => self.variable_declaration_statement(kind),
+            Return            => self.return_statement(),
+            Break             => self.break_statement(),
+            Function          => self.function_statement(),
+            // Class             => self.class_statement(),
+            If                => self.if_statement(),
+            While             => self.while_statement(),
+            Do                => self.do_statement(),
+            For               => self.for_statement(),
+            Throw             => self.throw_statement(),
+            Try               => self.try_statement(),
+            _                 => self.expression_statement(token),
         }
     }
 
@@ -51,6 +51,30 @@ impl<'ast> Parser<'ast> {
         expect_semicolon!(self);
 
         Statement::Expression { expression }.at(start, end)
+    }
+
+    #[inline]
+    pub fn labeled_or_expression_statement(&mut self, label: &'ast str) -> Loc<Statement<'ast>> {
+        if let Colon = self.peek() {
+            self.consume();
+
+            let body = self.expect_statement();
+
+            return Statement::Labeled {
+                label,
+                body: self.alloc(body),
+            }.at(0, 0)
+        }
+
+        let first = self.in_loc(Expression::Identifier(label));
+        let first = self.complex_expression(first, 0);
+        let expression = self.sequence_or(first);
+
+        expect_semicolon!(self);
+
+        Statement::Expression {
+            expression: self.alloc(expression)
+        }.at(0, 0)
     }
 
     #[inline]
@@ -483,6 +507,28 @@ mod test {
                         expression: mock.ptr(Expression::Value(Value::True))
                     }
                 ])
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn labeled_block_statement() {
+        let src = "foobar: { true }";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Labeled {
+                label: "foobar",
+                body: mock.ptr(Statement::Block {
+                    body: mock.list([
+                        Statement::Expression {
+                            expression: mock.ptr(Expression::Value(Value::True))
+                        }
+                    ])
+                })
             }
         ]);
 

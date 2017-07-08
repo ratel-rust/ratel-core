@@ -218,6 +218,15 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 gen.write_block(handler);
                 gen.write_byte(b'}');
             },
+            Labeled {
+                ref label,
+                ref body,
+            } => {
+                gen.write(label);
+                gen.write_byte(b':');
+                gen.write_pretty(b' ');
+                gen.write(body);
+            },
             Block {
                 ref body,
             } => {
@@ -243,6 +252,18 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
 #[cfg(test)]
 mod test {
     use codegen::assert_parse;
+
+    #[test]
+    fn block_statement() {
+        assert_parse("{}", "{}");
+        assert_parse("{foo;}", "{foo;}");
+    }
+
+    #[test]
+    fn labeled_statement() {
+        assert_parse("foo: {}", "foo:{}");
+        assert_parse("foo: bar;", "foo:bar;");
+    }
 
     #[test]
     fn function_statement() {

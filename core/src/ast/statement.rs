@@ -64,6 +64,10 @@ pub enum Statement<'ast> {
     Block {
         body: StatementList<'ast>
     },
+    Labeled {
+        label: &'ast str,
+        body: StatementPtr<'ast>,
+    },
     Function {
         function: Function<'ast, MandatoryName<'ast>>,
     },

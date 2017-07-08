@@ -13,7 +13,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_from(&mut self, token: Token<'ast>, lbp: u8) -> Loc<Expression<'ast>> {
-        let mut left = match token {
+        let left = match token {
             This               => self.in_loc(Expression::This),
             Literal(value)     => self.in_loc(Expression::Value(value)),
             Identifier(value)  => self.in_loc(Expression::Identifier(value)),
@@ -28,6 +28,11 @@ impl<'ast> Parser<'ast> {
             _                  => unexpected_token!(self)
         };
 
+        self.complex_expression(left, lbp)
+    }
+
+    #[inline]
+    pub fn complex_expression(&mut self, mut left: Loc<Expression<'ast>>, lbp: u8) -> Loc<Expression<'ast>> {
         loop {
             left = match self.peek() {
                 Operator(op @ Increment) |
