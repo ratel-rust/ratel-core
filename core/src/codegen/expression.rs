@@ -154,7 +154,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
                     false => gen.write_pretty(b' '),
                 }
 
-                if right.binding_power() < bp {
+                if right.binding_power() <= bp {
                     gen.write_byte(b'(');
                     gen.write(right);
                     gen.write_byte(b')');
@@ -193,6 +193,38 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
                 gen.write_byte(b':');
                 gen.write_pretty(b' ');
                 gen.write(alternate);
+            },
+            Template {
+                ref tag,
+                ref expressions,
+                ref quasis,
+            } => {
+                if let Some(ref tag) = *tag {
+                    gen.write(tag);
+                }
+                gen.write_byte(b'`');
+
+                match quasis.only_element() {
+                    Some(ref quasi) => gen.write(quasi),
+                    None => {
+                        let mut quasis = quasis.iter();
+
+                        if let Some(ref quasi) = quasis.next() {
+                            gen.write(quasi);
+                        }
+
+                        for (ref quasi, ref expression) in quasis.zip(expressions) {
+                            gen.write_bytes(b"${");
+                            gen.write_pretty(b' ');
+                            gen.write(expression);
+                            gen.write_pretty(b' ');
+                            gen.write_byte(b'}');
+                            gen.write(quasi);
+                        }
+                    }
+                }
+
+                gen.write_byte(b'`');
             },
             Arrow {
                 ref params,
@@ -272,6 +304,17 @@ mod test {
         assert_parse("3.14", "3.14;");
         assert_parse(r#" "foobar" "#, r#""foobar";"#);
         assert_parse(r#" 'foobar' "#, r#"'foobar';"#);
+    }
+
+    #[test]
+    fn template_expression() {
+        assert_parse("``", "``;");
+        assert_parse("foo``", "foo``;");
+        assert_parse("`foobar`", "`foobar`;");
+        assert_parse("foo`bar`", "foo`bar`;");
+        assert_parse("`foo${ 10 }bar${ 20 }baz`", "`foo${10}bar${20}baz`;");
+        assert_parse("foo`bar${ 10 }baz`", "foo`bar${10}baz`;");
+        assert_parse("foo`${ 10 }`", "foo`${10}`;");
     }
 
     #[test]

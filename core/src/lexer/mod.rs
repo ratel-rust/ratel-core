@@ -4,7 +4,6 @@ pub use lexer::token::*;
 
 use lexer::token::Token::*;
 use lexer::ReservedKind::*;
-use lexer::TemplateKind;
 
 use std::str;
 use ast::Value;

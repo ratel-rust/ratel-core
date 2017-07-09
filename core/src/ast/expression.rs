@@ -66,6 +66,11 @@ pub enum Expression<'ast> {
         consequent: ExpressionPtr<'ast>,
         alternate: ExpressionPtr<'ast>,
     },
+    Template {
+        tag: Option<ExpressionPtr<'ast>>,
+        expressions: ExpressionList<'ast>,
+        quasis: List<'ast, Loc<&'ast str>>,
+    },
     Arrow {
         params: IdentifierList<'ast>,
         body: StatementPtr<'ast>,

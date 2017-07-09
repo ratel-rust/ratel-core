@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token::*;
-use lexer::Token;
-use ast::{Loc, List, ListBuilder, Expression, ObjectMember, Property, OperatorKind, Value};
+use lexer::{Token, TemplateKind};
+use ast::{Loc, List, ListBuilder, Expression, ExpressionPtr, ObjectMember, Property, OperatorKind, Value};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
@@ -24,7 +24,7 @@ impl<'ast> Parser<'ast> {
             BraceOpen          => self.object_expression(),
             Function           => self.function_expression(),
             // Class              => self.class_expression(),
-            // Template(kind)     => self.template_expression(None, kind),
+            Template(kind)     => self.template_expression(None, kind),
             _                  => unexpected_token!(self)
         };
 
@@ -127,13 +127,24 @@ impl<'ast> Parser<'ast> {
                     }.at(0, 0)
                 },
 
+                Template(kind) => {
+                    if lbp > 0 {
+                        break;
+                    }
+
+                    self.consume();
+
+                    let tag = Some(self.alloc(left));
+
+                    self.template_expression(tag, kind)
+                },
+
                 _ => break
             }
         }
 
         left
     }
-
 
     #[inline]
     pub fn sequence_or_expression(&mut self) -> Loc<Expression<'ast>> {
@@ -377,6 +388,57 @@ impl<'ast> Parser<'ast> {
         Expression::Value(value).at(0, 0)
     }
 
+    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>, kind: TemplateKind<'ast>) -> Loc<Expression<'ast>> {
+        let (quasi, expression) = match kind {
+            TemplateKind::Open(quasi) => {
+                let quasi = self.in_loc(quasi);
+
+                let expression = self.sequence_or_expression();
+
+                expect!(self, BraceClose);
+
+                (quasi, expression)
+            },
+
+            TemplateKind::Closed(quasi) => {
+                let quasi = self.in_loc(quasi);
+
+                let template = Expression::Template {
+                    tag,
+                    expressions: List::empty(),
+                    quasis: List::from(self.arena, quasi),
+                };
+
+                return self.in_loc(template);
+            }
+        };
+
+        let mut quasis = ListBuilder::new(self.arena, quasi);
+        let mut expressions = ListBuilder::new(self.arena, expression);
+
+        loop {
+            match self.lexer.read_template_kind() {
+                Template(TemplateKind::Open(quasi)) => {
+                    quasis.push(self.in_loc(quasi));
+                    expressions.push(self.sequence_or_expression());
+
+                    expect!(self, BraceClose);
+                },
+                Template(TemplateKind::Closed(quasi)) => {
+                    quasis.push(self.in_loc(quasi));
+                    break;
+                },
+                _ => unexpected_token!(self)
+            }
+        }
+
+        Expression::Template {
+            tag,
+            expressions: expressions.into_list(),
+            quasis: quasis.into_list(),
+        }.at(0, 0)
+    }
+
     #[inline]
     pub fn function_expression(&mut self) -> Loc<Expression<'ast>> {
         let name = match self.peek() {
@@ -405,6 +467,86 @@ mod test {
         let module = parse("foobar;").unwrap();
 
         let expected = Expression::Identifier("foobar");
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn value_expression() {
+        let module_a = parse(r#""foobar";"#).unwrap();
+        let module_b = parse("100;").unwrap();
+        let module_c = parse("true;").unwrap();
+
+        let expected_a = Expression::Value(Value::String(r#""foobar""#));
+        let expected_b = Expression::Value(Value::Number("100"));
+        let expected_c = Expression::Value(Value::True);
+
+        assert_expr!(module_a, expected_a);
+        assert_expr!(module_b, expected_b);
+        assert_expr!(module_c, expected_c);
+    }
+
+    #[test]
+    fn template_expression() {
+        let src = "`foobar`;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Template {
+            tag: None,
+            expressions: List::empty(),
+            quasis: mock.list(["foobar"]),
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn tagged_template_expression() {
+        let src = "foo`bar`;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Template {
+            tag: Some(mock.ident("foo")),
+            expressions: List::empty(),
+            quasis: mock.list(["bar"]),
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn complex_template_expression() {
+        let src = "`foo${ 10 }bar${ 20 }baz`;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Template {
+            tag: None,
+            expressions: mock.list([
+                Expression::Value(Value::Number("10")),
+                Expression::Value(Value::Number("20")),
+            ]),
+            quasis: mock.list(["foo", "bar", "baz"]),
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn tagged_complex_template_expression() {
+        let src = "foo`bar${ 42 }baz`;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Template {
+            tag: Some(mock.ident("foo")),
+            expressions: mock.list([
+                Expression::Value(Value::Number("42")),
+            ]),
+            quasis: mock.list(["bar", "baz"]),
+        };
 
         assert_expr!(module, expected);
     }
