@@ -1,8 +1,20 @@
-use ast::{Ptr, Loc, List, IdentifierPtr, IdentifierList, ExpressionPtr, StatementList, Property};
+use ast::{Ptr, Loc, List, IdentifierPtr, ParameterList, ExpressionPtr, StatementList, Property};
 use arena::Arena;
 
 pub trait Name<'ast> {
     fn empty(&'ast Arena) -> Self;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Parameter<'ast> {
+    Identifier {
+        label: &'ast str,
+        value: Option<ExpressionPtr<'ast>>,
+    },
+    Destructing {
+        pattern: ExpressionPtr<'ast>,
+        value: Option<ExpressionPtr<'ast>>,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,20 +59,20 @@ impl<'ast> From<Option<IdentifierPtr<'ast>>> for OptionalName<'ast> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
-    pub params: IdentifierList<'ast>,
+    pub params: ParameterList<'ast>,
     pub body: StatementList<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ClassMember<'ast> {
     Constructor {
-        params: IdentifierList<'ast>,
+        params: ParameterList<'ast>,
         body: StatementList<'ast>,
     },
     Method {
         is_static: bool,
         property: Property<'ast>,
-        params: IdentifierList<'ast>,
+        params: ParameterList<'ast>,
         body: StatementList<'ast>,
     },
     Value {

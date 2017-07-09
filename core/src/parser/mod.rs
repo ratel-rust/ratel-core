@@ -8,7 +8,7 @@ mod function;
 use error::Error;
 use arena::Arena;
 
-use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder};
+use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, Parameter, ParameterList};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -153,23 +153,39 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn parameter_list(&mut self) -> List<'ast, Loc<&'ast str>> {
-        let name = match self.next() {
+    fn parameter_list(&mut self) -> ParameterList<'ast> {
+        let first = match self.next() {
+            Identifier(label) => {
+                self.in_loc(Parameter::Identifier {
+                    label,
+                    value: None
+                })
+            },
             ParenClose       => return List::empty(),
-            Identifier(name) => name,
             _                => unexpected_token!(self),
         };
 
-        let mut builder = ListBuilder::new(self.arena, self.in_loc(name));
+        let mut builder = ListBuilder::new(self.arena, first);
 
         loop {
-            let name = match self.next() {
+            match self.next() {
                 ParenClose => break,
-                Comma      => expect_identifier!(self),
+                Comma      => {},
                 _          => unexpected_token!(self),
             };
 
-            builder.push(self.in_loc(name));
+            match self.next() {
+                ParenClose        => break,
+                Identifier(label) => {
+                    let parameter = self.in_loc(Parameter::Identifier {
+                        label,
+                        value: None
+                    });
+
+                    builder.push(parameter);
+                },
+                _ => unexpected_token!(self)
+            }
         }
 
         builder.into_list()

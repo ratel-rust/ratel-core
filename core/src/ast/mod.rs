@@ -14,12 +14,13 @@ pub use ast::operator::*;
 pub use ast::ptr::Ptr;
 pub use ast::expression::{Expression, ObjectMember, Property};
 pub use ast::statement::{Statement, Declarator};
-pub use ast::function::{Function, Class, ClassMember, Name, OptionalName, MandatoryName};
+pub use ast::function::{Function, Class, ClassMember, Name, OptionalName, MandatoryName, Parameter};
 pub use ast::value::Value;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
 // Handful of useful aliases
 pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
+pub type ParameterList<'ast> = List<'ast, Loc<Parameter<'ast>>>;
 pub type ExpressionPtr<'ast> = Ptr<'ast, Loc<Expression<'ast>>>;
 pub type ExpressionList<'ast> = List<'ast, Loc<Expression<'ast>>>;
 pub type StatementPtr<'ast> = Ptr<'ast, Loc<Statement<'ast>>>;

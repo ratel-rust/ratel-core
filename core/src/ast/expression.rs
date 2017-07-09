@@ -1,6 +1,6 @@
 use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
 use ast::{PropertyPtr, IdentifierPtr, IdentifierList};
-use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList};
+use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterList};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Property<'ast> {
@@ -18,7 +18,7 @@ pub enum ObjectMember<'ast> {
     },
     Method {
         property: PropertyPtr<'ast>,
-        params: IdentifierList<'ast>,
+        params: ParameterList<'ast>,
         body: StatementList<'ast>,
     },
 }

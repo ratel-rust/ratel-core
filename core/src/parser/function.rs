@@ -115,7 +115,7 @@ impl<'ast> Parser<'ast> {
 mod test {
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Statement, Function, Class, ClassMember, Property};
+    use ast::{List, Statement, Function, Class, ClassMember, Property, Parameter};
 
     #[test]
     fn function_empty() {
@@ -147,8 +147,14 @@ mod test {
                 function: Function {
                     name: mock.ptr("foo").into(),
                     params: mock.list([
-                        "bar",
-                        "baz",
+                        Parameter::Identifier {
+                            label: "bar",
+                            value: None,
+                        },
+                        Parameter::Identifier {
+                            label: "baz",
+                            value: None,
+                        },
                     ]),
                     body: List::empty(),
                 }
@@ -244,8 +250,14 @@ mod test {
                     body: mock.list([
                         ClassMember::Constructor {
                             params: mock.list([
-                                "bar",
-                                "baz",
+                                Parameter::Identifier {
+                                    label: "bar",
+                                    value: None,
+                                },
+                                Parameter::Identifier {
+                                    label: "baz",
+                                    value: None,
+                                },
                             ]),
                             body: mock.list([
                                 Statement::Expression {
@@ -293,8 +305,14 @@ mod test {
                             is_static: false,
                             property: Property::Literal("doge"),
                             params: mock.list([
-                                "bar",
-                                "baz",
+                                Parameter::Identifier {
+                                    label: "bar",
+                                    value: None,
+                                },
+                                Parameter::Identifier {
+                                    label: "baz",
+                                    value: None,
+                                },
                             ]),
                             body: mock.list([
                                 Statement::Expression {
@@ -305,7 +323,12 @@ mod test {
                         ClassMember::Method {
                             is_static: true,
                             property: Property::Literal("toThe"),
-                            params: mock.list(["moon"]),
+                            params: mock.list([
+                                Parameter::Identifier {
+                                    label: "moon",
+                                    value: None,
+                                },
+                            ]),
                             body: mock.list([
                                 Statement::Expression {
                                     expression: mock.ident("debug")

@@ -1,4 +1,4 @@
-use ast::{Function, Class, ClassMember, Name, MandatoryName, OptionalName};
+use ast::{Function, Class, ClassMember, Name, MandatoryName, OptionalName, Parameter};
 use codegen::{ToCode, Generator};
 
 impl<'ast, G: Generator> ToCode<G> for MandatoryName<'ast> {
@@ -18,6 +18,40 @@ impl<'ast, G: Generator> ToCode<G> for OptionalName<'ast> {
                 gen.write(name);
             },
             None => gen.write_pretty(b' '),
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for Parameter<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::Parameter::*;
+
+        match *self {
+            Identifier {
+                ref label,
+                ref value,
+            } => {
+                gen.write(label);
+                if let Some(ref value) = *value {
+                    gen.write_pretty(b' ');
+                    gen.write_byte(b'=');
+                    gen.write_pretty(b' ');
+                    gen.write(value);
+                }
+            },
+            Destructing {
+                ref pattern,
+                ref value,
+            } =>  {
+                gen.write(pattern);
+                if let Some(ref value) = *value {
+                    gen.write_pretty(b' ');
+                    gen.write_byte(b'=');
+                    gen.write_pretty(b' ');
+                    gen.write(value);
+                }
+            }
         }
     }
 }
@@ -136,6 +170,5 @@ mod test {
         assert_min("class Foo { static method(a, b) { debug; } }", "class Foo{static method(a,b){debug;}}");
         assert_min("class Foo { a = 10; b = 20; }", "class Foo{a=10;b=20;}");
         assert_min("class Foo { static a = 10; b = 20; }", "class Foo{static a=10;b=20;}");
-
     }
 }
