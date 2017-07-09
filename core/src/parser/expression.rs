@@ -23,7 +23,7 @@ impl<'ast> Parser<'ast> {
             BracketOpen        => self.array_expression(),
             BraceOpen          => self.object_expression(),
             Function           => self.function_expression(),
-            // Class              => self.class_expression(),
+            Class              => self.class_expression(),
             Template(kind)     => self.template_expression(None, kind),
             _                  => unexpected_token!(self)
         };
@@ -453,12 +453,27 @@ impl<'ast> Parser<'ast> {
             function: self.function(name)
         }.at(0, 0)
     }
+
+    #[inline]
+    pub fn class_expression(&mut self) -> Loc<Expression<'ast>> {
+        let name = match self.peek() {
+            Identifier(name) => {
+                self.consume();
+                Some(self.alloc_in_loc(name))
+            },
+            _ => None
+        };
+
+        Expression::Class {
+            class: self.class(name)
+        }.at(0, 0)
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use ast::{OperatorKind, Value, Statement, Function};
+    use ast::{OperatorKind, Value, Statement, Function, Class};
     use parser::parse;
     use parser::mock::Mock;
 
@@ -740,6 +755,56 @@ mod test {
             function: Function {
                 name: None.into(),
                 params: List::empty(),
+                body: List::empty()
+            }
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn named_function_expression() {
+        let src = "(function foo () {})";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Function {
+            function: Function {
+                name: mock.ptr("foo").into(),
+                params: List::empty(),
+                body: List::empty()
+            }
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn class_expression() {
+        let src = "(class {})";
+        let module = parse(src).unwrap();
+
+        let expected = Expression::Class {
+            class: Class {
+                name: None.into(),
+                extends: None,
+                body: List::empty()
+            }
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn named_class_expression() {
+        let src = "(class Foo {})";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Class {
+            class: Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
                 body: List::empty()
             }
         };

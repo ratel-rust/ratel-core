@@ -292,147 +292,167 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
 
 #[cfg(test)]
 mod test {
-    use codegen::assert_parse;
+    use codegen::{assert_min, assert_pretty};
 
     #[test]
     fn values() {
-        assert_parse("null", "null;");
-        assert_parse("undefined", "undefined;");
-        assert_parse("true", "true;");
-        assert_parse("false", "false;");
-        assert_parse("42", "42;");
-        assert_parse("3.14", "3.14;");
-        assert_parse(r#" "foobar" "#, r#""foobar";"#);
-        assert_parse(r#" 'foobar' "#, r#"'foobar';"#);
+        assert_min("null", "null;");
+        assert_min("undefined", "undefined;");
+        assert_min("true", "true;");
+        assert_min("false", "false;");
+        assert_min("42", "42;");
+        assert_min("3.14", "3.14;");
+        assert_min(r#" "foobar" "#, r#""foobar";"#);
+        assert_min(r#" 'foobar' "#, r#"'foobar';"#);
     }
 
     #[test]
     fn template_expression() {
-        assert_parse("``", "``;");
-        assert_parse("foo``", "foo``;");
-        assert_parse("`foobar`", "`foobar`;");
-        assert_parse("foo`bar`", "foo`bar`;");
-        assert_parse("`foo${ 10 }bar${ 20 }baz`", "`foo${10}bar${20}baz`;");
-        assert_parse("foo`bar${ 10 }baz`", "foo`bar${10}baz`;");
-        assert_parse("foo`${ 10 }`", "foo`${10}`;");
+        assert_min("``", "``;");
+        assert_min("foo``", "foo``;");
+        assert_min("`foobar`", "`foobar`;");
+        assert_min("foo`bar`", "foo`bar`;");
+        assert_min("`foo${ 10 }bar${ 20 }baz`", "`foo${10}bar${20}baz`;");
+        assert_min("foo`bar${ 10 }baz`", "foo`bar${10}baz`;");
+        assert_min("foo`${ 10 }`", "foo`${10}`;");
     }
 
     #[test]
     fn sequence_expression() {
-        assert_parse("foo, bar, baz;", "foo,bar,baz;");
-        assert_parse("1, 2, 3;", "1,2,3;");
-        assert_parse("1,2,3+4;", "1,2,3+4;");
-        assert_parse("1,2,(3+4);", "1,2,3+4;");
-        assert_parse("1+2,3,4;", "1+2,3,4;");
-        assert_parse("(1+2),3,4;", "1+2,3,4;");
-        assert_parse("1+(2,3,4);", "1+(2,3,4);");
-        assert_parse("(1,2,3)+4;", "(1,2,3)+4;");
+        assert_min("foo, bar, baz;", "foo,bar,baz;");
+        assert_min("1, 2, 3;", "1,2,3;");
+        assert_min("1,2,3+4;", "1,2,3+4;");
+        assert_min("1,2,(3+4);", "1,2,3+4;");
+        assert_min("1+2,3,4;", "1+2,3,4;");
+        assert_min("(1+2),3,4;", "1+2,3,4;");
+        assert_min("1+(2,3,4);", "1+(2,3,4);");
+        assert_min("(1,2,3)+4;", "(1,2,3)+4;");
     }
 
     #[test]
     fn binary_expression() {
-        assert_parse("a = 10", "a=10;");
-        assert_parse("a == 10", "a==10;");
-        assert_parse("a === 10", "a===10;");
-        assert_parse("a != 10", "a!=10;");
-        assert_parse("a !== 10", "a!==10;");
-        assert_parse("a += 10", "a+=10;");
-        assert_parse("a -= 10", "a-=10;");
-        assert_parse("a <<= 10", "a<<=10;");
-        assert_parse("a >>= 10", "a>>=10;");
-        assert_parse("a >>>= 10", "a>>>=10;");
-        assert_parse("2 + 2", "2+2;");
-        assert_parse("2 - 2", "2-2;");
-        assert_parse("2 * 2", "2*2;");
-        assert_parse("2 / 2", "2/2;");
-        assert_parse("2 % 2", "2%2;");
-        assert_parse("2 ** 2", "2**2;");
-        assert_parse("2 << 2", "2<<2;");
-        assert_parse("2 >> 2", "2>>2;");
-        assert_parse("2 >>> 2", "2>>>2;");
-        assert_parse("foo in bar", "foo in bar;");
-        assert_parse("foo instanceof Foo", "foo instanceof Foo;");
+        assert_min("a = 10", "a=10;");
+        assert_min("a == 10", "a==10;");
+        assert_min("a === 10", "a===10;");
+        assert_min("a != 10", "a!=10;");
+        assert_min("a !== 10", "a!==10;");
+        assert_min("a += 10", "a+=10;");
+        assert_min("a -= 10", "a-=10;");
+        assert_min("a <<= 10", "a<<=10;");
+        assert_min("a >>= 10", "a>>=10;");
+        assert_min("a >>>= 10", "a>>>=10;");
+        assert_min("2 + 2", "2+2;");
+        assert_min("2 - 2", "2-2;");
+        assert_min("2 * 2", "2*2;");
+        assert_min("2 / 2", "2/2;");
+        assert_min("2 % 2", "2%2;");
+        assert_min("2 ** 2", "2**2;");
+        assert_min("2 << 2", "2<<2;");
+        assert_min("2 >> 2", "2>>2;");
+        assert_min("2 >>> 2", "2>>>2;");
+        assert_min("foo in bar", "foo in bar;");
+        assert_min("foo instanceof Foo", "foo instanceof Foo;");
     }
 
     #[test]
     fn binary_expression_precedence() {
-        assert_parse("2 + 2 * 2", "2+2*2;");
-        assert_parse("2 + (2 * 2)", "2+2*2;");
-        assert_parse("(2 + 2) * 2", "(2+2)*2;");
+        assert_min("2 + 2 * 2", "2+2*2;");
+        assert_min("2 + (2 * 2)", "2+2*2;");
+        assert_min("(2 + 2) * 2", "(2+2)*2;");
     }
 
     #[test]
     fn prefix_expression() {
-        assert_parse("+foo", "+foo;");
-        assert_parse("-foo", "-foo;");
-        assert_parse("!foo", "!foo;");
-        assert_parse("~foo", "~foo;");
-        assert_parse("++foo", "++foo;");
-        assert_parse("--foo", "--foo;");
-        assert_parse("new foo", "new foo;");
-        assert_parse("void foo", "void foo;");
-        assert_parse("typeof foo", "typeof foo;");
+        assert_min("+foo", "+foo;");
+        assert_min("-foo", "-foo;");
+        assert_min("!foo", "!foo;");
+        assert_min("~foo", "~foo;");
+        assert_min("++foo", "++foo;");
+        assert_min("--foo", "--foo;");
+        assert_min("new foo", "new foo;");
+        assert_min("void foo", "void foo;");
+        assert_min("typeof foo", "typeof foo;");
     }
 
     #[test]
     fn postfix_expression() {
-        assert_parse("foo++", "foo++;");
-        assert_parse("foo--", "foo--;");
+        assert_min("foo++", "foo++;");
+        assert_min("foo--", "foo--;");
     }
 
     #[test]
     fn conditional_expression() {
-        assert_parse("true ? foo : bar", "true?foo:bar;")
+        assert_min("true ? foo : bar", "true?foo:bar;")
     }
 
     #[test]
     fn function_expression() {
-        assert_parse("(function () {})", "(function(){});");
-        assert_parse("(function foo() {})", "(function foo(){});");
+        assert_min("(function () {})", "(function(){});");
+        assert_min("(function foo() {})", "(function foo(){});");
+    }
+
+    #[test]
+    fn class_expression() {
+        assert_min("(class {})", "(class{});");
+        assert_min("(class Foo {})", "(class Foo{});");
+        assert_min("(class extends Foo {})", "(class extends Foo{});");
+        assert_min("(class Foo extends Bar {})", "(class Foo extends Bar{});");
+
     }
 
     #[test]
     fn call_expression() {
-        assert_parse("foobar();", "foobar();");
-        assert_parse("foobar(1, 2, 3);", "foobar(1,2,3);");
+        assert_min("foobar();", "foobar();");
+        assert_min("foobar(1, 2, 3);", "foobar(1,2,3);");
     }
 
     #[test]
     fn member_expression() {
-        assert_parse("foo.bar", "foo.bar;");
-        assert_parse("this.bar", "this.bar;");
-        assert_parse("10..fooz", "10..fooz;");
-        assert_parse("foo[10]", "foo[10];");
-        assert_parse(r#"foo["bar"]"#, r#"foo["bar"];"#);
+        assert_min("foo.bar", "foo.bar;");
+        assert_min("this.bar", "this.bar;");
+        assert_min("10..fooz", "10..fooz;");
+        assert_min("foo[10]", "foo[10];");
+        assert_min(r#"foo["bar"]"#, r#"foo["bar"];"#);
     }
 
     #[test]
     fn array_expression() {
-        assert_parse("[]", "[];");
-        assert_parse("[foo]", "[foo];");
-        assert_parse("[foo,bar]", "[foo,bar];");
-        assert_parse("[foo,bar,baz]", "[foo,bar,baz];");
+        assert_min("[]", "[];");
+        assert_min("[foo]", "[foo];");
+        assert_min("[foo,bar]", "[foo,bar];");
+        assert_min("[foo,bar,baz]", "[foo,bar,baz];");
     }
 
     #[test]
     fn sparse_array_expression() {
-        assert_parse("[]", "[];");
-        assert_parse("[,]", "[,];");
-        assert_parse("[1,]", "[1,];");
-        assert_parse("[,1]", "[,1];");
-        assert_parse("[,,];", "[,,];");
-        assert_parse("[1,,];", "[1,,];");
-        assert_parse("[,,1];", "[,,1];");
+        assert_min("[]", "[];");
+        assert_min("[,]", "[,];");
+        assert_min("[1,]", "[1,];");
+        assert_min("[,1]", "[,1];");
+        assert_min("[,,];", "[,,];");
+        assert_min("[1,,];", "[1,,];");
+        assert_min("[,,1];", "[,,1];");
+    }
+
+    #[test]
+    fn sparse_array_expression_pretty() {
+        assert_pretty("[]", "[];");
+        assert_pretty("[,]", "[, ];");
+        assert_pretty("[1,]", "[1, ];");
+        assert_pretty("[,1]", "[, 1];");
+        assert_pretty("[,,];", "[, , ];");
+        assert_pretty("[1,,];", "[1, , ];");
+        assert_pretty("[,,1];", "[, , 1];");
     }
 
     #[test]
     fn object_expression() {
-        assert_parse("({});", "({});");
-        assert_parse("({ foo });", "({foo});");
-        assert_parse("({ foo: 10 });", "({foo:10});");
-        assert_parse("({ foo, bar });", "({foo,bar});");
-        assert_parse("({ foo: 10, bar: 20 });", "({foo:10,bar:20});");
-        assert_parse("({ foo: 10, bar() {} });", "({foo:10,bar(){}});");
-        assert_parse("({ foo(bar, baz) {} });", "({foo(bar,baz){}});");
+        assert_min("({});", "({});");
+        assert_min("({ foo });", "({foo});");
+        assert_min("({ foo: 10 });", "({foo:10});");
+        assert_min("({ foo, bar });", "({foo,bar});");
+        assert_min("({ foo: 10, bar: 20 });", "({foo:10,bar:20});");
+        assert_min("({ foo: 10, bar() {} });", "({foo:10,bar(){}});");
+        assert_min("({ foo(bar, baz) {} });", "({foo(bar,baz){}});");
     }
 }

@@ -1,6 +1,7 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, Expression, Declarator, ObjectMember, Function, Name};
+use ast::{Ptr, Loc, List, Statement, Expression, Declarator, ObjectMember};
+use ast::{Name, Function, Class, ClassMember};
 use parser::Parser;
 use arena::Arena;
 
@@ -39,6 +40,15 @@ impl<'ast> ToError<'ast> for ObjectMember<'ast> {
     }
 }
 
+impl<'ast> ToError<'ast> for ClassMember<'ast> {
+    fn to_error(_: &'ast Arena) -> Self {
+        ClassMember::Constructor {
+            params: List::empty(),
+            body: List::empty()
+        }
+    }
+}
+
 impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
     fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
         parser.errors.push(err);
@@ -46,6 +56,18 @@ impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
         Function {
             name: N::empty(&parser.arena),
             params: List::empty(),
+            body: List::empty(),
+        }
+    }
+}
+
+impl<'ast, N: Name<'ast>> Handle<'ast> for Class<'ast, N> {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
+        parser.errors.push(err);
+
+        Class {
+            name: N::empty(&parser.arena),
+            extends: None,
             body: List::empty(),
         }
     }

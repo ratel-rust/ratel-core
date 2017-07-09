@@ -48,6 +48,52 @@ impl<'ast, T: 'ast> ListBuilder<'ast, T> {
     }
 }
 
+pub struct EmptyListBuilder<'ast, T: 'ast> {
+    arena: &'ast Arena,
+    first: Option<&'ast ListItem<'ast, T>>,
+    last: Option<&'ast ListItem<'ast, T>>,
+}
+
+impl<'ast, T: 'ast> EmptyListBuilder<'ast, T> {
+    #[inline]
+    pub fn new(arena: &'ast Arena) -> Self {
+        EmptyListBuilder {
+            arena,
+            first: None,
+            last: None,
+        }
+    }
+
+    #[inline]
+    pub fn push(&mut self, item: T) {
+        match self.last {
+            None => {
+                self.first = Some(self.arena.alloc(ListItem {
+                    value: item,
+                    next: Cell::new(None)
+                }));
+                self.last = self.first;
+            },
+            Some(ref mut last) => {
+                let next = self.arena.alloc(ListItem {
+                    value: item,
+                    next: Cell::new(None)
+                });
+
+                last.next.set(Some(next));
+                *last = next;
+            }
+        }
+    }
+
+    #[inline]
+    pub fn into_list(self) -> List<'ast, T> {
+        List {
+            root: Cell::new(self.first)
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct List<'ast, T: 'ast> {
     root: Cell<Option<&'ast ListItem<'ast, T>>>,

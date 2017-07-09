@@ -113,3 +113,29 @@ impl<'ast, G, N> ToCode<G> for Class<'ast, N> where
         gen.write_byte(b'}');
     }
 }
+
+#[cfg(test)]
+mod test {
+    use codegen::assert_min;
+
+    #[test]
+    fn function() {
+        assert_min("function foo() {}", "function foo(){}");
+        assert_min("function foo(a) {}", "function foo(a){}");
+        assert_min("function foo(a, b, c) {}", "function foo(a,b,c){}");
+        assert_min("function foo(bar) { return 10; }", "function foo(bar){return 10;}");
+    }
+
+    #[test]
+    fn class() {
+        assert_min("class Foo {}", "class Foo{}");
+        assert_min("class Foo extends Bar {}", "class Foo extends Bar{}");
+        assert_min("class Foo { constructor(a, b) { debug; } }", "class Foo{constructor(a,b){debug;}}");
+        assert_min("class Foo { static constructor(a, b) { debug; } }", "class Foo{static constructor(a,b){debug;}}");
+        assert_min("class Foo { method(a, b) { debug; } }", "class Foo{method(a,b){debug;}}");
+        assert_min("class Foo { static method(a, b) { debug; } }", "class Foo{static method(a,b){debug;}}");
+        assert_min("class Foo { a = 10; b = 20; }", "class Foo{a=10;b=20;}");
+        assert_min("class Foo { static a = 10; b = 20; }", "class Foo{static a=10;b=20;}");
+
+    }
+}

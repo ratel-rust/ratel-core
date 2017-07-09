@@ -186,16 +186,20 @@ pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
 
         for statement in module.body() {
             gen.write(&statement);
-            gen.new_line();
         }
 
         gen.consume()
     } else {
         let mut gen = PrettyGenerator::new();
+        let mut body = module.body().iter();
 
-        for statement in module.body() {
+        if let Some(statement) = body.next() {
             gen.write(&statement);
+        }
+
+        for statement in body {
             gen.new_line();
+            gen.write(&statement);
         }
 
         gen.consume()
@@ -277,10 +281,19 @@ fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
 }
 
 #[cfg(test)]
-fn assert_parse(source: &str, expected: &str) {
+fn assert_min(source: &str, expected: &str) {
     use parser::parse;
 
     let module = parse(source).unwrap();
 
     assert_eq!(codegen(&module, true).as_str(), expected);
+}
+
+#[cfg(test)]
+fn assert_pretty(source: &str, expected: &str) {
+    use parser::parse;
+
+    let module = parse(source).unwrap();
+
+    assert_eq!(codegen(&module, false).as_str(), expected);
 }

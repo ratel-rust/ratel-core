@@ -16,7 +16,7 @@ impl<'ast> Parser<'ast> {
             Return            => self.return_statement(),
             Break             => self.break_statement(),
             Function          => self.function_statement(),
-            // Class             => self.class_statement(),
+            Class             => self.class_statement(),
             If                => self.if_statement(),
             While             => self.while_statement(),
             Do                => self.do_statement(),
@@ -84,6 +84,16 @@ impl<'ast> Parser<'ast> {
 
         Statement::Function {
             function: self.function(name)
+        }.at(0, 0)
+    }
+
+    #[inline]
+    fn class_statement(&mut self) -> Loc<Statement<'ast>> {
+        let name = expect_identifier!(self);
+        let name = self.alloc_in_loc(name);
+
+        Statement::Class {
+            class: self.class(name)
         }.at(0, 0)
     }
 
@@ -419,80 +429,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Value, ObjectMember, Function, OperatorKind};
-
-    #[test]
-    fn function_statement_empty() {
-        let src = "function foo() {}";
-        let module = parse(src).unwrap();
-        let mock = Mock::new();
-
-        let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: List::empty(),
-                    body: List::empty(),
-                }
-            }
-        ]);
-
-        assert_eq!(module.body(), expected);
-    }
-
-    #[test]
-    fn function_statement_params() {
-        let src = "function foo(bar, baz) {}";
-        let module = parse(src).unwrap();
-        let mock = Mock::new();
-
-        let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: mock.list([
-                        "bar",
-                        "baz",
-                    ]),
-                    body: List::empty(),
-                }
-            }
-        ]);
-
-        assert_eq!(module.body(), expected);
-    }
-
-    #[test]
-    fn function_statement_body() {
-        let src = "function foo() { bar; baz; }";
-        let module = parse(src).unwrap();
-        let mock = Mock::new();
-
-        let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: List::empty(),
-                    body: mock.list([
-                        Statement::Expression {
-                            expression: mock.ident("bar")
-                        },
-                        Statement::Expression {
-                            expression: mock.ident("baz")
-                        },
-                    ])
-                }
-            }
-        ]);
-
-        assert_eq!(module.body(), expected);
-    }
-
-    #[test]
-    #[should_panic]
-    fn function_statement_must_have_name() {
-        parse("function() {}").unwrap();
-    }
+    use ast::{List, Value, ObjectMember, Function, Class, OperatorKind};
 
     #[test]
     fn block_statement() {
@@ -868,5 +805,55 @@ mod test {
         ]);
 
         assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn function_statement() {
+        let src = "function foo() {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Function {
+                function: Function {
+                    name: mock.ptr("foo").into(),
+                    params: List::empty(),
+                    body: List::empty(),
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn function_statement_must_have_name() {
+        parse("function() {}").unwrap();
+    }
+
+    #[test]
+    fn class_statement() {
+        let src = "class Foo {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Class {
+                class: Class {
+                    name: mock.ptr("Foo").into(),
+                    extends: None,
+                    body: List::empty(),
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn class_statement_must_have_name() {
+        parse("class {}").unwrap();
     }
 }

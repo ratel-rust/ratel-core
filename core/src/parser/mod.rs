@@ -173,45 +173,6 @@ impl<'ast> Parser<'ast> {
         }
 
         builder.into_list()
-
-        // let mut default_params = false;
-
-        // loop {
-        //     let name = match self.next() {
-        //         ParenClose       => break,
-        //         Identifier(name) => name,
-        //         _ => unexpected_token!(self)
-        //     };
-
-        //     list.push(match self.peek() {
-        //         Operator(Assign) => {
-        //             self.consume();
-        //             let expression = self.expression(0);
-        //             default_params = true;
-        //             Parameter {
-        //                 name: name.into(),
-        //                 default: Some(Box::new(expression))
-        //             }
-        //         }
-        //         _ => {
-        //             if default_params {
-        //                 unexpected_token!(self);
-        //             }
-        //             Parameter {
-        //                 name: name.into(),
-        //                 default: None
-        //             }
-        //         }
-        //     });
-
-        //     match self.next() {
-        //         ParenClose => break,
-        //         Comma      => {},
-        //         _          => unexpected_token!(self)
-        //     }
-        // }
-
-        // Ok(list)
     }
 }
 

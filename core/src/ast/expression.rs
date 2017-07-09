@@ -126,3 +126,13 @@ impl<'ast> Expression<'ast> {
         }
     }
 }
+
+impl<'ast> Property<'ast> {
+    #[inline]
+    pub fn is_constructor(&self) -> bool {
+        match *self {
+            Property::Literal("constructor") => true,
+            _                                => false,
+        }
+    }
+}
