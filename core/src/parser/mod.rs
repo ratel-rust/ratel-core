@@ -8,7 +8,7 @@ mod function;
 use error::Error;
 use arena::Arena;
 
-use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, Parameter, ParameterList};
+use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, Parameter, ParameterList, OperatorKind};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -154,12 +154,22 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn parameter_list(&mut self) -> ParameterList<'ast> {
+        let mut default_params = false;
         let first = match self.next() {
             Identifier(label) => {
-                self.in_loc(Parameter::Identifier {
+                let parameter = Parameter::Identifier {
                     label,
-                    value: None
-                })
+                    value: match self.peek() {
+                        Token::Operator(OperatorKind::Assign) => {
+                            self.consume();
+                            let expr = self.expression(0);
+                            default_params = true;
+                            Some(self.alloc(expr))
+                        },
+                        _ => None
+                    }
+                };
+                self.in_loc(parameter)
             },
             ParenClose       => return List::empty(),
             _                => unexpected_token!(self),
@@ -177,12 +187,25 @@ impl<'ast> Parser<'ast> {
             match self.next() {
                 ParenClose        => break,
                 Identifier(label) => {
-                    let parameter = self.in_loc(Parameter::Identifier {
+                    let parameter = Parameter::Identifier {
                         label,
-                        value: None
-                    });
+                        value: match self.peek() {
+                            Token::Operator(OperatorKind::Assign) => {
+                                self.consume();
+                                let expr = self.expression(0);
+                                default_params = true;
+                                Some(self.alloc(expr))
+                            },
+                            _ => {
+                                if default_params {
+                                    unexpected_token!(self)
+                                }
+                                None
+                            }
+                        }
+                    };
 
-                    builder.push(parameter);
+                    builder.push(self.in_loc(parameter));
                 },
                 _ => unexpected_token!(self)
             }
@@ -287,4 +310,5 @@ mod test {
 
         assert_eq!(module.body(), expected);
     }
+
 }

@@ -191,6 +191,48 @@ mod test {
     }
 
     #[test]
+    fn function_with_default_params() {
+        let src = "function foo (a = 0, b = 1, c = 2) { return 2 }";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Function {
+                function: Function {
+                    name: mock.ptr("foo").into(),
+                    params: mock.list([
+                        Parameter::Identifier {
+                            label: "a",
+                            value: Some(mock.number("0")),
+                        },
+                        Parameter::Identifier {
+                            label: "b",
+                            value: Some(mock.number("1")),
+                        },
+                        Parameter::Identifier {
+                            label: "c",
+                            value: Some(mock.number("2")),
+                        }
+                    ]),
+                    body: mock.list([
+                        Statement::Return {
+                            value: Some(mock.number("2"))
+                        }
+                    ])
+                }
+            }
+        ]);
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn function_with_non_trailing_default_params() {
+        let src = "function foo (a, b, c = 2, d) { return 2 }";
+        parse(src).unwrap();
+    }
+
+    #[test]
     fn class_empty() {
         let src = "class Foo {}";
         let module = parse(src).unwrap();
