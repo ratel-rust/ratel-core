@@ -167,15 +167,9 @@ impl<'ast> Parser<'ast> {
                 let mut builder = ListBuilder::new(self.arena, first);
                 builder.push(self.expression(0));
 
-                loop {
-                    match self.peek() {
-                        Comma => {
-                            self.consume();
-
-                            builder.push(self.expression(0));
-                        },
-                        _ => break,
-                    }
+                while let Comma = self.peek() {
+                    self.consume();
+                    builder.push(self.expression(0));
                 }
 
                 Expression::Sequence {

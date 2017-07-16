@@ -144,14 +144,16 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
                     gen.write(left);
                 }
 
-                match spacing {
-                    true  => gen.write_byte(b' '),
-                    false => gen.write_pretty(b' '),
+                if spacing {
+                    gen.write_byte(b' ');
+                } else {
+                    gen.write_pretty(b' ');
                 }
                 gen.write(operator);
-                match spacing {
-                    true  => gen.write_byte(b' '),
-                    false => gen.write_pretty(b' '),
+                if spacing {
+                    gen.write_byte(b' ');
+                } else {
+                    gen.write_pretty(b' ');
                 }
 
                 if right.binding_power() <= bp {

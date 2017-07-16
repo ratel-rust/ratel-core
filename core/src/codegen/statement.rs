@@ -101,14 +101,16 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 gen.write(consequent);
 
                 if let Some(ref alternate) = *alternate {
-                    match consequent.is_block() {
-                        true  => gen.write_pretty(b' '),
-                        false => gen.write_byte(b' '),
+                    if consequent.is_block() {
+                        gen.write_pretty(b' ');
+                    } else {
+                        gen.write_byte(b' ');
                     }
                     gen.write_bytes(b"else");
-                    match alternate.is_block() {
-                        true  => gen.write_pretty(b' '),
-                        false => gen.write_byte(b' '),
+                    if alternate.is_block() {
+                        gen.write_pretty(b' ');
+                    } else {
+                        gen.write_byte(b' ');
                     }
                     gen.write(alternate);
                 }
@@ -130,9 +132,10 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 ref body,
             } => {
                 gen.write_bytes(b"do");
-                match body.is_block() {
-                    true  => gen.write_pretty(b' '),
-                    false => gen.write_byte(b' '),
+                if body.is_block() {
+                    gen.write_pretty(b' ');
+                } else {
+                    gen.write_byte(b' ');
                 }
                 gen.write(body);
                 gen.write_bytes(b"while");
