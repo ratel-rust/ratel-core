@@ -8,7 +8,7 @@ mod function;
 use error::Error;
 use arena::Arena;
 
-use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, Parameter, ParameterList, OperatorKind};
+use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, EmptyListBuilder, Parameter, ParameterList, OperatorKind};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -155,35 +155,9 @@ impl<'ast> Parser<'ast> {
     #[inline]
     fn parameter_list(&mut self) -> ParameterList<'ast> {
         let mut default_params = false;
-        let first = match self.next() {
-            Identifier(label) => {
-                let parameter = Parameter::Identifier {
-                    label,
-                    value: match self.peek() {
-                        Token::Operator(OperatorKind::Assign) => {
-                            self.consume();
-                            let expr = self.expression(0);
-                            default_params = true;
-                            Some(self.alloc(expr))
-                        },
-                        _ => None
-                    }
-                };
-                self.in_loc(parameter)
-            },
-            ParenClose       => return List::empty(),
-            _                => unexpected_token!(self),
-        };
-
-        let mut builder = ListBuilder::new(self.arena, first);
+        let mut builder = EmptyListBuilder::new(self.arena);
 
         loop {
-            match self.next() {
-                ParenClose => break,
-                Comma      => {},
-                _          => unexpected_token!(self),
-            };
-
             match self.next() {
                 ParenClose        => break,
                 Identifier(label) => {
@@ -209,6 +183,11 @@ impl<'ast> Parser<'ast> {
                 },
                 _ => unexpected_token!(self)
             }
+            match self.next() {
+                ParenClose => break,
+                Comma      => {},
+                _          => unexpected_token!(self),
+            };
         }
 
         builder.into_list()
