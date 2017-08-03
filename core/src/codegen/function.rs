@@ -1,4 +1,5 @@
-use ast::{Function, Class, ClassMember, Name, MandatoryName, OptionalName, Parameter};
+use ast::{Function, Class, ClassMember, Name, MandatoryName, OptionalName};
+use ast::{Parameter, ParameterKey};
 use codegen::{ToCode, Generator};
 
 impl<'ast, G: Generator> ToCode<G> for MandatoryName<'ast> {
@@ -22,36 +23,28 @@ impl<'ast, G: Generator> ToCode<G> for OptionalName<'ast> {
     }
 }
 
+impl<'ast, G: Generator> ToCode<G> for ParameterKey<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::ParameterKey::*;
+
+        match *self {
+            Identifier(ref label) => gen.write(label),
+            Pattern(ref pattern) => gen.write(pattern),
+        }
+    }
+}
+
 impl<'ast, G: Generator> ToCode<G> for Parameter<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::Parameter::*;
+        gen.write(&self.key);
 
-        match *self {
-            Identifier {
-                ref label,
-                ref value,
-            } => {
-                gen.write(label);
-                if let Some(ref value) = *value {
-                    gen.write_pretty(b' ');
-                    gen.write_byte(b'=');
-                    gen.write_pretty(b' ');
-                    gen.write(value);
-                }
-            },
-            Destructing {
-                ref pattern,
-                ref value,
-            } =>  {
-                gen.write(pattern);
-                if let Some(ref value) = *value {
-                    gen.write_pretty(b' ');
-                    gen.write_byte(b'=');
-                    gen.write_pretty(b' ');
-                    gen.write(value);
-                }
-            }
+        if let Some(ref value) = self.value {
+            gen.write_pretty(b' ');
+            gen.write_byte(b'=');
+            gen.write_pretty(b' ');
+            gen.write(value);
         }
     }
 }

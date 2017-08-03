@@ -8,7 +8,8 @@ mod function;
 use error::Error;
 use arena::Arena;
 
-use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, EmptyListBuilder, Parameter, ParameterList, OperatorKind};
+use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, EmptyListBuilder};
+use ast::{Parameter, ParameterKey, ParameterList, OperatorKind};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -154,40 +155,57 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn parameter_list(&mut self) -> ParameterList<'ast> {
-        let mut default_params = false;
         let mut builder = EmptyListBuilder::new(self.arena);
 
         loop {
-            match self.next() {
-                ParenClose        => break,
-                Identifier(label) => {
-                    let parameter = Parameter::Identifier {
-                        label,
-                        value: match self.peek() {
-                            Token::Operator(OperatorKind::Assign) => {
-                                self.consume();
-                                let expr = self.expression(0);
-                                default_params = true;
-                                Some(self.alloc(expr))
-                            },
-                            _ => {
-                                if default_params {
-                                    unexpected_token!(self)
-                                }
-                                None
-                            }
-                        }
-                    };
+            let key = parameter_key!(self);
+            let token = self.next();
 
-                    builder.push(self.in_loc(parameter));
-                },
-                _ => unexpected_token!(self)
+            if Operator(OperatorKind::Assign) == token {
+                return self.parameter_list_with_defaults(key, builder);
             }
+
+            let parameter = Parameter {
+                key,
+                value: None
+            };
+
+            builder.push(self.in_loc(parameter));
+
+            match token {
+                ParenClose => break,
+                Comma      => {},
+                _ => unexpected_token!(self),
+            };
+        }
+
+        builder.into_list()
+    }
+
+    #[inline]
+    fn parameter_list_with_defaults(
+        &mut self,
+        mut key: ParameterKey<'ast>,
+        mut builder: EmptyListBuilder<'ast, Loc<Parameter<'ast>>>
+    ) -> ParameterList<'ast> {
+        loop {
+            let value = self.expression(0);
+            let parameter = Parameter {
+                key,
+                value: Some(self.alloc(value))
+            };
+
+            builder.push(self.in_loc(parameter));
+
             match self.next() {
                 ParenClose => break,
                 Comma      => {},
                 _          => unexpected_token!(self),
             };
+
+            key = parameter_key!(self);
+
+            expect!(self, Operator(OperatorKind::Assign));
         }
 
         builder.into_list()

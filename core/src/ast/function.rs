@@ -6,15 +6,15 @@ pub trait Name<'ast> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Parameter<'ast> {
-    Identifier {
-        label: &'ast str,
-        value: Option<ExpressionPtr<'ast>>,
-    },
-    Destructing {
-        pattern: ExpressionPtr<'ast>,
-        value: Option<ExpressionPtr<'ast>>,
-    }
+pub struct Parameter<'ast> {
+    pub key: ParameterKey<'ast>,
+    pub value: Option<ExpressionPtr<'ast>>
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParameterKey<'ast> {
+    Identifier(&'ast str),
+    Pattern(ExpressionPtr<'ast>)
 }
 
 #[derive(Debug, Clone, PartialEq)]

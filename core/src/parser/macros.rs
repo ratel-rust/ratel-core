@@ -110,6 +110,19 @@ macro_rules! unexpected_token {
     });
 }
 
+#[macro_export]
+macro_rules! parameter_key {
+    ($parser:ident) => ({
+        use ast::ParameterKey;
+
+        match $parser.next() {
+            ParenClose        => break,
+            Identifier(label) => ParameterKey::Identifier(label),
+            _ => unexpected_token!($parser)
+        }
+    })
+}
+
 #[cfg(test)]
 #[macro_export]
 macro_rules! assert_expr {

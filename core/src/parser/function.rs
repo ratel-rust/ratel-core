@@ -115,7 +115,7 @@ impl<'ast> Parser<'ast> {
 mod test {
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Statement, Function, Class, ClassMember, Property, Parameter};
+    use ast::{List, Statement, Function, Class, ClassMember, Property, Parameter, ParameterKey};
 
     #[test]
     fn function_empty() {
@@ -147,12 +147,12 @@ mod test {
                 function: Function {
                     name: mock.ptr("foo").into(),
                     params: mock.list([
-                        Parameter::Identifier {
-                            label: "bar",
+                        Parameter {
+                            key: ParameterKey::Identifier("bar"),
                             value: None,
                         },
-                        Parameter::Identifier {
-                            label: "baz",
+                        Parameter {
+                            key: ParameterKey::Identifier("baz"),
                             value: None,
                         },
                     ]),
@@ -201,16 +201,16 @@ mod test {
                 function: Function {
                     name: mock.ptr("foo").into(),
                     params: mock.list([
-                        Parameter::Identifier {
-                            label: "a",
+                        Parameter {
+                            key: ParameterKey::Identifier("a"),
                             value: Some(mock.number("0")),
                         },
-                        Parameter::Identifier {
-                            label: "b",
+                        Parameter {
+                            key: ParameterKey::Identifier("b"),
                             value: Some(mock.number("1")),
                         },
-                        Parameter::Identifier {
-                            label: "c",
+                        Parameter {
+                            key: ParameterKey::Identifier("c"),
                             value: Some(mock.number("2")),
                         }
                     ]),
@@ -292,12 +292,12 @@ mod test {
                     body: mock.list([
                         ClassMember::Constructor {
                             params: mock.list([
-                                Parameter::Identifier {
-                                    label: "bar",
+                                Parameter {
+                                    key: ParameterKey::Identifier("bar"),
                                     value: None,
                                 },
-                                Parameter::Identifier {
-                                    label: "baz",
+                                Parameter {
+                                    key: ParameterKey::Identifier("baz"),
                                     value: None,
                                 },
                             ]),
@@ -347,12 +347,12 @@ mod test {
                             is_static: false,
                             property: Property::Literal("doge"),
                             params: mock.list([
-                                Parameter::Identifier {
-                                    label: "bar",
+                                Parameter {
+                                    key: ParameterKey::Identifier("bar"),
                                     value: None,
                                 },
-                                Parameter::Identifier {
-                                    label: "baz",
+                                Parameter {
+                                    key: ParameterKey::Identifier("baz"),
                                     value: None,
                                 },
                             ]),
@@ -366,8 +366,8 @@ mod test {
                             is_static: true,
                             property: Property::Literal("toThe"),
                             params: mock.list([
-                                Parameter::Identifier {
-                                    label: "moon",
+                                Parameter {
+                                    key: ParameterKey::Identifier("moon"),
                                     value: None,
                                 },
                             ]),
