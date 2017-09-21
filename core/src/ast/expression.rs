@@ -1,5 +1,5 @@
 use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
-use ast::{PropertyPtr, IdentifierPtr, IdentifierList};
+use ast::{PropertyPtr, IdentifierPtr};
 use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterList};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -72,7 +72,7 @@ pub enum Expression<'ast> {
         quasis: List<'ast, Loc<&'ast str>>,
     },
     Arrow {
-        params: IdentifierList<'ast>,
+        params: ExpressionList<'ast>,
         body: StatementPtr<'ast>,
     },
     Object {

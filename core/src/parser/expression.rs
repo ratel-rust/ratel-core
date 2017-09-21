@@ -60,6 +60,10 @@ impl<'ast> Parser<'ast> {
                     }.at(0, 0)
                 }
 
+                Operator(FatArrow) => {
+                    return self.arrow_function_expression(Some(left));
+                }
+
                 Operator(op) => {
                     self.consume();
 
@@ -147,6 +151,32 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
+    pub fn arrow_function_expression(&mut self, params: Option<Loc<Expression<'ast>>>) -> Loc<Expression<'ast>> {
+        expect!(self, Operator(FatArrow));
+
+        let list = match params {
+            None       => List::empty(),
+            Some(left) => List::from(self.arena, left)
+        };
+
+        let body = match self.next() {
+            BraceOpen => {
+                let body = self.block_statement();
+                self.alloc(body)
+            },
+            body => {
+                let body = self.expression_statement(body);
+                self.alloc(body)
+            }
+        };
+
+        Expression::Arrow {
+            params: list,
+            body
+        }.at(0, 0)
+    }
+
+    #[inline]
     pub fn sequence_or_expression(&mut self) -> Loc<Expression<'ast>> {
         let token = self.next();
         self.sequence_or_expression_from(token)
@@ -205,11 +235,9 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn paren_expression(&mut self) -> Loc<Expression<'ast>> {
         match self.next() {
-            // ParenClose => {
-            //     expect!(self, Operator(FatArrow));
-
-            //     self.arrow_function_expression(None)
-            // },
+            ParenClose => {
+                self.arrow_function_expression(None)
+            },
             token => {
                 let expression = self.sequence_or_expression_from(token);
 
@@ -774,6 +802,96 @@ mod test {
     }
 
     #[test]
+    fn arrow_function_expression() {
+        let src = "() => bar";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Arrow {
+            params: List::empty(),
+            body: mock.ptr(Statement::Expression {
+                expression: mock.ident("bar")
+            })
+        };
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn arrow_function_shorthand() {
+        let src = "n => n* n";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Arrow {
+            params: mock.list([Expression::Identifier("n")]),
+
+            body: mock.ptr(Statement::Expression {
+                expression: mock.ptr(Expression::Binary {
+                    operator: OperatorKind::Multiplication,
+                    left: mock.ident("n"),
+                    right: mock.ident("n"),
+                })
+            })
+
+        };
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn arrow_function_with_params() {
+        let src = "(a, b, c) => bar";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Arrow {
+            params: mock.list([
+                Expression::Sequence {
+                    body: mock.list([
+                        Expression::Identifier("a"),
+                        Expression::Identifier("b"),
+                        Expression::Identifier("c"),
+                    ])
+                }
+            ]),
+
+            body: mock.ptr(Statement::Expression {
+                expression: mock.ident("bar")
+            })
+
+        };
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn arrow_function_with_default_params() {
+        let src = "(a, b, c = 2) => bar";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Arrow {
+            params: mock.list([
+                Expression::Sequence {
+                    body: mock.list([
+                        Expression::Identifier("a"),
+                        Expression::Identifier("b"),
+                        Expression::Binary {
+                            operator: OperatorKind::Assign,
+                            left: mock.ident("c"),
+                            right: mock.ptr(Expression::Value(Value::Number("2"))),
+                        }
+                    ])
+                }
+            ]),
+
+            body: mock.ptr(Statement::Expression {
+                expression: mock.ident("bar")
+            })
+
+        };
+        assert_expr!(module, expected);
+    }
+
+    #[test]
     fn class_expression() {
         let src = "(class {})";
         let module = parse(src).unwrap();
@@ -805,4 +923,22 @@ mod test {
 
         assert_expr!(module, expected);
     }
+
+    #[test]
+    fn named_child_class_expression() {
+        let src = "(class Foo extends Bar {})";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Class {
+            class: Class {
+                name: mock.ptr("Foo").into(),
+                extends: mock.ptr("Bar").into(),
+                body: List::empty()
+            }
+        };
+
+        assert_expr!(module, expected);
+    }
+
 }
