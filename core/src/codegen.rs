@@ -663,10 +663,60 @@ impl Code for ClassKey {
 impl Code for VariableDeclarator {
     #[inline]
     fn to_code(&self, gen: &mut Generator) {
-        gen.write(&self.name);
-        if let Some(ref value) = self.value {
-            gen.write_min(b" = ", b"=");
-            gen.write(value);
+        match self.id {
+            VariableExpression::Identifier(ref ident) => {
+                gen.write(ident);
+                if let Some(ref value) = self.value {
+                    gen.write_min(b" = ", b"=");
+                    gen.write(value);
+                }
+            },
+            VariableExpression::ArrayPattern(ref declarators) => {
+                if let Some(ref value) = self.value {
+
+                    // Iterate over all variable names and construct base_name.
+                    // (FIXME)
+
+                    let mut base_name: String = "ref_".to_owned();
+                    // Iterate over all ids and construct base_name.
+                    if let VariableExpression::ArrayPattern(ref ids) = self.id {
+                        for id in ids.iter() {
+                            if let &Expression::Identifier(ref name) = id {
+                                base_name.push_str(name);
+                            }
+                        }
+                    }
+
+                    let ref_name = &base_name.into_bytes();
+
+                    gen.write_bytes(ref_name);
+                    gen.write_min(b" = ", b"=");
+                    gen.write(value);
+
+                    let mut index = 0;
+                    for item in declarators.iter() {
+                        if *item == Expression::Void {
+                            index = index + 1;
+                            continue;
+                        }
+                        gen.write_min(b", ", b",");
+                        gen.write(item);
+
+                        gen.write_min(b" = ", b"=");
+                        gen.write_bytes(ref_name);
+                        gen.write_bytes(b"[");
+                        gen.write_byte(index + 48);
+                        gen.write_bytes(b"]");
+
+                        index = index + 1;
+                    }
+                }
+            },
+            VariableExpression::ObjectPattern(ref members) => {
+                println!("{:?}", self.id);
+                println!("{:?}", members);
+                unimplemented!();
+            }
         }
     }
 }

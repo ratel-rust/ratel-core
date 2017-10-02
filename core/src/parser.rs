@@ -678,15 +678,48 @@ impl<'a> Parser<'a> {
         let mut declarators = Vec::new();
 
         loop {
-            declarators.push(VariableDeclarator {
-                name: expect_identifier!(self),
-                value: match peek!(self) {
-                    Operator(Assign) => {
-                        self.consume();
 
-                        Some(try!(self.expression(0)))
-                    },
-                    _ => None
+            declarators.push(match peek!(self) {
+                BraceOpen => {
+                    self.consume();
+                    VariableDeclarator {
+                        id: try!(self.object_expression()).into(),
+                        value: match peek!(self) {
+                            Operator(Assign) => {
+                                self.consume();
+
+                                Some(try!(self.expression(0)))
+                            },
+                            _ => None
+                        }
+                    }
+                },
+                BracketOpen => {
+                    self.consume();
+                    VariableDeclarator {
+                        id: try!(self.array_expression()).into(),
+                        value: match peek!(self) {
+                            Operator(Assign) => {
+                                self.consume();
+
+                                Some(try!(self.expression(0)))
+                            },
+                            _ => None
+                        }
+                    }
+                },
+                _ => {
+                    VariableDeclarator {
+                        id: VariableExpression::Identifier(expect_identifier!(self)),
+                        value: match peek!(self) {
+                            Operator(Assign) => {
+                                self.consume();
+
+                                Some(try!(self.expression(0)))
+                            },
+                            _ => None
+                        }
+                    }
                 }
             });
 
