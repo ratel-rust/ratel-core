@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/ratel.svg)](https://crates.io/crates/ratel)
 [![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg)](https://gitter.im/ratel-rust/Lobby)
 
-**Ratel** is a high performance JavaScript to JavaScript compiler with a Rust core. It's goal is to take newest versions of JavaScript as input, and produce output that's compatible with older versions of the language.
+**Ratel** is a high performance JavaScript to JavaScript compiler with a Rust core. Its goal is to take newest versions of JavaScript as input, and produce output that's compatible with older versions of the language.
 
 This repo is split in two separate folders:
 
