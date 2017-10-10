@@ -6,10 +6,11 @@
   "author": "Matthias Thoemmes <thoemmes@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "neon-cli": "^0.1.7"
+    "neon": "^2.0.0",
+    "neon-cli": "^0.1.20"
   },
   "devDependencies": {
-    "mocha": "^3.1.2"
+    "mocha": "^4.0.1"
   },
   "scripts": {
     "install": "neon build",

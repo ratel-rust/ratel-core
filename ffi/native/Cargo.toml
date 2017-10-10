@@ -3,13 +3,18 @@ name = "ffi"
 version = "0.0.1"
 authors = ["Matthias Thoemmes <thoemmes@gmail.com>"]
 license = "MIT"
+build = "build.rs"
 
 [lib]
 name = "ffi"
 crate-type = ["dylib"]
+path = "src/lib.rs"
 
-[dependencies]
-neon = "0.1.11"
+[build-dependencies]
+neon-build = "0.1.20"
 
 [dependencies.ratel]
 path = "../../core"
+
+[dependencies]
+neon = "0.1.20"
