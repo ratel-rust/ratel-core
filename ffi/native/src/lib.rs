@@ -6,7 +6,25 @@ extern crate ratel;
 use neon::vm::{Call, JsResult};
 use neon::js::{JsString, JsBoolean};
 use neon::js::error::{JsError, Kind};
-use ratel::{parser, codegen/*, transformer */};
+use ratel::{parser, codegen, error/*, transformer */};
+use error::{Error, ParseError};
+
+fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec<String> {
+    errors
+    .into_iter()
+    .map(|err| {
+        match err {
+            Error::UnexpectedToken { start, end } => {
+               ParseError::UnexpectedToken { start, end, source: source.value()}
+            },
+            Error::UnexpectedEndOfProgram => {
+                ParseError::UnexpectedEndOfProgram
+            }
+        }
+    })
+    .map(|err| format!("{}", err))
+    .collect()
+}
 
 fn transform(call: Call) -> JsResult<JsString> {
     let scope = call.scope;
@@ -19,8 +37,8 @@ fn transform(call: Call) -> JsResult<JsString> {
     let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
     let mut ast = match parser::parse(source.value().as_str()) {
-        Err(error) => {
-            let str = format!("{:?}", error);
+        Err(errors) => {
+            let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
         },
         Ok(ast) => ast,
@@ -42,8 +60,8 @@ fn parse(call: Call) -> JsResult<JsString> {
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
 
     let ast = match parser::parse(source.value().as_str()) {
-        Err(error) => {
-            let str = format!("{:?}", error);
+        Err(errors) => {
+            let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
         },
         Ok(ast) => ast,
