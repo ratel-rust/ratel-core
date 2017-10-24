@@ -827,9 +827,8 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn function_statement_must_have_name() {
-        parse("function() {}").unwrap();
+        assert!(parse("function() {}").is_err());
     }
 
     #[test]

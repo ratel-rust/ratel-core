@@ -161,7 +161,7 @@ impl<'ast> Parser<'ast> {
             let key = parameter_key!(self);
             let token = self.next();
 
-            if Operator(OperatorKind::Assign) == token {
+            if token == Operator(OperatorKind::Assign) {
                 return self.parameter_list_with_defaults(key, builder);
             }
 
@@ -175,7 +175,7 @@ impl<'ast> Parser<'ast> {
             match token {
                 ParenClose => break,
                 Comma      => {},
-                _ => unexpected_token!(self),
+                _          => unexpected_token!(self),
             };
         }
 

@@ -99,7 +99,7 @@ pub struct List<'ast, T: 'ast> {
     root: Cell<Option<&'ast ListItem<'ast, T>>>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct RawList {
     root: usize
 }
