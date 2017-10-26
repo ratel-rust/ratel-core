@@ -1,25 +1,27 @@
-use std::cell::Cell;
+use ast::ptr::CopyCell;
 use std::fmt::{self, Debug};
 use arena::Arena;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct ListItem<'ast, T: 'ast> {
     value: T,
-    next: Cell<Option<&'ast ListItem<'ast, T>>>,
+    next: CopyCell<Option<&'ast ListItem<'ast, T>>>,
 }
 
-pub struct ListBuilder<'ast, T: 'ast> {
+impl<'ast, T: Copy> Copy for ListItem<'ast, T> {}
+
+pub struct ListBuilder<'ast, T: 'ast + Copy> {
     arena: &'ast Arena,
     first: &'ast ListItem<'ast, T>,
     last: &'ast ListItem<'ast, T>,
 }
 
-impl<'ast, T: 'ast> ListBuilder<'ast, T> {
+impl<'ast, T: 'ast + Copy> ListBuilder<'ast, T> {
     #[inline]
     pub fn new(arena: &'ast Arena, first: T) -> Self {
         let first = arena.alloc(ListItem {
             value: first,
-            next: Cell::new(None)
+            next: CopyCell::new(None)
         });
 
         ListBuilder {
@@ -33,7 +35,7 @@ impl<'ast, T: 'ast> ListBuilder<'ast, T> {
     pub fn push(&mut self, item: T) {
         let next = self.arena.alloc(ListItem {
             value: item,
-            next: Cell::new(None)
+            next: CopyCell::new(None)
         });
 
         self.last.next.set(Some(next));
@@ -43,18 +45,18 @@ impl<'ast, T: 'ast> ListBuilder<'ast, T> {
     #[inline]
     pub fn into_list(self) -> List<'ast, T> {
         List {
-            root: Cell::new(Some(self.first))
+            root: CopyCell::new(Some(self.first))
         }
     }
 }
 
-pub struct EmptyListBuilder<'ast, T: 'ast> {
+pub struct EmptyListBuilder<'ast, T: 'ast + Copy> {
     arena: &'ast Arena,
     first: Option<&'ast ListItem<'ast, T>>,
     last: Option<&'ast ListItem<'ast, T>>,
 }
 
-impl<'ast, T: 'ast> EmptyListBuilder<'ast, T> {
+impl<'ast, T: 'ast + Copy> EmptyListBuilder<'ast, T> {
     #[inline]
     pub fn new(arena: &'ast Arena) -> Self {
         EmptyListBuilder {
@@ -70,14 +72,14 @@ impl<'ast, T: 'ast> EmptyListBuilder<'ast, T> {
             None => {
                 self.first = Some(self.arena.alloc(ListItem {
                     value: item,
-                    next: Cell::new(None)
+                    next: CopyCell::new(None)
                 }));
                 self.last = self.first;
             },
             Some(ref mut last) => {
                 let next = self.arena.alloc(ListItem {
                     value: item,
-                    next: Cell::new(None)
+                    next: CopyCell::new(None)
                 });
 
                 last.next.set(Some(next));
@@ -89,15 +91,17 @@ impl<'ast, T: 'ast> EmptyListBuilder<'ast, T> {
     #[inline]
     pub fn into_list(self) -> List<'ast, T> {
         List {
-            root: Cell::new(self.first)
+            root: CopyCell::new(self.first)
         }
     }
 }
 
 #[derive(Clone)]
 pub struct List<'ast, T: 'ast> {
-    root: Cell<Option<&'ast ListItem<'ast, T>>>,
+    root: CopyCell<Option<&'ast ListItem<'ast, T>>>,
 }
+
+impl<'ast, T: Copy> Copy for List<'ast, T> { }
 
 #[derive(Debug, Clone, Copy)]
 pub struct RawList {
@@ -107,7 +111,7 @@ pub struct RawList {
 impl RawList {
     pub unsafe fn into_list<'ast, T: 'ast>(self) -> List<'ast, T> {
         List {
-            root: Cell::new(match self.root {
+            root: CopyCell::new(match self.root {
                 0   => None,
                 ptr => Some(&*(ptr as *const ListItem<'ast, T>))
             })
@@ -133,7 +137,7 @@ impl<'ast, T: 'ast> List<'ast, T> {
     #[inline]
     pub fn empty() -> Self {
         List {
-            root: Cell::new(None)
+            root: CopyCell::new(None)
         }
     }
 
@@ -178,13 +182,15 @@ impl<'ast, T: 'ast> List<'ast, T> {
             None => None
         }
     }
+}
 
+impl<'ast, T: 'ast + Copy> List<'ast, T> {
     #[inline]
     pub fn from(arena: &'ast Arena, value: T) -> List<'ast, T> {
         List {
-            root: Cell::new(Some(arena.alloc(ListItem {
+            root: CopyCell::new(Some(arena.alloc(ListItem {
                 value,
-                next: Cell::new(None)
+                next: CopyCell::new(None)
             })))
         }
     }

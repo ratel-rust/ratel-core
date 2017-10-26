@@ -22,7 +22,7 @@ impl Arena {
     }
 
     #[inline]
-    pub fn alloc<'a, T: Sized>(&'a self, val: T) -> &'a T {
+    pub fn alloc<'a, T: Sized + Copy>(&'a self, val: T) -> &'a T {
         let mut offset = self.offset.get();
         let cap = offset + size_of::<T>();
 

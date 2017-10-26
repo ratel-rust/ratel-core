@@ -1,13 +1,13 @@
 use ast::{Loc, List, DeclarationKind, Function, Class, MandatoryName};
 use ast::{ExpressionPtr, StatementPtr, StatementList};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
     pub name: ExpressionPtr<'ast>,
     pub value: Option<ExpressionPtr<'ast>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Statement<'ast> {
     Error,
     Empty,

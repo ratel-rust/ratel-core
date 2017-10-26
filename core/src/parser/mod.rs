@@ -95,12 +95,12 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc<T>(&mut self, val: T) -> Ptr<'ast, T> {
+    fn alloc<T: Copy>(&mut self, val: T) -> Ptr<'ast, T> {
         Ptr::new(self.arena.alloc(val))
     }
 
     #[inline]
-    fn alloc_in_loc<T>(&mut self, item: T) -> Ptr<'ast, Loc<T>> {
+    fn alloc_in_loc<T: Copy>(&mut self, item: T) -> Ptr<'ast, Loc<T>> {
         let node = self.in_loc(item);
         self.alloc(node)
     }
@@ -261,7 +261,7 @@ mod mock {
             }
         }
 
-        pub fn ptr<'a, T: 'a>(&'a self, val: T) -> Ptr<'a, Loc<T>> {
+        pub fn ptr<'a, T: 'a + Copy>(&'a self, val: T) -> Ptr<'a, Loc<T>> {
             Ptr::new(self.arena.alloc(Loc::new(0, 0, val)))
         }
 
@@ -274,7 +274,7 @@ mod mock {
         }
 
         pub fn list<'a, T, L>(&'a self, list: L) -> List<'a, Loc<T>> where
-            T: 'a + Clone,
+            T: 'a + Copy,
             L: AsRef<[T]>
         {
             List::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| Loc::new(0, 0, i)))

@@ -1,5 +1,6 @@
 mod variable;
 mod operator;
+mod types;
 mod expression;
 mod statement;
 mod function;
@@ -12,6 +13,7 @@ use std::ops::Deref;
 pub use ast::variable::*;
 pub use ast::operator::*;
 pub use ast::ptr::Ptr;
+pub use ast::types::{Type, Primitive};
 pub use ast::expression::{Expression, ObjectMember, Property};
 pub use ast::statement::{Statement, Declarator};
 pub use ast::function::{Function, Class, ClassMember};
@@ -22,6 +24,8 @@ pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 // Handful of useful aliases
 pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
 pub type ParameterList<'ast> = List<'ast, Loc<Parameter<'ast>>>;
+pub type TypePtr<'ast> = List<'ast, Loc<Type<'ast>>>;
+pub type TypeList<'ast> = List<'ast, Loc<Type<'ast>>>;
 pub type ExpressionPtr<'ast> = Ptr<'ast, Loc<Expression<'ast>>>;
 pub type ExpressionList<'ast> = List<'ast, Loc<Expression<'ast>>>;
 pub type StatementPtr<'ast> = Ptr<'ast, Loc<Statement<'ast>>>;
@@ -35,6 +39,8 @@ pub struct Loc<T> {
     pub end: u32,
     pub item: T,
 }
+
+impl<T: Copy> Copy for Loc<T> {}
 
 impl<T> Deref for Loc<T> {
     type Target = T;

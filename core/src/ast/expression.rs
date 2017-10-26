@@ -2,14 +2,14 @@ use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
 use ast::{PropertyPtr, IdentifierPtr};
 use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterList};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Property<'ast> {
     Computed(ExpressionPtr<'ast>),
     Literal(&'ast str),
     Binary(u64),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ObjectMember<'ast> {
     Shorthand(&'ast str),
     Value {
@@ -23,7 +23,7 @@ pub enum ObjectMember<'ast> {
     },
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Expression<'ast> {
     Error,
     Void,
