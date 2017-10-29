@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::hash_map::{HashMap, Entry};
+use arena::Arena;
 
 #[derive(PartialEq)]
 enum ScopeKind {
@@ -8,16 +9,17 @@ enum ScopeKind {
 
 struct ScopeFrame<'ast> {
     kind: ScopeKind,
-    vars: HashMap<&'ast str, &'ast str>
+    vars: HashMap<&'ast str, &'ast str>,
 }
 
 pub struct Scope<'ast> {
+    arena: &'ast Arena,
     frame: usize,
-    frames: Vec<ScopeFrame<'ast>>
+    frames: Vec<ScopeFrame<'ast>>,
 }
 
 impl<'ast> Scope<'ast> {
-    pub fn new() -> Self {
+    pub fn new(arena: &'ast Arena) -> Self {
         let mut frames = Vec::with_capacity(8);
 
         frames.push(ScopeFrame {
@@ -26,6 +28,7 @@ impl<'ast> Scope<'ast> {
         });
 
         Scope {
+            arena,
             frame: 0,
             frames
         }
@@ -90,6 +93,44 @@ impl<'ast> Scope<'ast> {
 
         frame.vars.insert(var, var);
     }
+
+    pub fn set_unique_in_block(&mut self, var: &'ast str) -> &'ast str {
+        let frame = &mut self.frames[self.frame];
+
+        Scope::set_unique_in_frame(&self.arena, frame, var)
+    }
+
+    pub fn set_unique_in_function(&mut self, var: &'ast str) -> &'ast str {
+        let frame = self.frames[..self.frame + 1]
+                        .iter_mut()
+                        .rev()
+                        .skip_while(|frame| frame.kind != ScopeKind::Function)
+                        .next()
+                        .expect("Must have a Function kind scope");
+
+        Scope::set_unique_in_frame(&self.arena, frame, var)
+    }
+
+    fn set_unique_in_frame(arena: &'ast Arena, frame: &mut ScopeFrame<'ast>, var: &'ast str) -> &'ast str {
+        if let Entry::Vacant(vacant) = frame.vars.entry(var) {
+            vacant.insert(var);
+            return var;
+        }
+
+        let mut attempt = 1;
+
+        loop {
+            let altered = format!("{}${}", var, attempt);
+
+            if !frame.vars.contains_key(altered.as_str()) {
+                let var = arena.alloc_string(altered);
+                frame.vars.insert(var, var);
+                return var;
+            }
+
+            attempt += 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -98,7 +139,8 @@ mod test {
 
     #[test]
     fn scope() {
-        let mut scope = Scope::new();
+        let arena = Arena::new();
+        let mut scope = Scope::new(&arena);
 
         scope.set_in_block("foo");
         scope.set_in_function("bar");
@@ -138,5 +180,27 @@ mod test {
         assert_eq!(scope.has_in_block("bar"), true);
         assert_eq!(scope.has_in_function("foo"), true);
         assert_eq!(scope.has_in_function("bar"), true);
+    }
+
+    #[test]
+    fn set_unique_in_block() {
+        let arena = Arena::new();
+        let mut scope = Scope::new(&arena);
+
+        assert_eq!(scope.set_unique_in_block("foo"), "foo");
+        assert_eq!(scope.set_unique_in_block("foo"), "foo$1");
+        assert_eq!(scope.set_unique_in_block("foo"), "foo$2");
+        assert_eq!(scope.set_unique_in_block("foo"), "foo$3");
+
+        assert_eq!(scope.set_unique_in_block("bar"), "bar");
+        assert_eq!(scope.set_unique_in_block("bar"), "bar$1");
+        assert_eq!(scope.set_unique_in_block("bar"), "bar$2");
+        assert_eq!(scope.set_unique_in_block("bar"), "bar$3");
+
+        assert_eq!(scope.has_in_block("foo"), true);
+        assert_eq!(scope.has_in_block("foo$1"), true);
+        assert_eq!(scope.has_in_block("foo$2"), true);
+        assert_eq!(scope.has_in_block("foo$3"), true);
+        assert_eq!(scope.has_in_block("foo$4"), false);
     }
 }
