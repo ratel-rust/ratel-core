@@ -36,7 +36,7 @@ describe('Ratel ffi', () => {
     it('throws syntax errors', () => {
       assert.throws(() => {
         Ratel.parse('function function () {}');
-      }, /UnexpectedToken/);
+      }, /Unexpected token/);
     });
 
     it('parses', () => {

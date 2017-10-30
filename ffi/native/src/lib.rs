@@ -6,7 +6,7 @@ extern crate ratel;
 use neon::vm::{Call, JsResult};
 use neon::js::{JsString, JsBoolean};
 use neon::js::error::{JsError, Kind};
-use ratel::{parser, codegen, error/*, transformer */};
+use ratel::{parser, codegen, error, transformer};
 use error::{Error, ParseError};
 
 fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec<String> {
@@ -15,7 +15,7 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
     .map(|err| {
         match err {
             Error::UnexpectedToken { start, end } => {
-               ParseError::UnexpectedToken { start, end, source: source.value()}
+               ParseError::UnexpectedToken { start, end, source: source.value() }
             },
             Error::UnexpectedEndOfProgram => {
                 ParseError::UnexpectedEndOfProgram
@@ -44,7 +44,7 @@ fn transform(call: Call) -> JsResult<JsString> {
         Ok(ast) => ast,
     };
 
-    // transformer::transform(&mut ast, transformer::Settings::target_es5());
+    transformer::transform(&mut ast.body(), transformer::Settings::target_es5());
     let out = codegen::codegen(&ast, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())
