@@ -164,6 +164,13 @@ impl<'ast, T: 'ast> List<'ast, T> {
     }
 
     #[inline]
+    pub fn ptr_iter(&self) -> ListPtrIter<'ast, T> {
+        ListPtrIter {
+            next: self.root.get()
+        }
+    }
+
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.root.get().is_none()
     }
@@ -253,32 +260,21 @@ impl<'ast, T: 'ast> Iterator for ListIter<'ast, T> {
     }
 }
 
-// pub struct ListIterMut<'ast, T: 'ast> {
-//     next: Option<ListItem<'ast, T>>
-// }
+pub struct ListPtrIter<'ast, T: 'ast> {
+    next: Option<&'ast ListItem<'ast, T>>
+}
 
-// impl<'ast, T: 'ast> Iterator for ListIterMut<'ast, T> {
-//     type Item = &'ast mut &'ast T;
+impl<'ast, T: 'ast> Iterator for ListPtrIter<'ast, T> {
+    type Item = &'ast Ptr<'ast, T>;
 
-//     #[inline]
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.next = match self.next {
-//             Some(ListItem {
-//                 ref mut value,
-//                 ref next,
-//             }) => {
-//                 self.next = next.get().map(|li| *li);
-//                 Some(value.get_mut())
-//             }
-//             None             => None
-//         }
-//         // let next = self.next;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.next;
 
-//         // next.map(|list_item| {
-//         //     let ref value = list_item.value;
-//         //     self.next = list_item.next.get_mut();
-//         //     value
-//         // })
-//         // None
-//     }
-// }
+        next.map(|list_item| {
+            let value = &list_item.value;
+            self.next = list_item.next.get();
+            value
+        })
+    }
+}

@@ -1,11 +1,20 @@
 use transformer::{Transformer, Transformable};
-use ast::Expression;
+use ast::{Expression, ExpressionPtr, ExpressionList};
 
-impl<'ast> Transformable<'ast> for Expression<'ast> {
+impl<'ast> Transformable<'ast> for ExpressionList<'ast> {
+    #[inline]
+    fn transform(&self, t: &Transformer) {
+        for expression in self.ptr_iter() {
+            expression.transform(t);
+        }
+    }
+}
+
+impl<'ast> Transformable<'ast> for ExpressionPtr<'ast> {
     fn transform(&self, t: &Transformer) {
         use self::Expression::*;
 
-        match *self {
+        match self.item {
             Error => panic!("Module contains errors"),
             Void => {},
             This => {},

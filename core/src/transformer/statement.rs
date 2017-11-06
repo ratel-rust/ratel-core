@@ -1,11 +1,20 @@
 use transformer::{Transformer, Transformable};
-use ast::Statement;
+use ast::{Statement, StatementPtr, StatementList};
 
-impl<'ast> Transformable<'ast> for Statement<'ast> {
+impl<'ast> Transformable<'ast> for StatementList<'ast> {
+    #[inline]
+    fn transform(&self, t: &Transformer) {
+        for statement in self.ptr_iter() {
+            statement.transform(t);
+        }
+    }
+}
+
+impl<'ast> Transformable<'ast> for StatementPtr<'ast> {
     fn transform(&self, t: &Transformer) {
         use self::Statement::*;
 
-        match *self {
+        match self.item {
             Error => panic!("Module contains errors"),
             Empty => {},
             Expression {

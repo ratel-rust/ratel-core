@@ -5,7 +5,7 @@ mod expression;
 
 use arena::Arena;
 use module::Module;
-use ast::{List, Ptr, Loc};
+use ast::{StatementList, Ptr, Loc};
 
 pub use self::scope::Scope;
 pub use self::settings::Settings;
@@ -25,29 +25,6 @@ impl<'ast> Transformer<'ast> {
     pub fn transform<T: Transformable<'ast>>(&self, item: T) {
         item.transform(self);
 
-    }
-}
-
-impl<'ast, T: Transformable<'ast>> Transformable<'ast> for List<'ast, T> {
-    #[inline]
-    fn transform(&self, t: &Transformer<'ast>) {
-        for item in self.iter() {
-            item.transform(t);
-        }
-    }
-}
-
-impl<'ast, T: Transformable<'ast>> Transformable<'ast> for Ptr<'ast, T> {
-    #[inline]
-    fn transform(&self, t: &Transformer<'ast>) {
-        (**self).transform(t);
-    }
-}
-
-impl<'ast, T: Transformable<'ast>> Transformable<'ast> for Loc<T> {
-    #[inline]
-    fn transform(&self, t: &Transformer<'ast>) {
-        self.item.transform(t);
     }
 }
 
