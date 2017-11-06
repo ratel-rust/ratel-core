@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token;
 use lexer::Token::*;
-use ast::{Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property, Value, OperatorKind};
+use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property, Value, OperatorKind};
 
 impl<'ast> Parser<'ast> {
     #[inline]
@@ -57,7 +57,7 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    fn class_member(&mut self, token: Token<'ast>, is_static: bool) -> Loc<ClassMember<'ast>> {
+    fn class_member(&mut self, token: Token<'ast>, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
         let property = match token {
             Identifier(label) => Property::Literal(label),
             Literal(Value::Number(num)) => Property::Literal(num),
@@ -67,7 +67,7 @@ impl<'ast> Parser<'ast> {
 
                 expect!(self, BracketClose);
 
-                Property::Computed(self.alloc(expression))
+                Property::Computed(expression)
             },
             _ => {
                 // Allow word tokens such as "null" and "typeof" as identifiers
@@ -78,7 +78,7 @@ impl<'ast> Parser<'ast> {
             }
         };
 
-        match self.next() {
+        let member = match self.next() {
             ParenOpen => {
                 let params = self.parameter_list();
                 let body = self.block_body();
@@ -103,11 +103,13 @@ impl<'ast> Parser<'ast> {
                 Loc::new(0, 0, ClassMember::Value {
                     is_static,
                     property,
-                    value: self.alloc(expression),
+                    value: expression,
                 })
             },
             _ => unexpected_token!(self),
-        }
+        };
+
+        self.alloc(member)
     }
 }
 

@@ -1,15 +1,15 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::{Asi, Token};
-use ast::{Loc, List, ListBuilder, Declarator, DeclarationKind};
+use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclarationKind};
 use ast::{Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
+    pub fn statement(&mut self, token: Token<'ast>) -> StatementPtr<'ast> {
         match token {
-            Semicolon         => self.in_loc(Statement::Empty),
+            Semicolon         => self.alloc_in_loc(Statement::Empty),
             Identifier(label) => self.labeled_or_expression_statement(label),
             BraceOpen         => self.block_statement(),
             Declaration(kind) => self.variable_declaration_statement(kind),
@@ -28,84 +28,79 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn expect_statement(&mut self) -> Loc<Statement<'ast>> {
+    fn expect_statement(&mut self) -> StatementPtr<'ast> {
         let token = self.next();
         self.statement(token)
     }
 
     #[inline]
-    pub fn block_statement(&mut self) -> Loc<Statement<'ast>> {
-        Statement::Block {
-            body: self.block_body_tail()
-        }.at(0, 0)
+    pub fn block_statement(&mut self) -> StatementPtr<'ast> {
+        let body = self.block_body_tail();
+
+        self.alloc(Statement::Block { body }.at(0, 0))
     }
 
     #[inline]
-    pub fn expression_statement(&mut self, token: Token<'ast>) -> Loc<Statement<'ast>> {
+    pub fn expression_statement(&mut self, token: Token<'ast>) -> StatementPtr<'ast> {
         let expression = self.sequence_or_expression_from(token);
 
         let start = expression.start;
         let end = expression.end;
-        let expression = self.alloc(expression);
 
         expect_semicolon!(self);
 
-        Statement::Expression { expression }.at(start, end)
+        self.alloc(Statement::Expression { expression }.at(start, end))
     }
 
     #[inline]
-    pub fn labeled_or_expression_statement(&mut self, label: &'ast str) -> Loc<Statement<'ast>> {
+    pub fn labeled_or_expression_statement(&mut self, label: &'ast str) -> StatementPtr<'ast> {
         if let Colon = self.peek() {
             self.consume();
 
             let body = self.expect_statement();
 
-            return Statement::Labeled {
+            return self.alloc(Statement::Labeled {
                 label,
-                body: self.alloc(body),
-            }.at(0, 0)
+                body,
+            }.at(0, 0))
         }
 
-        let first = self.in_loc(Expression::Identifier(label));
+        let first = self.alloc_in_loc(Expression::Identifier(label));
         let first = self.complex_expression(first, 0);
         let expression = self.sequence_or(first);
 
         expect_semicolon!(self);
 
-        Statement::Expression {
-            expression: self.alloc(expression)
-        }.at(0, 0)
+        self.alloc(Statement::Expression { expression }.at(0, 0))
     }
 
     #[inline]
-    pub fn function_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn function_statement(&mut self) -> StatementPtr<'ast> {
         let name = expect_identifier!(self);
         let name = self.alloc_in_loc(name);
+        let function = self.function(name);
 
-        Statement::Function {
-            function: self.function(name)
-        }.at(0, 0)
+        self.alloc(Statement::Function { function }.at(0, 0))
     }
 
     #[inline]
-    fn class_statement(&mut self) -> Loc<Statement<'ast>> {
+    fn class_statement(&mut self) -> StatementPtr<'ast> {
         let name = expect_identifier!(self);
         let name = self.alloc_in_loc(name);
+        let class = self.class(name);
 
-        Statement::Class {
-            class: self.class(name)
-        }.at(0, 0)
+        self.alloc(Statement::Class { class }.at(0, 0))
     }
 
     #[inline]
-    pub fn return_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn return_statement(&mut self) -> StatementPtr<'ast> {
         let value = match self.asi() {
             Asi::NoSemicolon => {
                 let expression = self.sequence_or_expression();
 
                 expect_semicolon!(self);
 
-                Some(self.alloc(expression))
+                Some(expression)
             }
 
             Asi::ImplicitSemicolon => None,
@@ -116,17 +111,17 @@ impl<'ast> Parser<'ast> {
             }
         };
 
-        Statement::Return {
-            value,
-        }.at(0, 0)
+        self.alloc(Statement::Return { value }.at(0, 0))
     }
 
     #[inline]
-    pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> Loc<Statement<'ast>> {
-        let declaration = Statement::Declaration {
+    pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> StatementPtr<'ast> {
+        let declarators = self.variable_declarators();
+
+        let declaration = self.alloc(Statement::Declaration {
             kind: kind,
-            declarators: self.variable_declarators()
-        }.at(0, 0);
+            declarators
+        }.at(0, 0));
 
         expect_semicolon!(self);
 
@@ -134,29 +129,26 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declarator(&mut self) -> Loc<Declarator<'ast>> {
+    pub fn variable_declarator(&mut self) -> Ptr<'ast, Loc<Declarator<'ast>>> {
         let name = match self.next() {
             BraceOpen        => self.object_expression(),
             BracketOpen      => self.array_expression(),
-            Identifier(name) => self.in_loc(Expression::Identifier(name)),
+            Identifier(name) => self.alloc_in_loc(Expression::Identifier(name)),
             _                => unexpected_token!(self),
         };
-        let name = self.alloc(name);
 
         let value = match self.peek() {
             Operator(Assign) => {
                 self.consume();
-                let value = self.expression(0);
-
-                Some(self.alloc(value))
+                Some(self.expression(0))
             },
             _ => None
         };
 
-        Loc::new(0, 0, Declarator {
+        self.alloc(Loc::new(0, 0, Declarator {
             name,
             value,
-        })
+        }))
     }
 
     #[inline]
@@ -179,7 +171,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn break_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn break_statement(&mut self) -> StatementPtr<'ast> {
         let label = match self.asi() {
             Asi::ExplicitSemicolon => {
                 self.consume();
@@ -195,24 +187,20 @@ impl<'ast> Parser<'ast> {
             }
         };
 
-        Statement::Break {
-            label
-        }.at(0, 0)
+        self.alloc(Statement::Break { label }.at(0, 0))
     }
 
     #[inline]
-    pub fn throw_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn throw_statement(&mut self) -> StatementPtr<'ast> {
         let value = self.sequence_or_expression();
 
         expect_semicolon!(self);
 
-        Statement::Throw {
-            value: self.alloc(value)
-        }.at(0, 0)
+        self.alloc(Statement::Throw { value }.at(0, 0))
     }
 
     #[inline]
-    pub fn try_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn try_statement(&mut self) -> StatementPtr<'ast> {
         let body = self.block_body();
         expect!(self, Catch);
         expect!(self, ParenOpen);
@@ -224,71 +212,67 @@ impl<'ast> Parser<'ast> {
         let handler = self.block_body();
         expect_semicolon!(self);
 
-        Statement::Try {
-            body: body,
-            error: error,
-            handler: handler
-        }.at(0, 0)
+        self.alloc(Statement::Try {
+            body,
+            error,
+            handler,
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn if_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn if_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
 
         let test = self.expression(0);
-        let test = self.alloc(test);
         expect!(self, ParenClose);
 
         let consequent = self.expect_statement();
-        let consequent = self.alloc(consequent);
 
         let alternate = match self.peek() {
             Else => {
                 self.consume();
-                let statement = self.expect_statement();
-                Some(self.alloc(statement))
+                Some(self.expect_statement())
             },
             _ => None
         };
 
-        Statement::If {
+        self.alloc(Statement::If {
             test,
             consequent,
             alternate,
-        }.at(0, 0)
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn while_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn while_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
 
         let test = self.expression(0);
-        let test = self.alloc(test);
         expect!(self, ParenClose);
 
         let body = self.expect_statement();
 
-        Statement::While {
+        self.alloc(Statement::While {
             test,
-            body: self.alloc(body)
-        }.at(0, 0)
+            body,
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn do_statement(&mut self) -> Loc<Statement<'ast>> {
+    pub fn do_statement(&mut self) -> StatementPtr<'ast> {
         let body = self.expect_statement();
         expect!(self, While);
 
         let test = self.expression(0);
 
-        Statement::Do {
-            body: self.alloc(body),
-            test: self.alloc(test),
-        }.at(0, 0)
+        self.alloc(Statement::Do {
+            body,
+            test,
+        }.at(0, 0))
     }
 
     #[inline]
-    fn for_statement(&mut self) -> Loc<Statement<'ast>> {
+    fn for_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
 
         let init = match self.next() {
@@ -304,13 +288,13 @@ impl<'ast> Parser<'ast> {
                     },
                     ..
                 }) = declarators.only_element() {
-                    if let Expression::Binary { operator: In, ref right, .. } = value.item {
+                    if let Expression::Binary { operator: In, right, .. } = value.item {
                         let left = self.alloc(Statement::Declaration {
                             kind,
                             declarators,
                         }.at(0, 0));
 
-                        return self.for_in_statement_from_parts(left, right.clone());
+                        return self.for_in_statement_from_parts(left, right);
                     }
                 }
 
@@ -325,18 +309,16 @@ impl<'ast> Parser<'ast> {
 
                 if let Expression::Binary {
                     operator: In,
-                    ref left,
-                    ref right,
+                    left,
+                    right,
                     ..
                 } = expression.item {
                     let left = self.alloc(Statement::Expression {
-                        expression: left.clone()
+                        expression: left
                     }.at(0, 0));
 
-                    return self.for_in_statement_from_parts(left, right.clone());
+                    return self.for_in_statement_from_parts(left, right);
                 }
-
-                let expression = self.alloc(expression);
 
                 Some(self.alloc(Statement::Expression {
                     expression
@@ -344,10 +326,10 @@ impl<'ast> Parser<'ast> {
             },
         };
 
-        if let Some(ref init) = init {
+        if let Some(init) = init {
             match self.next() {
-                Operator(In)     => return self.for_in_statement(init.clone()),
-                Identifier("of") => return self.for_of_statement(init.clone()),
+                Operator(In)     => return self.for_in_statement(init),
+                Identifier("of") => return self.for_of_statement(init),
                 Semicolon        => {},
                 _                => unexpected_token!(self),
             }
@@ -359,7 +341,7 @@ impl<'ast> Parser<'ast> {
                 let test = self.expression_from(token, 0);
                 expect!(self, Semicolon);
 
-                Some(self.alloc(test))
+                Some(test)
             }
         };
 
@@ -369,58 +351,58 @@ impl<'ast> Parser<'ast> {
                 let update = self.expression_from(token, 0);
                 expect!(self, ParenClose);
 
-                Some(self.alloc(update))
+                Some(update)
             }
         };
 
         let body = self.expect_statement();
 
-        Statement::For {
+        self.alloc(Statement::For {
             init,
             test,
             update,
-            body: self.alloc(body),
-        }.at(0, 0)
+            body,
+        }.at(0, 0))
     }
 
-    fn for_in_statement_from_parts(&mut self, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> Loc<Statement<'ast>> {
+    fn for_in_statement_from_parts(&mut self, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
         expect!(self, ParenClose);
 
         let body = self.expect_statement();
 
-        Statement::ForIn {
+        self.alloc(Statement::ForIn {
             left,
             right,
-            body: self.alloc(body),
-        }.at(0, 0)
+            body,
+        }.at(0, 0))
     }
 
-    fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
+    fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
         let right = self.sequence_or_expression();
 
         expect!(self, ParenClose);
 
         let body = self.expect_statement();
 
-        Statement::ForIn {
+        self.alloc(Statement::ForIn {
             left,
-            right: self.alloc(right),
-            body: self.alloc(body),
-        }.at(0, 0)
+            right,
+            body,
+        }.at(0, 0))
     }
 
-    fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> Loc<Statement<'ast>> {
+    fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
         let right = self.sequence_or_expression();
 
         expect!(self, ParenClose);
 
         let body = self.expect_statement();
 
-        Statement::ForOf {
+        self.alloc(Statement::ForOf {
             left,
-            right: self.alloc(right),
-            body: self.alloc(body),
-        }.at(0, 0)
+            right,
+            body,
+        }.at(0, 0))
     }
 }
 

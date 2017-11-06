@@ -6,3 +6,6 @@ license = "MIT/Apache-2.0"
 description = "JavaScript transpiler in Rust"
 repository = "https://github.com/ratel-rust/ratel-core"
 documentation = "https://github.com/ratel-rust/ratel-core"
+
+[dependencies]
+lazy_static = "0.2.9"

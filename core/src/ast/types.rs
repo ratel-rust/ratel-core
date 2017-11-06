@@ -1,9 +1,9 @@
 use ast::{Loc, TypePtr, TypeList};
 
-static TYPE_MIXED: &Loc<Type<'static>> = &Loc {
+static TYPE_ANY: &Loc<Type<'static>> = &Loc {
     start: 0,
     end: 0,
-    item: Type::Mixed
+    item: Type::Any
 };
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -17,7 +17,7 @@ pub enum Primitive {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Type<'ast> {
-    Mixed,
+    Any,
     Primitive(Primitive),
     Identifier(&'ast str),
     Union {

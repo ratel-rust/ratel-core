@@ -30,6 +30,13 @@ impl<T: Copy> CopyCell<T> {
     }
 
     #[inline]
+    pub fn get_mut(&mut self) -> &mut T {
+        unsafe {
+            &mut *self.mut_ptr()
+        }
+    }
+
+    #[inline]
     pub fn set(&self, value: T) {
         let ptr = unsafe { &mut *self.mut_ptr() };
         *ptr = value;
@@ -63,6 +70,11 @@ impl<'ast, T: 'ast> Ptr<'ast, T> {
     #[inline]
     pub fn set(&self, ptr: &'ast T) {
         self.inner.set(ptr)
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self) -> &mut &'ast T {
+        self.inner.get_mut()
     }
 }
 

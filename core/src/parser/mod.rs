@@ -7,8 +7,9 @@ mod function;
 
 use error::Error;
 use arena::Arena;
+use module::Module;
 
-use ast::{Loc, Ptr, Statement, RawList, List, ListBuilder, EmptyListBuilder};
+use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterList, OperatorKind};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
@@ -170,7 +171,7 @@ impl<'ast> Parser<'ast> {
                 value: None
             };
 
-            builder.push(self.in_loc(parameter));
+            builder.push(self.alloc_in_loc(parameter));
 
             match token {
                 ParenClose => break,
@@ -192,10 +193,10 @@ impl<'ast> Parser<'ast> {
             let value = self.expression(0);
             let parameter = Parameter {
                 key,
-                value: Some(self.alloc(value))
+                value: Some(value)
             };
 
-            builder.push(self.in_loc(parameter));
+            builder.push(self.alloc_in_loc(parameter));
 
             match self.next() {
                 ParenClose => break,
@@ -212,21 +213,6 @@ impl<'ast> Parser<'ast> {
     }
 }
 
-pub struct Module {
-    body: RawList,
-    arena: Arena,
-}
-
-impl Module {
-    pub fn body<'ast>(&'ast self) -> List<'ast, Loc<Statement<'ast>>> {
-        unsafe { self.body.into_list() }
-    }
-
-    pub fn arena(&self) -> &Arena {
-        &self.arena
-    }
-}
-
 pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
     let arena = Arena::new();
 
@@ -240,7 +226,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
     };
 
     match errors.len() {
-        0 => Ok(Module { body, arena }),
+        0 => Ok(Module::new(body, arena)),
         _ => Err(errors)
     }
 }

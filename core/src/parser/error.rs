@@ -1,6 +1,6 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, Expression, Declarator, ObjectMember};
+use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Declarator, ObjectMember};
 use ast::{Name, Function, Class, ClassMember};
 use parser::Parser;
 
@@ -18,9 +18,29 @@ impl<'ast> ToError for Statement<'ast> {
     }
 }
 
+impl<'ast> ToError for StatementPtr<'ast> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Statement::Error
+        })
+    }
+}
+
 impl<'ast> ToError for Expression<'ast> {
     fn to_error() -> Self {
         Expression::Error
+    }
+}
+
+impl<'ast> ToError for ExpressionPtr<'ast> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Expression::Error
+        })
     }
 }
 
@@ -37,18 +57,58 @@ impl<'ast> ToError for Declarator<'ast> {
     }
 }
 
+lazy_static! {
+    static ref DECLARATOR_PTR: Ptr<'static, Loc<Declarator<'static>>> = {
+        let declarator = Box::new(Loc {
+            start: 0,
+            end: 0,
+            item: Declarator::to_error()
+        });
+
+        let declarator = Box::into_raw(declarator);
+        Ptr::new({
+            unsafe { &*declarator }
+        })
+    };
+}
+
+impl<'ast> ToError for Ptr<'ast, Loc<Declarator<'ast>>> {
+    fn to_error() -> Self {
+        *DECLARATOR_PTR
+    }
+}
+
 impl<'ast> ToError for ObjectMember<'ast> {
     fn to_error() -> Self {
         ObjectMember::Shorthand("")
     }
 }
 
-impl<'ast> ToError for ClassMember<'ast> {
+impl<'ast> ToError for Ptr<'ast, Loc<ObjectMember<'ast>>> {
     fn to_error() -> Self {
-        ClassMember::Constructor {
-            params: List::empty(),
-            body: List::empty()
-        }
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: ObjectMember::Shorthand("")
+        })
+    }
+}
+
+impl<'ast> ToError for Ptr<'ast, Loc<ClassMember<'ast>>> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: ClassMember::Error,
+        })
+    }
+}
+
+impl<'ast, T: ToError> Handle<'ast> for T {
+    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
+        parser.errors.push(err);
+
+        ToError::to_error()
     }
 }
 

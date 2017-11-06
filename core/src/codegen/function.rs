@@ -73,6 +73,7 @@ impl<'ast, G: Generator> ToCode<G> for ClassMember<'ast> {
         use ast::ClassMember::*;
 
         match *self {
+            Error => panic!("Module contains errors"),
             Constructor {
                 ref params,
                 ref body,

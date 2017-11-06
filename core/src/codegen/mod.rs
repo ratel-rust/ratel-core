@@ -1,5 +1,5 @@
 use ast::{Ptr, Loc, Statement, StatementPtr};
-use parser::Module;
+use module::Module;
 
 mod expression;
 mod statement;

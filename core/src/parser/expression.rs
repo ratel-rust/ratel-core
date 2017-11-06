@@ -1,22 +1,22 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::{Token, TemplateKind};
-use ast::{Loc, List, ListBuilder, Expression, ExpressionPtr, ObjectMember, Property, OperatorKind, Value};
+use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn expression(&mut self, lbp: u8) -> Loc<Expression<'ast>> {
+    pub fn expression(&mut self, lbp: u8) -> ExpressionPtr<'ast> {
         let token = self.next();
         self.expression_from(token, lbp)
     }
 
     #[inline]
-    pub fn expression_from(&mut self, token: Token<'ast>, lbp: u8) -> Loc<Expression<'ast>> {
+    pub fn expression_from(&mut self, token: Token<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
         let left = match token {
-            This               => self.in_loc(Expression::This),
-            Literal(value)     => self.in_loc(Expression::Value(value)),
-            Identifier(value)  => self.in_loc(Expression::Identifier(value)),
+            This               => self.alloc_in_loc(Expression::This),
+            Literal(value)     => self.alloc_in_loc(Expression::Value(value)),
+            Identifier(value)  => self.alloc_in_loc(Expression::Identifier(value)),
             Operator(Division) => self.regular_expression(),
             Operator(optype)   => self.prefix_expression(optype),
             ParenOpen          => self.paren_expression(),
@@ -32,7 +32,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn complex_expression(&mut self, mut left: Loc<Expression<'ast>>, lbp: u8) -> Loc<Expression<'ast>> {
+    pub fn complex_expression(&mut self, mut left: ExpressionPtr<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
         loop {
             left = match self.peek() {
                 Operator(op @ Increment) |
@@ -40,10 +40,10 @@ impl<'ast> Parser<'ast> {
                     self.consume();
 
                     // TODO: op.end
-                    Loc::new(left.start, left.end, Expression::Postfix {
+                    self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
                         operator: op,
-                        operand: self.alloc(left),
-                    })
+                        operand: left,
+                    }))
                 }
 
                 Operator(op @ Conditional) => {
@@ -53,11 +53,11 @@ impl<'ast> Parser<'ast> {
                     expect!(self, Colon);
                     let alternate = self.expression(op.binding_power());
 
-                    Expression::Conditional {
-                        test: self.alloc(left),
-                        consequent: self.alloc(consequent),
-                        alternate: self.alloc(alternate),
-                    }.at(0, 0)
+                    self.alloc(Expression::Conditional {
+                        test: left,
+                        consequent: consequent,
+                        alternate: alternate,
+                    }.at(0, 0))
                 }
 
                 Operator(FatArrow) => {
@@ -65,7 +65,6 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(op) => {
-
                     let rbp = op.binding_power();
 
                     if lbp > rbp {
@@ -84,22 +83,22 @@ impl<'ast> Parser<'ast> {
 
                     let right = self.expression(rbp);
 
-                    Loc::new(left.start, right.end, Expression::Binary {
+                    self.alloc(Loc::new(left.start, right.end, Expression::Binary {
                         operator: op,
-                        left: self.alloc(left),
-                        right: self.alloc(right),
-                    })
+                        left: left,
+                        right: right,
+                    }))
                 },
 
                 Accessor(member) => {
                     self.consume();
 
-                    let right = self.in_loc(member);
+                    let right = self.alloc_in_loc(member);
 
-                    Loc::new(left.start, right.end, Expression::Member {
-                        object: self.alloc(left),
-                        property: self.alloc(right),
-                    })
+                    self.alloc(Loc::new(left.start, right.end, Expression::Member {
+                        object: left,
+                        property: right,
+                    }))
                 },
 
                 ParenOpen => {
@@ -109,10 +108,12 @@ impl<'ast> Parser<'ast> {
 
                     self.consume();
 
-                    Expression::Call {
-                        callee: self.alloc(left),
-                        arguments: self.expression_list(),
-                    }.at(0, 0)
+                    let arguments = self.expression_list();
+
+                    self.alloc(Expression::Call {
+                        callee: left,
+                        arguments,
+                    }.at(0, 0))
                 },
 
                 BracketOpen => {
@@ -126,10 +127,10 @@ impl<'ast> Parser<'ast> {
 
                     expect!(self, BracketClose);
 
-                    Expression::ComputedMember {
-                        object: self.alloc(left),
-                        property: self.alloc(property),
-                    }.at(0, 0)
+                    self.alloc(Expression::ComputedMember {
+                        object: left,
+                        property: property,
+                    }.at(0, 0))
                 },
 
                 Template(kind) => {
@@ -139,9 +140,7 @@ impl<'ast> Parser<'ast> {
 
                     self.consume();
 
-                    let tag = Some(self.alloc(left));
-
-                    self.template_expression(tag, kind)
+                    self.template_expression(Some(left), kind)
                 },
 
                 _ => break
@@ -152,7 +151,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn arrow_function_expression(&mut self, params: Option<Loc<Expression<'ast>>>) -> Loc<Expression<'ast>> {
+    pub fn arrow_function_expression(&mut self, params: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
         expect!(self, Operator(FatArrow));
 
         let list = match params {
@@ -161,36 +160,30 @@ impl<'ast> Parser<'ast> {
         };
 
         let body = match self.next() {
-            BraceOpen => {
-                let body = self.block_statement();
-                self.alloc(body)
-            },
-            body => {
-                let body = self.expression_statement(body);
-                self.alloc(body)
-            }
+            BraceOpen => self.block_statement(),
+            body => self.expression_statement(body),
         };
 
-        Expression::Arrow {
+        self.alloc(Expression::Arrow {
             params: list,
             body
-        }.at(0, 0)
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn sequence_or_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn sequence_or_expression(&mut self) -> ExpressionPtr<'ast> {
         let token = self.next();
         self.sequence_or_expression_from(token)
     }
 
     #[inline]
-    pub fn sequence_or_expression_from(&mut self, token: Token<'ast>) -> Loc<Expression<'ast>> {
+    pub fn sequence_or_expression_from(&mut self, token: Token<'ast>) -> ExpressionPtr<'ast> {
         let first = self.expression_from(token, 0);
         self.sequence_or(first)
     }
 
     #[inline]
-    pub fn sequence_or(&mut self, first: Loc<Expression<'ast>>) -> Loc<Expression<'ast>> {
+    pub fn sequence_or(&mut self, first: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
         match self.peek() {
             Comma => {
                 self.consume();
@@ -203,16 +196,16 @@ impl<'ast> Parser<'ast> {
                     builder.push(self.expression(0));
                 }
 
-                Expression::Sequence {
+                self.alloc(Expression::Sequence {
                     body: builder.into_list()
-                }.at(0, 0)
+                }.at(0, 0))
             },
             _ => first
         }
     }
 
     #[inline]
-    pub fn expression_list(&mut self) -> List<'ast, Loc<Expression<'ast>>> {
+    pub fn expression_list(&mut self) -> ExpressionList<'ast> {
         let expression = match self.next() {
             ParenClose => return List::empty(),
             token      => self.expression_from(token, 0),
@@ -234,7 +227,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn paren_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn paren_expression(&mut self) -> ExpressionPtr<'ast> {
         match self.next() {
             ParenClose => {
                 self.arrow_function_expression(None)
@@ -250,24 +243,24 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn prefix_expression(&mut self, operator: OperatorKind) -> Loc<Expression<'ast>> {
+    fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
         if !operator.prefix() {
             unexpected_token!(self);
         }
 
         let operand = self.expression(15);
 
-        Expression::Prefix {
+        self.alloc(Expression::Prefix {
             operator: operator,
-            operand: self.alloc(operand),
-        }.at(0, 0)
+            operand: operand,
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn object_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
         let member = match self.next() {
             BraceClose => {
-                return self.in_loc(Expression::Object {
+                return self.alloc_in_loc(Expression::Object {
                     body: List::empty()
                 });
             },
@@ -289,18 +282,18 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        Expression::Object {
+        self.alloc(Expression::Object {
             body: builder.into_list()
-        }.at(0, 0)
+        }.at(0, 0))
     }
 
-    pub fn object_member(&mut self, token: Token<'ast>) -> Loc<ObjectMember<'ast>> {
+    pub fn object_member(&mut self, token: Token<'ast>) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
         let property = match token {
             Identifier(label) => {
                 match self.peek() {
                     Colon | ParenOpen => self.in_loc(Property::Literal(label)),
 
-                    _ => return self.in_loc(ObjectMember::Shorthand(label)),
+                    _ => return self.alloc_in_loc(ObjectMember::Shorthand(label)),
                 }
             },
 
@@ -310,7 +303,7 @@ impl<'ast> Parser<'ast> {
 
             BracketOpen => {
                 let expression = self.sequence_or_expression();
-                let property = Loc::new(0, 0, Property::Computed(self.alloc(expression)));
+                let property = Loc::new(0, 0, Property::Computed(expression));
 
                 expect!(self, BracketClose);
 
@@ -332,27 +325,30 @@ impl<'ast> Parser<'ast> {
             Colon => {
                 let value = self.expression(0);
 
-                Loc::new(0, 0, ObjectMember::Value {
+                self.alloc(Loc::new(0, 0, ObjectMember::Value {
                     property,
-                    value: self.alloc(value),
-                })
+                    value,
+                }))
             },
             ParenOpen => {
-                Loc::new(0, 0, ObjectMember::Method {
+                let params = self.parameter_list();
+                let body = self.block_body();
+
+                self.alloc(Loc::new(0, 0, ObjectMember::Method {
                     property,
-                    params: self.parameter_list(),
-                    body: self.block_body(),
-                })
+                    params,
+                    body,
+                }))
             },
             _ => unexpected_token!(self)
         }
     }
 
     #[inline]
-    pub fn array_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
         let expression = match self.next() {
-            Comma        => self.in_loc(Expression::Void),
-            BracketClose => return Expression::Array { body: List::empty() }.at(0,0),
+            Comma        => self.alloc_in_loc(Expression::Void),
+            BracketClose => return self.alloc(Expression::Array { body: List::empty() }.at(0,0)),
             token        => {
                 let expression = self.expression_from(token, 0);
 
@@ -360,7 +356,7 @@ impl<'ast> Parser<'ast> {
                     BracketClose => {
                         let body = List::from(self.arena, expression);
 
-                        return Expression::Array { body }.at(0, 0);
+                        return self.alloc(Expression::Array { body }.at(0, 0));
                     },
                     Comma        => expression,
                     _            => unexpected_token!(self),
@@ -373,12 +369,12 @@ impl<'ast> Parser<'ast> {
         loop {
             match self.next() {
                 Comma => {
-                    builder.push(self.in_loc(Expression::Void));
+                    builder.push(self.alloc_in_loc(Expression::Void));
 
                     continue;
                 },
                 BracketClose => {
-                    builder.push(self.in_loc(Expression::Void));
+                    builder.push(self.alloc_in_loc(Expression::Void));
 
                     break;
                 },
@@ -396,25 +392,25 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        Expression::Array {
+        self.alloc(Expression::Array {
             body: builder.into_list()
-        }.at(0,0)
+        }.at(0,0))
     }
 
     #[inline]
-    pub fn regular_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn regular_expression(&mut self) -> ExpressionPtr<'ast> {
         let value = match self.lexer.read_regular_expression() {
             Literal(value) => value,
             _              => unexpected_token!(self),
         };
 
-        Expression::Value(value).at(0, 0)
+        self.alloc(Expression::Value(value).at(0, 0))
     }
 
-    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>, kind: TemplateKind<'ast>) -> Loc<Expression<'ast>> {
+    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>, kind: TemplateKind<'ast>) -> ExpressionPtr<'ast> {
         let (quasi, expression) = match kind {
             TemplateKind::Open(quasi) => {
-                let quasi = self.in_loc(quasi);
+                let quasi = self.alloc_in_loc(quasi);
 
                 let expression = self.sequence_or_expression();
 
@@ -424,7 +420,7 @@ impl<'ast> Parser<'ast> {
             },
 
             TemplateKind::Closed(quasi) => {
-                let quasi = self.in_loc(quasi);
+                let quasi = self.alloc_in_loc(quasi);
 
                 let template = Expression::Template {
                     tag,
@@ -432,7 +428,7 @@ impl<'ast> Parser<'ast> {
                     quasis: List::from(self.arena, quasi),
                 };
 
-                return self.in_loc(template);
+                return self.alloc_in_loc(template);
             }
         };
 
@@ -442,28 +438,28 @@ impl<'ast> Parser<'ast> {
         loop {
             match self.lexer.read_template_kind() {
                 Template(TemplateKind::Open(quasi)) => {
-                    quasis.push(self.in_loc(quasi));
+                    quasis.push(self.alloc_in_loc(quasi));
                     expressions.push(self.sequence_or_expression());
 
                     expect!(self, BraceClose);
                 },
                 Template(TemplateKind::Closed(quasi)) => {
-                    quasis.push(self.in_loc(quasi));
+                    quasis.push(self.alloc_in_loc(quasi));
                     break;
                 },
                 _ => unexpected_token!(self)
             }
         }
 
-        Expression::Template {
+        self.alloc(Expression::Template {
             tag,
             expressions: expressions.into_list(),
             quasis: quasis.into_list(),
-        }.at(0, 0)
+        }.at(0, 0))
     }
 
     #[inline]
-    pub fn function_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
         let name = match self.peek() {
             Identifier(name) => {
                 self.consume();
@@ -472,13 +468,13 @@ impl<'ast> Parser<'ast> {
             _ => None
         };
 
-        Expression::Function {
-            function: self.function(name)
-        }.at(0, 0)
+        let function = self.function(name);
+
+        self.alloc(Expression::Function { function }.at(0, 0))
     }
 
     #[inline]
-    pub fn class_expression(&mut self) -> Loc<Expression<'ast>> {
+    pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
         let name = match self.peek() {
             Identifier(name) => {
                 self.consume();
@@ -487,9 +483,9 @@ impl<'ast> Parser<'ast> {
             _ => None
         };
 
-        Expression::Class {
-            class: self.class(name)
-        }.at(0, 0)
+        let class = self.class(name);
+
+        self.alloc(Expression::Class { class }.at(0, 0))
     }
 }
 

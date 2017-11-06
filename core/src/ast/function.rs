@@ -68,6 +68,7 @@ pub struct Function<'ast, N: Name<'ast>> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ClassMember<'ast> {
+    Error,
     Constructor {
         params: ParameterList<'ast>,
         body: StatementList<'ast>,

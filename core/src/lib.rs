@@ -1,4 +1,8 @@
+#[macro_use]
+extern crate lazy_static;
+
 pub mod arena;
+pub mod module;
 pub mod ast;
 pub mod error;
 pub mod lexer;

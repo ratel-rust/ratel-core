@@ -1,10 +1,10 @@
-use ast::ptr::CopyCell;
+use ast::ptr::{Ptr, CopyCell};
 use std::fmt::{self, Debug};
 use arena::Arena;
 
 #[derive(Debug, PartialEq, Clone)]
 struct ListItem<'ast, T: 'ast> {
-    value: T,
+    value: Ptr<'ast, T>,
     next: CopyCell<Option<&'ast ListItem<'ast, T>>>,
 }
 
@@ -18,7 +18,7 @@ pub struct ListBuilder<'ast, T: 'ast + Copy> {
 
 impl<'ast, T: 'ast + Copy> ListBuilder<'ast, T> {
     #[inline]
-    pub fn new(arena: &'ast Arena, first: T) -> Self {
+    pub fn new(arena: &'ast Arena, first: Ptr<'ast, T>) -> Self {
         let first = arena.alloc(ListItem {
             value: first,
             next: CopyCell::new(None)
@@ -32,7 +32,7 @@ impl<'ast, T: 'ast + Copy> ListBuilder<'ast, T> {
     }
 
     #[inline]
-    pub fn push(&mut self, item: T) {
+    pub fn push(&mut self, item: Ptr<'ast, T>) {
         let next = self.arena.alloc(ListItem {
             value: item,
             next: CopyCell::new(None)
@@ -67,7 +67,7 @@ impl<'ast, T: 'ast + Copy> EmptyListBuilder<'ast, T> {
     }
 
     #[inline]
-    pub fn push(&mut self, item: T) {
+    pub fn push(&mut self, item: Ptr<'ast, T>) {
         match self.last {
             None => {
                 self.first = Some(self.arena.alloc(ListItem {
@@ -175,7 +175,7 @@ impl<'ast, T: 'ast> List<'ast, T> {
         match self.root.get() {
             Some(&ListItem { ref value, ref next, .. }) => {
                 match next.get() {
-                    None => Some(value),
+                    None => Some(&**value),
                     _    => None,
                 }
             },
@@ -186,7 +186,7 @@ impl<'ast, T: 'ast> List<'ast, T> {
 
 impl<'ast, T: 'ast + Copy> List<'ast, T> {
     #[inline]
-    pub fn from(arena: &'ast Arena, value: T) -> List<'ast, T> {
+    pub fn from(arena: &'ast Arena, value: Ptr<'ast, T>) -> List<'ast, T> {
         List {
             root: CopyCell::new(Some(arena.alloc(ListItem {
                 value,
@@ -201,12 +201,12 @@ impl<'ast, T: 'ast + Copy> List<'ast, T> {
         let mut iter = source.into_iter();
 
         let mut builder = match iter.next() {
-            Some(item) => ListBuilder::new(arena, item),
+            Some(item) => ListBuilder::new(arena, Ptr::new(arena.alloc(item))),
             None       => return List::empty(),
         };
 
         for item in iter {
-            builder.push(item);
+            builder.push(Ptr::new(arena.alloc(item)));
         }
 
         builder.into_list()
@@ -246,9 +246,39 @@ impl<'ast, T: 'ast> Iterator for ListIter<'ast, T> {
         let next = self.next;
 
         next.map(|list_item| {
-            let ref value = list_item.value;
+            let value = &*list_item.value;
             self.next = list_item.next.get();
             value
         })
     }
 }
+
+// pub struct ListIterMut<'ast, T: 'ast> {
+//     next: Option<ListItem<'ast, T>>
+// }
+
+// impl<'ast, T: 'ast> Iterator for ListIterMut<'ast, T> {
+//     type Item = &'ast mut &'ast T;
+
+//     #[inline]
+//     fn next(&mut self) -> Option<Self::Item> {
+//         self.next = match self.next {
+//             Some(ListItem {
+//                 ref mut value,
+//                 ref next,
+//             }) => {
+//                 self.next = next.get().map(|li| *li);
+//                 Some(value.get_mut())
+//             }
+//             None             => None
+//         }
+//         // let next = self.next;
+
+//         // next.map(|list_item| {
+//         //     let ref value = list_item.value;
+//         //     self.next = list_item.next.get_mut();
+//         //     value
+//         // })
+//         // None
+//     }
+// }
