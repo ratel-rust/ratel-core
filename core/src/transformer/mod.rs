@@ -24,7 +24,22 @@ impl<'ast> Transformer<'ast> {
     #[inline]
     pub fn transform<T: Transformable<'ast>>(&self, item: T) {
         item.transform(self);
+    }
 
+    #[inline]
+    pub fn alloc<T: Copy + 'ast>(&self, item: T) -> Ptr<'ast, T> {
+        Ptr::new(self.arena.alloc(item))
+    }
+
+    #[inline]
+    pub fn swap<T: Copy + 'ast>(&self, ptr: &Ptr<'ast, Loc<T>>, item: T) {
+        let new = self.arena.alloc(Loc {
+            start: ptr.start,
+            end: ptr.end,
+            item
+        });
+
+        ptr.set(new);
     }
 }
 

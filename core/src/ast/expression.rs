@@ -72,7 +72,7 @@ pub enum Expression<'ast> {
         quasis: List<'ast, Loc<&'ast str>>,
     },
     Arrow {
-        params: ExpressionList<'ast>,
+        params: ParameterList<'ast>,
         body: StatementPtr<'ast>,
     },
     Object {

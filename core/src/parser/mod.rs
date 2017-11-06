@@ -10,7 +10,7 @@ use arena::Arena;
 use module::Module;
 
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
-use ast::{Parameter, ParameterKey, ParameterList, OperatorKind};
+use ast::{Parameter, ParameterKey, ParameterList, OperatorKind, ExpressionList};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -152,6 +152,11 @@ impl<'ast> Parser<'ast> {
     fn block_body(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
         expect!(self, BraceOpen);
         self.block_body_tail()
+    }
+
+    #[inline]
+    fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> ParameterList<'ast> {
+        unimplemented!();
     }
 
     #[inline]

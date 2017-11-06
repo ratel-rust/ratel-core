@@ -61,7 +61,7 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(FatArrow) => {
-                    return self.arrow_function_expression(Some(left));
+                    return self.arrow_function_expression(List::from(self.arena, left));
                 }
 
                 Operator(op) => {
@@ -151,13 +151,10 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn arrow_function_expression(&mut self, params: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+    pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ExpressionPtr<'ast> {
         expect!(self, Operator(FatArrow));
 
-        let list = match params {
-            None       => List::empty(),
-            Some(left) => List::from(self.arena, left)
-        };
+        let params = self.params_from_expressions(params);
 
         let body = match self.next() {
             BraceOpen => self.block_statement(),
@@ -165,8 +162,8 @@ impl<'ast> Parser<'ast> {
         };
 
         self.alloc(Expression::Arrow {
-            params: list,
-            body
+            params,
+            body,
         }.at(0, 0))
     }
 
@@ -230,7 +227,7 @@ impl<'ast> Parser<'ast> {
     pub fn paren_expression(&mut self) -> ExpressionPtr<'ast> {
         match self.next() {
             ParenClose => {
-                self.arrow_function_expression(None)
+                self.arrow_function_expression(List::empty())
             },
             token => {
                 let expression = self.sequence_or_expression_from(token);

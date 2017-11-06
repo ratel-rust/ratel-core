@@ -1,5 +1,6 @@
 use transformer::{Transformer, Transformable};
 use ast::{Expression, ExpressionPtr, ExpressionList};
+use ast::{Loc, Ptr, List, Function, Statement, OptionalName, Name};
 
 impl<'ast> Transformable<'ast> for ExpressionList<'ast> {
     #[inline]
@@ -86,7 +87,41 @@ impl<'ast> Transformable<'ast> for ExpressionPtr<'ast> {
                 ref params,
                 ref body,
             } => {
-                unimplemented!();
+                // params.transform(t);
+                body.transform(t);
+
+                // transformation flag check
+                if !t.settings.transform_arrow {
+                    return;
+                }
+
+                let body = match body.item {
+                    Statement::Block { body }            => body,
+                    Statement::Expression { expression } => {
+                        let ret = t.alloc(Loc {
+                            start: 0,
+                            end: 0,
+                            item: Statement::Return {
+                                value: Some(expression)
+                            }
+                        });
+
+                        List::from(&t.arena, ret)
+                    },
+                    statement => {
+                        panic!("Invalid arrow function body {:#?}", statement);
+                    }
+                };
+
+                let function = Expression::Function {
+                    function: self::Function {
+                        name: OptionalName::empty(),
+                        params: *params,
+                        body,
+                    }
+                };
+
+                t.swap(self, function);
             },
             Object {
                 ref body,
