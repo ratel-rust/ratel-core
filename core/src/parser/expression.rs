@@ -65,13 +65,14 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(op) => {
-                    self.consume();
 
                     let rbp = op.binding_power();
 
                     if lbp > rbp {
                         break;
                     }
+
+                    self.consume();
 
                     if !op.infix() {
                         unexpected_token!(self);
@@ -936,6 +937,29 @@ mod test {
                 extends: mock.ptr("Bar").into(),
                 body: List::empty()
             }
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn regression_operator_precedence() {
+        let src = "true === true && false === false";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Binary {
+            operator: OperatorKind::LogicalAnd,
+            left: mock.ptr(Expression::Binary {
+                operator: OperatorKind::StrictEquality,
+                left: mock.ptr(Expression::Value(Value::True)),
+                right: mock.ptr(Expression::Value(Value::True)),
+            }),
+            right: mock.ptr(Expression::Binary {
+                operator: OperatorKind::StrictEquality,
+                left: mock.ptr(Expression::Value(Value::False)),
+                right: mock.ptr(Expression::Value(Value::False)),
+            }),
         };
 
         assert_expr!(module, expected);
