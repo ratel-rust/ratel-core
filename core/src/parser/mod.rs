@@ -10,7 +10,7 @@ use arena::Arena;
 use module::Module;
 
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
-use ast::{Parameter, ParameterKey, ParameterList, OperatorKind, ExpressionList};
+use ast::{Parameter, ParameterKey, ParameterList, OperatorKind, Expression, ExpressionList};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -155,8 +155,44 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
+    fn param_from_expression(&mut self, expression: Expression<'ast>) -> Parameter<'ast> {
+        match expression {
+            Expression::Identifier(ident) => {
+                Parameter {
+                    key: ParameterKey::Identifier(ident),
+                    value: None
+                }
+            },
+            Expression::Binary {
+                operator: OperatorKind::Assign,
+                left,
+                right
+            } => {
+                Parameter {
+                    key: self.param_from_expression(left.item).key,
+                    value: Some(right)
+                }
+            },
+            _ => {
+                panic!("Unexpected token")
+            }
+        }
+    }
+
+    #[inline]
     fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> ParameterList<'ast> {
-        unimplemented!();
+        let mut builder = EmptyListBuilder::new(self.arena);
+
+        for expression in expressions.into_iter() {
+            match expression.item {
+                Expression::Sequence { body } => return self.params_from_expressions(body),
+                _ => {
+                    let val = self.param_from_expression(expression.item);
+                    builder.push(Ptr::new(self.arena.alloc(Loc::new(0, 0, val))));
+                }
+            }
+        }
+        builder.into_list()
     }
 
     #[inline]

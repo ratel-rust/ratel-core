@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::{Token, TemplateKind};
-use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value};
+use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
 use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
@@ -802,7 +802,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = Expression::Arrow {
-            params: List::empty(),
+            params: ParameterList::empty(),
             body: mock.ptr(Statement::Expression {
                 expression: mock.ident("bar")
             })
@@ -817,7 +817,12 @@ mod test {
         let mock = Mock::new();
 
         let expected = Expression::Arrow {
-            params: mock.list([Expression::Identifier("n")]),
+            params: mock.list([
+                Parameter {
+                    key: ParameterKey::Identifier("n"),
+                    value: None,
+                },
+            ]),
 
             body: mock.ptr(Statement::Expression {
                 expression: mock.ptr(Expression::Binary {
@@ -839,12 +844,17 @@ mod test {
 
         let expected = Expression::Arrow {
             params: mock.list([
-                Expression::Sequence {
-                    body: mock.list([
-                        Expression::Identifier("a"),
-                        Expression::Identifier("b"),
-                        Expression::Identifier("c"),
-                    ])
+                Parameter {
+                    key: ParameterKey::Identifier("a"),
+                    value: None,
+                },
+                Parameter {
+                    key: ParameterKey::Identifier("b"),
+                    value: None,
+                },
+                Parameter {
+                    key: ParameterKey::Identifier("c"),
+                    value: None,
                 }
             ]),
 
@@ -864,23 +874,22 @@ mod test {
 
         let expected = Expression::Arrow {
             params: mock.list([
-                Expression::Sequence {
-                    body: mock.list([
-                        Expression::Identifier("a"),
-                        Expression::Identifier("b"),
-                        Expression::Binary {
-                            operator: OperatorKind::Assign,
-                            left: mock.ident("c"),
-                            right: mock.ptr(Expression::Value(Value::Number("2"))),
-                        }
-                    ])
+                Parameter {
+                    key: ParameterKey::Identifier("a"),
+                    value: None,
+                },
+                Parameter {
+                    key: ParameterKey::Identifier("b"),
+                    value: None,
+                },
+                Parameter {
+                    key: ParameterKey::Identifier("c"),
+                    value: Some(mock.ptr(Expression::Value(Value::Number("2"))))
                 }
             ]),
-
             body: mock.ptr(Statement::Expression {
                 expression: mock.ident("bar")
             })
-
         };
         assert_expr!(module, expected);
     }
