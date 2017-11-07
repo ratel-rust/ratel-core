@@ -43,8 +43,7 @@ fn transform(call: Call) -> JsResult<JsString> {
         },
         Ok(ast) => ast,
     };
-
-    transformer::transform(&mut ast.body(), transformer::Settings::target_es5());
+    transformer::transform(&mut ast, transformer::Settings::target_es5());
     let out = codegen::codegen(&ast, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())

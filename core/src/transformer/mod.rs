@@ -43,7 +43,7 @@ impl<'ast> Transformer<'ast> {
     }
 }
 
-pub fn transform<'ast>(module: Module, settings: Settings) {
+pub fn transform<'ast>(module: &mut Module, settings: Settings) {
     let arena = module.arena();
     let body = module.body();
 
