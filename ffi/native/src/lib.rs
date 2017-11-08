@@ -36,15 +36,15 @@ fn transform(call: Call) -> JsResult<JsString> {
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
     let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
-    let mut ast = match parser::parse(source.value().as_str()) {
+    let mut module = match parser::parse(source.value().as_str()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
         },
-        Ok(ast) => ast,
+        Ok(module) => module,
     };
-    transformer::transform(&mut ast, transformer::Settings::target_es5());
-    let out = codegen::codegen(&ast, minify.value());
+    transformer::transform(&mut module, transformer::Settings::target_es5());
+    let out = codegen::codegen(&module, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())
 }
@@ -58,15 +58,15 @@ fn parse(call: Call) -> JsResult<JsString> {
 
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
 
-    let ast = match parser::parse(source.value().as_str()) {
+    let module = match parser::parse(source.value().as_str()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
         },
-        Ok(ast) => ast,
+        Ok(module) => module,
     };
 
-    let out = format!("{:?}", ast.body());
+    let out = format!("{:?}", module.body());
 
     Ok(JsString::new(scope, &out).unwrap())
 }

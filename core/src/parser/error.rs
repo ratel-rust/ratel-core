@@ -1,6 +1,6 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Declarator, ObjectMember};
+use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Declarator, ObjectMember, Parameter, ParameterKey, ParameterPtr};
 use ast::{Name, Function, Class, ClassMember};
 use parser::Parser;
 
@@ -54,6 +54,19 @@ impl<'ast> ToError for Declarator<'ast> {
             }),
             value: None,
         }
+    }
+}
+
+impl<'ast> ToError for ParameterPtr<'ast> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Parameter {
+                key: ParameterKey::Identifier(""),
+                value: None
+            }
+        })
     }
 }
 

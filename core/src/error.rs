@@ -106,3 +106,23 @@ fn log10(mut num: usize) -> usize {
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 pub type ParseResult<T> = ::std::result::Result<T, ParseError>;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parser::*;
+
+    #[test]
+    fn test_format_unexpected_token_error () {
+        let err = ParseError::UnexpectedToken {
+            source: "foo".to_string(),
+            start: 0,
+            end: 1
+        };
+
+        let expected = "Unexpected token at 1:1\n\n> 1 | foo\n    | ^\n";
+
+        assert_eq!(format!("{}", err), expected);
+    }
+
+}

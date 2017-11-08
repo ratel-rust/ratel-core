@@ -178,7 +178,7 @@ impl<'ast> Parser<'ast> {
 
                 self.alloc_in_loc(param)
             },
-            _ => panic!("Unexpected token")
+            _ => unexpected_token!(self)
         }
     }
 

@@ -871,6 +871,13 @@ mod test {
         assert_expr!(module, expected);
     }
 
+
+    #[test]
+    #[should_panic]
+    fn arrow_function_invalid_params_throws() {
+        parse("(a, b, c * 2) => bar").unwrap();
+    }
+
     #[test]
     fn arrow_function_with_default_params() {
         let src = "(a, b, c = 2) => bar";
