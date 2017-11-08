@@ -61,7 +61,12 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(FatArrow) => {
-                    return self.arrow_function_expression(List::from(self.arena, left));
+                    let params = match left.item {
+                        Expression::Sequence { body } => body,
+                        _                             => List::from(self.arena, left)
+                    };
+
+                    return self.arrow_function_expression(params);
                 }
 
                 Operator(op) => {

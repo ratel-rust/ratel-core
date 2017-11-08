@@ -188,11 +188,8 @@ impl<'ast> Parser<'ast> {
 
         let mut builder = match expressions.next() {
             Some(expression) => {
-                if let Expression::Sequence { body } = expression.item {
-                    return self.params_from_expressions(body);
-                }
-
                 let param = self.param_from_expression(*expression);
+
                 ListBuilder::new(self.arena, param)
             },
             None => return List::empty()
