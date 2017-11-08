@@ -10,7 +10,8 @@ use arena::Arena;
 use module::Module;
 
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
-use ast::{Parameter, ParameterKey, ParameterList, OperatorKind, Expression, ExpressionList};
+use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
+use ast::{Expression, ExpressionPtr, ExpressionList};
 use lexer::{Lexer, Token, Asi};
 use lexer::Token::*;
 
@@ -155,43 +156,52 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn param_from_expression(&mut self, expression: Expression<'ast>) -> Parameter<'ast> {
-        match expression {
+    fn param_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> ParameterPtr<'ast> {
+        match expression.item {
             Expression::Identifier(ident) => {
-                Parameter {
+                let param = Parameter {
                     key: ParameterKey::Identifier(ident),
                     value: None
-                }
+                };
+
+                self.alloc_in_loc(param)
             },
             Expression::Binary {
                 operator: OperatorKind::Assign,
                 left,
                 right
             } => {
-                Parameter {
-                    key: self.param_from_expression(left.item).key,
+                let param = Parameter {
+                    key: self.param_from_expression(left).key,
                     value: Some(right)
-                }
+                };
+
+                self.alloc_in_loc(param)
             },
-            _ => {
-                panic!("Unexpected token")
-            }
+            _ => panic!("Unexpected token")
         }
     }
 
     #[inline]
     fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> ParameterList<'ast> {
-        let mut builder = EmptyListBuilder::new(self.arena);
+        let mut expressions = expressions.ptr_iter();
 
-        for expression in expressions.into_iter() {
-            match expression.item {
-                Expression::Sequence { body } => return self.params_from_expressions(body),
-                _ => {
-                    let val = self.param_from_expression(expression.item);
-                    builder.push(Ptr::new(self.arena.alloc(Loc::new(0, 0, val))));
+        let mut builder = match expressions.next() {
+            Some(expression) => {
+                if let Expression::Sequence { body } = expression.item {
+                    return self.params_from_expressions(body);
                 }
-            }
+
+                let param = self.param_from_expression(*expression);
+                ListBuilder::new(self.arena, param)
+            },
+            None => return List::empty()
+        };
+
+        for expression in expressions {
+            builder.push(self.param_from_expression(*expression));
         }
+
         builder.into_list()
     }
 

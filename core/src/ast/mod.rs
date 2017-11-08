@@ -23,6 +23,7 @@ pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
 // Handful of useful aliases
 pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
+pub type ParameterPtr<'ast> = Ptr<'ast, Loc<Parameter<'ast>>>;
 pub type ParameterList<'ast> = List<'ast, Loc<Parameter<'ast>>>;
 pub type TypePtr<'ast> = List<'ast, Loc<Type<'ast>>>;
 pub type TypeList<'ast> = List<'ast, Loc<Type<'ast>>>;
