@@ -157,29 +157,25 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn param_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> ParameterPtr<'ast> {
-        match expression.item {
-            Expression::Identifier(ident) => {
-                let param = Parameter {
-                    key: ParameterKey::Identifier(ident),
-                    value: None
-                };
-
-                self.alloc_in_loc(param)
-            },
+        let (key, value) = match expression.item {
             Expression::Binary {
                 operator: OperatorKind::Assign,
                 left,
-                right
-            } => {
-                let param = Parameter {
-                    key: self.param_from_expression(left).key,
-                    value: Some(right)
-                };
+                right,
+            } => (left, Some(right)),
+            _ => (expression, None)
+        };
 
-                self.alloc_in_loc(param)
-            },
+        let key = match key.item {
+            Expression::Identifier(ident) => ParameterKey::Identifier(ident),
+            // TODO: ParameterKey::Pattern
             _ => unexpected_token!(self)
-        }
+        };
+
+        self.alloc(Loc::new(expression.start, expression.end, Parameter {
+            key,
+            value
+        }))
     }
 
     #[inline]
@@ -187,16 +183,16 @@ impl<'ast> Parser<'ast> {
         let mut expressions = expressions.ptr_iter();
 
         let mut builder = match expressions.next() {
-            Some(expression) => {
-                let param = self.param_from_expression(*expression);
+            Some(&expression) => {
+                let param = self.param_from_expression(expression);
 
                 ListBuilder::new(self.arena, param)
             },
             None => return List::empty()
         };
 
-        for expression in expressions {
-            builder.push(self.param_from_expression(*expression));
+        for &expression in expressions {
+            builder.push(self.param_from_expression(expression));
         }
 
         builder.into_list()
