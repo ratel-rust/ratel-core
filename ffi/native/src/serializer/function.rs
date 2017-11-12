@@ -6,11 +6,24 @@ use serializer::Serializable;
 impl<'ast> Serializable<'ast> for ast::Loc<Function<'ast, MandatoryName<'ast>>> {
     #[inline]
     fn serialize<'a>(&self) -> Option<serde_json::Value> {
+        // FIXME
+        let body = match *self.body.only_element().unwrap() {
+            Loc { item: ast::Statement::Block { .. } , .. } => self.body.serialize(),
+            _ => {
+                Some(json!({
+                    "type": "BlockStatement",
+                    "body": self.body.serialize(),
+                    "start": 0,
+                    "end": 0,
+                }))
+            }
+        };
+
         Some(json!({
             "type": "FunctionExpression",
             "id": self.name.serialize(),
             "params": self.params.serialize(),
-            "body": self.body.serialize(),
+            "body": body,
             "start": self.start,
             "end": self.end,
         }))
@@ -21,16 +34,24 @@ impl<'ast> Serializable<'ast> for Loc<Function<'ast, OptionalName<'ast>>> {
     #[inline]
     fn serialize<'a>(&self) -> Option<serde_json::Value> {
         let item = self.item;
+        // FIXME
+        let body = match *item.body.only_element().unwrap() {
+            Loc { item: ast::Statement::Block { .. } , .. } => item.body.serialize(),
+            _ => {
+                Some(json!({
+                    "type": "BlockStatement",
+                    "body": item.body.serialize(),
+                    "start": 0,
+                    "end": 0,
+                }))
+            }
+        };
+
         Some(json!({
             "type": "FunctionExpression",
             "id": item.name.serialize(),
             "params": item.params.serialize(),
-            "body": {
-                "type": "BlockStatement",
-                "body": item.body.serialize(),
-                "start": 0,
-                "end": 0,
-            },
+            "body": body,
             "start": self.start,
             "end": self.end,
         }))

@@ -1,5 +1,5 @@
 use ast;
-use ast::{Expression, ExpressionPtr, OperatorKind};
+use ast::{Expression, ExpressionPtr, OperatorKind, Loc};
 use serde_json;
 use serializer::Serializable;
 
@@ -301,17 +301,24 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
                 }
             },
             Arrow { params, body } => {
+                // FIXME
+                let body = match *body {
+                    Loc { item: ast::Statement::Block { .. } , .. } => body.serialize(),
+                    _ => {
+                        Some(json!({
+                            "type": "BlockStatement",
+                            "body": body.serialize(),
+                            "start": 0,
+                            "end": 0,
+                        }))
+                    }
+                };
+
                 json!({
                     "type": "ArrowFunctionExpression",
                     "id": null,
                     "params": params.serialize(),
-                    "body": {
-                        // FIXME
-                        "type": "BlockStatement",
-                        "body": body.serialize(),
-                        "start": 0,
-                        "end": 0,
-                    },
+                    "body": body,
                     "start": self.start,
                     "end": self.end,
                 })
@@ -325,18 +332,21 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
                 })
             },
             Function { function } => {
+                // FIXME
+                let body = match *function.body.only_element().unwrap() {
+                    Loc { item: ast::Statement::Block { .. } , .. } => function.body.serialize(),
+                    _ => {
+                        ast::Ptr::new(&Loc::new(self.start, self.end, ast::Statement::Block {
+                            body: function.body
+                        })).serialize()
+                    }
+                };
+
                 json!({
                     "type": "FunctionExpression",
                     "id": function.name.serialize(),
                     "params": function.params.serialize(),
-
-                    "body": {
-                        // FIXME
-                        "type": "BlockStatement",
-                        "body": function.body.serialize(),
-                        "start": 0,
-                        "end": 0,
-                    },
+                    "body": body,
                     "start": self.start,
                     "end": self.end,
                 })
