@@ -102,10 +102,12 @@ fn parse_to_ast(b: &mut Bencher) {
 
 #[bench]
 fn tokenize(b: &mut Bencher) {
+    let arena = ratel::arena::Arena::new();
+    let ptr = arena.alloc_str_zero_end(SOURCE);
     b.bytes = SOURCE.len() as u64;
 
     b.iter(|| {
-        let mut lexer = ratel::lexer::Lexer::new(SOURCE);
+        let mut lexer = unsafe { ratel::lexer::Lexer::from_ptr(ptr) };
 
         while lexer.get_token() != ratel::lexer::Token::EndOfProgram {
 

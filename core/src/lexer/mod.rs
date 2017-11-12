@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 mod token;
 
 pub use lexer::token::*;
@@ -10,38 +12,27 @@ use ast::Value;
 use ast::OperatorKind::*;
 use ast::DeclarationKind::*;
 use error::Error;
+use arena::Arena;
 
 /// Helper macro for declaring byte-handler functions with correlating constants.
 /// This becomes handy due to a lookup table present below.
 macro_rules! define_handlers {
-    { $(const $static_name:ident: $name:ident |$lex:pat, $byte:pat| $code:block)* } => {
+    { $(const $static_name:ident: $name:ident |$lex:pat| $code:block)* } => {
         $(
-            fn $name<'src>($lex: &mut Lexer<'src>, $byte: u8) -> Token<'src> $code
+            fn $name<'src>($lex: &mut Lexer<'src>) -> Token<'src> $code
 
-            const $static_name: for<'src> fn(&mut Lexer<'src>, u8) -> Token<'src> = $name;
+            const $static_name: ByteHandler = ByteHandler($name);
         )*
     }
 }
 
-macro_rules! eof_check {
-    ($lex:ident) => (
-        if $lex.is_eof() {
-            return UnexpectedEndOfProgram;
-        }
-    )
-}
-
 macro_rules! expect_byte {
     ($lex:ident) => ({
-        if $lex.is_eof() {
-            return UnexpectedEndOfProgram;
+        match $lex.read_byte() {
+            0 => return UnexpectedEndOfProgram,
+            _ => $lex.bump()
         }
-
-        let byte = $lex.read_byte();
-        $lex.bump();
-
-        byte
-    })
+    });
 }
 
 macro_rules! repeat8 {
@@ -87,10 +78,12 @@ pub enum Asi {
     NoSemicolon,
 }
 
+struct ByteHandler(pub for<'src> fn(&mut Lexer<'src>) -> Token<'src>);
+
 /// Lookup table mapping any incoming byte to a handler function defined below.
-static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Token<'src>; 256] = [
+static BYTE_HANDLERS: [ByteHandler; 256] = [
 //   0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F   //
-    ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
+    EOF, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 0
     ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, // 1
     ___, EXL, QOT, ___, IDT, PRC, AMP, QOT, PNO, PNC, ATR, PLS, COM, MIN, PRD, SLH, // 2
     ZER, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, DIG, COL, SEM, LSS, EQL, MOR, QST, // 3
@@ -110,14 +103,20 @@ static BYTE_HANDLERS: [for<'src> fn(&mut Lexer<'src>, u8) -> Token<'src>; 256] =
 
 // Handler function definitions:
 define_handlers! {
-    const ___: invalid_byte |lex, _| {
+    const ___: invalid_byte |lex| {
         lex.bump();
 
         UnexpectedToken
     }
 
+    const EOF: end_of_program |lex| {
+        lex.asi = Asi::ImplicitSemicolon;
+
+        EndOfProgram
+    }
+
     // ;
-    const SEM: semicolon |lex, _| {
+    const SEM: semicolon |lex| {
         lex.bump();
 
         lex.asi = Asi::ExplicitSemicolon;
@@ -126,28 +125,28 @@ define_handlers! {
     }
 
     // :
-    const COL: colon |lex, _| {
+    const COL: colon |lex| {
         lex.bump();
 
         Colon
     }
 
     // ,
-    const COM: comma |lex, _| {
+    const COM: comma |lex| {
         lex.bump();
 
         Comma
     }
 
     // (
-    const PNO: paren_open |lex, _| {
+    const PNO: paren_open |lex| {
         lex.bump();
 
         ParenOpen
     }
 
     // )
-    const PNC: paren_close |lex, _| {
+    const PNC: paren_close |lex| {
         lex.bump();
 
         lex.asi = Asi::ImplicitSemicolon;
@@ -156,28 +155,28 @@ define_handlers! {
     }
 
     // [
-    const BTO: bracket_open |lex, _| {
+    const BTO: bracket_open |lex| {
         lex.bump();
 
         BracketOpen
     }
 
     // ]
-    const BTC: bracket_close |lex, _| {
+    const BTC: bracket_close |lex| {
         lex.bump();
 
         BracketClose
     }
 
     // {
-    const BEO: brace_open |lex, _| {
+    const BEO: brace_open |lex| {
         lex.bump();
 
         BraceOpen
     }
 
     // }
-    const BEC: brace_close |lex, _| {
+    const BEC: brace_close |lex| {
         lex.bump();
 
         lex.asi = Asi::ImplicitSemicolon;
@@ -186,14 +185,14 @@ define_handlers! {
     }
 
     // =
-    const EQL: equal_sign |lex, _| {
+    const EQL: equal_sign |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'=' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'=' => {
                         lex.bump();
 
@@ -217,14 +216,14 @@ define_handlers! {
     }
 
     // !
-    const EXL: exclamation_mark |lex, _| {
+    const EXL: exclamation_mark |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'=' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'=' => {
                         lex.bump();
 
@@ -242,14 +241,14 @@ define_handlers! {
     }
 
     // <
-    const LSS: less_sign |lex, _| {
+    const LSS: less_sign |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'<' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'=' => {
                         lex.bump();
 
@@ -273,18 +272,18 @@ define_handlers! {
     }
 
     // >
-    const MOR: more_sign |lex, _| {
+    const MOR: more_sign |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'>' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'>' => {
                         lex.bump();
 
-                        match lex.peek_byte() {
+                        match lex.read_byte() {
                             b'=' => {
                                 lex.bump();
 
@@ -318,24 +317,24 @@ define_handlers! {
     }
 
     // ?
-    const QST: question_mark |lex, _| {
+    const QST: question_mark |lex| {
         lex.bump();
 
         Operator(Conditional)
     }
 
     // ~
-    const TLD: tilde |lex, _| {
+    const TLD: tilde |lex| {
         lex.bump();
 
         Operator(BitwiseNot)
     }
 
     // ^
-    const CRT: caret |lex, _| {
+    const CRT: caret |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'=' => {
                 lex.bump();
 
@@ -349,10 +348,10 @@ define_handlers! {
     }
 
     // &
-    const AMP: ampersand |lex, _| {
+    const AMP: ampersand |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'&' => {
                 lex.bump();
 
@@ -372,10 +371,10 @@ define_handlers! {
     }
 
     // |
-    const PIP: pipe |lex, _| {
+    const PIP: pipe |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'|' => {
                 lex.bump();
 
@@ -395,10 +394,10 @@ define_handlers! {
     }
 
     // +
-    const PLS: plus_sign |lex, _| {
+    const PLS: plus_sign |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'+' => {
                 lex.bump();
 
@@ -418,10 +417,10 @@ define_handlers! {
     }
 
     // -
-    const MIN: minus_sign |lex, _| {
+    const MIN: minus_sign |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'-' => {
                 lex.bump();
 
@@ -441,14 +440,14 @@ define_handlers! {
     }
 
     // *
-    const ATR: asterisk |lex, _| {
+    const ATR: asterisk |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'*' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'=' => {
                         lex.bump();
 
@@ -472,20 +471,20 @@ define_handlers! {
     }
 
     // /
-    const SLH: slash |lex, _| {
+    const SLH: slash |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             // regular comment
             b'/' => {
                 lex.bump();
 
                 // Keep consuming bytes until new line or end of source
                 unwind_loop!({
-                    if lex.is_eof() || lex.read_byte() == b'\n' {
-                        return lex.get_token();
+                    match lex.read_byte() {
+                        0 | b'\n' => return lex.get_token(),
+                        _ => lex.bump()
                     }
-                    lex.bump();
                 });
             },
 
@@ -495,22 +494,21 @@ define_handlers! {
 
                 // Keep consuming bytes until */ happens in a row
                 unwind_loop!({
-                    eof_check!(lex);
-
-                    if lex.read_byte() == b'*' {
-                        lex.bump();
-
-                        eof_check!(lex);
-
-                        if lex.read_byte() == b'/' {
+                    match lex.read_byte() {
+                        b'*' => {
                             lex.bump();
 
-                            return lex.get_token();
-                        } else {
-                            lex.bump();
-                        }
-                    } else {
-                        lex.bump();
+                            match lex.read_byte() {
+                                b'/' => {
+                                    lex.bump();
+                                    return lex.get_token();
+                                },
+                                0 => return UnexpectedEndOfProgram,
+                                _ => lex.bump()
+                            }
+                        },
+                        0 => return UnexpectedEndOfProgram,
+                        _ => lex.bump()
                     }
                 });
             },
@@ -528,10 +526,10 @@ define_handlers! {
     }
 
     // %
-    const PRC: percent |lex, _| {
+    const PRC: percent |lex| {
         lex.bump();
 
-        let op = match lex.peek_byte() {
+        let op = match lex.read_byte() {
             b'=' => {
                 lex.bump();
 
@@ -545,12 +543,12 @@ define_handlers! {
     }
 
     // Non-keyword Identifier: starting with a letter, _ or $
-    const IDT: identifier |lex, _| {
+    const IDT: identifier |lex| {
         Identifier(lex.read_label())
     }
 
     // Identifier or keyword starting with a letter `b`
-    const L_B: label_b |lex, _| {
+    const L_B: label_b |lex| {
         match lex.read_label() {
             "break"      => Break,
             slice        => Identifier(slice),
@@ -558,7 +556,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `c`
-    const L_C: label_c |lex, _| {
+    const L_C: label_c |lex| {
         match lex.read_label() {
             "const"      => Declaration(Const),
             "case"       => Case,
@@ -570,7 +568,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `d`
-    const L_D: label_d |lex, _| {
+    const L_D: label_d |lex| {
         match lex.read_label() {
             "delete"     => Operator(Delete),
             "do"         => Do,
@@ -581,7 +579,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `e`
-    const L_E: label_e |lex, _| {
+    const L_E: label_e |lex| {
         match lex.read_label() {
             "else"       => Else,
             "export"     => Export,
@@ -592,7 +590,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `f`
-    const L_F: label_f |lex, _| {
+    const L_F: label_f |lex| {
         match lex.read_label() {
             "finally"    => Finally,
             "for"        => For,
@@ -603,7 +601,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `i`
-    const L_I: label_i |lex, _| {
+    const L_I: label_i |lex| {
         match lex.read_label() {
             "in"         => Operator(In),
             "instanceof" => Operator(Instanceof),
@@ -616,7 +614,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `l`
-    const L_L: label_l |lex, _| {
+    const L_L: label_l |lex| {
         match lex.read_label() {
             "let"        => Declaration(Let),
             slice        => Identifier(slice),
@@ -624,7 +622,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `n`
-    const L_N: label_n |lex, _| {
+    const L_N: label_n |lex| {
         match lex.read_label() {
             "new"        => Operator(New),
             "null"       => Literal(Value::Null),
@@ -633,7 +631,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `p`
-    const L_P: label_p |lex, _| {
+    const L_P: label_p |lex| {
         match lex.read_label() {
             "package"    => Reserved(Package),
             "protected"  => Reserved(Protected),
@@ -644,7 +642,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `r`
-    const L_R: label_r |lex, _| {
+    const L_R: label_r |lex| {
         match lex.read_label() {
             "return"     => Return,
             slice        => Identifier(slice),
@@ -652,7 +650,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `s`
-    const L_S: label_s |lex, _| {
+    const L_S: label_s |lex| {
         match lex.read_label() {
             "super"      => Super,
             "switch"     => Switch,
@@ -662,7 +660,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `t`
-    const L_T: label_t |lex, _| {
+    const L_T: label_t |lex| {
         match lex.read_label() {
             "typeof"     => Operator(Typeof),
             "this"       => This,
@@ -674,7 +672,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `u`
-    const L_U: label_u |lex, _| {
+    const L_U: label_u |lex| {
         match lex.read_label() {
             "undefined"  => Literal(Value::Undefined),
             slice        => Identifier(slice),
@@ -682,7 +680,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `v`
-    const L_V: label_v |lex, _| {
+    const L_V: label_v |lex| {
         match lex.read_label() {
             "void"       => Operator(Void),
             "var"        => Declaration(Var),
@@ -691,7 +689,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `w`
-    const L_W: label_w |lex, _| {
+    const L_W: label_w |lex| {
         match lex.read_label() {
             "while"      => While,
             "with"       => With,
@@ -700,7 +698,7 @@ define_handlers! {
     }
 
     // Identifier or keyword starting with a letter `y`
-    const L_Y: label_y |lex, _| {
+    const L_Y: label_y |lex| {
         match lex.read_label() {
             "yield"      => Yield,
             slice        => Identifier(slice),
@@ -708,10 +706,11 @@ define_handlers! {
     }
 
     // Unicode character
-    const UNI: unicode |lex, _| {
+    const UNI: unicode |lex| {
         let start = lex.index;
 
-        let first = lex.source[start..].chars().next().expect("Has to have one");
+        // TODO: unicodes with different lengths
+        let first = lex.slice_source(start, start + 4).chars().next().expect("Has to have one");
 
         if !first.is_alphanumeric() {
             return UnexpectedToken;
@@ -729,12 +728,12 @@ define_handlers! {
     }
 
     // 0
-    const ZER: zero |lex, _| {
+    const ZER: zero |lex| {
         let start = lex.index;
 
         lex.bump();
 
-        match lex.peek_byte() {
+        match lex.read_byte() {
             b'b' | b'B' => {
                 lex.bump();
 
@@ -756,7 +755,7 @@ define_handlers! {
             _ => {}
         }
 
-        while !lex.is_eof() {
+        loop {
             match lex.read_byte() {
                 b'0'...b'9' => {
                     lex.bump();
@@ -780,13 +779,13 @@ define_handlers! {
     }
 
     // 1 to 9
-    const DIG: digit |lex, _| {
+    const DIG: digit |lex| {
         let start = lex.index;
 
         lex.bump();
 
         unwind_loop!({
-            match lex.peek_byte() {
+            match lex.read_byte() {
                 b'0'...b'9' => {
                     lex.bump();
                 },
@@ -809,12 +808,12 @@ define_handlers! {
     }
 
     // .
-    const PRD: period |lex, _| {
+    const PRD: period |lex| {
         let start = lex.index;
 
         lex.bump();
 
-        match lex.peek_byte() {
+        match lex.read_byte() {
             b'0'...b'9' => {
                 lex.bump();
 
@@ -824,7 +823,7 @@ define_handlers! {
             b'.' => {
                 lex.bump();
 
-                match lex.peek_byte() {
+                match lex.read_byte() {
                     b'.' => {
                         lex.bump();
 
@@ -840,34 +839,30 @@ define_handlers! {
     }
 
     // " or '
-    const QOT: quote |lex, byte| {
+    const QOT: quote |lex| {
         let start = lex.index;
+        let style = lex.read_byte();
 
         lex.bump();
 
-        let mut ch;
-
         unwind_loop!({
-            eof_check!(lex);
-
-            ch = lex.read_byte();
-
-            if ch == byte {
-                lex.bump();
-                return Literal(Value::String(lex.slice_from(start)));
-            } else {
-                lex.bump();
-
-                if ch == b'\\' {
-                    eof_check!(lex);
+            match lex.read_byte() {
+                ch if ch == style => {
                     lex.bump();
-                }
+                    return Literal(Value::String(lex.slice_from(start)));
+                },
+                b'\\' => {
+                    lex.bump();
+                    expect_byte!(lex);
+                },
+                0 => return UnexpectedEndOfProgram,
+                _ => lex.bump()
             }
         });
     }
 
     // `
-    const TPL: template |lex, _| {
+    const TPL: template |lex| {
         lex.bump();
 
         lex.read_template_kind()
@@ -878,14 +873,11 @@ pub struct Lexer<'src> {
     /// Flags whether or not a new line was read before the token
     asi: Asi,
 
-    /// String slice to parse
-    source: &'src str,
-
     /// Raw pointer to the BYTE_HANDLERS.
     /// This is pretty minor but it does offer some perf gains.
-    handlers: *const fn(&mut Lexer<'src>, u8) -> Token<'src>,
+    handlers: *const ByteHandler,
 
-    /// ptr
+    /// Source to parse, must be a C-style buffer ending with 0 byte
     ptr: *const u8,
 
     /// Current index
@@ -893,19 +885,26 @@ pub struct Lexer<'src> {
 
     /// Index of current token in source
     token_start: usize,
+
+    phantom: PhantomData<&'src str>
 }
 
 
 impl<'src> Lexer<'src> {
     #[inline]
-    pub fn new(source: &'src str) -> Self {
+    pub fn new(arena: &'src Arena, source: &str) -> Self {
+        unsafe { Lexer::from_ptr(arena.alloc_str_zero_end(source)) }
+    }
+
+    #[inline]
+    pub unsafe fn from_ptr(ptr: *const u8) -> Self {
         Lexer {
             asi: Asi::NoSemicolon,
-            source: source,
             handlers: BYTE_HANDLERS.as_ptr(),
-            ptr: source.as_ptr(),
+            ptr,
             index: 0,
             token_start: 0,
+            phantom: PhantomData
         }
     }
 
@@ -916,15 +915,9 @@ impl<'src> Lexer<'src> {
         let mut ch;
 
         unwind_loop!({
-            if self.is_eof() {
-                self.asi = Asi::ImplicitSemicolon;
-
-                return EndOfProgram;
-            }
-
             ch = self.read_byte();
 
-            if ch > 0x20 {
+            if ch > 0x20 || ch == 0 {
                 self.token_start = self.index;
 
                 return self.token_from_byte(ch);
@@ -940,7 +933,7 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn token_from_byte(&mut self, byte: u8) -> Token<'src> {
-        unsafe { (*self.handlers.offset(byte as isize))(self, byte) }
+        unsafe { (*self.handlers.offset(byte as isize)).0(self) }
     }
 
     #[inline]
@@ -969,29 +962,32 @@ impl<'src> Lexer<'src> {
         let start = self.index;
 
         loop {
-            let ch = expect_byte!(self);
-
-            match ch {
+            match self.read_byte() {
                 b'`' => {
-                    let quasi = &self.source[start..self.index - 1];
+                    self.bump();
+                    let end = self.index - 1;
+                    let quasi = self.slice_source(start, end);
 
                     return Template(TemplateKind::Closed(quasi));
                 },
                 b'$' => {
-                    let ch = expect_byte!(self);
+                    self.bump();
 
-                    if ch != b'{' {
-                        continue;
+                    match self.read_byte() {
+                        b'{' => self.bump(),
+                        _    => continue
                     }
 
-                    let quasi = &self.source[start..self.index - 2];
+                    let end = self.index - 2;
+                    let quasi = self.slice_source(start, end);
 
                     return Template(TemplateKind::Open(quasi));
                 },
                 b'\\' => {
+                    self.bump();
                     expect_byte!(self);
                 },
-                _ => {}
+                _ => self.bump()
             }
         }
     }
@@ -1009,12 +1005,6 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    /// Check if we are at the end of the source.
-    #[inline]
-    fn is_eof(&self) -> bool {
-        self.index == self.source.len()
-    }
-
     /// Read a byte from the source. Note that this does not increment
     /// the index. In few cases (all of them related to number parsing)
     /// we want to peek at the byte before doing anything. This will,
@@ -1023,18 +1013,7 @@ impl<'src> Lexer<'src> {
     /// is virtually irrelevant.
     #[inline]
     fn read_byte(&self) -> u8 {
-        debug_assert!(!self.is_eof());
-
         unsafe { *self.ptr.offset(self.index as isize) }
-    }
-
-    #[inline]
-    fn peek_byte(&self) -> u8 {
-        if self.is_eof() {
-            0
-        } else {
-            self.read_byte()
-        }
     }
 
     /// Manually increment the index. Calling `read_byte` and then `bump`
@@ -1048,9 +1027,8 @@ impl<'src> Lexer<'src> {
     fn read_binary(&mut self) -> Token<'src> {
         let mut value = 0;
 
-        while !self.is_eof() {
-            let peek = self.read_byte();
-            match peek {
+        loop {
+            match self.read_byte() {
                 b'0' => {
                     value <<= 1;
                     self.bump();
@@ -1098,17 +1076,13 @@ impl<'src> Lexer<'src> {
         let mut ch;
 
         unwind_loop!({
-            if self.is_eof() {
-                return EndOfProgram;
-            }
-
             ch = self.read_byte();
 
             if ch > 0x20 {
                 self.token_start = self.index;
 
                 if ch > 127 {
-                    return unicode(self, ch)
+                    return unicode(self)
                 } else if TABLE[ch as usize] {
                     return Accessor(self.read_label())
                 } else {
@@ -1155,32 +1129,38 @@ impl<'src> Lexer<'src> {
 
         let start = self.index;
 
-        if self.index + 8 < self.source.len() {
-            repeat8!({
-                self.bump();
-                if !unsafe { *legal.offset(self.read_byte() as isize) } {
-                    return self.slice_from(start);
-                }
-            });
-        }
-
         self.bump();
 
-        while !self.is_eof() && unsafe { *legal.offset(self.read_byte() as isize) } {
-            self.bump();
-        }
-
-        self.slice_from(start)
+        unwind_loop!({
+            if unsafe { *legal.offset(self.read_byte() as isize) } {
+                self.bump();
+            } else {
+                return self.slice_from(start)
+            }
+        })
     }
 
     #[inline]
     fn slice_from(&self, start: usize) -> &'src str {
-        unsafe { self.source.slice_unchecked(start, self.index) }
+        let end = self.index;
+        self.slice_source(start, end)
+    }
+
+    #[inline]
+    fn slice_source(&self, start: usize, end: usize) -> &'src str {
+        use std::str::from_utf8_unchecked;
+        use std::slice::from_raw_parts;
+
+        unsafe {
+            from_utf8_unchecked(from_raw_parts(
+                self.ptr.offset(start as isize), end - start
+            ))
+        }
     }
 
     #[inline]
     fn read_octal(&mut self, start: usize) -> Token<'src> {
-        while !self.is_eof() {
+        loop {
             match self.read_byte() {
                 b'0'...b'7' => self.bump(),
                 _           => break
@@ -1194,7 +1174,7 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn read_hexadec(&mut self, start: usize) -> Token<'src> {
-        while !self.is_eof() {
+        loop {
             match self.read_byte() {
                 b'0'...b'9' |
                 b'a'...b'f' |
@@ -1210,7 +1190,7 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn read_float(&mut self, start: usize) -> Token<'src> {
-        while !self.is_eof() {
+        loop {
             match self.read_byte() {
                 b'0'...b'9'  => self.bump(),
                 b'e' | b'E'  => {
@@ -1228,16 +1208,13 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn read_scientific(&mut self, start: usize) -> Token<'src> {
-        if !self.is_eof() {
-            match self.read_byte() {
-                b'-' | b'+' => self.bump(),
-                _           => {}
-            }
+        match self.read_byte() {
+            b'-' | b'+' => self.bump(),
+            _           => {}
         }
 
-        while !self.is_eof() {
-            let ch = self.read_byte();
-            match ch {
+        loop {
+            match self.read_byte() {
                 b'0'...b'9' => self.bump(),
                 _           => break
             }
@@ -1253,32 +1230,35 @@ impl<'src> Lexer<'src> {
         let start = self.index - 1;
         let mut in_class = false;
         loop {
-            let ch = expect_byte!(self);
-            match ch {
+            match self.read_byte() {
                 b'['  => {
+                    self.bump();
                     in_class = true;
                 },
                 b']'  => {
+                    self.bump();
                     in_class = false;
                 },
                 b'/'  => {
+                    self.bump();
                     if !in_class {
                         break;
                     }
                 },
                 b'\\' => {
+                    self.bump();
                     expect_byte!(self);
                 },
                 b'\n' => {
+                    self.bump();
                     return UnexpectedToken;
                 },
-                _     => {}
+                _     => self.bump()
             }
         }
 
-        while !self.is_eof() {
-            let ch = self.peek_byte();
-            match ch {
+        loop {
+            match self.read_byte() {
                 b'g' | b'i' | b'm' | b'u' | b'y' => {
                     self.bump();
                 },
@@ -1297,7 +1277,8 @@ mod test {
     use super::*;
 
     fn assert_lex<'src, T: AsRef<[Token<'src>]>>(source: &str, tokens: T) {
-        let mut lex = Lexer::new(source);
+        let arena = Arena::new();
+        let mut lex = Lexer::new(&arena, source);
 
         for token in tokens.as_ref() {
             assert_eq!(lex.get_token(), *token);

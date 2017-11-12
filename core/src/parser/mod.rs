@@ -32,10 +32,10 @@ pub struct Parser<'ast> {
 }
 
 impl<'ast> Parser<'ast> {
-    pub fn new(source: &'ast str, arena: &'ast Arena) -> Self {
+    pub fn new(source: &str, arena: &'ast Arena) -> Self {
         Parser {
             arena,
-            lexer: Lexer::new(source),
+            lexer: Lexer::new(arena, source),
             token: None,
             errors: Vec::new(),
             body: List::empty(),
@@ -261,7 +261,6 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
     let arena = Arena::new();
 
     let (body, errors) = {
-        let source = arena.alloc_str(source);
         let mut parser = Parser::new(source, &arena);
 
         parser.parse();

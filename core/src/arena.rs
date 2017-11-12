@@ -65,13 +65,34 @@ impl Arena {
         }
     }
 
-    pub fn alloc_string<'a>(&'a self, val: String) -> &'a str {
-        let ptr = val.as_ptr();
-        let len = val.len();
+    pub fn alloc_str_zero_end<'a>(&'a self, val: &str) -> *const u8 {
+        let len_with_zero = val.len() + 1;
+        let offset = self.offset.get();
+        let alignment = size_of::<usize>() - (len_with_zero % size_of::<usize>());
+        let cap = offset + len_with_zero + alignment;
 
-        let mut temp = self.store.replace(Vec::new());
-        temp.push(val.into_bytes());
-        self.store.replace(temp);
+        if cap > ARENA_BLOCK {
+            let mut vec = Vec::with_capacity(len_with_zero);
+            vec.extend_from_slice(val.as_bytes());
+            vec.push(0);
+            return self.alloc_bytes(vec);
+        }
+
+        self.offset.set(cap);
+
+        unsafe {
+            use std::ptr::copy_nonoverlapping;
+
+            let ptr = self.ptr.get().offset(offset as isize);
+            copy_nonoverlapping(val.as_ptr(), ptr, val.len());
+            *ptr.offset(val.len() as isize) = 0;
+            ptr
+        }
+    }
+
+    pub fn alloc_string<'a>(&'a self, val: String) -> &'a str {
+        let len = val.len();
+        let ptr = self.alloc_bytes(val.into_bytes());
 
         unsafe {
             use std::str::from_utf8_unchecked;
@@ -79,6 +100,17 @@ impl Arena {
 
             from_utf8_unchecked(from_raw_parts(ptr, len))
         }
+    }
+
+    #[inline]
+    pub fn alloc_bytes(&self, val: Vec<u8>) -> *const u8 {
+        let ptr = val.as_ptr();
+
+        let mut temp = self.store.replace(Vec::new());
+        temp.push(val);
+        self.store.replace(temp);
+
+        ptr
     }
 
     fn grow(&self) {
