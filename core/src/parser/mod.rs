@@ -21,9 +21,6 @@ pub struct Parser<'ast> {
     /// Lexer will produce tokens from the source
     lexer: Lexer<'ast>,
 
-    /// Set to `Some` whenever peek is called
-    token: Option<Token<'ast>>,
-
     /// Errors occurred during parsing
     errors: Vec<Error>,
 
@@ -36,7 +33,6 @@ impl<'ast> Parser<'ast> {
         Parser {
             arena,
             lexer: Lexer::new(arena, source),
-            token: None,
             errors: Vec::new(),
             body: List::empty(),
         }

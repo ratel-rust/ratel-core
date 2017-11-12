@@ -21,7 +21,7 @@ impl<'ast> Parser<'ast> {
                 self.alloc_in_loc(Expression::Identifier(value))
             },
             Operator(Division) => {
-                self.lexer.consume();
+                // Note: no consume since / is part of the RegEx
                 self.regular_expression()
             },
             Operator(optype)   => {
@@ -495,7 +495,10 @@ impl<'ast> Parser<'ast> {
 
                 let expression = self.sequence_or_expression();
 
-                expect!(self, BraceClose);
+                match self.lexer.token {
+                    BraceClose => self.lexer.read_template_kind(),
+                    _          => unexpected_token!(self)
+                }
 
                 (quasi, expression)
             },
@@ -517,15 +520,16 @@ impl<'ast> Parser<'ast> {
         let mut expressions = ListBuilder::new(self.arena, expression);
 
         loop {
-            self.lexer.read_template_kind();
-
             match self.lexer.token {
                 Template(TemplateKind::Open(quasi)) => {
                     self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
                     expressions.push(self.sequence_or_expression());
 
-                    expect!(self, BraceClose);
+                    match self.lexer.token {
+                        BraceClose => self.lexer.read_template_kind(),
+                        _          => unexpected_token!(self)
+                    }
                 },
                 Template(TemplateKind::Closed(quasi)) => {
                     self.lexer.consume();

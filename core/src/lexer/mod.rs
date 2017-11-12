@@ -908,7 +908,7 @@ impl<'src> Lexer<'src> {
 
         let mut ch;
 
-        loop {
+        unwind_loop!({
             ch = self.read_byte();
 
             if let Some(handler) = self.handler_from_byte(ch) {
@@ -920,7 +920,7 @@ impl<'src> Lexer<'src> {
             if ch == b'\n' {
                 self.asi = Asi::ImplicitSemicolon;
             }
-        }
+        })
     }
 
     #[inline]
