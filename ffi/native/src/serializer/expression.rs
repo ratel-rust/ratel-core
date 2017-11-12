@@ -214,7 +214,7 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
                             json!({
                                 "type": "NewExpression",
                                 "callee": callee.serialize(),
-                                "argument": arguments.serialize(),
+                                "arguments": arguments.serialize(),
                                 "start": self.start,
                                 "end": self.end,
                             })
@@ -294,7 +294,7 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
                         json!({
                             "type": "TaggedTemplateExpression",
                             "tag": tag.serialize(),
-                            "expression": result
+                            "quasi": result
                         })
                     },
                     _ => result
@@ -307,7 +307,7 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
                     _ => {
                         Some(json!({
                             "type": "BlockStatement",
-                            "body": body.serialize(),
+                            "body": [body.serialize()],
                             "start": 0,
                             "end": 0,
                         }))
@@ -333,15 +333,19 @@ impl<'ast> Serializable<'ast> for ExpressionPtr<'ast> {
             },
             Function { function } => {
                 // FIXME
-                let body = match *function.body.only_element().unwrap() {
-                    Loc { item: ast::Statement::Block { .. } , .. } => function.body.serialize(),
+                let body = match function.body.only_element() {
+                    Some(&Loc { item: ast::Statement::Block { .. } , .. }) => {
+                        function.body.serialize()
+                    },
                     _ => {
-                        ast::Ptr::new(&Loc::new(self.start, self.end, ast::Statement::Block {
-                            body: function.body
-                        })).serialize()
+                        Some(json!({
+                            "type": "BlockStatement",
+                            "body": function.body.serialize(),
+                            "start": 0,
+                            "end": 0,
+                        }))
                     }
                 };
-
                 json!({
                     "type": "FunctionExpression",
                     "id": function.name.serialize(),

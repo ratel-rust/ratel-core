@@ -112,13 +112,38 @@ impl<'ast> Serializable<'ast> for StatementPtr<'ast> {
                })
             },
             Try { body, error, handler } => {
+                // FIXME
+                let body = match body.only_element() {
+                    Some(&Loc { item: ast::Statement::Block { .. } , .. }) => body.serialize(),
+                    _ => {
+                        Some(json!({
+                            "type": "BlockStatement",
+                            "body": body.serialize(),
+                            "start": 0,
+                            "end": 0,
+                        }))
+                    }
+                };
+                // FIXME
+                let handler = match handler.only_element() {
+                    Some(&Loc { item: ast::Statement::Block { .. } , .. }) => handler.serialize(),
+                    _ => {
+                        Some(json!({
+                            "type": "BlockStatement",
+                            "body": handler.serialize(),
+                            "start": 0,
+                            "end": 0,
+                        }))
+                    }
+                };
+
                 json!({
                     "type": "TryStatement",
-                    "block": body.serialize(),
+                    "block": body,
                     "handler": {
                         "type": "CatchClause",
                         "param": error.serialize(),
-                        "body": handler.serialize()
+                        "body": handler
                     },
                     "start": self.start,
                     "end": self.end,
@@ -142,11 +167,28 @@ impl<'ast> Serializable<'ast> for StatementPtr<'ast> {
                 })
             },
             Function { function } => {
+
+                // FIXME
+                let body = match function.body.only_element() {
+                    Some(&Loc { item: ast::Statement::Block { .. } , .. }) => {
+                        function.body.serialize()
+                    },
+                    _ => {
+                        Some(json!({
+                            "type": "BlockStatement",
+                            "body": function.body.serialize(),
+                            "start": 0,
+                            "end": 0,
+                        }))
+
+                    }
+                };
+
                 json!({
                     "type": "FunctionDeclaration",
                     "name": function.name.serialize(),
                     "params": function.params.serialize(),
-                    "body": function.body.serialize(),
+                    "body": body,
                     "start": self.start,
                     "end": self.end,
                 })
@@ -209,6 +251,8 @@ impl<'ast> Serializable<'ast> for Loc<ObjectMember<'ast>> {
                     "shorthand": true,
                     "computed": false,
                     "value": key,
+                    // FIXME
+                    "kind": "init",
                     "start": self.start,
                     "end": self.end,
                 })
@@ -225,6 +269,8 @@ impl<'ast> Serializable<'ast> for Loc<ObjectMember<'ast>> {
                     "shorthand": false,
                     "computed": computed,
                     "value": value.serialize(),
+                    // FIXME
+                    "kind": "init",
                     "start": self.start,
                     "end": self.end,
                 })
@@ -245,6 +291,8 @@ impl<'ast> Serializable<'ast> for Loc<ObjectMember<'ast>> {
                     "shorthand": false,
                     "computed": false,
                     "value": value,
+                    // FIXME
+                    "kind": "init",
                     "start": self.start,
                     "end": self.end,
                 })
