@@ -1,59 +1,10 @@
-// #[macro_export]
-// macro_rules! next_raw_ident {
-//     ($parser:ident) => ({
-//         use ast::OperatorKind::*;
-//         use ast::Value::*;
-
-//         match $parser.next() {
-//             Identifier(ident)    => ident,
-//             Break                => "break",
-//             Do                   => "do",
-//             Case                 => "case",
-//             Else                 => "else",
-//             Catch                => "catch",
-//             Export               => "export",
-//             Class                => "class",
-//             Extends              => "extends",
-//             Return               => "return",
-//             While                => "while",
-//             Finally              => "finally",
-//             Super                => "super",
-//             With                 => "with",
-//             Continue             => "continue",
-//             For                  => "for",
-//             Switch               => "switch",
-//             Yield                => "yield",
-//             Debugger             => "debugger",
-//             Function             => "function",
-//             This                 => "this",
-//             Default              => "default",
-//             If                   => "if",
-//             Throw                => "throw",
-//             Import               => "import",
-//             Try                  => "try",
-//             Static               => "static",
-//             Operator(New)        => "new",
-//             Operator(Typeof)     => "typeof",
-//             Operator(Void)       => "void",
-//             Operator(Delete)     => "delete",
-//             Operator(Instanceof) => "instanceof",
-//             Literal(True)        => "true",
-//             Literal(False)       => "false",
-//             Literal(Null)        => "null",
-//             Literal(Undefined)   => "undefined",
-
-//             _                    => unexpected_token!($parser),
-//         }
-//     })
-// }
-
 /// If the next token matches `$p`, consume that token and execute `$eval`.
 #[macro_export]
 macro_rules! allow {
     ($parser:ident, $p:pat => $eval:expr) => {
-        match $parser.peek() {
+        match $parser.lexer.token {
             $p => {
-                $parser.consume();
+                $parser.lexer.consume();
                 $eval;
             },
             _ => {}
@@ -65,8 +16,8 @@ macro_rules! allow {
 #[macro_export]
 macro_rules! expect {
     ($parser:ident, $p:pat) => {
-        match $parser.next() {
-            $p => {},
+        match $parser.lexer.token {
+            $p => $parser.lexer.consume(),
             _  => unexpected_token!($parser)
         }
     }
@@ -77,8 +28,11 @@ macro_rules! expect {
 #[macro_export]
 macro_rules! expect_identifier {
     ($parser:ident) => {
-        match $parser.next() {
-            Token::Identifier(ident) => ident,
+        match $parser.lexer.token {
+            Token::Identifier(ident) => {
+                $parser.lexer.consume();
+                ident
+            },
             _                        => unexpected_token!($parser)
         }
     }
@@ -90,7 +44,7 @@ macro_rules! expect_identifier {
 macro_rules! expect_semicolon {
     ($parser:ident) => {
         match $parser.asi() {
-            Asi::ExplicitSemicolon => $parser.consume(),
+            Asi::ExplicitSemicolon => $parser.lexer.consume(),
             Asi::ImplicitSemicolon => {},
             Asi::NoSemicolon       => unexpected_token!($parser),
         }
@@ -113,9 +67,15 @@ macro_rules! unexpected_token {
 #[macro_export]
 macro_rules! parameter_key {
     ($parser:ident) => {
-        match $parser.next() {
-            ParenClose        => break,
-            Identifier(label) => ParameterKey::Identifier(label),
+        match $parser.lexer.token {
+            ParenClose        => {
+                $parser.lexer.consume();
+                break;
+            },
+            Identifier(label) => {
+                $parser.lexer.consume();
+                ParameterKey::Identifier(label)
+            },
             _ => unexpected_token!($parser)
         }
     }

@@ -23,8 +23,10 @@ impl<'ast> Parser<'ast> {
         N: Name<'ast>,
         I: Into<N>,
     {
-        let super_class = match self.next() {
+        let super_class = match self.lexer.token {
             Extends   => {
+                self.lexer.consume();
+
                 let name = expect_identifier!(self);
                 let name = self.alloc_in_loc(name);
 
@@ -32,21 +34,31 @@ impl<'ast> Parser<'ast> {
 
                 Some(name)
             },
-            BraceOpen => None,
+            BraceOpen => {
+                self.lexer.consume();
+
+                None
+            },
             _         => unexpected_token!(self)
         };
 
         let mut body = EmptyListBuilder::new(self.arena);
 
         loop {
-            match self.next() {
-                Semicolon  => continue,
-                BraceClose => break,
-                Static     => {
-                    let token = self.next();
-                    body.push(self.class_member(token, true))
+            match self.lexer.token {
+                Semicolon  => {
+                    self.lexer.consume();
+                    continue;
                 },
-                token      => body.push(self.class_member(token, false)),
+                BraceClose => {
+                    self.lexer.consume();
+                    break;
+                },
+                Static     => {
+                    self.lexer.consume();
+                    body.push(self.class_member(true))
+                },
+                _ => body.push(self.class_member(false)),
             }
         }
 
@@ -57,12 +69,23 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    fn class_member(&mut self, token: Token<'ast>, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
-        let property = match token {
-            Identifier(label) => Property::Literal(label),
-            Literal(Value::Number(num)) => Property::Literal(num),
-            Literal(Value::Binary(num)) => Property::Binary(num),
+    fn class_member(&mut self, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
+        let property = match self.lexer.token {
+            Identifier(label) => {
+                self.lexer.consume();
+                Property::Literal(label)
+            },
+            Literal(Value::Number(num)) => {
+                self.lexer.consume();
+                Property::Literal(num)
+            },
+            Literal(Value::Binary(num)) => {
+                self.lexer.consume();
+                Property::Binary(num)
+            },
             BracketOpen => {
+                self.lexer.consume();
+
                 let expression = self.sequence_or_expression();
 
                 expect!(self, BracketClose);
@@ -71,15 +94,20 @@ impl<'ast> Parser<'ast> {
             },
             _ => {
                 // Allow word tokens such as "null" and "typeof" as identifiers
-                match token.as_word() {
-                    Some(label) => Property::Literal(label),
+                match self.lexer.token.as_word() {
+                    Some(label) => {
+                        self.lexer.consume();
+                        Property::Literal(label)
+                    },
                     _           => unexpected_token!(self)
                 }
             }
         };
 
-        let member = match self.next() {
+        let member = match self.lexer.token {
             ParenOpen => {
+                self.lexer.consume();
+
                 let params = self.parameter_list();
                 let body = self.block_body();
 
@@ -98,6 +126,8 @@ impl<'ast> Parser<'ast> {
                 })
             },
             Operator(OperatorKind::Assign) => {
+                self.lexer.consume();
+
                 let expression = self.expression(0);
 
                 Loc::new(0, 0, ClassMember::Value {

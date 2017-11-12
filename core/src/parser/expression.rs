@@ -7,24 +7,51 @@ use ast::OperatorKind::*;
 impl<'ast> Parser<'ast> {
     #[inline]
     pub fn expression(&mut self, lbp: u8) -> ExpressionPtr<'ast> {
-        let token = self.next();
-        self.expression_from(token, lbp)
-    }
-
-    #[inline]
-    pub fn expression_from(&mut self, token: Token<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
-        let left = match token {
-            This               => self.alloc_in_loc(Expression::This),
-            Literal(value)     => self.alloc_in_loc(Expression::Value(value)),
-            Identifier(value)  => self.alloc_in_loc(Expression::Identifier(value)),
-            Operator(Division) => self.regular_expression(),
-            Operator(optype)   => self.prefix_expression(optype),
-            ParenOpen          => self.paren_expression(),
-            BracketOpen        => self.array_expression(),
-            BraceOpen          => self.object_expression(),
-            Function           => self.function_expression(),
-            Class              => self.class_expression(),
-            Template(kind)     => self.template_expression(None, kind),
+        let left = match self.lexer.token {
+            This               => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::This)
+            },
+            Literal(value)     => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(value))
+            },
+            Identifier(value)  => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Identifier(value))
+            },
+            Operator(Division) => {
+                self.lexer.consume();
+                self.regular_expression()
+            },
+            Operator(optype)   => {
+                self.lexer.consume();
+                self.prefix_expression(optype)
+            },
+            ParenOpen          => {
+                self.lexer.consume();
+                self.paren_expression()
+            },
+            BracketOpen        => {
+                self.lexer.consume();
+                self.array_expression()
+            },
+            BraceOpen          => {
+                self.lexer.consume();
+                self.object_expression()
+            },
+            Function           => {
+                self.lexer.consume();
+                self.function_expression()
+            },
+            Class              => {
+                self.lexer.consume();
+                self.class_expression()
+            },
+            Template(kind)     => {
+                self.lexer.consume();
+                self.template_expression(None, kind)
+            },
             _                  => unexpected_token!(self)
         };
 
@@ -34,10 +61,10 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn complex_expression(&mut self, mut left: ExpressionPtr<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
         loop {
-            left = match self.peek() {
+            left = match self.lexer.token {
                 Operator(op @ Increment) |
                 Operator(op @ Decrement) => {
-                    self.consume();
+                    self.lexer.consume();
 
                     // TODO: op.end
                     self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
@@ -47,7 +74,7 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(op @ Conditional) => {
-                    self.consume();
+                    self.lexer.consume();
 
                     let consequent = self.expression(op.binding_power());
                     expect!(self, Colon);
@@ -61,6 +88,8 @@ impl<'ast> Parser<'ast> {
                 }
 
                 Operator(FatArrow) => {
+                    self.lexer.consume();
+
                     let params = match left.item {
                         Expression::Sequence { body } => body,
                         _                             => List::from(self.arena, left)
@@ -76,7 +105,7 @@ impl<'ast> Parser<'ast> {
                         break;
                     }
 
-                    self.consume();
+                    self.lexer.consume();
 
                     if !op.infix() {
                         unexpected_token!(self);
@@ -96,7 +125,7 @@ impl<'ast> Parser<'ast> {
                 },
 
                 Accessor(member) => {
-                    self.consume();
+                    self.lexer.consume();
 
                     let right = self.alloc_in_loc(member);
 
@@ -111,7 +140,7 @@ impl<'ast> Parser<'ast> {
                         break;
                     }
 
-                    self.consume();
+                    self.lexer.consume();
 
                     let arguments = self.expression_list();
 
@@ -126,7 +155,7 @@ impl<'ast> Parser<'ast> {
                         break;
                     }
 
-                    self.consume();
+                    self.lexer.consume();
 
                     let property = self.sequence_or_expression();
 
@@ -143,7 +172,7 @@ impl<'ast> Parser<'ast> {
                         break;
                     }
 
-                    self.consume();
+                    self.lexer.consume();
 
                     self.template_expression(Some(left), kind)
                 },
@@ -157,13 +186,14 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ExpressionPtr<'ast> {
-        expect!(self, Operator(FatArrow));
-
         let params = self.params_from_expressions(params);
 
-        let body = match self.next() {
-            BraceOpen => self.block_statement(),
-            body => self.expression_statement(body),
+        let body = match self.lexer.token {
+            BraceOpen => {
+                self.lexer.consume();
+                self.block_statement()
+            },
+            _ => self.expression_statement(),
         };
 
         self.alloc(Expression::Arrow {
@@ -174,27 +204,21 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn sequence_or_expression(&mut self) -> ExpressionPtr<'ast> {
-        let token = self.next();
-        self.sequence_or_expression_from(token)
-    }
-
-    #[inline]
-    pub fn sequence_or_expression_from(&mut self, token: Token<'ast>) -> ExpressionPtr<'ast> {
-        let first = self.expression_from(token, 0);
+        let first = self.expression(0);
         self.sequence_or(first)
     }
 
     #[inline]
     pub fn sequence_or(&mut self, first: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
-        match self.peek() {
+        match self.lexer.token {
             Comma => {
-                self.consume();
+                self.lexer.consume();
 
                 let mut builder = ListBuilder::new(self.arena, first);
                 builder.push(self.expression(0));
 
-                while let Comma = self.peek() {
-                    self.consume();
+                while let Comma = self.lexer.token {
+                    self.lexer.consume();
                     builder.push(self.expression(0));
                 }
 
@@ -208,17 +232,24 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_list(&mut self) -> ExpressionList<'ast> {
-        let expression = match self.next() {
-            ParenClose => return List::empty(),
-            token      => self.expression_from(token, 0),
-        };
+        if self.lexer.token == ParenClose {
+            self.lexer.consume();
+            return List::empty();
+        }
 
+        let expression = self.expression(0);
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
-            let expression = match self.next() {
-                ParenClose => break,
-                Comma      => self.expression(0),
+            let expression = match self.lexer.token {
+                ParenClose => {
+                    self.lexer.consume();
+                    break;
+                },
+                Comma      => {
+                    self.lexer.consume();
+                    self.expression(0)
+                }
                 _          => unexpected_token!(self),
             };
 
@@ -230,12 +261,14 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn paren_expression(&mut self) -> ExpressionPtr<'ast> {
-        match self.next() {
+        match self.lexer.token {
             ParenClose => {
+                self.lexer.consume();
+                expect!(self, Operator(FatArrow));
                 self.arrow_function_expression(List::empty())
             },
-            token => {
-                let expression = self.sequence_or_expression_from(token);
+            _ => {
+                let expression = self.sequence_or_expression();
 
                 expect!(self, ParenClose);
 
@@ -260,27 +293,35 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
-        let member = match self.next() {
-            BraceClose => {
-                return self.alloc_in_loc(Expression::Object {
-                    body: List::empty()
-                });
-            },
-            token => self.object_member(token),
-        };
+        if self.lexer.token == BraceClose {
+            self.lexer.consume();
+            return self.alloc_in_loc(Expression::Object {
+                body: List::empty()
+            });
+        }
+
+        let member = self.object_member();
 
         let mut builder = ListBuilder::new(self.arena, member);
 
         loop {
-            match self.next() {
-                BraceClose => break,
-                Comma      => {},
+            match self.lexer.token {
+                BraceClose => {
+                    self.lexer.consume();
+                    break;
+                },
+                Comma      => {
+                    self.lexer.consume();
+                },
                 _          => unexpected_token!(self)
             }
 
-            match self.next() {
-                BraceClose => break,
-                token => builder.push(self.object_member(token)),
+            match self.lexer.token {
+                BraceClose => {
+                    self.lexer.consume();
+                    break;
+                },
+                _ => builder.push(self.object_member()),
             }
         }
 
@@ -289,21 +330,29 @@ impl<'ast> Parser<'ast> {
         }.at(0, 0))
     }
 
-    pub fn object_member(&mut self, token: Token<'ast>) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
-        let property = match token {
+    pub fn object_member(&mut self) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
+        let property = match self.lexer.token {
             Identifier(label) => {
-                match self.peek() {
+                self.lexer.consume();
+
+                match self.lexer.token {
                     Colon | ParenOpen => self.in_loc(Property::Literal(label)),
 
                     _ => return self.alloc_in_loc(ObjectMember::Shorthand(label)),
                 }
             },
-
             Literal(Value::String(key)) |
-            Literal(Value::Number(key)) => self.in_loc(Property::Literal(key)),
-            Literal(Value::Binary(num)) => self.in_loc(Property::Binary(num)),
-
+            Literal(Value::Number(key)) => {
+                self.lexer.consume();
+                self.in_loc(Property::Literal(key))
+            },
+            Literal(Value::Binary(num)) => {
+                self.lexer.consume();
+                self.in_loc(Property::Binary(num))
+            },
             BracketOpen => {
+                self.lexer.consume();
+
                 let expression = self.sequence_or_expression();
                 let property = Loc::new(0, 0, Property::Computed(expression));
 
@@ -311,11 +360,13 @@ impl<'ast> Parser<'ast> {
 
                 property
             },
-
             _ => {
                 // Allow word tokens such as "null" and "typeof" as identifiers
-                match token.as_word() {
-                    Some(label) => self.in_loc(Property::Literal(label)),
+                match self.lexer.token.as_word() {
+                    Some(label) => {
+                        self.lexer.consume();
+                        self.in_loc(Property::Literal(label))
+                    }
                     None        => unexpected_token!(self)
                 }
             }
@@ -323,8 +374,10 @@ impl<'ast> Parser<'ast> {
 
         let property = self.alloc(property);
 
-        match self.next() {
+        match self.lexer.token {
             Colon => {
+                self.lexer.consume();
+
                 let value = self.expression(0);
 
                 self.alloc(Loc::new(0, 0, ObjectMember::Value {
@@ -333,6 +386,8 @@ impl<'ast> Parser<'ast> {
                 }))
             },
             ParenOpen => {
+                self.lexer.consume();
+
                 let params = self.parameter_list();
                 let body = self.block_body();
 
@@ -348,19 +403,30 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
-        let expression = match self.next() {
-            Comma        => self.alloc_in_loc(Expression::Void),
-            BracketClose => return self.alloc(Expression::Array { body: List::empty() }.at(0,0)),
-            token        => {
-                let expression = self.expression_from(token, 0);
+        let expression = match self.lexer.token {
+            Comma        => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Void)
+            },
+            BracketClose => {
+                self.lexer.consume();
+                return self.alloc(Expression::Array { body: List::empty() }.at(0,0))
+            },
+            _            => {
+                let expression = self.expression(0);
 
-                match self.next() {
+                match self.lexer.token {
                     BracketClose => {
+                        self.lexer.consume();
+
                         let body = List::from(self.arena, expression);
 
                         return self.alloc(Expression::Array { body }.at(0, 0));
                     },
-                    Comma        => expression,
+                    Comma        => {
+                        self.lexer.consume();
+                        expression
+                    },
                     _            => unexpected_token!(self),
                 }
             }
@@ -369,27 +435,36 @@ impl<'ast> Parser<'ast> {
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
-            match self.next() {
+            match self.lexer.token {
                 Comma => {
+                    self.lexer.consume();
+
                     builder.push(self.alloc_in_loc(Expression::Void));
 
                     continue;
                 },
                 BracketClose => {
+                    self.lexer.consume();
+
                     builder.push(self.alloc_in_loc(Expression::Void));
 
                     break;
                 },
-                token => {
-                    let expression = self.expression_from(token, 0);
+                _ => {
+                    self.lexer.consume();
+
+                    let expression = self.expression(0);
 
                     builder.push(expression);
                 }
             }
 
-            match self.next() {
-                BracketClose => break,
-                Comma        => {},
+            match self.lexer.token {
+                BracketClose => {
+                    self.lexer.consume();
+                    break;
+                }
+                Comma        => self.lexer.consume(),
                 _            => unexpected_token!(self),
             }
         }
@@ -438,14 +513,18 @@ impl<'ast> Parser<'ast> {
         let mut expressions = ListBuilder::new(self.arena, expression);
 
         loop {
-            match self.lexer.read_template_kind() {
+            self.lexer.read_template_kind();
+
+            match self.lexer.token {
                 Template(TemplateKind::Open(quasi)) => {
+                    self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
                     expressions.push(self.sequence_or_expression());
 
                     expect!(self, BraceClose);
                 },
                 Template(TemplateKind::Closed(quasi)) => {
+                    self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
                     break;
                 },
@@ -462,9 +541,9 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
-        let name = match self.peek() {
+        let name = match self.lexer.token {
             Identifier(name) => {
-                self.consume();
+                self.lexer.consume();
                 Some(self.alloc_in_loc(name))
             },
             _ => None
@@ -477,9 +556,9 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
-        let name = match self.peek() {
+        let name = match self.lexer.token {
             Identifier(name) => {
-                self.consume();
+                self.lexer.consume();
                 Some(self.alloc_in_loc(name))
             },
             _ => None

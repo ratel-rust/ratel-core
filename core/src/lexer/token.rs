@@ -17,7 +17,7 @@ pub enum TemplateKind<'src> {
     Closed(&'src str),
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token<'src> {
     EndOfProgram,
     Semicolon,

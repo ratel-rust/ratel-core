@@ -42,46 +42,39 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    /// Get the next token.
-    #[inline]
-    fn next(&mut self) -> Token<'ast> {
-        match self.token {
-            None => self.lexer.get_token(),
+    // /// Get the next token.
+    // #[inline]
+    // fn next(&mut self) -> Token<'ast> {
+    //     match self.token {
+    //         None => self.lexer.get_token(),
 
-            Some(token) => {
-                self.token = None;
+    //         Some(token) => {
+    //             self.token = None;
 
-                token
-            }
-        }
-    }
+    //             token
+    //         }
+    //     }
+    // }
 
-    /// Peek on the next token.
-    #[inline]
-    fn peek(&mut self) -> Token<'ast> {
-        match self.token {
-            None => {
-                let token = self.lexer.get_token();
+    // /// Peek on the next token.
+    // #[inline]
+    // fn peek(&mut self) -> Token<'ast> {
+    //     match self.token {
+    //         None => {
+    //             let token = self.lexer.get_token();
 
-                self.token = Some(token);
+    //             self.token = Some(token);
 
-                token
-            },
+    //             token
+    //         },
 
-            Some(token) => token
-        }
-    }
+    //         Some(token) => token
+    //     }
+    // }
 
     #[inline]
     fn asi(&mut self) -> Asi {
-        self.peek();
-
         self.lexer.asi()
-    }
-
-    #[inline]
-    fn consume(&mut self) {
-        self.token = None;
     }
 
     #[inline]
@@ -109,20 +102,15 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn parse(&mut self) {
-        let statement = match self.next() {
-            EndOfProgram => return,
-            token        => self.statement(token)
-        };
+        if self.lexer.token == EndOfProgram {
+            return;
+        }
 
+        let statement = self.statement();
         let mut builder = ListBuilder::new(self.arena, statement);
 
-        loop {
-            let statement = match self.next() {
-                EndOfProgram => break,
-                token        => self.statement(token)
-            };
-
-            builder.push(statement);
+        while self.lexer.token != EndOfProgram {
+            builder.push(self.statement());
         }
 
         self.body = builder.into_list()
@@ -130,21 +118,19 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn block_body_tail(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
-        let statement = match self.next() {
-            BraceClose => return List::empty(),
-            token      => self.statement(token),
-        };
+        if self.lexer.token == BraceClose {
+            self.lexer.consume();
+            return List::empty();
+        }
 
+        let statement = self.statement();
         let mut builder = ListBuilder::new(self.arena, statement);
 
-        loop {
-            let statement = match self.next() {
-                BraceClose => break,
-                token      => self.statement(token),
-            };
-
-            builder.push(statement);
+        while self.lexer.token != BraceClose {
+            builder.push(self.statement());
         }
+
+        self.lexer.consume();
 
         builder.into_list()
     }
@@ -204,9 +190,9 @@ impl<'ast> Parser<'ast> {
 
         loop {
             let key = parameter_key!(self);
-            let token = self.next();
 
-            if token == Operator(OperatorKind::Assign) {
+            if self.lexer.token == Operator(OperatorKind::Assign) {
+                self.lexer.consume();
                 return self.parameter_list_with_defaults(key, builder);
             }
 
@@ -217,9 +203,12 @@ impl<'ast> Parser<'ast> {
 
             builder.push(self.alloc_in_loc(parameter));
 
-            match token {
-                ParenClose => break,
-                Comma      => {},
+            match self.lexer.token {
+                ParenClose => {
+                    self.lexer.consume();
+                    break;
+                },
+                Comma      => self.lexer.consume(),
                 _          => unexpected_token!(self),
             };
         }
@@ -242,9 +231,12 @@ impl<'ast> Parser<'ast> {
 
             builder.push(self.alloc_in_loc(parameter));
 
-            match self.next() {
-                ParenClose => break,
-                Comma      => {},
+            match self.lexer.token {
+                ParenClose => {
+                    self.lexer.consume();
+                    break
+                },
+                Comma      => self.lexer.consume(),
                 _          => unexpected_token!(self),
             };
 

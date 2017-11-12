@@ -7,30 +7,69 @@ use ast::OperatorKind::*;
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn statement(&mut self, token: Token<'ast>) -> StatementPtr<'ast> {
-        match token {
-            Semicolon         => self.alloc_in_loc(Statement::Empty),
-            Identifier(label) => self.labeled_or_expression_statement(label),
-            BraceOpen         => self.block_statement(),
-            Declaration(kind) => self.variable_declaration_statement(kind),
-            Return            => self.return_statement(),
-            Break             => self.break_statement(),
-            Function          => self.function_statement(),
-            Class             => self.class_statement(),
-            If                => self.if_statement(),
-            While             => self.while_statement(),
-            Do                => self.do_statement(),
-            For               => self.for_statement(),
-            Throw             => self.throw_statement(),
-            Try               => self.try_statement(),
-            _                 => self.expression_statement(token),
+    pub fn statement(&mut self) -> StatementPtr<'ast> {
+        match self.lexer.token {
+            Semicolon         => {
+                self.lexer.consume();
+                self.alloc_in_loc(Statement::Empty)
+            },
+            Identifier(label) => {
+                self.lexer.consume();
+                self.labeled_or_expression_statement(label)
+            },
+            BraceOpen         => {
+                self.lexer.consume();
+                self.block_statement()
+            },
+            Declaration(kind) => {
+                self.lexer.consume();
+                self.variable_declaration_statement(kind)
+            },
+            Return            => {
+                self.lexer.consume();
+                self.return_statement()
+            },
+            Break             => {
+                self.lexer.consume();
+                self.break_statement()
+            },
+            Function          => {
+                self.lexer.consume();
+                self.function_statement()
+            },
+            Class             => {
+                self.lexer.consume();
+                self.class_statement()
+            },
+            If                => {
+                self.lexer.consume();
+                self.if_statement()
+            },
+            While             => {
+                self.lexer.consume();
+                self.while_statement()
+            },
+            Do                => {
+                self.lexer.consume();
+                self.do_statement()
+            },
+            For               => {
+                self.lexer.consume();
+                self.for_statement()
+            },
+            Throw             => {
+                self.lexer.consume();
+                self.throw_statement()
+            },
+            Try               => {
+                self.lexer.consume();
+                self.try_statement()
+            },
+            _                 => {
+                self.lexer.consume();
+                self.expression_statement()
+            }
         }
-    }
-
-    #[inline]
-    fn expect_statement(&mut self) -> StatementPtr<'ast> {
-        let token = self.next();
-        self.statement(token)
     }
 
     #[inline]
@@ -41,8 +80,8 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn expression_statement(&mut self, token: Token<'ast>) -> StatementPtr<'ast> {
-        let expression = self.sequence_or_expression_from(token);
+    pub fn expression_statement(&mut self) -> StatementPtr<'ast> {
+        let expression = self.sequence_or_expression();
 
         let start = expression.start;
         let end = expression.end;
@@ -54,10 +93,10 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn labeled_or_expression_statement(&mut self, label: &'ast str) -> StatementPtr<'ast> {
-        if let Colon = self.peek() {
-            self.consume();
+        if let Colon = self.lexer.token {
+            self.lexer.consume();
 
-            let body = self.expect_statement();
+            let body = self.statement();
 
             return self.alloc(Statement::Labeled {
                 label,
@@ -105,7 +144,7 @@ impl<'ast> Parser<'ast> {
 
             Asi::ImplicitSemicolon => None,
             Asi::ExplicitSemicolon => {
-                self.consume();
+                self.lexer.consume();
 
                 None
             }
@@ -130,16 +169,25 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn variable_declarator(&mut self) -> Ptr<'ast, Loc<Declarator<'ast>>> {
-        let name = match self.next() {
-            BraceOpen        => self.object_expression(),
-            BracketOpen      => self.array_expression(),
-            Identifier(name) => self.alloc_in_loc(Expression::Identifier(name)),
+        let name = match self.lexer.token {
+            BraceOpen        => {
+                self.lexer.consume();
+                self.object_expression()
+            },
+            BracketOpen      => {
+                self.lexer.consume();
+                self.array_expression()
+            },
+            Identifier(name) => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Identifier(name))
+            },
             _                => unexpected_token!(self),
         };
 
-        let value = match self.peek() {
+        let value = match self.lexer.token {
             Operator(Assign) => {
-                self.consume();
+                self.lexer.consume();
                 Some(self.expression(0))
             },
             _ => None
@@ -155,16 +203,16 @@ impl<'ast> Parser<'ast> {
     pub fn variable_declarators(&mut self) -> List<'ast, Loc<Declarator<'ast>>> {
         let mut builder = ListBuilder::new(self.arena, self.variable_declarator());
 
-        match self.peek() {
-            Comma => self.consume(),
+        match self.lexer.token {
+            Comma => self.lexer.consume(),
             _     => return builder.into_list(),
         }
 
         loop {
             builder.push(self.variable_declarator());
 
-            match self.peek() {
-                Comma => self.consume(),
+            match self.lexer.token {
+                Comma => self.lexer.consume(),
                 _     => return builder.into_list(),
             }
         }
@@ -174,7 +222,7 @@ impl<'ast> Parser<'ast> {
     pub fn break_statement(&mut self) -> StatementPtr<'ast> {
         let label = match self.asi() {
             Asi::ExplicitSemicolon => {
-                self.consume();
+                self.lexer.consume();
                 None
             },
             Asi::ImplicitSemicolon => None,
@@ -226,12 +274,12 @@ impl<'ast> Parser<'ast> {
         let test = self.expression(0);
         expect!(self, ParenClose);
 
-        let consequent = self.expect_statement();
+        let consequent = self.statement();
 
-        let alternate = match self.peek() {
+        let alternate = match self.lexer.token {
             Else => {
-                self.consume();
-                Some(self.expect_statement())
+                self.lexer.consume();
+                Some(self.statement())
             },
             _ => None
         };
@@ -250,7 +298,7 @@ impl<'ast> Parser<'ast> {
         let test = self.expression(0);
         expect!(self, ParenClose);
 
-        let body = self.expect_statement();
+        let body = self.statement();
 
         self.alloc(Statement::While {
             test,
@@ -260,7 +308,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn do_statement(&mut self) -> StatementPtr<'ast> {
-        let body = self.expect_statement();
+        let body = self.statement();
         expect!(self, While);
 
         let test = self.expression(0);
@@ -275,10 +323,13 @@ impl<'ast> Parser<'ast> {
     fn for_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
 
-        let init = match self.next() {
-            Semicolon => None,
-
+        let init = match self.lexer.token {
+            Semicolon => {
+                self.lexer.consume();
+                None
+            },
             Declaration(kind) => {
+                self.lexer.consume();
                 let declarators = self.variable_declarators();
 
                 if let Some(&Loc {
@@ -304,8 +355,8 @@ impl<'ast> Parser<'ast> {
                 }.at(0, 0)))
             }
 
-            token => {
-                let expression = self.expression_from(token, 0);
+            _ => {
+                let expression = self.expression(0);
 
                 if let Expression::Binary {
                     operator: In,
@@ -327,35 +378,47 @@ impl<'ast> Parser<'ast> {
         };
 
         if let Some(init) = init {
-            match self.next() {
-                Operator(In)     => return self.for_in_statement(init),
-                Identifier("of") => return self.for_of_statement(init),
-                Semicolon        => {},
+            match self.lexer.token {
+                Operator(In)     => {
+                    self.lexer.consume();
+                    return self.for_in_statement(init);
+                },
+                Identifier("of") => {
+                    self.lexer.consume();
+                    return self.for_of_statement(init);
+                },
+                Semicolon        => self.lexer.consume(),
                 _                => unexpected_token!(self),
             }
         }
 
-        let test = match self.next() {
-            Semicolon => None,
-            token     => {
-                let test = self.expression_from(token, 0);
+        let test = match self.lexer.token {
+            Semicolon => {
+                self.lexer.consume();
+                None
+            },
+            _         => {
+                let test = self.expression(0);
                 expect!(self, Semicolon);
 
                 Some(test)
             }
         };
 
-        let update = match self.next() {
-            ParenClose => None,
-            token      => {
-                let update = self.expression_from(token, 0);
+        let update = match self.lexer.token {
+            ParenClose => {
+                self.lexer.consume();
+                None
+            },
+            _         => {
+                let update = self.expression(0);
                 expect!(self, ParenClose);
 
                 Some(update)
             }
         };
 
-        let body = self.expect_statement();
+        let body = self.statement();
 
         self.alloc(Statement::For {
             init,
@@ -368,7 +431,7 @@ impl<'ast> Parser<'ast> {
     fn for_in_statement_from_parts(&mut self, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
         expect!(self, ParenClose);
 
-        let body = self.expect_statement();
+        let body = self.statement();
 
         self.alloc(Statement::ForIn {
             left,
@@ -382,7 +445,7 @@ impl<'ast> Parser<'ast> {
 
         expect!(self, ParenClose);
 
-        let body = self.expect_statement();
+        let body = self.statement();
 
         self.alloc(Statement::ForIn {
             left,
@@ -396,7 +459,7 @@ impl<'ast> Parser<'ast> {
 
         expect!(self, ParenClose);
 
-        let body = self.expect_statement();
+        let body = self.statement();
 
         self.alloc(Statement::ForOf {
             left,

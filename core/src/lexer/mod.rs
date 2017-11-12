@@ -482,7 +482,10 @@ const SLH: ByteHandler = Some(|lex| {
             // Keep consuming bytes until new line or end of source
             unwind_loop!({
                 match lex.read_byte() {
-                    0 | b'\n' => return lex.get_token(),
+                    0 | b'\n' => {
+                        lex.consume();
+                        return lex.token.clone();
+                    }
                     _ => lex.bump()
                 }
             });
@@ -501,7 +504,8 @@ const SLH: ByteHandler = Some(|lex| {
                         match lex.read_byte() {
                             b'/' => {
                                 lex.bump();
-                                return lex.get_token();
+                                lex.consume();
+                                return lex.token.clone();
                             },
                             0 => return UnexpectedEndOfProgram,
                             _ => lex.bump()
@@ -864,11 +868,13 @@ const QOT: ByteHandler = Some(|lex| {
 // `
 const TPL: ByteHandler = Some(|lex| {
     lex.bump();
-
-    lex.read_template_kind()
+    lex.read_template_kind();
+    lex.token.clone()
 });
 
 pub struct Lexer<'src> {
+    pub token: Token<'src>,
+
     /// Flags whether or not a new line was read before the token
     asi: Asi,
 
@@ -884,8 +890,6 @@ pub struct Lexer<'src> {
 
     /// Index of current token in source
     token_start: usize,
-
-    phantom: PhantomData<&'src str>
 }
 
 
@@ -897,18 +901,22 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     pub unsafe fn from_ptr(ptr: *const u8) -> Self {
-        Lexer {
+        let mut lexer = Lexer {
+            token: UnexpectedToken,
             asi: Asi::NoSemicolon,
             handlers: BYTE_HANDLERS.as_ptr(),
             ptr,
             index: 0,
             token_start: 0,
-            phantom: PhantomData
-        }
+        };
+
+        lexer.consume();
+
+        lexer
     }
 
     #[inline]
-    pub fn get_token(&mut self) -> Token<'src> {
+    pub fn consume(&mut self) {
         self.asi = Asi::NoSemicolon;
 
         let mut ch;
@@ -917,7 +925,8 @@ impl<'src> Lexer<'src> {
             ch = self.read_byte();
 
             if let Some(handler) = self.handler_from_byte(ch) {
-                return handler(self);
+                self.token = handler(self);
+                return;
             }
 
             self.bump();
@@ -955,7 +964,7 @@ impl<'src> Lexer<'src> {
     /// **Note:** Parser needs to expect a BraceClose token before calling
     /// this method to ensure that the tokenizer state is not corrupted.
     #[inline]
-    pub fn read_template_kind(&mut self) -> Token<'src> {
+    pub fn read_template_kind(&mut self) {
         let start = self.index;
 
         loop {
@@ -965,7 +974,8 @@ impl<'src> Lexer<'src> {
                     let end = self.index - 1;
                     let quasi = self.slice_source(start, end);
 
-                    return Template(TemplateKind::Closed(quasi));
+                    self.token = Template(TemplateKind::Closed(quasi));
+                    return;
                 },
                 b'$' => {
                     self.bump();
@@ -978,11 +988,19 @@ impl<'src> Lexer<'src> {
                     let end = self.index - 2;
                     let quasi = self.slice_source(start, end);
 
-                    return Template(TemplateKind::Open(quasi));
+                    self.token = Template(TemplateKind::Open(quasi));
+                    return;
                 },
                 b'\\' => {
                     self.bump();
-                    expect_byte!(self);
+
+                    match self.read_byte() {
+                        0 => {
+                            self.token = UnexpectedEndOfProgram;
+                            return;
+                        },
+                        _ => self.bump()
+                    }
                 },
                 _ => self.bump()
             }
@@ -1279,10 +1297,11 @@ mod test {
         let mut lex = Lexer::new(&arena, source);
 
         for token in tokens.as_ref() {
-            assert_eq!(lex.get_token(), *token);
+            assert_eq!(lex.token, *token);
+            lex.consume();
         }
 
-        assert_eq!(lex.get_token(), EndOfProgram);
+        assert_eq!(lex.token, EndOfProgram);
     }
 
     #[test]
