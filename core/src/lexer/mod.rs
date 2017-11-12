@@ -14,22 +14,10 @@ use ast::DeclarationKind::*;
 use error::Error;
 use arena::Arena;
 
-/// Helper macro for declaring byte-handler functions with correlating constants.
-/// This becomes handy due to a lookup table present below.
-macro_rules! define_handlers {
-    { $(const $static_name:ident: $name:ident |$lex:pat| $code:block)* } => {
-        $(
-            // fn $name<'src>($lex: &mut Lexer<'src>) -> Token<'src> $code
-
-            const $static_name: ByteHandler = Some(|$lex| $code);
-        )*
-    }
-}
-
 macro_rules! expect_byte {
     ($lex:ident) => ({
         match $lex.read_byte() {
-            0 => return UnexpectedEndOfProgram,
+            0 => return $lex.token = UnexpectedEndOfProgram,
             _ => $lex.bump()
         }
     });
@@ -78,7 +66,7 @@ pub enum Asi {
     NoSemicolon,
 }
 
-type ByteHandler = Option<for<'src> fn(&mut Lexer<'src>) -> Token<'src>>;
+type ByteHandler = Option<for<'src> fn(&mut Lexer<'src>)>;
 
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [ByteHandler; 256] = [
@@ -106,13 +94,13 @@ const ___: ByteHandler = None;
 const ERR: ByteHandler = Some(|lex| {
     lex.bump();
 
-    UnexpectedToken
+    lex.token = UnexpectedToken;
 });
 
 const EOF: ByteHandler = Some(|lex| {
     lex.asi = Asi::ImplicitSemicolon;
 
-    EndOfProgram
+    lex.token = EndOfProgram;
 });
 
 // ;
@@ -121,28 +109,28 @@ const SEM: ByteHandler = Some(|lex| {
 
     lex.asi = Asi::ExplicitSemicolon;
 
-    Semicolon
+    lex.token = Semicolon;
 });
 
 // :
 const COL: ByteHandler = Some(|lex| {
     lex.bump();
 
-    Colon
+    lex.token = Colon;
 });
 
 // ,
 const COM: ByteHandler = Some(|lex| {
     lex.bump();
 
-    Comma
+    lex.token = Comma;
 });
 
 // (
 const PNO: ByteHandler = Some(|lex| {
     lex.bump();
 
-    ParenOpen
+    lex.token = ParenOpen;
 });
 
 // )
@@ -151,28 +139,28 @@ const PNC: ByteHandler = Some(|lex| {
 
     lex.asi = Asi::ImplicitSemicolon;
 
-    ParenClose
+    lex.token = ParenClose;
 });
 
 // [
 const BTO: ByteHandler = Some(|lex| {
     lex.bump();
 
-    BracketOpen
+    lex.token = BracketOpen;
 });
 
 // ]
 const BTC: ByteHandler = Some(|lex| {
     lex.bump();
 
-    BracketClose
+    lex.token = BracketClose;
 });
 
 // {
 const BEO: ByteHandler = Some(|lex| {
     lex.bump();
 
-    BraceOpen
+    lex.token = BraceOpen;
 });
 
 // }
@@ -181,7 +169,7 @@ const BEC: ByteHandler = Some(|lex| {
 
     lex.asi = Asi::ImplicitSemicolon;
 
-    BraceClose
+    lex.token = BraceClose;
 });
 
 // =
@@ -212,7 +200,7 @@ const EQL: ByteHandler = Some(|lex| {
         _ => Assign
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // !
@@ -237,7 +225,7 @@ const EXL: ByteHandler = Some(|lex| {
         _ => LogicalNot
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // <
@@ -268,7 +256,7 @@ const LSS: ByteHandler = Some(|lex| {
         _ => Lesser
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // >
@@ -313,21 +301,21 @@ const MOR: ByteHandler = Some(|lex| {
         _ => Greater
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // ?
 const QST: ByteHandler = Some(|lex| {
     lex.bump();
 
-    Operator(Conditional)
+    lex.token = Operator(Conditional);
 });
 
 // ~
 const TLD: ByteHandler = Some(|lex| {
     lex.bump();
 
-    Operator(BitwiseNot)
+    lex.token = Operator(BitwiseNot);
 });
 
 // ^
@@ -344,7 +332,7 @@ const CRT: ByteHandler = Some(|lex| {
         _ => BitwiseXor
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // &
@@ -367,7 +355,7 @@ const AMP: ByteHandler = Some(|lex| {
         _ => BitwiseAnd
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // |
@@ -390,7 +378,7 @@ const PIP: ByteHandler = Some(|lex| {
         _ => BitwiseOr
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // +
@@ -413,7 +401,7 @@ const PLS: ByteHandler = Some(|lex| {
         _ => Addition
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // -
@@ -436,7 +424,7 @@ const MIN: ByteHandler = Some(|lex| {
         _ => Substraction
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // *
@@ -467,7 +455,7 @@ const ATR: ByteHandler = Some(|lex| {
         _ => Multiplication
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // /
@@ -483,8 +471,7 @@ const SLH: ByteHandler = Some(|lex| {
             unwind_loop!({
                 match lex.read_byte() {
                     0 | b'\n' => {
-                        lex.consume();
-                        return lex.token.clone();
+                        return lex.consume();
                     }
                     _ => lex.bump()
                 }
@@ -504,14 +491,13 @@ const SLH: ByteHandler = Some(|lex| {
                         match lex.read_byte() {
                             b'/' => {
                                 lex.bump();
-                                lex.consume();
-                                return lex.token.clone();
+                                return lex.consume();
                             },
-                            0 => return UnexpectedEndOfProgram,
+                            0 => return lex.token = UnexpectedEndOfProgram,
                             _ => lex.bump()
                         }
                     },
-                    0 => return UnexpectedEndOfProgram,
+                    0 => return lex.token = UnexpectedEndOfProgram,
                     _ => lex.bump()
                 }
             });
@@ -526,7 +512,7 @@ const SLH: ByteHandler = Some(|lex| {
         _ => Division
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // %
@@ -543,70 +529,70 @@ const PRC: ByteHandler = Some(|lex| {
         _ => Remainder
     };
 
-    Operator(op)
+    lex.token = Operator(op);
 });
 
 // Non-keyword Identifier: starting with a letter, _ or $
 const IDT: ByteHandler = Some(|lex| {
-    Identifier(lex.read_label())
+    lex.token = Identifier(lex.read_label());
 });
 
 // Identifier or keyword starting with a letter `b`
 const L_B: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "break"      => Break,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `c`
 const L_C: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "const"      => Declaration(Const),
         "case"       => Case,
         "class"      => Class,
         "catch"      => Catch,
         "continue"   => Continue,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `d`
 const L_D: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "delete"     => Operator(Delete),
         "do"         => Do,
         "debugger"   => Debugger,
         "default"    => Default,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `e`
 const L_E: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "else"       => Else,
         "export"     => Export,
         "extends"    => Extends,
         "enum"       => Reserved(Enum),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `f`
 const L_F: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "finally"    => Finally,
         "for"        => For,
         "function"   => Function,
         "false"      => Literal(Value::False),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `i`
 const L_I: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "in"         => Operator(In),
         "instanceof" => Operator(Instanceof),
         "if"         => If,
@@ -614,99 +600,99 @@ const L_I: ByteHandler = Some(|lex| {
         "implements" => Reserved(Implements),
         "interface"  => Reserved(Interface),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `l`
 const L_L: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "let"        => Declaration(Let),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `n`
 const L_N: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "new"        => Operator(New),
         "null"       => Literal(Value::Null),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `p`
 const L_P: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "package"    => Reserved(Package),
         "protected"  => Reserved(Protected),
         "private"    => Reserved(Private),
         "public"     => Reserved(Public),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `r`
 const L_R: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "return"     => Return,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `s`
 const L_S: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "super"      => Super,
         "switch"     => Switch,
         "static"     => Static,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `t`
 const L_T: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "typeof"     => Operator(Typeof),
         "this"       => This,
         "throw"      => Throw,
         "try"        => Try,
         "true"       => Literal(Value::True),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `u`
 const L_U: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "undefined"  => Literal(Value::Undefined),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `v`
 const L_V: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "void"       => Operator(Void),
         "var"        => Declaration(Var),
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `w`
 const L_W: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "while"      => While,
         "with"       => With,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Identifier or keyword starting with a letter `y`
 const L_Y: ByteHandler = Some(|lex| {
-    match lex.read_label() {
+    lex.token = match lex.read_label() {
         "yield"      => Yield,
         slice        => Identifier(slice),
-    }
+    };
 });
 
 // Unicode character
@@ -717,7 +703,7 @@ const UNI: ByteHandler = Some(|lex| {
     let first = lex.slice_source(start, start + 4).chars().next().expect("Has to have one");
 
     if !first.is_alphanumeric() {
-        return UnexpectedToken;
+        return lex.token = UnexpectedToken;
     }
 
     // `read_label` bumps one at the beginning,
@@ -728,7 +714,7 @@ const UNI: ByteHandler = Some(|lex| {
 
     let ident = lex.slice_from(start);
 
-    Identifier(ident)
+    lex.token = Identifier(ident);
 });
 
 // 0
@@ -779,7 +765,7 @@ const ZER: ByteHandler = Some(|lex| {
 
     let value = lex.slice_from(start);
 
-    Literal(Value::Number(value))
+    lex.token = Literal(Value::Number(value));
 });
 
 // 1 to 9
@@ -805,7 +791,7 @@ const DIG: ByteHandler = Some(|lex| {
             _ => {
                 let value = lex.slice_from(start);
 
-                return Literal(Value::Number(value));
+                return lex.token = Literal(Value::Number(value));
             },
         }
     });
@@ -827,7 +813,7 @@ const PRD: ByteHandler = Some(|lex| {
         b'.' => {
             lex.bump();
 
-            match lex.read_byte() {
+            lex.token = match lex.read_byte() {
                 b'.' => {
                     lex.bump();
 
@@ -839,7 +825,7 @@ const PRD: ByteHandler = Some(|lex| {
         },
 
         _ => lex.read_accessor()
-    }
+    };
 });
 
 // " or '
@@ -853,13 +839,15 @@ const QOT: ByteHandler = Some(|lex| {
         match lex.read_byte() {
             ch if ch == style => {
                 lex.bump();
-                return Literal(Value::String(lex.slice_from(start)));
+                return lex.token = Literal(Value::String(lex.slice_from(start)));
             },
             b'\\' => {
                 lex.bump();
                 expect_byte!(lex);
             },
-            0 => return UnexpectedEndOfProgram,
+            0 => {
+                return lex.token = UnexpectedEndOfProgram;
+            },
             _ => lex.bump()
         }
     });
@@ -869,7 +857,6 @@ const QOT: ByteHandler = Some(|lex| {
 const TPL: ByteHandler = Some(|lex| {
     lex.bump();
     lex.read_template_kind();
-    lex.token.clone()
 });
 
 pub struct Lexer<'src> {
@@ -925,8 +912,7 @@ impl<'src> Lexer<'src> {
             ch = self.read_byte();
 
             if let Some(handler) = self.handler_from_byte(ch) {
-                self.token = handler(self);
-                return;
+                return handler(self);
             }
 
             self.bump();
@@ -1043,7 +1029,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_binary(&mut self) -> Token<'src> {
+    fn read_binary(&mut self) {
         let mut value = 0;
 
         loop {
@@ -1060,7 +1046,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        Literal(Value::Binary(value))
+        self.token = Literal(Value::Binary(value))
     }
 
     /// This is a specialized method that expects the next token to be an identifier,
@@ -1072,7 +1058,7 @@ impl<'src> Lexer<'src> {
     /// The perf gain here comes mainly from avoiding having to first match the `&str`
     /// to a keyword token, and then match that token back to a `&str`.
     #[inline]
-    pub fn read_accessor(&mut self) -> Token<'src> {
+    pub fn read_accessor(&mut self) {
         // Look up table that marks which ASCII characters are allowed to start an ident
         const AL: bool = true; // alphabet
         const DO: bool = true; // dollar sign $
@@ -1104,9 +1090,9 @@ impl<'src> Lexer<'src> {
                     unimplemented!();
                     // return unicode(self)
                 } else if TABLE[ch as usize] {
-                    return Accessor(self.read_label())
+                    return self.token = Accessor(self.read_label())
                 } else {
-                    return UnexpectedToken
+                    return self.token = UnexpectedToken
                 }
             }
 
@@ -1179,7 +1165,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_octal(&mut self, start: usize) -> Token<'src> {
+    fn read_octal(&mut self, start: usize) {
         loop {
             match self.read_byte() {
                 b'0'...b'7' => self.bump(),
@@ -1189,11 +1175,11 @@ impl<'src> Lexer<'src> {
 
         let value = self.slice_from(start);
 
-        Literal(Value::Number(value))
+        self.token = Literal(Value::Number(value));
     }
 
     #[inline]
-    fn read_hexadec(&mut self, start: usize) -> Token<'src> {
+    fn read_hexadec(&mut self, start: usize) {
         loop {
             match self.read_byte() {
                 b'0'...b'9' |
@@ -1205,11 +1191,11 @@ impl<'src> Lexer<'src> {
 
         let value = self.slice_from(start);
 
-        Literal(Value::Number(value))
+        self.token = Literal(Value::Number(value));
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) -> Token<'src> {
+    fn read_float(&mut self, start: usize) {
         loop {
             match self.read_byte() {
                 b'0'...b'9'  => self.bump(),
@@ -1223,11 +1209,11 @@ impl<'src> Lexer<'src> {
 
         let value = self.slice_from(start);
 
-        Literal(Value::Number(value))
+        self.token = Literal(Value::Number(value));
     }
 
     #[inline]
-    fn read_scientific(&mut self, start: usize) -> Token<'src> {
+    fn read_scientific(&mut self, start: usize) {
         match self.read_byte() {
             b'-' | b'+' => self.bump(),
             _           => {}
@@ -1242,11 +1228,11 @@ impl<'src> Lexer<'src> {
 
         let value = self.slice_from(start);
 
-        Literal(Value::Number(value))
+        self.token = Literal(Value::Number(value))
     }
 
     #[inline]
-    pub fn read_regular_expression(&mut self) -> Token<'src> {
+    pub fn read_regular_expression(&mut self) {
         let start = self.index - 1;
         let mut in_class = false;
         loop {
@@ -1271,7 +1257,7 @@ impl<'src> Lexer<'src> {
                 },
                 b'\n' => {
                     self.bump();
-                    return UnexpectedToken;
+                    return self.token = UnexpectedToken;
                 },
                 _     => self.bump()
             }
@@ -1288,7 +1274,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        Literal(Value::RegEx(self.slice_from(start)))
+        self.token = Literal(Value::RegEx(self.slice_from(start)))
     }
 }
 

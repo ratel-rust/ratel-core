@@ -474,9 +474,15 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn regular_expression(&mut self) -> ExpressionPtr<'ast> {
-        let value = match self.lexer.read_regular_expression() {
-            Literal(value) => value,
-            _              => unexpected_token!(self),
+        self.lexer.read_regular_expression();
+
+        let value = match self.lexer.token {
+            Literal(value) => {
+                self.lexer.consume();
+
+                value
+            },
+            _ => unexpected_token!(self),
         };
 
         self.alloc(Expression::Value(value).at(0, 0))
