@@ -65,10 +65,7 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.try_statement()
             },
-            _                 => {
-                self.lexer.consume();
-                self.expression_statement()
-            }
+            _ => self.expression_statement()
         }
     }
 

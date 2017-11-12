@@ -1013,7 +1013,11 @@ impl<'src> Lexer<'src> {
         self.asi
     }
 
-    pub fn invalid_token(&self) -> Error {
+    pub fn invalid_token(&mut self) -> Error {
+        if self.token != EndOfProgram {
+            self.consume();
+        }
+
         Error::UnexpectedToken {
             start: self.token_start,
             end: self.index,

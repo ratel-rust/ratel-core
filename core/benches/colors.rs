@@ -109,8 +109,8 @@ fn tokenize(b: &mut Bencher) {
     b.iter(|| {
         let mut lexer = unsafe { ratel::lexer::Lexer::from_ptr(ptr) };
 
-        while lexer.get_token() != ratel::lexer::Token::EndOfProgram {
-
+        while lexer.token != ratel::lexer::Token::EndOfProgram {
+            lexer.consume()
         }
     });
 }

@@ -451,8 +451,6 @@ impl<'ast> Parser<'ast> {
                     break;
                 },
                 _ => {
-                    self.lexer.consume();
-
                     let expression = self.expression(0);
 
                     builder.push(expression);
