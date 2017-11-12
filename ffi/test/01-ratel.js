@@ -46,4 +46,84 @@ describe('Ratel ffi', () => {
       assert.equal(result, expected);
     });
   });
+
+  describe('ast', () => {
+
+    it('returns an AST', () => {
+      const result = Ratel.ast('const double = function (a, b = 2) { return a * 2}');
+      const json = JSON.parse(result, null, '  ');
+      assert.deepEqual(json, {
+        type: 'Program',
+        end: 0,
+        start: 0,
+        body: [
+          {
+            type: 'VariableDeclaration',
+            start: 0,
+            end: 0,
+            kind: 'const',
+            declarations: [
+              {
+                type: 'VariableDeclarator',
+                id: { end: 12, name: 'double', start: 6, type: 'Identifier' },
+                start: 0,
+                end: 0,
+                init: {
+                  type: 'FunctionExpression',
+                  id: null,
+                  start: 0,
+                  end: 0,
+                  params: [
+                    {
+                      type: 'Identifier',
+                      name: 'a',
+                      start: 26,
+                      end: 27,
+                    },
+                    {
+                      type: 'AssignmentPattern',
+                      left: { end: 0, name: 'b', start: 0, type: 'Identifier' },
+                      right: { end: 33, value: '2', start: 32, type: 'Literal' },
+                      start: 33,
+                      end: 34,
+                    }
+                  ],
+                  body: {
+                    type: "BlockStatement",
+                    start: 0,
+                    end: 0,
+                    body: [
+                      {
+                        type: 'ReturnStatement',
+                        end: 0,
+                        start: 0,
+                        argument: {
+                          type: 'BinaryExpression',
+                          start: 44,
+                          end: 49,
+                          left: {
+                            type: 'Identifier',
+                            name: 'a',
+                            start: 44,
+                            end: 45,
+                          },
+                          operator: '*',
+                          right: {
+                            type: 'Literal',
+                            value: '2',
+                            end: 49,
+                            start: 48,
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      });
+    });
+  });
 });

@@ -74,6 +74,17 @@ pub enum Statement<'ast> {
     Class {
         class: Class<'ast, MandatoryName<'ast>>,
     },
+    Continue {
+        label: Option<ExpressionPtr<'ast>>
+    },
+    Switch {
+        discriminant: ExpressionPtr<'ast>,
+        cases: StatementList<'ast>,
+    },
+    SwitchCase {
+        test: Option<ExpressionPtr<'ast>>,
+        consequent: StatementList<'ast>,
+    }
 }
 
 impl<'ast> Statement<'ast> {

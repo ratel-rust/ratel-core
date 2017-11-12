@@ -200,6 +200,7 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 gen.write_pretty(b' ');
                 gen.write(body);
             },
+
             Try {
                 ref body,
                 ref error,
@@ -247,7 +248,24 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
                 ref class,
             } => {
                 gen.write(class);
-            }
+            },
+            Continue {
+                ref label
+            } => {
+                unimplemented!();
+            },
+            Switch {
+                ref discriminant,
+                ref cases
+            } => {
+                unimplemented!();
+            },
+            SwitchCase {
+                ref test,
+                ref consequent
+            } => {
+                unimplemented!();
+            },
         }
     }
 }

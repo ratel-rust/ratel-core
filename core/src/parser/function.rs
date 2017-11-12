@@ -25,11 +25,14 @@ impl<'ast> Parser<'ast> {
     {
         let super_class = match self.next() {
             Extends   => {
-                let name = expect_identifier!(self);
-                let name = self.alloc_in_loc(name);
-
+                let name = match self.next() {
+                    Token::Literal(Value::Null) => "null",
+                    Token::Identifier(ident) => ident,
+                    _ => unexpected_token!(self)
+                };
                 expect!(self, BraceOpen);
 
+                let name = self.alloc_in_loc(name);
                 Some(name)
             },
             BraceOpen => None,
@@ -59,6 +62,11 @@ impl<'ast> Parser<'ast> {
 
     fn class_member(&mut self, token: Token<'ast>, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
         let property = match token {
+            // FIXME: Need to store kind of ClassMember::Method
+            Identifier("get") | Identifier("set") => {
+                let ident = expect_identifier!(self);
+                Property::Literal(ident)
+            },
             Identifier(label) => Property::Literal(label),
             Literal(Value::Number(num)) => Property::Literal(num),
             Literal(Value::Binary(num)) => Property::Binary(num),
@@ -453,4 +461,76 @@ mod test {
 
         assert_eq!(module.body(), expected);
     }
+
+
+    #[test]
+    fn class_extends_null() {
+        let src = "class Foo extends null {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Class {
+                class: Class {
+                    name: mock.ptr("Foo").into(),
+                    extends: mock.ptr("null").into(),
+                    body: mock.list([])
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    fn class_methods() {
+        let src = r#"
+
+        class Foo {
+            get length (foo) { }
+            set length (bar) { }
+        }
+
+        "#;
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Class {
+                class: Class {
+                    name: mock.ptr("Foo").into(),
+                    extends: None,
+                    body: mock.list([
+                        ClassMember::Method {
+                            // FIXME: kind
+                            is_static: false,
+                            property: Property::Literal("length"),
+                            params: mock.list([
+                                Parameter {
+                                    key: ParameterKey::Identifier("foo"),
+                                    value: None,
+                                },
+                            ]),
+                            body: List::empty()
+                        },
+                        ClassMember::Method {
+                            // FIXME: kind
+                            is_static: false,
+                            property: Property::Literal("length"),
+                            params: mock.list([
+                                Parameter {
+                                    key: ParameterKey::Identifier("bar"),
+                                    value: None,
+                                },
+                            ]),
+                            body: List::empty()
+                        },
+                    ])
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+
 }

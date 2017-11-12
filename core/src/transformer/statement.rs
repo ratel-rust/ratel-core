@@ -111,7 +111,24 @@ impl<'ast> Transformable<'ast> for StatementPtr<'ast> {
                 ref class,
             } => {
                 unimplemented!();
-            }
+            },
+            Continue {
+                ref label,
+            } => {
+                unimplemented!();
+            },
+            Switch {
+                ref discriminant,
+                ref cases
+            } => {
+                unimplemented!();
+            },
+            SwitchCase {
+                ref test,
+                ref consequent
+            } => {
+                unimplemented!();
+            },
         }
     }
 }
