@@ -38,36 +38,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    // /// Get the next token.
-    // #[inline]
-    // fn next(&mut self) -> Token<'ast> {
-    //     match self.token {
-    //         None => self.lexer.get_token(),
-
-    //         Some(token) => {
-    //             self.token = None;
-
-    //             token
-    //         }
-    //     }
-    // }
-
-    // /// Peek on the next token.
-    // #[inline]
-    // fn peek(&mut self) -> Token<'ast> {
-    //     match self.token {
-    //         None => {
-    //             let token = self.lexer.get_token();
-
-    //             self.token = Some(token);
-
-    //             token
-    //         },
-
-    //         Some(token) => token
-    //     }
-    // }
-
     #[inline]
     fn asi(&mut self) -> Asi {
         self.lexer.asi()
@@ -324,5 +294,4 @@ mod test {
 
         assert_eq!(module.body(), expected);
     }
-
 }

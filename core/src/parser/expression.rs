@@ -1035,7 +1035,7 @@ mod test {
         let expected = Expression::Class {
             class: Class {
                 name: mock.ptr("Foo").into(),
-                extends: mock.ptr("Bar").into(),
+                extends: Some(mock.ptr(Expression::Identifier("Bar"))),
                 body: List::empty()
             }
         };

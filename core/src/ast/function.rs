@@ -89,6 +89,6 @@ pub enum ClassMember<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Class<'ast, N: Name<'ast>> {
     pub name: N,
-    pub extends: Option<IdentifierPtr<'ast>>,
+    pub extends: Option<ExpressionPtr<'ast>>,
     pub body: List<'ast, Loc<ClassMember<'ast>>>,
 }

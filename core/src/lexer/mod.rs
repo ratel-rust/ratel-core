@@ -912,6 +912,7 @@ impl<'src> Lexer<'src> {
             ch = self.read_byte();
 
             if let Some(handler) = self.handler_from_byte(ch) {
+                self.token_start = self.index;
                 return handler(self);
             }
 

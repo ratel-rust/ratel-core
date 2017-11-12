@@ -24,22 +24,20 @@ impl<'ast> Parser<'ast> {
         I: Into<N>,
     {
         let super_class = match self.lexer.token {
-            Extends   => {
+            Extends => {
                 self.lexer.consume();
 
-                let name = expect_identifier!(self);
-                let name = self.alloc_in_loc(name);
-
+                let super_class = self.expression(0);
                 expect!(self, BraceOpen);
 
-                Some(name)
+                Some(super_class)
             },
             BraceOpen => {
                 self.lexer.consume();
 
                 None
             },
-            _         => unexpected_token!(self)
+            _ => unexpected_token!(self)
         };
 
         let mut body = EmptyListBuilder::new(self.arena);
@@ -147,7 +145,8 @@ impl<'ast> Parser<'ast> {
 mod test {
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Statement, Function, Class, ClassMember, Property, Parameter, ParameterKey};
+    use ast::{List, Value, Expression, Statement, Function, Class};
+    use ast::{ClassMember, Property, Parameter, ParameterKey};
 
     #[test]
     fn function_empty() {
@@ -293,7 +292,7 @@ mod test {
             Statement::Class {
                 class: Class {
                     name: mock.ptr("Foo").into(),
-                    extends: Some(mock.ptr("Bar")),
+                    extends: Some(mock.ident("Bar")),
                     body: List::empty(),
                 }
             }
@@ -483,4 +482,76 @@ mod test {
 
         assert_eq!(module.body(), expected);
     }
+
+
+    #[test]
+    fn class_extends_null() {
+        let src = "class Foo extends null {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Class {
+                class: Class {
+                    name: mock.ptr("Foo").into(),
+                    extends: Some(mock.ptr(Expression::Value(Value::Null))),
+                    body: mock.list([])
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    fn class_methods() {
+        let src = r#"
+
+        class Foo {
+            get length (foo) { }
+            set length (bar) { }
+        }
+
+        "#;
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Statement::Class {
+                class: Class {
+                    name: mock.ptr("Foo").into(),
+                    extends: None,
+                    body: mock.list([
+                        ClassMember::Method {
+                            // FIXME: kind
+                            is_static: false,
+                            property: Property::Literal("length"),
+                            params: mock.list([
+                                Parameter {
+                                    key: ParameterKey::Identifier("foo"),
+                                    value: None,
+                                },
+                            ]),
+                            body: List::empty()
+                        },
+                        ClassMember::Method {
+                            // FIXME: kind
+                            is_static: false,
+                            property: Property::Literal("length"),
+                            params: mock.list([
+                                Parameter {
+                                    key: ParameterKey::Identifier("bar"),
+                                    value: None,
+                                },
+                            ]),
+                            body: List::empty()
+                        },
+                    ])
+                }
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+
 }
