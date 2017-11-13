@@ -1,6 +1,5 @@
 use lexer::{util, ByteHandler};
 use lexer::token::Token::*;
-use lexer::ReservedKind::*;
 
 use ast::Value;
 use ast::OperatorKind::*;
@@ -92,7 +91,7 @@ pub const L_E: ByteHandler = Some(|lex| {
             b'p'[b'o' b'r' b't'      => Export]
             b't'[b'e' b'n' b'd' b's' => Extends]
         }
-        b'n'[b'u' b'm'               => Reserved(Enum)]
+        b'n'[b'u' b'm'               => ReservedEnum]
     });
 
     lex.read_label();
@@ -118,13 +117,13 @@ pub const L_I: ByteHandler = Some(|lex| {
         b'n'{
             [                                       => Operator(In)]
             b's'[b't' b'a' b'n' b'c' b'e' b'o' b'f' => Operator(Instanceof)]
-            b't'[b'e' b'r' b'f' b'a' b'c' b'e'      => Reserved(Interface)]
+            b't'[b'e' b'r' b'f' b'a' b'c' b'e'      => ReservedInterface]
         }
         b'f'[                                       => If]
         b'm'{
             b'p'{
                 b'o'[b'r' b't'                      => Import]
-                b'l'[b'e' b'm' b'e' b'n' b't' b's'  => Reserved(Implements)]
+                b'l'[b'e' b'm' b'e' b'n' b't' b's'  => ReservedImplements]
             }
         }
     });
@@ -155,11 +154,11 @@ pub const L_N: ByteHandler = Some(|lex| {
 // Identifier or keyword starting with a letter `p`
 pub const L_P: ByteHandler = Some(|lex| {
     match_label!(lex {
-        b'a'[b'c' b'k' b'a' b'g' b'e'          => Reserved(Package)]
-        b'u'[b'b' b'l' b'i' b'c'               => Reserved(Public)]
+        b'a'[b'c' b'k' b'a' b'g' b'e'          => ReservedPackage]
+        b'u'[b'b' b'l' b'i' b'c'               => ReservedPublic]
         b'r'{
-            b'o'[b't' b'e' b'c' b't' b'e' b'd' => Reserved(Protected)]
-            b'i'[b'v' b'a' b't' b'e'           => Reserved(Private)]
+            b'o'[b't' b'e' b'c' b't' b'e' b'd' => ReservedProtected]
+            b'i'[b'v' b'a' b't' b'e'           => ReservedPrivate]
         }
     });
 

@@ -8,7 +8,6 @@ pub use lexer::token::*;
 
 use lexer::labels::*;
 use lexer::token::Token::*;
-use lexer::ReservedKind::*;
 
 use std::str;
 use ast::Value;
@@ -1191,17 +1190,17 @@ mod test {
                 (For, "for"),
                 (Function, "function"),
                 (If, "if"),
-                (Reserved(Implements), "implements"),
+                (ReservedImplements, "implements"),
                 (Import, "import"),
                 (Operator(In), "in"),
                 (Operator(Instanceof), "instanceof"),
-                (Reserved(Interface), "interface"),
+                (ReservedInterface, "interface"),
                 (DeclarationLet, "let"),
                 (Operator(New), "new"),
                 (LiteralNull, "null"),
-                (Reserved(Package), "package"),
-                (Reserved(Protected), "protected"),
-                (Reserved(Public), "public"),
+                (ReservedPackage, "package"),
+                (ReservedProtected, "protected"),
+                (ReservedPublic, "public"),
                 (Return, "return"),
                 (Static, "static"),
                 (Super, "super"),

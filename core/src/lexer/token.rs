@@ -1,16 +1,5 @@
 use ast::{Value, OperatorKind};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ReservedKind {
-    Enum,
-    Implements,
-    Package,
-    Protected,
-    Interface,
-    Private,
-    Public,
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     EndOfProgram,
@@ -61,7 +50,13 @@ pub enum Token {
     LiteralNumber,
     LiteralBinary,
     LiteralRegEx,
-    Reserved(ReservedKind),
+    ReservedEnum,
+    ReservedImplements,
+    ReservedPackage,
+    ReservedProtected,
+    ReservedInterface,
+    ReservedPrivate,
+    ReservedPublic,
     Identifier,
     Accessor,
     TemplateOpen,
