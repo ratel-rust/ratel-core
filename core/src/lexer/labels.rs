@@ -4,7 +4,6 @@ use lexer::ReservedKind::*;
 
 use ast::Value;
 use ast::OperatorKind::*;
-use ast::DeclarationKind::*;
 
 macro_rules! match_label {
     ($lex:ident [$( $byte:expr )* => $token:expr]) => {
@@ -55,7 +54,7 @@ pub const L_C: ByteHandler = Some(|lex| {
     match_label!(lex {
         b'o'{
             b'n'{
-                b's'[b't'                => Declaration(Const)]
+                b's'[b't'                => DeclarationConst]
                 b't'[b'i' b'n' b'u' b'e' => Continue]
             }
         }
@@ -136,7 +135,7 @@ pub const L_I: ByteHandler = Some(|lex| {
 
 // Identifier or keyword starting with a letter `l`
 pub const L_L: ByteHandler = Some(|lex| {
-    match_label!(lex [b'e' b't' => Declaration(Let)]);
+    match_label!(lex [b'e' b't' => DeclarationLet]);
 
     lex.read_label();
     lex.token = Identifier;
@@ -217,7 +216,7 @@ pub const L_U: ByteHandler = Some(|lex| {
 // Identifier or keyword starting with a letter `v`
 pub const L_V: ByteHandler = Some(|lex| {
     match_label!(lex {
-        b'a'[b'r'      => Declaration(Var)]
+        b'a'[b'r'      => DeclarationVar]
         b'o'[b'i' b'd' => Operator(Void)]
     });
 

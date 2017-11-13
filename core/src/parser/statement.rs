@@ -22,9 +22,17 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.block_statement()
             },
-            Declaration(kind) => {
+            DeclarationVar => {
                 self.lexer.consume();
-                self.variable_declaration_statement(kind)
+                self.variable_declaration_statement(DeclarationKind::Var)
+            },
+            DeclarationLet => {
+                self.lexer.consume();
+                self.variable_declaration_statement(DeclarationKind::Let)
+            },
+            DeclarationConst => {
+                self.lexer.consume();
+                self.variable_declaration_statement(DeclarationKind::Const)
             },
             Return            => {
                 self.lexer.consume();
@@ -355,7 +363,14 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 None
             },
-            Declaration(kind) => {
+            DeclarationVar | DeclarationLet | DeclarationConst => {
+                // TODO: DRY
+                let kind = match self.lexer.token {
+                    DeclarationVar => DeclarationKind::Var,
+                    DeclarationLet => DeclarationKind::Let,
+                    DeclarationConst => DeclarationKind::Const,
+                    _ => unreachable!()
+                };
                 self.lexer.consume();
                 let declarators = self.variable_declarators();
 

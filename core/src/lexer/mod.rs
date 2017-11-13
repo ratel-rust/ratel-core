@@ -13,7 +13,6 @@ use lexer::ReservedKind::*;
 use std::str;
 use ast::Value;
 use ast::OperatorKind::*;
-use ast::DeclarationKind::*;
 use error::Error;
 use arena::Arena;
 
@@ -1108,7 +1107,7 @@ mod test {
         assert_lex(
             "let foo = 2 + 2;",
             [
-                (Declaration(Let), "let"),
+                (DeclarationLet, "let"),
                 (Identifier, "foo"),
                 (Operator(Assign), "="),
                 (LiteralNumber, "2"),
@@ -1124,7 +1123,7 @@ mod test {
         assert_lex(
             "var x, y, z = 42;",
             [
-                (Declaration(Var), "var"),
+                (DeclarationVar, "var"),
                 (Identifier, "x"),
                 (Comma, ","),
                 (Identifier, "y"),
@@ -1179,7 +1178,7 @@ mod test {
                 (Break, "break"),
                 (Case, "case"),
                 (Class, "class"),
-                (Declaration(Const), "const"),
+                (DeclarationConst, "const"),
                 (Debugger, "debugger"),
                 (Default, "default"),
                 (Operator(Delete), "delete"),
@@ -1197,7 +1196,7 @@ mod test {
                 (Operator(In), "in"),
                 (Operator(Instanceof), "instanceof"),
                 (Reserved(Interface), "interface"),
-                (Declaration(Let), "let"),
+                (DeclarationLet, "let"),
                 (Operator(New), "new"),
                 (LiteralNull, "null"),
                 (Reserved(Package), "package"),
@@ -1213,7 +1212,7 @@ mod test {
                 (Try, "try"),
                 (LiteralUndefined, "undefined"),
                 (Operator(Typeof), "typeof"),
-                (Declaration(Var), "var"),
+                (DeclarationVar, "var"),
                 (Operator(Void), "void"),
                 (While, "while"),
                 (With, "with"),
