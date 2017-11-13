@@ -4,86 +4,145 @@ use lexer::Token;
 use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
 use ast::OperatorKind::*;
 
+
+type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
+
+static EXPR_HANDLERS: [ExpressionHandler; 108] = [
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+//  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
+
+    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
+//  ++    --    !     ~     TYPOF VOID  DELET *     /     %     **    +
+
+    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//  -     <<    >>    >>>   <     <=    >     >=    INSOF IN    ===   !==
+
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//  ==    !=    &     ^     |     &&    ||    ?     =     +=    -=    **=
+
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//  *=    /=    %=    <<=   >>=   >>>=  &=    ^=    |=    ...   VAR   LET
+
+    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
+//  CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
+
+    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
+//  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
+
+    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
+//  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
+
+    ____, ____, ____, ____, ____, ____, IDEN, ____, TPL,  TPL,  ____, ____,
+//  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
+];
+
+const ____: ExpressionHandler = |par| unexpected_token!(par);
+
+const PRN : ExpressionHandler = |par| {
+    par.lexer.consume();
+    par.paren_expression()
+};
+
+const ARR : ExpressionHandler = |par| {
+    par.lexer.consume();
+    par.array_expression()
+};
+
+const OBJ : ExpressionHandler = |par| {
+    par.lexer.consume();
+    par.object_expression()
+};
+
+const OP  : ExpressionHandler = |par| {
+    let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
+    par.lexer.consume();
+    par.prefix_expression(op)
+};
+const REG : ExpressionHandler = |par| par.regular_expression();
+
+const CLAS: ExpressionHandler = |par| {
+    par.lexer.consume();
+    par.class_expression()
+};
+
+const FUNC: ExpressionHandler = |par| {
+    par.lexer.consume();
+    par.function_expression()
+};
+
+const THIS: ExpressionHandler = |par| {
+    let expr = par.alloc_in_loc(Expression::This);
+    par.lexer.consume();
+
+    expr
+};
+
+const TRUE: ExpressionHandler = |par| {
+    let expr = par.alloc_in_loc(Expression::Value(Value::True));
+    par.lexer.consume();
+
+    expr
+};
+
+const FALS: ExpressionHandler = |par| {
+    let expr = par.alloc_in_loc(Expression::Value(Value::False));
+
+    par.lexer.consume();
+    expr
+};
+
+const NULL: ExpressionHandler = |par| {
+    let expr = par.alloc_in_loc(Expression::Value(Value::Null));
+
+    par.lexer.consume();
+    expr
+};
+
+const UNDE: ExpressionHandler = |par| {
+    let expr = par.alloc_in_loc(Expression::Value(Value::Undefined));
+
+    par.lexer.consume();
+    expr
+};
+
+const STR : ExpressionHandler = |par| {
+    let value = par.lexer.token_as_str();
+    let expr = par.alloc_in_loc(Expression::Value(Value::String(value)));
+
+    par.lexer.consume();
+    expr
+};
+
+const NUM : ExpressionHandler = |par| {
+    let value = par.lexer.token_as_str();
+    let expr = par.alloc_in_loc(Expression::Value(Value::Number(value)));
+
+    par.lexer.consume();
+    expr
+};
+
+const BIN : ExpressionHandler = |par| {
+    let value = par.lexer.token_as_str();
+    let expr = par.alloc_in_loc(Expression::Value(Value::Binary(value)));
+
+    par.lexer.consume();
+    expr
+};
+
+const IDEN: ExpressionHandler = |par| {
+    let value = par.lexer.token_as_str();
+    let expr = par.alloc_in_loc(Expression::Identifier(value));
+
+    par.lexer.consume();
+    expr
+};
+
+const TPL : ExpressionHandler = |par| par.template_expression(None);
+
 impl<'ast> Parser<'ast> {
     #[inline]
     pub fn expression(&mut self, lbp: u8) -> ExpressionPtr<'ast> {
-        let left = match self.lexer.token {
-            This               => {
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::This)
-            },
-            LiteralTrue        => {
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::True))
-            },
-            LiteralFalse        => {
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::False))
-            },
-            LiteralNull        => {
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::Null))
-            },
-            LiteralUndefined   => {
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::Undefined))
-            },
-            LiteralNumber      => {
-                let num = self.lexer.token_as_str();
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::Number(num)))
-            },
-            LiteralBinary      => {
-                let num = self.lexer.token_as_str();
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::Binary(num)))
-            },
-            LiteralString      => {
-                let string = self.lexer.token_as_str();
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(Value::String(string)))
-            },
-            Identifier         => {
-                let ident = self.lexer.token_as_str();
-                self.lexer.consume();
-                self.alloc_in_loc(Expression::Identifier(ident))
-            },
-            OperatorDivision   => {
-                // Note: no consume since / is part of the RegEx
-                self.regular_expression()
-            },
-            ParenOpen          => {
-                self.lexer.consume();
-                self.paren_expression()
-            },
-            BracketOpen        => {
-                self.lexer.consume();
-                self.array_expression()
-            },
-            BraceOpen          => {
-                self.lexer.consume();
-                self.object_expression()
-            },
-            Function           => {
-                self.lexer.consume();
-                self.function_expression()
-            },
-            Class              => {
-                self.lexer.consume();
-                self.class_expression()
-            },
-            TemplateOpen | TemplateClosed => {
-                self.template_expression(None)
-            },
-            token => {
-                let op = match OperatorKind::from_token(token) {
-                    Some(op) => op,
-                    None     => unexpected_token!(self)
-                };
-                self.lexer.consume();
-                self.prefix_expression(op)
-            }
-        };
+        let left = unsafe { (*(&EXPR_HANDLERS as *const ExpressionHandler).offset(self.lexer.token as isize))(self) };
 
         self.complex_expression(left, lbp)
     }
@@ -236,7 +295,11 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.block_statement()
             },
-            _ => self.expression_statement(),
+            _ => {
+                let expression = self.expression(0);
+                // TODO: manually warp into statement, don't allow sequences!
+                self.expression_statement(expression)
+            }
         };
 
         self.alloc(Expression::Arrow {
@@ -321,11 +384,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
-        if !operator.prefix() {
-            unexpected_token!(self);
-        }
-
+    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
         let operand = self.expression(15);
 
         self.alloc(Expression::Prefix {
@@ -527,7 +586,7 @@ impl<'ast> Parser<'ast> {
         self.alloc(Expression::Value(Value::RegEx(value)).at(0, 0))
     }
 
-    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+    pub fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
         let (quasi, expression) = match self.lexer.token {
             TemplateOpen => {
                 let quasi = self.lexer.quasi;

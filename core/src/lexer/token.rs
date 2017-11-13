@@ -1,3 +1,16 @@
+// Lookup table layout:
+// ====================
+//
+// EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
+// ++    --    !     ~     TYPOF VOID  DELET *     /     %     **    +
+// -     <<    >>    >>>   <     <=    >     >=    INSOF IN    ===   !==
+// ==    !=    &     ^     |     &&    ||    ?     =     +=    -=    **=
+// *=    /=    %=    <<=   >>=   >>>=  &=    ^=    |=    ...   VAR   LET
+// CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
+// SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
+// IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
+// IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
     EndOfProgram,
