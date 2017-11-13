@@ -1,8 +1,6 @@
 use parser::Parser;
 use lexer::Token::*;
-use lexer::Token;
 use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
-use ast::OperatorKind::*;
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
@@ -141,149 +139,8 @@ const TPL : ExpressionHandler = |par| par.template_expression(None);
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn expression(&mut self, lbp: u8) -> ExpressionPtr<'ast> {
-        let left = unsafe { (*(&EXPR_HANDLERS as *const ExpressionHandler).offset(self.lexer.token as isize))(self) };
-
-        self.complex_expression(left, lbp)
-    }
-
-    #[inline]
-    pub fn complex_expression(&mut self, mut left: ExpressionPtr<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
-        loop {
-            left = match self.lexer.token {
-                OperatorIncrement => {
-                    self.lexer.consume();
-
-                    // TODO: op.end
-                    self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
-                        operator: OperatorKind::Increment,
-                        operand: left,
-                    }))
-                },
-
-                OperatorDecrement => {
-                    self.lexer.consume();
-
-                    // TODO: op.end
-                    self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
-                        operator: OperatorKind::Decrement,
-                        operand: left,
-                    }))
-                }
-
-                OperatorConditional => {
-                    let op = OperatorKind::Conditional;
-
-                    self.lexer.consume();
-
-                    let consequent = self.expression(op.binding_power());
-                    expect!(self, Colon);
-                    let alternate = self.expression(op.binding_power());
-
-                    self.alloc(Expression::Conditional {
-                        test: left,
-                        consequent: consequent,
-                        alternate: alternate,
-                    }.at(0, 0))
-                }
-
-                OperatorFatArrow => {
-                    self.lexer.consume();
-
-                    let params = match left.item {
-                        Expression::Sequence { body } => body,
-                        _                             => List::from(self.arena, left)
-                    };
-
-                    return self.arrow_function_expression(params);
-                }
-
-                Accessor => {
-                    let member = self.lexer.accessor_as_str();
-                    self.lexer.consume();
-
-                    let right = self.alloc_in_loc(member);
-
-                    self.alloc(Loc::new(left.start, right.end, Expression::Member {
-                        object: left,
-                        property: right,
-                    }))
-                },
-
-                ParenOpen => {
-                    if lbp > 18 {
-                        break;
-                    }
-
-                    self.lexer.consume();
-
-                    let arguments = self.expression_list();
-
-                    self.alloc(Expression::Call {
-                        callee: left,
-                        arguments,
-                    }.at(0, 0))
-                },
-
-                BracketOpen => {
-                    if lbp > 19 {
-                        break;
-                    }
-
-                    self.lexer.consume();
-
-                    let property = self.sequence_or_expression();
-
-                    expect!(self, BracketClose);
-
-                    self.alloc(Expression::ComputedMember {
-                        object: left,
-                        property: property,
-                    }.at(0, 0))
-                },
-
-                TemplateOpen | TemplateClosed => {
-                    if lbp > 0 {
-                        break;
-                    }
-
-                    self.template_expression(Some(left))
-                },
-
-                token => {
-                    let op = match OperatorKind::from_token(token) {
-                        Some(op) => op,
-                        None     => break,
-                    };
-
-                    let rbp = op.binding_power();
-
-                    if lbp > rbp {
-                        break;
-                    }
-
-                    self.lexer.consume();
-
-                    if !op.infix() {
-                        unexpected_token!(self);
-                    }
-
-                    if op.assignment() {
-                        // TODO: verify that left is assignable
-                    }
-
-                    let right = self.expression(rbp);
-
-                    self.alloc(Loc::new(left.start, right.end, Expression::Binary {
-                        operator: op,
-                        left: left,
-                        right: right,
-                    }))
-                }
-            }
-        }
-
-        left
+    pub fn bound_expression(&mut self) -> ExpressionPtr<'ast> {
+        unsafe { (*(&EXPR_HANDLERS as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
     }
 
     #[inline]
@@ -296,9 +153,8 @@ impl<'ast> Parser<'ast> {
                 self.block_statement()
             },
             _ => {
-                let expression = self.expression(0);
-                // TODO: manually warp into statement, don't allow sequences!
-                self.expression_statement(expression)
+                let expression = self.expression(1);
+                self.wrap_expression(expression)
             }
         };
 
@@ -309,41 +165,13 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn sequence_or_expression(&mut self) -> ExpressionPtr<'ast> {
-        let first = self.expression(0);
-        self.sequence_or(first)
-    }
-
-    #[inline]
-    pub fn sequence_or(&mut self, first: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
-        match self.lexer.token {
-            Comma => {
-                self.lexer.consume();
-
-                let mut builder = ListBuilder::new(self.arena, first);
-                builder.push(self.expression(0));
-
-                while let Comma = self.lexer.token {
-                    self.lexer.consume();
-                    builder.push(self.expression(0));
-                }
-
-                self.alloc(Expression::Sequence {
-                    body: builder.into_list()
-                }.at(0, 0))
-            },
-            _ => first
-        }
-    }
-
-    #[inline]
     pub fn expression_list(&mut self) -> ExpressionList<'ast> {
         if self.lexer.token == ParenClose {
             self.lexer.consume();
             return List::empty();
         }
 
-        let expression = self.expression(0);
+        let expression = self.expression(1);
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
@@ -354,7 +182,7 @@ impl<'ast> Parser<'ast> {
                 },
                 Comma      => {
                     self.lexer.consume();
-                    self.expression(0)
+                    self.expression(1)
                 }
                 _          => unexpected_token!(self),
             };
@@ -374,7 +202,7 @@ impl<'ast> Parser<'ast> {
                 self.arrow_function_expression(List::empty())
             },
             _ => {
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
 
                 expect!(self, ParenClose);
 
@@ -458,7 +286,7 @@ impl<'ast> Parser<'ast> {
             BracketOpen => {
                 self.lexer.consume();
 
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
                 let property = Loc::new(0, 0, Property::Computed(expression));
 
                 expect!(self, BracketClose);
@@ -483,7 +311,7 @@ impl<'ast> Parser<'ast> {
             Colon => {
                 self.lexer.consume();
 
-                let value = self.expression(0);
+                let value = self.expression(1);
 
                 self.alloc(Loc::new(0, 0, ObjectMember::Value {
                     property,
@@ -518,7 +346,7 @@ impl<'ast> Parser<'ast> {
                 return self.alloc(Expression::Array { body: List::empty() }.at(0,0))
             },
             _            => {
-                let expression = self.expression(0);
+                let expression = self.expression(1);
 
                 match self.lexer.token {
                     BracketClose => {
@@ -556,7 +384,7 @@ impl<'ast> Parser<'ast> {
                     break;
                 },
                 _ => {
-                    let expression = self.expression(0);
+                    let expression = self.expression(1);
 
                     builder.push(expression);
                 }
@@ -594,7 +422,7 @@ impl<'ast> Parser<'ast> {
 
                 self.lexer.consume();
 
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
 
                 match self.lexer.token {
                     BraceClose => self.lexer.read_template_kind(),
@@ -631,7 +459,7 @@ impl<'ast> Parser<'ast> {
                     let quasi = self.lexer.quasi;
                     self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
-                    expressions.push(self.sequence_or_expression());
+                    expressions.push(self.expression(0));
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),

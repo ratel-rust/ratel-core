@@ -4,6 +4,7 @@ mod error;
 mod expression;
 mod statement;
 mod function;
+mod nested_expression;
 
 use error::Error;
 use arena::Arena;
@@ -12,7 +13,7 @@ use module::Module;
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
 use ast::{Expression, ExpressionPtr, ExpressionList};
-use lexer::{Lexer, Token, Asi};
+use lexer::{Lexer, Asi};
 use lexer::Token::*;
 
 pub struct Parser<'ast> {
@@ -189,7 +190,7 @@ impl<'ast> Parser<'ast> {
         mut builder: EmptyListBuilder<'ast, Loc<Parameter<'ast>>>
     ) -> ParameterList<'ast> {
         loop {
-            let value = self.expression(0);
+            let value = self.expression(1);
             let parameter = Parameter {
                 key,
                 value: Some(value)

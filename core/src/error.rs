@@ -111,7 +111,6 @@ pub type ParseResult<T> = ::std::result::Result<T, ParseError>;
 #[cfg(test)]
 mod test {
     use super::*;
-    use parser::*;
 
     #[test]
     fn test_format_unexpected_token_error () {

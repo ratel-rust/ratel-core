@@ -1,6 +1,6 @@
 use transformer::{Transformer, Transformable};
 use ast::{Expression, ExpressionPtr, ExpressionList};
-use ast::{Loc, Ptr, List, Function, Statement, OptionalName, Name};
+use ast::{Loc, List, Function, Statement, OptionalName, Name};
 
 impl<'ast> Transformable<'ast> for ExpressionList<'ast> {
     #[inline]

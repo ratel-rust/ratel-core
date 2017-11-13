@@ -1,9 +1,10 @@
 use parser::Parser;
 use lexer::Token::*;
-use lexer::{Asi, Token};
+use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclarationKind};
 use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Value};
 use ast::OperatorKind;
+use ast::OperatorKind::*;
 use ast::{EmptyListBuilder};
 
 
@@ -229,83 +230,6 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn statement(&mut self) -> StatementPtr<'ast> {
         unsafe { (*(&STMT_HANDLERS as *const StatementHandler).offset(self.lexer.token as isize))(self) }
-
-        // match self.lexer.token {
-        //     Semicolon         => {
-        //         self.lexer.consume();
-        //         self.alloc_in_loc(Statement::Empty)
-        //     },
-        //     Identifier        => {
-        //         let label = self.lexer.token_as_str();
-        //         self.lexer.consume();
-        //         self.labeled_or_expression_statement(label)
-        //     },
-        //     BraceOpen         => {
-        //         self.lexer.consume();
-        //         self.block_statement()
-        //     },
-        //     DeclarationVar => {
-        //         self.lexer.consume();
-        //         self.variable_declaration_statement(DeclarationKind::Var)
-        //     },
-        //     DeclarationLet => {
-        //         self.lexer.consume();
-        //         self.variable_declaration_statement(DeclarationKind::Let)
-        //     },
-        //     DeclarationConst => {
-        //         self.lexer.consume();
-        //         self.variable_declaration_statement(DeclarationKind::Const)
-        //     },
-        //     Return            => {
-        //         self.lexer.consume();
-        //         self.return_statement()
-        //     },
-        //     Break             => {
-        //         self.lexer.consume();
-        //         self.break_statement()
-        //     },
-        //     Continue          => {
-        //         self.lexer.consume();
-        //         self.continue_statement()
-        //     },
-        //     Function          => {
-        //         self.lexer.consume();
-        //         self.function_statement()
-        //     },
-        //     Class             => {
-        //         self.lexer.consume();
-        //         self.class_statement()
-        //     },
-        //     If                => {
-        //         self.lexer.consume();
-        //         self.if_statement()
-        //     },
-        //     While             => {
-        //         self.lexer.consume();
-        //         self.while_statement()
-        //     },
-        //     Do                => {
-        //         self.lexer.consume();
-        //         self.do_statement()
-        //     },
-        //     For               => {
-        //         self.lexer.consume();
-        //         self.for_statement()
-        //     },
-        //     Throw             => {
-        //         self.lexer.consume();
-        //         self.throw_statement()
-        //     },
-        //     Try               => {
-        //         self.lexer.consume();
-        //         self.try_statement()
-        //     },
-        //     Switch            => {
-        //         self.lexer.consume();
-        //         self.switch_statement()
-        //     },
-        //     _ => self.expression_statement()
-        // }
     }
 
     #[inline]
@@ -317,9 +241,13 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_statement(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
-        let expression = self.complex_expression(expression, 0);
-        let expression = self.sequence_or(expression);
+        let expression = self.nested_expression(expression, 0);
 
+        self.wrap_expression(expression)
+    }
+
+    #[inline]
+    pub fn wrap_expression(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
         let start = expression.start;
         let end = expression.end;
 
@@ -327,18 +255,6 @@ impl<'ast> Parser<'ast> {
 
         self.alloc(Statement::Expression { expression }.at(start, end))
     }
-
-    // #[inline]
-    // pub fn expression_statement(&mut self) -> StatementPtr<'ast> {
-    //     let expression = self.sequence_or_expression();
-
-    //     let start = expression.start;
-    //     let end = expression.end;
-
-    //     expect_semicolon!(self);
-
-    //     self.alloc(Statement::Expression { expression }.at(start, end))
-    // }
 
     #[inline]
     pub fn labeled_or_expression_statement(&mut self, label: &'ast str) -> StatementPtr<'ast> {
@@ -353,9 +269,8 @@ impl<'ast> Parser<'ast> {
             }.at(0, 0))
         }
 
-        let first = self.alloc_in_loc(Expression::Identifier(label));
-        let first = self.complex_expression(first, 0);
-        let expression = self.sequence_or(first);
+        let expression = self.alloc_in_loc(Expression::Identifier(label));
+        let expression = self.nested_expression(expression, 0);
 
         expect_semicolon!(self);
 
@@ -384,7 +299,7 @@ impl<'ast> Parser<'ast> {
     pub fn return_statement(&mut self) -> StatementPtr<'ast> {
         let value = match self.asi() {
             Asi::NoSemicolon => {
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
 
                 expect_semicolon!(self);
 
@@ -438,7 +353,7 @@ impl<'ast> Parser<'ast> {
         let value = match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
-                Some(self.expression(0))
+                Some(self.expression(1))
             },
             _ => None
         };
@@ -510,7 +425,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn throw_statement(&mut self) -> StatementPtr<'ast> {
-        let value = self.sequence_or_expression();
+        let value = self.expression(0);
 
         expect_semicolon!(self);
 
@@ -540,7 +455,6 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn if_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
-
         let test = self.expression(0);
         expect!(self, ParenClose);
 
@@ -564,7 +478,6 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn while_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
-
         let test = self.expression(0);
         expect!(self, ParenClose);
 
@@ -633,7 +546,7 @@ impl<'ast> Parser<'ast> {
             }
 
             _ => {
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
 
                 if let Expression::Binary {
                     operator: In,
@@ -678,7 +591,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _         => {
-                let test = self.sequence_or_expression();
+                let test = self.expression(0);
                 expect!(self, Semicolon);
 
                 Some(test)
@@ -691,7 +604,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _         => {
-                let update = self.sequence_or_expression();
+                let update = self.expression(0);
                 expect!(self, ParenClose);
 
                 Some(update)
@@ -721,7 +634,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
-        let right = self.sequence_or_expression();
+        let right = self.expression(0);
 
         expect!(self, ParenClose);
 
@@ -735,7 +648,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
-        let right = self.sequence_or_expression();
+        let right = self.expression(0);
 
         expect!(self, ParenClose);
 

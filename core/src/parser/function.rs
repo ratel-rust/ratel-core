@@ -1,7 +1,6 @@
 use parser::Parser;
-use lexer::Token;
 use lexer::Token::*;
-use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property, OperatorKind};
+use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property};
 
 impl<'ast> Parser<'ast> {
     #[inline]
@@ -27,7 +26,7 @@ impl<'ast> Parser<'ast> {
             Extends => {
                 self.lexer.consume();
 
-                let super_class = self.expression(0);
+                let super_class = self.expression(1);
                 expect!(self, BraceOpen);
 
                 Some(super_class)
@@ -87,7 +86,7 @@ impl<'ast> Parser<'ast> {
             BracketOpen => {
                 self.lexer.consume();
 
-                let expression = self.sequence_or_expression();
+                let expression = self.expression(0);
 
                 expect!(self, BracketClose);
 
@@ -129,7 +128,7 @@ impl<'ast> Parser<'ast> {
             OperatorAssign => {
                 self.lexer.consume();
 
-                let expression = self.expression(0);
+                let expression = self.expression(1);
 
                 Loc::new(0, 0, ClassMember::Value {
                     is_static,

@@ -126,8 +126,6 @@ pub enum Token {
 impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
-        use ast::OperatorKind::*;
-        use ast::Value::*;
 
         match *self {
             Break              => Some("break"),

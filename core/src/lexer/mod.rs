@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 mod token;
 mod labels;
 mod util;
@@ -10,7 +8,6 @@ use lexer::labels::*;
 use lexer::token::Token::*;
 
 use std::str;
-use ast::Value;
 use error::Error;
 use arena::Arena;
 
@@ -21,19 +18,6 @@ macro_rules! expect_byte {
             _ => $lex.bump()
         }
     });
-}
-
-macro_rules! repeat8 {
-    ($step:expr) => {
-        $step
-        $step
-        $step
-        $step
-        $step
-        $step
-        $step
-        $step
-    }
 }
 
 macro_rules! unwind_loop {

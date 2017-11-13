@@ -5,7 +5,7 @@ mod expression;
 
 use arena::Arena;
 use module::Module;
-use ast::{StatementList, Ptr, Loc};
+use ast::{Ptr, Loc};
 
 pub use self::scope::Scope;
 pub use self::settings::Settings;
