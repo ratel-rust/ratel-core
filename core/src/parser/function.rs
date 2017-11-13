@@ -69,7 +69,8 @@ impl<'ast> Parser<'ast> {
 
     fn class_member(&mut self, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
         let property = match self.lexer.token {
-            Identifier(label) => {
+            Identifier => {
+                let label = self.lexer.token_as_str();
                 self.lexer.consume();
                 Property::Literal(label)
             },

@@ -59,7 +59,7 @@ pub enum Token<'src> {
     Static,
     Literal(Value<'src>),
     Reserved(ReservedKind),
-    Identifier(&'src str),
+    Identifier,
     Accessor(&'src str),
     Template(TemplateKind<'src>),
     UnexpectedToken,

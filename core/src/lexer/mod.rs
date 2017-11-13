@@ -510,9 +510,7 @@ const UNI: ByteHandler = Some(|lex| {
 
     lex.read_label();
 
-    let ident = lex.slice_from(start);
-
-    lex.token = Identifier(ident);
+    lex.token = Identifier;
 });
 
 // 0
@@ -712,6 +710,12 @@ impl<'src> Lexer<'src> {
                 self.asi = Asi::ImplicitSemicolon;
             }
         })
+    }
+
+    #[inline]
+    pub fn token_as_str(&self) -> &'src str {
+        let start = self.token_start;
+        self.slice_from(start)
     }
 
     #[inline]
@@ -1074,7 +1078,7 @@ mod test {
 
     #[test]
     fn block_comment() {
-        assert_lex(" /* foo */ bar", [Identifier("bar")]);
+        assert_lex(" /* foo */ bar", [Identifier]);
     }
 
     #[test]
@@ -1082,7 +1086,7 @@ mod test {
         assert_lex(
             "foo.bar();",
             [
-                Identifier("foo"),
+                Identifier,
                 Accessor("bar"),
                 ParenOpen,
                 ParenClose,
@@ -1096,7 +1100,7 @@ mod test {
         assert_lex(
             "foo.function();",
             [
-                Identifier("foo"),
+                Identifier,
                 Accessor("function"),
                 ParenOpen,
                 ParenClose,
@@ -1111,7 +1115,7 @@ mod test {
             "let foo = 2 + 2;",
             [
                 Declaration(Let),
-                Identifier("foo"),
+                Identifier,
                 Operator(Assign),
                 Literal(Value::Number("2")),
                 Operator(Addition),
@@ -1127,11 +1131,11 @@ mod test {
             "var x, y, z = 42;",
             [
                 Declaration(Var),
-                Identifier("x"),
+                Identifier,
                 Comma,
-                Identifier("y"),
+                Identifier,
                 Comma,
-                Identifier("z"),
+                Identifier,
                 Operator(Assign),
                 Literal(Value::Number("42")),
                 Semicolon,
@@ -1145,13 +1149,13 @@ mod test {
             "function foo(bar) { return bar }",
             [
                 Function,
-                Identifier("foo"),
+                Identifier,
                 ParenOpen,
-                Identifier("bar"),
+                Identifier,
                 ParenClose,
                 BraceOpen,
                 Return,
-                Identifier("bar"),
+                Identifier,
                 BraceClose,
             ]
         );

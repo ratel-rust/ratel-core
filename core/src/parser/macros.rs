@@ -29,7 +29,8 @@ macro_rules! expect {
 macro_rules! expect_identifier {
     ($parser:ident) => {
         match $parser.lexer.token {
-            Token::Identifier(ident) => {
+            Identifier => {
+                let ident = $parser.lexer.token_as_str();
                 $parser.lexer.consume();
                 ident
             },
@@ -72,9 +73,10 @@ macro_rules! parameter_key {
                 $parser.lexer.consume();
                 break;
             },
-            Identifier(label) => {
+            Identifier => {
+                let ident = $parser.lexer.token_as_str();
                 $parser.lexer.consume();
-                ParameterKey::Identifier(label)
+                ParameterKey::Identifier(ident)
             },
             _ => unexpected_token!($parser)
         }

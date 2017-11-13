@@ -16,9 +16,10 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.alloc_in_loc(Expression::Value(value))
             },
-            Identifier(value)  => {
+            Identifier         => {
+                let ident = self.lexer.token_as_str();
                 self.lexer.consume();
-                self.alloc_in_loc(Expression::Identifier(value))
+                self.alloc_in_loc(Expression::Identifier(ident))
             },
             Operator(Division) => {
                 // Note: no consume since / is part of the RegEx
@@ -332,7 +333,8 @@ impl<'ast> Parser<'ast> {
 
     pub fn object_member(&mut self) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
         let property = match self.lexer.token {
-            Identifier(label) => {
+            Identifier => {
+                let label = self.lexer.token_as_str();
                 self.lexer.consume();
 
                 match self.lexer.token {
@@ -550,7 +552,8 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
         let name = match self.lexer.token {
-            Identifier(name) => {
+            Identifier => {
+                let name = self.lexer.token_as_str();
                 self.lexer.consume();
                 Some(self.alloc_in_loc(name))
             },
@@ -565,7 +568,8 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
         let name = match self.lexer.token {
-            Identifier(name) => {
+            Identifier => {
+                let name = self.lexer.token_as_str();
                 self.lexer.consume();
                 Some(self.alloc_in_loc(name))
             },

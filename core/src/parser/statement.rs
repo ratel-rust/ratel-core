@@ -13,7 +13,8 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.alloc_in_loc(Statement::Empty)
             },
-            Identifier(label) => {
+            Identifier        => {
+                let label = self.lexer.token_as_str();
                 self.lexer.consume();
                 self.labeled_or_expression_statement(label)
             },
@@ -175,15 +176,16 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn variable_declarator(&mut self) -> Ptr<'ast, Loc<Declarator<'ast>>> {
         let name = match self.lexer.token {
-            BraceOpen        => {
+            BraceOpen   => {
                 self.lexer.consume();
                 self.object_expression()
             },
-            BracketOpen      => {
+            BracketOpen => {
                 self.lexer.consume();
                 self.array_expression()
             },
-            Identifier(name) => {
+            Identifier  => {
+                let name = self.lexer.token_as_str();
                 self.lexer.consume();
                 self.alloc_in_loc(Expression::Identifier(name))
             },
@@ -408,7 +410,10 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     return self.for_in_statement(init);
                 },
-                Identifier("of") => {
+                Identifier => {
+                    if self.lexer.token_as_str() != "of" {
+                        unexpected_token!(self);
+                    }
                     self.lexer.consume();
                     return self.for_of_statement(init);
                 },
