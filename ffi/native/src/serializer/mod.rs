@@ -16,7 +16,10 @@ impl<'ast, T: 'ast + Serializable<'ast>> Serializable<'ast> for List<'ast, T> {
     fn serialize(&self) -> Option<serde_json::Value> {
         let mut result: Vec<Option<serde_json::Value>> = vec![];
         for statement in self.iter() {
-            result.push(statement.serialize());
+            let entry = statement.serialize();
+            if entry.is_some() {
+                result.push(entry);
+            }
         }
         Some(json!(result))
     }
@@ -38,7 +41,10 @@ impl<'ast> Serializable<'ast> for ParameterList<'ast> {
     fn serialize(&self) -> Option<serde_json::Value> {
         let mut result: Vec<Option<serde_json::Value>> = vec![];
         for expression in self.ptr_iter() {
-            result.push(expression.serialize());
+            let entry = expression.serialize();
+            if entry.is_some() {
+                result.push(entry);
+            }
         }
         Some(json!(result))
     }
@@ -49,7 +55,10 @@ impl<'ast> Serializable<'ast> for StatementList<'ast> {
     fn serialize(&self) -> Option<serde_json::Value> {
         let mut result: Vec<Option<serde_json::Value>> = vec![];
         for statement in self.ptr_iter() {
-            result.push(statement.serialize());
+            let entry = statement.serialize();
+            if entry.is_some() {
+                result.push(entry);
+            }
         }
         Some(json!(result))
     }
@@ -60,7 +69,10 @@ impl<'ast> Serializable<'ast> for ExpressionList<'ast> {
     fn serialize(&self) -> Option<serde_json::Value> {
         let mut result: Vec<Option<serde_json::Value>> = vec![];
         for expression in self.ptr_iter() {
-            result.push(expression.serialize());
+            let entry = expression.serialize();
+            if entry.is_some() {
+                result.push(entry);
+            }
         }
         Some(json!(result))
     }

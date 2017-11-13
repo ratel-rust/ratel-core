@@ -7,8 +7,10 @@ impl<'ast> Serializable<'ast> for ast::Loc<Function<'ast, MandatoryName<'ast>>> 
     #[inline]
     fn serialize<'a>(&self) -> Option<serde_json::Value> {
         // FIXME
-        let body = match *self.body.only_element().unwrap() {
-            Loc { item: ast::Statement::Block { .. } , .. } => self.body.serialize(),
+        let body = match self.body.only_element() {
+            Some(&Loc { item: ast::Statement::Block { .. } , .. }) => {
+                self.body.serialize()
+            },
             _ => {
                 Some(json!({
                     "type": "BlockStatement",
@@ -16,6 +18,7 @@ impl<'ast> Serializable<'ast> for ast::Loc<Function<'ast, MandatoryName<'ast>>> 
                     "start": 0,
                     "end": 0,
                 }))
+
             }
         };
 
@@ -35,8 +38,10 @@ impl<'ast> Serializable<'ast> for Loc<Function<'ast, OptionalName<'ast>>> {
     fn serialize<'a>(&self) -> Option<serde_json::Value> {
         let item = self.item;
         // FIXME
-        let body = match *item.body.only_element().unwrap() {
-            Loc { item: ast::Statement::Block { .. } , .. } => item.body.serialize(),
+        let body = match item.body.only_element() {
+            Some(&Loc { item: ast::Statement::Block { .. } , .. }) => {
+                item.body.serialize()
+            },
             _ => {
                 Some(json!({
                     "type": "BlockStatement",
@@ -44,6 +49,7 @@ impl<'ast> Serializable<'ast> for Loc<Function<'ast, OptionalName<'ast>>> {
                     "start": 0,
                     "end": 0,
                 }))
+
             }
         };
 
