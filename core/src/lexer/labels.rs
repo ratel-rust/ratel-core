@@ -106,7 +106,7 @@ pub const L_F: ByteHandler = Some(|lex| {
         b'i'[b'n' b'a' b'l' b'l' b'y'      => Finally]
         b'o'[b'r'                          => For]
         b'u'[b'n' b'c' b't' b'i' b'o' b'n' => Function]
-        b'a'[b'l' b's' b'e'                => Literal(Value::False)]
+        b'a'[b'l' b's' b'e'                => LiteralFalse]
     });
 
     lex.read_label();
@@ -146,7 +146,7 @@ pub const L_L: ByteHandler = Some(|lex| {
 pub const L_N: ByteHandler = Some(|lex| {
     match_label!(lex {
         b'e'[b'w'      => Operator(New)]
-        b'u'[b'l' b'l' => Literal(Value::Null)]
+        b'u'[b'l' b'l' => LiteralNull]
     });
 
     lex.read_label();
@@ -198,7 +198,7 @@ pub const L_T: ByteHandler = Some(|lex| {
         }
         b'r'{
             b'y'[                => Try]
-            b'u'[b'e'            => Literal(Value::True)]
+            b'u'[b'e'            => LiteralTrue]
         }
     });
 
@@ -208,7 +208,7 @@ pub const L_T: ByteHandler = Some(|lex| {
 
 // Identifier or keyword starting with a letter `u`
 pub const L_U: ByteHandler = Some(|lex| {
-    match_label!(lex [b'n' b'd' b'e' b'f' b'i' b'n' b'e' b'd' => Literal(Value::Undefined)]);
+    match_label!(lex [b'n' b'd' b'e' b'f' b'i' b'n' b'e' b'd' => LiteralUndefined]);
 
     lex.read_label();
     lex.token = Identifier;

@@ -6,7 +6,7 @@ use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterL
 pub enum Property<'ast> {
     Computed(ExpressionPtr<'ast>),
     Literal(&'ast str),
-    Binary(u64),
+    Binary(&'ast str),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

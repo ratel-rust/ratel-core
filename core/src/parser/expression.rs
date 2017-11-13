@@ -12,9 +12,36 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.alloc_in_loc(Expression::This)
             },
-            Literal(value)     => {
+            LiteralTrue        => {
                 self.lexer.consume();
-                self.alloc_in_loc(Expression::Value(value))
+                self.alloc_in_loc(Expression::Value(Value::True))
+            },
+            LiteralFalse        => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::False))
+            },
+            LiteralNull        => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::Null))
+            },
+            LiteralUndefined   => {
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::Undefined))
+            },
+            LiteralNumber      => {
+                let num = self.lexer.token_as_str();
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::Number(num)))
+            },
+            LiteralBinary      => {
+                let num = self.lexer.token_as_str();
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::Binary(num)))
+            },
+            LiteralString      => {
+                let string = self.lexer.token_as_str();
+                self.lexer.consume();
+                self.alloc_in_loc(Expression::Value(Value::String(string)))
             },
             Identifier         => {
                 let ident = self.lexer.token_as_str();
@@ -125,7 +152,8 @@ impl<'ast> Parser<'ast> {
                     }))
                 },
 
-                Accessor(member) => {
+                Accessor => {
+                    let member = self.lexer.accessor_as_str();
                     self.lexer.consume();
 
                     let right = self.alloc_in_loc(member);
@@ -343,12 +371,14 @@ impl<'ast> Parser<'ast> {
                     _ => return self.alloc_in_loc(ObjectMember::Shorthand(label)),
                 }
             },
-            Literal(Value::String(key)) |
-            Literal(Value::Number(key)) => {
+            LiteralString |
+            LiteralNumber => {
+                let key = self.lexer.token_as_str();
                 self.lexer.consume();
                 self.in_loc(Property::Literal(key))
             },
-            Literal(Value::Binary(num)) => {
+            LiteralBinary => {
+                let num = self.lexer.token_as_str();
                 self.lexer.consume();
                 self.in_loc(Property::Binary(num))
             },
@@ -476,18 +506,11 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn regular_expression(&mut self) -> ExpressionPtr<'ast> {
-        self.lexer.read_regular_expression();
+        let value = self.lexer.read_regular_expression();
 
-        let value = match self.lexer.token {
-            Literal(value) => {
-                self.lexer.consume();
+        expect!(self, LiteralRegEx);
 
-                value
-            },
-            _ => unexpected_token!(self),
-        };
-
-        self.alloc(Expression::Value(value).at(0, 0))
+        self.alloc(Expression::Value(Value::RegEx(value)).at(0, 0))
     }
 
     fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>, kind: TemplateKind<'ast>) -> ExpressionPtr<'ast> {

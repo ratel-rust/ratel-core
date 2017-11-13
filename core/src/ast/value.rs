@@ -5,7 +5,7 @@ pub enum Value<'ast> {
     True,
     False,
     Number(&'ast str),
-    Binary(u64),
+    Binary(&'ast str),
     String(&'ast str),
     RawQuasi(&'ast str),
     RegEx(&'ast str),

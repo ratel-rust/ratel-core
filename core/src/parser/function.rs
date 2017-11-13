@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token;
 use lexer::Token::*;
-use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property, Value, OperatorKind};
+use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property, OperatorKind};
 
 impl<'ast> Parser<'ast> {
     #[inline]
@@ -74,11 +74,13 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 Property::Literal(label)
             },
-            Literal(Value::Number(num)) => {
+            LiteralNumber => {
+                let num = self.lexer.token_as_str();
                 self.lexer.consume();
                 Property::Literal(num)
             },
-            Literal(Value::Binary(num)) => {
+            LiteralBinary => {
+                let num = self.lexer.token_as_str();
                 self.lexer.consume();
                 Property::Binary(num)
             },

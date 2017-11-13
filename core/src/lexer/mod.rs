@@ -515,8 +515,6 @@ const UNI: ByteHandler = Some(|lex| {
 
 // 0
 const ZER: ByteHandler = Some(|lex| {
-    let start = lex.index;
-
     match lex.next_byte() {
         b'b' | b'B' => {
             lex.bump();
@@ -527,13 +525,13 @@ const ZER: ByteHandler = Some(|lex| {
         b'o' | b'O' => {
             lex.bump();
 
-            return lex.read_octal(start);
+            return lex.read_octal();
         },
 
         b'x' | b'X' => {
             lex.bump();
 
-            return lex.read_hexadec(start);
+            return lex.read_hexadec();
         },
 
         _ => {}
@@ -547,43 +545,37 @@ const ZER: ByteHandler = Some(|lex| {
             b'.' => {
                 lex.bump();
 
-                return lex.read_float(start);
+                return lex.read_float();
             },
             b'e' | b'E' => {
                 lex.bump();
 
-                return lex.read_scientific(start);
+                return lex.read_scientific();
             }
             _ => break,
         }
     }
 
-    let value = lex.slice_from(start);
-
-    lex.token = Literal(Value::Number(value));
+    lex.token = LiteralNumber;
 });
 
 // 1 to 9
 const DIG: ByteHandler = Some(|lex| {
-    let start = lex.index;
-
     unwind_loop!({
         match lex.next_byte() {
             b'0'...b'9' => {},
             b'.' => {
                 lex.bump();
 
-                return lex.read_float(start);
+                return lex.read_float();
             },
             b'e' | b'E' => {
                 lex.bump();
 
-                return lex.read_scientific(start);
+                return lex.read_scientific();
             },
             _ => {
-                let value = lex.slice_from(start);
-
-                return lex.token = Literal(Value::Number(value));
+                return lex.token = LiteralNumber;
             },
         }
     });
@@ -591,13 +583,11 @@ const DIG: ByteHandler = Some(|lex| {
 
 // .
 const PRD: ByteHandler = Some(|lex| {
-    let start = lex.index;
-
     match lex.next_byte() {
         b'0'...b'9' => {
             lex.bump();
 
-            lex.read_float(start)
+            lex.read_float()
         },
 
         b'.' => {
@@ -618,7 +608,6 @@ const PRD: ByteHandler = Some(|lex| {
 
 // " or '
 const QOT: ByteHandler = Some(|lex| {
-    let start = lex.index;
     let style = lex.read_byte();
 
     lex.bump();
@@ -627,7 +616,7 @@ const QOT: ByteHandler = Some(|lex| {
         match lex.read_byte() {
             ch if ch == style => {
                 lex.bump();
-                return lex.token = Literal(Value::String(lex.slice_from(start)));
+                return lex.token = LiteralString;
             },
             b'\\' => {
                 lex.bump();
@@ -653,10 +642,6 @@ pub struct Lexer<'src> {
     /// Flags whether or not a new line was read before the token
     asi: Asi,
 
-    /// Raw pointer to the BYTE_HANDLERS.
-    /// This is pretty minor but it does offer some perf gains.
-    handlers: *const ByteHandler,
-
     /// Source to parse, must be a C-style buffer ending with 0 byte
     ptr: *const u8,
 
@@ -665,6 +650,8 @@ pub struct Lexer<'src> {
 
     /// Index of current token in source
     token_start: usize,
+
+    accessor_start: usize,
 }
 
 
@@ -679,10 +666,10 @@ impl<'src> Lexer<'src> {
         let mut lexer = Lexer {
             token: UnexpectedToken,
             asi: Asi::NoSemicolon,
-            handlers: BYTE_HANDLERS.as_ptr(),
             ptr,
             index: 0,
             token_start: 0,
+            accessor_start: 0,
         };
 
         lexer.consume();
@@ -719,8 +706,14 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
+    pub fn accessor_as_str(&self) -> &'src str {
+        let start = self.accessor_start;
+        self.slice_from(start)
+    }
+
+    #[inline]
     fn handler_from_byte(&mut self, byte: u8) -> ByteHandler {
-        unsafe { *self.handlers.offset(byte as isize) }
+        unsafe { *(&BYTE_HANDLERS as *const ByteHandler).offset(byte as isize) }
     }
 
     #[inline]
@@ -835,23 +828,19 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn read_binary(&mut self) {
-        let mut value = 0;
-
         loop {
             match self.read_byte() {
                 b'0' => {
-                    value <<= 1;
                     self.bump();
                 },
                 b'1' => {
-                    value = (value << 1) + 1;
                     self.bump();
                 },
                 _ => break
             }
         }
 
-        self.token = Literal(Value::Binary(value))
+        self.token = LiteralBinary;
     }
 
     /// This is a specialized method that expects the next token to be an identifier,
@@ -889,15 +878,16 @@ impl<'src> Lexer<'src> {
             ch = self.read_byte();
 
             if ch > 0x20 {
-                self.token_start = self.index;
+                self.accessor_start = self.index;
 
                 if ch > 127 {
                     unimplemented!();
                     // return unicode(self)
                 } else if TABLE[ch as usize] {
-                    return self.token = Accessor(self.read_label())
+                    self.read_label();
+                    return self.token = Accessor;
                 } else {
-                    return self.token = UnexpectedToken
+                    return self.token = UnexpectedToken;
                 }
             }
 
@@ -937,7 +927,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_octal(&mut self, start: usize) {
+    fn read_octal(&mut self) {
         loop {
             match self.read_byte() {
                 b'0'...b'7' => self.bump(),
@@ -945,13 +935,11 @@ impl<'src> Lexer<'src> {
             };
         }
 
-        let value = self.slice_from(start);
-
-        self.token = Literal(Value::Number(value));
+        self.token = LiteralNumber;
     }
 
     #[inline]
-    fn read_hexadec(&mut self, start: usize) {
+    fn read_hexadec(&mut self) {
         loop {
             match self.read_byte() {
                 b'0'...b'9' |
@@ -961,31 +949,27 @@ impl<'src> Lexer<'src> {
             };
         }
 
-        let value = self.slice_from(start);
-
-        self.token = Literal(Value::Number(value));
+        self.token = LiteralNumber;
     }
 
     #[inline]
-    fn read_float(&mut self, start: usize) {
+    fn read_float(&mut self) {
         loop {
             match self.read_byte() {
                 b'0'...b'9'  => self.bump(),
                 b'e' | b'E'  => {
                     self.bump();
-                    return self.read_scientific(start);
+                    return self.read_scientific();
                 },
                 _            => break
             }
         }
 
-        let value = self.slice_from(start);
-
-        self.token = Literal(Value::Number(value));
+        self.token = LiteralNumber;
     }
 
     #[inline]
-    fn read_scientific(&mut self, start: usize) {
+    fn read_scientific(&mut self) {
         match self.read_byte() {
             b'-' | b'+' => self.bump(),
             _           => {}
@@ -998,13 +982,11 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let value = self.slice_from(start);
-
-        self.token = Literal(Value::Number(value))
+        self.token = LiteralNumber;
     }
 
     #[inline]
-    pub fn read_regular_expression(&mut self) {
+    pub fn read_regular_expression(&mut self) -> &'src str {
         let start = self.index - 1;
         let mut in_class = false;
         loop {
@@ -1024,12 +1006,18 @@ impl<'src> Lexer<'src> {
                     }
                 },
                 b'\\' => {
-                    self.bump();
-                    expect_byte!(self);
+                    match self.next_byte() {
+                        0 => {
+                            self.token = UnexpectedEndOfProgram;
+                            return "";
+                        },
+                        _ => self.bump()
+                    }
                 },
                 b'\n' => {
                     self.bump();
-                    return self.token = UnexpectedToken;
+                    self.token = UnexpectedToken;
+                    return "";
                 },
                 _     => self.bump()
             }
@@ -1046,7 +1034,8 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        self.token = Literal(Value::RegEx(self.slice_from(start)))
+        self.token = LiteralRegEx;
+        self.slice_from(start)
     }
 }
 
@@ -1087,7 +1076,7 @@ mod test {
             "foo.bar();",
             [
                 Identifier,
-                Accessor("bar"),
+                Accessor,
                 ParenOpen,
                 ParenClose,
                 Semicolon,
@@ -1101,7 +1090,7 @@ mod test {
             "foo.function();",
             [
                 Identifier,
-                Accessor("function"),
+                Accessor,
                 ParenOpen,
                 ParenClose,
                 Semicolon,
@@ -1117,9 +1106,9 @@ mod test {
                 Declaration(Let),
                 Identifier,
                 Operator(Assign),
-                Literal(Value::Number("2")),
+                LiteralNumber,
                 Operator(Addition),
-                Literal(Value::Number("2")),
+                LiteralNumber,
                 Semicolon,
             ]
         );
@@ -1137,7 +1126,7 @@ mod test {
                 Comma,
                 Identifier,
                 Operator(Assign),
-                Literal(Value::Number("42")),
+                LiteralNumber,
                 Semicolon,
             ]
         );
@@ -1193,7 +1182,7 @@ mod test {
                 Else,
                 Export,
                 Extends,
-                Literal(Value::False),
+                LiteralFalse,
                 Finally,
                 For,
                 Function,
@@ -1205,7 +1194,7 @@ mod test {
                 Reserved(Interface),
                 Declaration(Let),
                 Operator(New),
-                Literal(Value::Null),
+                LiteralNull,
                 Reserved(Package),
                 Reserved(Protected),
                 Reserved(Public),
@@ -1215,7 +1204,7 @@ mod test {
                 Switch,
                 This,
                 Throw,
-                Literal(Value::True),
+                LiteralTrue,
                 Try,
                 Operator(Typeof),
                 Declaration(Var),
