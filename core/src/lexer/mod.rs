@@ -358,10 +358,10 @@ const MIN: ByteHandler = Some(|lex| {
         b'=' => {
             lex.bump();
 
-            OperatorSubstractAssign
+            OperatorSubtractAssign
         },
 
-        _ => OperatorSubstraction
+        _ => OperatorSubtraction
     };
 });
 

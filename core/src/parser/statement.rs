@@ -1,7 +1,7 @@
 use parser::Parser;
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclarationKind};
+use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
 use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Value};
 use ast::OperatorKind;
 use ast::OperatorKind::*;
@@ -336,16 +336,16 @@ impl<'ast> Parser<'ast> {
         let name = match self.lexer.token {
             BraceOpen   => {
                 self.lexer.consume();
-                self.object_expression()
+                DeclaratorId::Pattern(self.object_expression())
             },
             BracketOpen => {
                 self.lexer.consume();
-                self.array_expression()
+                DeclaratorId::Pattern(self.array_expression())
             },
             Identifier  => {
                 let name = self.lexer.token_as_str();
                 self.lexer.consume();
-                self.alloc_in_loc(Expression::Identifier(name))
+                DeclaratorId::Identifier(name)
             },
             _                => unexpected_token!(self),
         };
@@ -974,15 +974,15 @@ mod test {
                 kind: DeclarationKind::Var,
                 declarators: mock.list([
                     Declarator {
-                        name: mock.ident("x"),
+                        name: DeclaratorId::Identifier("x"),
                         value: None,
                     },
                     Declarator {
-                        name: mock.ident("y"),
+                        name: DeclaratorId::Identifier("y"),
                         value: None,
                     },
                     Declarator {
-                        name: mock.ident("z"),
+                        name: DeclaratorId::Identifier("z"),
                         value: Some(mock.number("42"))
                     }
                 ])
@@ -1003,12 +1003,12 @@ mod test {
                 kind: DeclarationKind::Let,
                 declarators: mock.list([
                     Declarator {
-                        name: mock.ptr(Expression::Array {
+                        name: DeclaratorId::Pattern(mock.ptr(Expression::Array {
                             body: mock.list([
                                 Expression::Identifier("x"),
                                 Expression::Identifier("y"),
                             ])
-                        }),
+                        })),
                         value: Some(mock.ptr(Expression::Array {
                             body: mock.list([
                                 Expression::Value(Value::Number("1")),
@@ -1034,12 +1034,12 @@ mod test {
                 kind: DeclarationKind::Const,
                 declarators: mock.list([
                     Declarator {
-                        name: mock.ptr(Expression::Object {
+                        name: DeclaratorId::Pattern(mock.ptr(Expression::Object {
                             body: mock.list([
                                 ObjectMember::Shorthand("x"),
                                 ObjectMember::Shorthand("y"),
                             ])
-                        }),
+                        })),
                         value: Some(mock.ptr(Expression::Object {
                             body: mock.list([
                                 ObjectMember::Shorthand("a"),
@@ -1066,7 +1066,7 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: mock.ident("i"),
+                            name: DeclaratorId::Identifier("i"),
                             value: Some(mock.number("0")),
                         }
                     ]),
@@ -1122,11 +1122,11 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: mock.ident("i"),
+                            name: DeclaratorId::Identifier("i"),
                             value: Some(mock.number("0")),
                         },
                         Declarator {
-                            name: mock.ident("j"),
+                            name: DeclaratorId::Identifier("j"),
                             value: Some(mock.number("10")),
                         }
                     ]),
@@ -1174,11 +1174,11 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: mock.ident("i"),
+                            name: DeclaratorId::Identifier("i"),
                             value: Some(mock.number("0")),
                         },
                         Declarator {
-                            name: mock.ident("j"),
+                            name: DeclaratorId::Identifier("j"),
                             value: Some(mock.number("10")),
                         }
                     ]),

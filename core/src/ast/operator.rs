@@ -17,7 +17,7 @@ pub enum OperatorKind {
     Remainder,        //   …  %  …
     Exponent,         //   …  ** …
     Addition,         //   …  +  … | + …
-    Substraction,     //   …  -  … | - …
+    Subtraction,      //   …  -  … | - …
     BitShiftLeft,     //   …  << …
     BitShiftRight,    //   …  >> …
     UBitShiftRight,   //   … >>> …
@@ -39,7 +39,7 @@ pub enum OperatorKind {
     Conditional,      //   …  ?  …  :  …
     Assign,           //   …  =  …
     AddAssign,        //   …  += …
-    SubstractAssign,  //   …  -= …
+    SubtractAssign,   //   …  -= …
     ExponentAssign,   //   … **= …
     MultiplyAssign,   //   …  *= …
     DivideAssign,     //   …  /= …
@@ -73,7 +73,7 @@ impl OperatorKind {
             OperatorRemainder        => Some(Remainder),
             OperatorExponent         => Some(Exponent),
             OperatorAddition         => Some(Addition),
-            OperatorSubstraction     => Some(Substraction),
+            OperatorSubtraction      => Some(Subtraction),
             OperatorBitShiftLeft     => Some(BitShiftLeft),
             OperatorBitShiftRight    => Some(BitShiftRight),
             OperatorUBitShiftRight   => Some(UBitShiftRight),
@@ -95,7 +95,7 @@ impl OperatorKind {
             OperatorConditional      => Some(Conditional),
             OperatorAssign           => Some(Assign),
             OperatorAddAssign        => Some(AddAssign),
-            OperatorSubstractAssign  => Some(SubstractAssign),
+            OperatorSubtractAssign   => Some(SubtractAssign),
             OperatorExponentAssign   => Some(ExponentAssign),
             OperatorMultiplyAssign   => Some(MultiplyAssign),
             OperatorDivideAssign     => Some(DivideAssign),
@@ -128,7 +128,7 @@ impl OperatorKind {
             Remainder        => "%",
             Exponent         => "**",
             Addition         => "+",
-            Substraction     => "-",
+            Subtraction      => "-",
             BitShiftLeft     => "<<",
             BitShiftRight    => ">>",
             UBitShiftRight   => ">>>",
@@ -150,7 +150,7 @@ impl OperatorKind {
             Conditional      => "?",
             Assign           => "=",
             AddAssign        => "+=",
-            SubstractAssign  => "-=",
+            SubtractAssign   => "-=",
             ExponentAssign   => "**=",
             MultiplyAssign   => "*=",
             DivideAssign     => "/=",
@@ -189,7 +189,7 @@ impl OperatorKind {
             Exponent         => 14,
 
             Addition         |
-            Substraction     => 13,
+            Subtraction      => 13,
 
             BitShiftLeft     |
             BitShiftRight    |
@@ -216,7 +216,7 @@ impl OperatorKind {
 
             Assign           |
             AddAssign        |
-            SubstractAssign  |
+            SubtractAssign   |
             ExponentAssign   |
             MultiplyAssign   |
             DivideAssign     |
@@ -245,7 +245,7 @@ impl OperatorKind {
             Increment        |
             Decrement        |
             Addition         |
-            Substraction     => true,
+            Subtraction      => true,
 
             _                => false
         }
@@ -279,10 +279,10 @@ impl OperatorKind {
             LogicalOr        |
             Conditional      |
             Addition         |
-            Substraction     |
+            Subtraction      |
             Assign           |
             AddAssign        |
-            SubstractAssign  |
+            SubtractAssign   |
             ExponentAssign   |
             MultiplyAssign   |
             DivideAssign     |
@@ -303,7 +303,7 @@ impl OperatorKind {
         match *self {
             Assign           |
             AddAssign        |
-            SubstractAssign  |
+            SubtractAssign   |
             ExponentAssign   |
             MultiplyAssign   |
             DivideAssign     |

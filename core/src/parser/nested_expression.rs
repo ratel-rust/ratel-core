@@ -385,7 +385,7 @@ macro_rules! binary_handlers {
 binary_handlers! {
     [ASGN @ 3  => Assign]
     [ADDA @ 3  => AddAssign]
-    [SUBA @ 3  => SubstractAssign]
+    [SUBA @ 3  => SubtractAssign]
     [EXPA @ 3  => ExponentAssign]
     [MULA @ 3  => MultiplyAssign]
     [DIVA @ 3  => DivideAssign]
@@ -415,7 +415,7 @@ binary_handlers! {
     [BSR  @ 12 => BitShiftRight]
     [UBSR @ 12 => UBitShiftRight]
     [ADD  @ 13 => Addition]
-    [SUB  @ 13 => Substraction]
+    [SUB  @ 13 => Subtraction]
     [MUL  @ 14 => Multiplication]
     [DIV  @ 14 => Division]
     [REM  @ 14 => Remainder]

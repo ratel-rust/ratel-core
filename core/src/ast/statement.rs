@@ -3,8 +3,14 @@ use ast::{ExpressionPtr, StatementPtr, StatementList};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
-    pub name: ExpressionPtr<'ast>,
+    pub name: DeclaratorId<'ast>,
     pub value: Option<ExpressionPtr<'ast>>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DeclaratorId<'ast> {
+    Identifier(&'ast str),
+    Pattern(ExpressionPtr<'ast>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

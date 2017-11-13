@@ -1,4 +1,4 @@
-use ast::{Statement, Declarator, DeclarationKind};
+use ast::{Statement, Declarator, DeclarationKind, DeclaratorId};
 use codegen::{ToCode, Generator};
 
 impl<G: Generator> ToCode<G> for DeclarationKind {
@@ -10,6 +10,18 @@ impl<G: Generator> ToCode<G> for DeclarationKind {
             Var   => gen.write_bytes(b"var "),
             Let   => gen.write_bytes(b"let "),
             Const => gen.write_bytes(b"const "),
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for DeclaratorId<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::DeclaratorId::*;
+
+        match *self {
+            Identifier(ref ident) => gen.write(ident),
+            Pattern(ref pattern)  => gen.write(pattern)
         }
     }
 }

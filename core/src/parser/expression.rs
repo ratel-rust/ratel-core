@@ -260,6 +260,7 @@ impl<'ast> Parser<'ast> {
         }.at(0, 0))
     }
 
+    #[inline]
     pub fn object_member(&mut self) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
         let property = match self.lexer.token {
             Identifier => {
@@ -294,14 +295,15 @@ impl<'ast> Parser<'ast> {
                 property
             },
             _ => {
-                // Allow word tokens such as "null" and "typeof" as identifiers
-                match self.lexer.token.as_word() {
-                    Some(label) => {
-                        self.lexer.consume();
-                        self.in_loc(Property::Literal(label))
-                    }
-                    None        => unexpected_token!(self)
-                }
+                unexpected_token!(self);
+                // // Allow word tokens such as "null" and "typeof" as identifiers
+                // match self.lexer.token.as_word() {
+                //     Some(label) => {
+                //         self.lexer.consume();
+                //         self.in_loc(Property::Literal(label))
+                //     }
+                //     None        => unexpected_token!(self)
+                // }
             }
         };
 

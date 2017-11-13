@@ -8,4 +8,3 @@ repository = "https://github.com/ratel-rust/ratel-core"
 documentation = "https://github.com/ratel-rust/ratel-core"
 
 [dependencies]
-lazy_static = "0.2.9"

@@ -1,6 +1,7 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Declarator, ObjectMember, Parameter, ParameterKey, ParameterPtr};
+use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
+use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
 use ast::{Name, Function, Class, ClassMember};
 use parser::Parser;
 
@@ -44,19 +45,6 @@ impl<'ast> ToError for ExpressionPtr<'ast> {
     }
 }
 
-impl<'ast> ToError for Declarator<'ast> {
-    fn to_error() -> Self {
-        Declarator {
-            name: Ptr::new(&Loc {
-                start: 0,
-                end: 0,
-                item: Expression::Error
-            }),
-            value: None,
-        }
-    }
-}
-
 impl<'ast> ToError for ParameterPtr<'ast> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
@@ -70,24 +58,16 @@ impl<'ast> ToError for ParameterPtr<'ast> {
     }
 }
 
-lazy_static! {
-    static ref DECLARATOR_PTR: Ptr<'static, Loc<Declarator<'static>>> = {
-        let declarator = Box::new(Loc {
-            start: 0,
-            end: 0,
-            item: Declarator::to_error()
-        });
-
-        let declarator = Box::into_raw(declarator);
-        Ptr::new({
-            unsafe { &*declarator }
-        })
-    };
-}
-
 impl<'ast> ToError for Ptr<'ast, Loc<Declarator<'ast>>> {
     fn to_error() -> Self {
-        *DECLARATOR_PTR
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Declarator {
+                name: DeclaratorId::Identifier(""),
+                value: None
+            }
+        })
     }
 }
 

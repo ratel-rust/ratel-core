@@ -154,62 +154,38 @@ impl<'ast> Parser<'ast> {
     #[inline]
     fn parameter_list(&mut self) -> ParameterList<'ast> {
         let mut builder = EmptyListBuilder::new(self.arena);
+        let mut require_defaults = false;
 
         loop {
             let key = parameter_key!(self);
+            let value = match self.lexer.token {
+                OperatorAssign => {
+                    self.lexer.consume();
 
-            if self.lexer.token == OperatorAssign {
-                self.lexer.consume();
-                return self.parameter_list_with_defaults(key, builder);
-            }
+                    require_defaults = true;
 
-            let parameter = Parameter {
-                key,
-                value: None
+                    Some(self.expression(1))
+                },
+                _ if require_defaults => unexpected_token!(self),
+                _ => None
             };
 
-            builder.push(self.alloc_in_loc(parameter));
+            builder.push(self.alloc_in_loc(Parameter {
+                key,
+                value,
+            }));
 
             match self.lexer.token {
                 ParenClose => {
                     self.lexer.consume();
+
                     break;
                 },
-                Comma      => self.lexer.consume(),
-                _          => unexpected_token!(self),
-            };
-        }
-
-        builder.into_list()
-    }
-
-    #[inline]
-    fn parameter_list_with_defaults(
-        &mut self,
-        mut key: ParameterKey<'ast>,
-        mut builder: EmptyListBuilder<'ast, Loc<Parameter<'ast>>>
-    ) -> ParameterList<'ast> {
-        loop {
-            let value = self.expression(1);
-            let parameter = Parameter {
-                key,
-                value: Some(value)
-            };
-
-            builder.push(self.alloc_in_loc(parameter));
-
-            match self.lexer.token {
-                ParenClose => {
+                Comma => {
                     self.lexer.consume();
-                    break
                 },
-                Comma      => self.lexer.consume(),
-                _          => unexpected_token!(self),
-            };
-
-            key = parameter_key!(self);
-
-            expect!(self, OperatorAssign);
+                _ => unexpected_token!(self)
+            }
         }
 
         builder.into_list()
