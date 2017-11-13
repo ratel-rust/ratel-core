@@ -126,7 +126,7 @@ impl<'ast> Parser<'ast> {
                     }
                 })
             },
-            Operator(OperatorKind::Assign) => {
+            OperatorAssign => {
                 self.lexer.consume();
 
                 let expression = self.expression(0);

@@ -201,7 +201,7 @@ impl<'ast> Parser<'ast> {
         };
 
         let value = match self.lexer.token {
-            Operator(Assign) => {
+            OperatorAssign => {
                 self.lexer.consume();
                 Some(self.expression(0))
             },
@@ -421,7 +421,7 @@ impl<'ast> Parser<'ast> {
 
         if let Some(init) = init {
             match self.lexer.token {
-                Operator(In)     => {
+                OperatorIn => {
                     self.lexer.consume();
                     return self.for_in_statement(init);
                 },
@@ -432,8 +432,8 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     return self.for_of_statement(init);
                 },
-                Semicolon        => self.lexer.consume(),
-                _                => unexpected_token!(self),
+                Semicolon => self.lexer.consume(),
+                _         => unexpected_token!(self),
             }
         }
 

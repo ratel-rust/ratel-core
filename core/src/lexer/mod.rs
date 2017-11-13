@@ -11,7 +11,6 @@ use lexer::token::Token::*;
 
 use std::str;
 use ast::Value;
-use ast::OperatorKind::*;
 use error::Error;
 use arena::Arena;
 
@@ -175,82 +174,76 @@ const BEC: ByteHandler = Some(|lex| {
 
 // =
 const EQL: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'=' => {
             match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
-                    StrictEquality
+                    OperatorStrictEquality
                 },
 
-                _ => Equality
+                _ => OperatorEquality
             }
         },
 
         b'>' => {
             lex.bump();
 
-            FatArrow
+            OperatorFatArrow
         },
 
-        _ => Assign
+        _ => OperatorAssign
     };
-
-    lex.token = Operator(op);
 });
 
 // !
 const EXL: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'=' => {
             match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
-                    StrictInequality
+                    OperatorStrictInequality
                 },
 
-                _ => Inequality
+                _ => OperatorInequality
             }
         },
 
-        _ => LogicalNot
+        _ => OperatorLogicalNot
     };
-
-    lex.token = Operator(op);
 });
 
 // <
 const LSS: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'<' => {
             match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
-                    BSLAssign
+                    OperatorBSLAssign
                 },
 
-                _ => BitShiftLeft
+                _ => OperatorBitShiftLeft
             }
         },
 
         b'=' => {
             lex.bump();
 
-            LesserEquals
+            OperatorLesserEquals
         },
 
-        _ => Lesser
+        _ => OperatorLesser
     };
-
-    lex.token = Operator(op);
 });
 
 // >
 const MOR: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'>' => {
             match lex.next_byte() {
                 b'>' => {
@@ -258,178 +251,164 @@ const MOR: ByteHandler = Some(|lex| {
                         b'=' => {
                             lex.bump();
 
-                            UBSRAssign
+                            OperatorUBSRAssign
                         }
 
-                        _ => UBitShiftRight
+                        _ => OperatorUBitShiftRight
                     }
                 },
 
                 b'=' => {
                     lex.bump();
 
-                    BSRAssign
+                    OperatorBSRAssign
                 },
 
-                _ => BitShiftRight
+                _ => OperatorBitShiftRight
             }
         },
 
         b'=' => {
             lex.bump();
 
-            GreaterEquals
+            OperatorGreaterEquals
         },
 
-        _ => Greater
+        _ => OperatorGreater
     };
-
-    lex.token = Operator(op);
 });
 
 // ?
 const QST: ByteHandler = Some(|lex| {
     lex.bump();
 
-    lex.token = Operator(Conditional);
+    lex.token = OperatorConditional;
 });
 
 // ~
 const TLD: ByteHandler = Some(|lex| {
     lex.bump();
 
-    lex.token = Operator(BitwiseNot);
+    lex.token = OperatorBitwiseNot;
 });
 
 // ^
 const CRT: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'=' => {
             lex.bump();
 
-            BitXorAssign
+            OperatorBitXorAssign
         },
 
-        _ => BitwiseXor
+        _ => OperatorBitwiseXor
     };
-
-    lex.token = Operator(op);
 });
 
 // &
 const AMP: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'&' => {
             lex.bump();
 
-            LogicalAnd
+            OperatorLogicalAnd
         },
 
         b'=' => {
             lex.bump();
 
-            BitAndAssign
+            OperatorBitAndAssign
         },
 
-        _ => BitwiseAnd
+        _ => OperatorBitwiseAnd
     };
-
-    lex.token = Operator(op);
 });
 
 // |
 const PIP: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'|' => {
             lex.bump();
 
-            LogicalOr
+            OperatorLogicalOr
         },
 
         b'=' => {
             lex.bump();
 
-            BitOrAssign
+            OperatorBitOrAssign
         },
 
-        _ => BitwiseOr
+        _ => OperatorBitwiseOr
     };
-
-    lex.token = Operator(op);
 });
 
 // +
 const PLS: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'+' => {
             lex.bump();
 
-            Increment
+            OperatorIncrement
         },
 
         b'=' => {
             lex.bump();
 
-            AddAssign
+            OperatorAddAssign
         },
 
-        _ => Addition
+        _ => OperatorAddition
     };
-
-    lex.token = Operator(op);
 });
 
 // -
 const MIN: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'-' => {
             lex.bump();
 
-            Decrement
+            OperatorDecrement
         },
 
         b'=' => {
             lex.bump();
 
-            SubstractAssign
+            OperatorSubstractAssign
         },
 
-        _ => Substraction
+        _ => OperatorSubstraction
     };
-
-    lex.token = Operator(op);
 });
 
 // *
 const ATR: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'*' => {
             match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
-                    ExponentAssign
+                    OperatorExponentAssign
                 },
 
-                _ => Exponent
+                _ => OperatorExponent
             }
         },
 
         b'=' => {
             lex.bump();
 
-            MultiplyAssign
+            OperatorMultiplyAssign
         },
 
-        _ => Multiplication
+        _ => OperatorMultiplication
     };
-
-    lex.token = Operator(op);
 });
 
 // /
 const SLH: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         // regular comment
         b'/' => {
             // Keep consuming bytes until new line or end of source
@@ -467,28 +446,24 @@ const SLH: ByteHandler = Some(|lex| {
         b'=' => {
             lex.bump();
 
-            DivideAssign
+            OperatorDivideAssign
         }
 
-        _ => Division
+        _ => OperatorDivision
     };
-
-    lex.token = Operator(op);
 });
 
 // %
 const PRC: ByteHandler = Some(|lex| {
-    let op = match lex.next_byte() {
+    lex.token = match lex.next_byte() {
         b'=' => {
             lex.bump();
 
-            RemainderAssign
+            OperatorRemainderAssign
         },
 
-        _ => Remainder
+        _ => OperatorRemainder
     };
-
-    lex.token = Operator(op);
 });
 
 // Unicode character
@@ -593,7 +568,7 @@ const PRD: ByteHandler = Some(|lex| {
                 b'.' => {
                     lex.bump();
 
-                    Operator(Spread)
+                    OperatorSpread
                 },
 
                 _ => UnexpectedToken
@@ -1108,9 +1083,9 @@ mod test {
             [
                 (DeclarationLet, "let"),
                 (Identifier, "foo"),
-                (Operator(Assign), "="),
+                (OperatorAssign, "="),
                 (LiteralNumber, "2"),
-                (Operator(Addition), "+"),
+                (OperatorAddition, "+"),
                 (LiteralNumber, "2"),
                 (Semicolon, ";")
             ]
@@ -1128,7 +1103,7 @@ mod test {
                 (Identifier, "y"),
                 (Comma, ","),
                 (Identifier, "z"),
-                (Operator(Assign), "="),
+                (OperatorAssign, "="),
                 (LiteralNumber, "42"),
                 (Semicolon, ";"),
             ]
@@ -1180,7 +1155,7 @@ mod test {
                 (DeclarationConst, "const"),
                 (Debugger, "debugger"),
                 (Default, "default"),
-                (Operator(Delete), "delete"),
+                (OperatorDelete, "delete"),
                 (Do, "do"),
                 (Else, "else"),
                 (Export, "export"),
@@ -1192,11 +1167,11 @@ mod test {
                 (If, "if"),
                 (ReservedImplements, "implements"),
                 (Import, "import"),
-                (Operator(In), "in"),
-                (Operator(Instanceof), "instanceof"),
+                (OperatorIn, "in"),
+                (OperatorInstanceof, "instanceof"),
                 (ReservedInterface, "interface"),
                 (DeclarationLet, "let"),
-                (Operator(New), "new"),
+                (OperatorNew, "new"),
                 (LiteralNull, "null"),
                 (ReservedPackage, "package"),
                 (ReservedProtected, "protected"),
@@ -1210,9 +1185,9 @@ mod test {
                 (LiteralTrue, "true"),
                 (Try, "try"),
                 (LiteralUndefined, "undefined"),
-                (Operator(Typeof), "typeof"),
+                (OperatorTypeof, "typeof"),
                 (DeclarationVar, "var"),
-                (Operator(Void), "void"),
+                (OperatorVoid, "void"),
                 (While, "while"),
                 (With, "with"),
                 (Yield, "yield"),

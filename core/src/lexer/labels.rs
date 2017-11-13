@@ -2,7 +2,6 @@ use lexer::{util, ByteHandler};
 use lexer::token::Token::*;
 
 use ast::Value;
-use ast::OperatorKind::*;
 
 macro_rules! match_label {
     ($lex:ident [$( $byte:expr )* => $token:expr]) => {
@@ -73,7 +72,7 @@ pub const L_D: ByteHandler = Some(|lex| {
     match_label!(lex {
         b'o'[                             => Do]
         b'e'{
-            b'l'[b'e' b't' b'e'           => Operator(Delete)]
+            b'l'[b'e' b't' b'e'           => OperatorDelete]
             b'f'[b'a' b'u' b'l' b't'      => Default]
             b'b'[b'u' b'g' b'g' b'e' b'r' => Debugger]
         }
@@ -115,8 +114,8 @@ pub const L_F: ByteHandler = Some(|lex| {
 pub const L_I: ByteHandler = Some(|lex| {
     match_label!(lex {
         b'n'{
-            [                                       => Operator(In)]
-            b's'[b't' b'a' b'n' b'c' b'e' b'o' b'f' => Operator(Instanceof)]
+            [                                       => OperatorIn]
+            b's'[b't' b'a' b'n' b'c' b'e' b'o' b'f' => OperatorInstanceof]
             b't'[b'e' b'r' b'f' b'a' b'c' b'e'      => ReservedInterface]
         }
         b'f'[                                       => If]
@@ -143,7 +142,7 @@ pub const L_L: ByteHandler = Some(|lex| {
 // Identifier or keyword starting with a letter `n`
 pub const L_N: ByteHandler = Some(|lex| {
     match_label!(lex {
-        b'e'[b'w'      => Operator(New)]
+        b'e'[b'w'      => OperatorNew]
         b'u'[b'l' b'l' => LiteralNull]
     });
 
@@ -189,7 +188,7 @@ pub const L_S: ByteHandler = Some(|lex| {
 // Identifier or keyword starting with a letter `t`
 pub const L_T: ByteHandler = Some(|lex| {
     match_label!(lex {
-        b'y'[b'p' b'e' b'o' b'f' => Operator(Typeof)]
+        b'y'[b'p' b'e' b'o' b'f' => OperatorTypeof]
         b'h'{
             b'i'[b's'            => This]
             b'r'[b'o' b'w'       => Throw]
@@ -216,7 +215,7 @@ pub const L_U: ByteHandler = Some(|lex| {
 pub const L_V: ByteHandler = Some(|lex| {
     match_label!(lex {
         b'a'[b'r'      => DeclarationVar]
-        b'o'[b'i' b'd' => Operator(Void)]
+        b'o'[b'i' b'd' => OperatorVoid]
     });
 
     lex.read_label();

@@ -157,7 +157,7 @@ impl<'ast> Parser<'ast> {
         loop {
             let key = parameter_key!(self);
 
-            if self.lexer.token == Operator(OperatorKind::Assign) {
+            if self.lexer.token == OperatorAssign {
                 self.lexer.consume();
                 return self.parameter_list_with_defaults(key, builder);
             }
@@ -208,7 +208,7 @@ impl<'ast> Parser<'ast> {
 
             key = parameter_key!(self);
 
-            expect!(self, Operator(OperatorKind::Assign));
+            expect!(self, OperatorAssign);
         }
 
         builder.into_list()

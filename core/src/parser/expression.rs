@@ -48,13 +48,9 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.alloc_in_loc(Expression::Identifier(ident))
             },
-            Operator(Division) => {
+            OperatorDivision   => {
                 // Note: no consume since / is part of the RegEx
                 self.regular_expression()
-            },
-            Operator(optype)   => {
-                self.lexer.consume();
-                self.prefix_expression(optype)
             },
             ParenOpen          => {
                 self.lexer.consume();
@@ -79,7 +75,14 @@ impl<'ast> Parser<'ast> {
             TemplateOpen | TemplateClosed => {
                 self.template_expression(None)
             },
-            _                  => unexpected_token!(self)
+            token => {
+                let op = match OperatorKind::from_token(token) {
+                    Some(op) => op,
+                    None     => unexpected_token!(self)
+                };
+                self.lexer.consume();
+                self.prefix_expression(op)
+            }
         };
 
         self.complex_expression(left, lbp)
@@ -89,18 +92,29 @@ impl<'ast> Parser<'ast> {
     pub fn complex_expression(&mut self, mut left: ExpressionPtr<'ast>, lbp: u8) -> ExpressionPtr<'ast> {
         loop {
             left = match self.lexer.token {
-                Operator(op @ Increment) |
-                Operator(op @ Decrement) => {
+                OperatorIncrement => {
                     self.lexer.consume();
 
                     // TODO: op.end
                     self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
-                        operator: op,
+                        operator: OperatorKind::Increment,
+                        operand: left,
+                    }))
+                },
+
+                OperatorDecrement => {
+                    self.lexer.consume();
+
+                    // TODO: op.end
+                    self.alloc(Loc::new(left.start, left.end, Expression::Postfix {
+                        operator: OperatorKind::Decrement,
                         operand: left,
                     }))
                 }
 
-                Operator(op @ Conditional) => {
+                OperatorConditional => {
+                    let op = OperatorKind::Conditional;
+
                     self.lexer.consume();
 
                     let consequent = self.expression(op.binding_power());
@@ -114,7 +128,7 @@ impl<'ast> Parser<'ast> {
                     }.at(0, 0))
                 }
 
-                Operator(FatArrow) => {
+                OperatorFatArrow => {
                     self.lexer.consume();
 
                     let params = match left.item {
@@ -124,32 +138,6 @@ impl<'ast> Parser<'ast> {
 
                     return self.arrow_function_expression(params);
                 }
-
-                Operator(op) => {
-                    let rbp = op.binding_power();
-
-                    if lbp > rbp {
-                        break;
-                    }
-
-                    self.lexer.consume();
-
-                    if !op.infix() {
-                        unexpected_token!(self);
-                    }
-
-                    if op.assignment() {
-                        // TODO: verify that left is assignable
-                    }
-
-                    let right = self.expression(rbp);
-
-                    self.alloc(Loc::new(left.start, right.end, Expression::Binary {
-                        operator: op,
-                        left: left,
-                        right: right,
-                    }))
-                },
 
                 Accessor => {
                     let member = self.lexer.accessor_as_str();
@@ -203,7 +191,36 @@ impl<'ast> Parser<'ast> {
                     self.template_expression(Some(left))
                 },
 
-                _ => break
+                token => {
+                    let op = match OperatorKind::from_token(token) {
+                        Some(op) => op,
+                        None     => break,
+                    };
+
+                    let rbp = op.binding_power();
+
+                    if lbp > rbp {
+                        break;
+                    }
+
+                    self.lexer.consume();
+
+                    if !op.infix() {
+                        unexpected_token!(self);
+                    }
+
+                    if op.assignment() {
+                        // TODO: verify that left is assignable
+                    }
+
+                    let right = self.expression(rbp);
+
+                    self.alloc(Loc::new(left.start, right.end, Expression::Binary {
+                        operator: op,
+                        left: left,
+                        right: right,
+                    }))
+                }
             }
         }
 
@@ -290,7 +307,7 @@ impl<'ast> Parser<'ast> {
         match self.lexer.token {
             ParenClose => {
                 self.lexer.consume();
-                expect!(self, Operator(FatArrow));
+                expect!(self, OperatorFatArrow);
                 self.arrow_function_expression(List::empty())
             },
             _ => {
