@@ -44,7 +44,7 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
     .into_iter()
     .map(|err| {
         match err {
-            Error::UnexpectedToken { start, end } => {
+            Error::UnexpectedToken { start, end, .. } => {
                ParseError::UnexpectedToken { start, end, source: source.value() }
             },
             Error::UnexpectedEndOfProgram => {
