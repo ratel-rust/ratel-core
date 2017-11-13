@@ -1047,12 +1047,13 @@ impl<'src> Lexer<'src> {
 mod test {
     use super::*;
 
-    fn assert_lex<T>(source: &str, tokens: T) where T: AsRef<[Token]> {
+    fn assert_lex<T>(source: &str, tokens: T) where T: AsRef<[(Token, &'static str)]> {
         let arena = Arena::new();
         let mut lex = Lexer::new(&arena, source);
 
-        for token in tokens.as_ref() {
+        for &(ref token, slice) in tokens.as_ref() {
             assert_eq!(lex.token, *token);
+            assert_eq!(lex.token_as_str(), slice);
             lex.consume();
         }
 
@@ -1071,7 +1072,7 @@ mod test {
 
     #[test]
     fn block_comment() {
-        assert_lex(" /* foo */ bar", [Identifier]);
+        assert_lex(" /* foo */ bar", [(Identifier, "bar")]);
     }
 
     #[test]
@@ -1079,11 +1080,11 @@ mod test {
         assert_lex(
             "foo.bar();",
             [
-                Identifier,
-                Accessor,
-                ParenOpen,
-                ParenClose,
-                Semicolon,
+                (Identifier, "foo"),
+                (Accessor, ".bar"),
+                (ParenOpen, "("),
+                (ParenClose, ")"),
+                (Semicolon, ";"),
             ]
         );
     }
@@ -1093,11 +1094,11 @@ mod test {
         assert_lex(
             "foo.function();",
             [
-                Identifier,
-                Accessor,
-                ParenOpen,
-                ParenClose,
-                Semicolon,
+                (Identifier, "foo"),
+                (Accessor, ".function"),
+                (ParenOpen, "("),
+                (ParenClose, ")"),
+                (Semicolon, ";"),
             ]
         );
     }
@@ -1107,13 +1108,13 @@ mod test {
         assert_lex(
             "let foo = 2 + 2;",
             [
-                Declaration(Let),
-                Identifier,
-                Operator(Assign),
-                LiteralNumber,
-                Operator(Addition),
-                LiteralNumber,
-                Semicolon,
+                (Declaration(Let), "let"),
+                (Identifier, "foo"),
+                (Operator(Assign), "="),
+                (LiteralNumber, "2"),
+                (Operator(Addition), "+"),
+                (LiteralNumber, "2"),
+                (Semicolon, ";")
             ]
         );
     }
@@ -1123,15 +1124,15 @@ mod test {
         assert_lex(
             "var x, y, z = 42;",
             [
-                Declaration(Var),
-                Identifier,
-                Comma,
-                Identifier,
-                Comma,
-                Identifier,
-                Operator(Assign),
-                LiteralNumber,
-                Semicolon,
+                (Declaration(Var), "var"),
+                (Identifier, "x"),
+                (Comma, ","),
+                (Identifier, "y"),
+                (Comma, ","),
+                (Identifier, "z"),
+                (Operator(Assign), "="),
+                (LiteralNumber, "42"),
+                (Semicolon, ";"),
             ]
         );
     }
@@ -1141,27 +1142,27 @@ mod test {
         assert_lex(
             "function foo(bar) { return bar }",
             [
-                Function,
-                Identifier,
-                ParenOpen,
-                Identifier,
-                ParenClose,
-                BraceOpen,
-                Return,
-                Identifier,
-                BraceClose,
+                (Function, "function"),
+                (Identifier, "foo"),
+                (ParenOpen, "("),
+                (Identifier, "bar"),
+                (ParenClose, ")"),
+                (BraceOpen, "{"),
+                (Return, "return"),
+                (Identifier, "bar"),
+                (BraceClose, "}"),
             ]
         );
     }
 
     #[test]
     fn unexpected_token() {
-        assert_lex("..", [UnexpectedToken]);
+        assert_lex("..", [(UnexpectedToken, "..")]);
     }
 
     #[test]
     fn unexpected_end() {
-        assert_lex("'foo", [UnexpectedEndOfProgram])
+        assert_lex("'foo", [(UnexpectedEndOfProgram, "'foo")]);
     }
 
     #[test]
@@ -1172,50 +1173,51 @@ mod test {
                 export extends false finally for function if implements
                 import in instanceof interface let new null package
                 protected public return static super switch this throw
-                true try typeof var void while with yield
+                true try undefined typeof var void while with yield
             ",
-            &[
-                Break,
-                Case,
-                Class,
-                Declaration(Const),
-                Debugger,
-                Default,
-                Operator(Delete),
-                Do,
-                Else,
-                Export,
-                Extends,
-                LiteralFalse,
-                Finally,
-                For,
-                Function,
-                If,
-                Reserved(Implements),
-                Import,
-                Operator(In),
-                Operator(Instanceof),
-                Reserved(Interface),
-                Declaration(Let),
-                Operator(New),
-                LiteralNull,
-                Reserved(Package),
-                Reserved(Protected),
-                Reserved(Public),
-                Return,
-                Static,
-                Super,
-                Switch,
-                This,
-                Throw,
-                LiteralTrue,
-                Try,
-                Operator(Typeof),
-                Declaration(Var),
-                Operator(Void),
-                While,
-                With,
-                Yield,
+             &[
+                (Break, "break"),
+                (Case, "case"),
+                (Class, "class"),
+                (Declaration(Const), "const"),
+                (Debugger, "debugger"),
+                (Default, "default"),
+                (Operator(Delete), "delete"),
+                (Do, "do"),
+                (Else, "else"),
+                (Export, "export"),
+                (Extends, "extends"),
+                (LiteralFalse, "false"),
+                (Finally, "finally"),
+                (For, "for"),
+                (Function, "function"),
+                (If, "if"),
+                (Reserved(Implements), "implements"),
+                (Import, "import"),
+                (Operator(In), "in"),
+                (Operator(Instanceof), "instanceof"),
+                (Reserved(Interface), "interface"),
+                (Declaration(Let), "let"),
+                (Operator(New), "new"),
+                (LiteralNull, "null"),
+                (Reserved(Package), "package"),
+                (Reserved(Protected), "protected"),
+                (Reserved(Public), "public"),
+                (Return, "return"),
+                (Static, "static"),
+                (Super, "super"),
+                (Switch, "switch"),
+                (This, "this"),
+                (Throw, "throw"),
+                (LiteralTrue, "true"),
+                (Try, "try"),
+                (LiteralUndefined, "undefined"),
+                (Operator(Typeof), "typeof"),
+                (Declaration(Var), "var"),
+                (Operator(Void), "void"),
+                (While, "while"),
+                (With, "with"),
+                (Yield, "yield"),
             ][..]
         );
     }
