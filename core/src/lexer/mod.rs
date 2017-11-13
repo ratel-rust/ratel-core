@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 
 mod token;
+mod labels;
+mod util;
 
 pub use lexer::token::*;
 
+use lexer::labels::*;
 use lexer::token::Token::*;
 use lexer::ReservedKind::*;
 
@@ -174,13 +177,9 @@ const BEC: ByteHandler = Some(|lex| {
 
 // =
 const EQL: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'=' => {
-            lex.bump();
-
-            match lex.read_byte() {
+            match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
@@ -205,13 +204,9 @@ const EQL: ByteHandler = Some(|lex| {
 
 // !
 const EXL: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'=' => {
-            lex.bump();
-
-            match lex.read_byte() {
+            match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
@@ -230,13 +225,9 @@ const EXL: ByteHandler = Some(|lex| {
 
 // <
 const LSS: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'<' => {
-            lex.bump();
-
-            match lex.read_byte() {
+            match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
@@ -261,17 +252,11 @@ const LSS: ByteHandler = Some(|lex| {
 
 // >
 const MOR: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'>' => {
-            lex.bump();
-
-            match lex.read_byte() {
+            match lex.next_byte() {
                 b'>' => {
-                    lex.bump();
-
-                    match lex.read_byte() {
+                    match lex.next_byte() {
                         b'=' => {
                             lex.bump();
 
@@ -320,9 +305,7 @@ const TLD: ByteHandler = Some(|lex| {
 
 // ^
 const CRT: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'=' => {
             lex.bump();
 
@@ -337,9 +320,7 @@ const CRT: ByteHandler = Some(|lex| {
 
 // &
 const AMP: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'&' => {
             lex.bump();
 
@@ -360,9 +341,7 @@ const AMP: ByteHandler = Some(|lex| {
 
 // |
 const PIP: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'|' => {
             lex.bump();
 
@@ -383,9 +362,7 @@ const PIP: ByteHandler = Some(|lex| {
 
 // +
 const PLS: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'+' => {
             lex.bump();
 
@@ -406,9 +383,7 @@ const PLS: ByteHandler = Some(|lex| {
 
 // -
 const MIN: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'-' => {
             lex.bump();
 
@@ -429,13 +404,9 @@ const MIN: ByteHandler = Some(|lex| {
 
 // *
 const ATR: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'*' => {
-            lex.bump();
-
-            match lex.read_byte() {
+            match lex.next_byte() {
                 b'=' => {
                     lex.bump();
 
@@ -460,45 +431,37 @@ const ATR: ByteHandler = Some(|lex| {
 
 // /
 const SLH: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         // regular comment
         b'/' => {
-            lex.bump();
-
             // Keep consuming bytes until new line or end of source
             unwind_loop!({
-                match lex.read_byte() {
+                match lex.next_byte() {
                     0 | b'\n' => {
                         return lex.consume();
                     }
-                    _ => lex.bump()
+                    _ => {}
                 }
             });
         },
 
         // block comment
         b'*' => {
-            lex.bump();
-
             // Keep consuming bytes until */ happens in a row
             unwind_loop!({
-                match lex.read_byte() {
+                match lex.next_byte() {
                     b'*' => {
-                        lex.bump();
-
-                        match lex.read_byte() {
+                        match lex.next_byte() {
                             b'/' => {
                                 lex.bump();
                                 return lex.consume();
                             },
                             0 => return lex.token = UnexpectedEndOfProgram,
-                            _ => lex.bump()
+                            _ => {}
                         }
                     },
                     0 => return lex.token = UnexpectedEndOfProgram,
-                    _ => lex.bump()
+                    _ => {}
                 }
             });
         },
@@ -517,9 +480,7 @@ const SLH: ByteHandler = Some(|lex| {
 
 // %
 const PRC: ByteHandler = Some(|lex| {
-    lex.bump();
-
-    let op = match lex.read_byte() {
+    let op = match lex.next_byte() {
         b'=' => {
             lex.bump();
 
@@ -530,169 +491,6 @@ const PRC: ByteHandler = Some(|lex| {
     };
 
     lex.token = Operator(op);
-});
-
-// Non-keyword Identifier: starting with a letter, _ or $
-const IDT: ByteHandler = Some(|lex| {
-    lex.token = Identifier(lex.read_label());
-});
-
-// Identifier or keyword starting with a letter `b`
-const L_B: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "break"      => Break,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `c`
-const L_C: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "const"      => Declaration(Const),
-        "case"       => Case,
-        "class"      => Class,
-        "catch"      => Catch,
-        "continue"   => Continue,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `d`
-const L_D: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "delete"     => Operator(Delete),
-        "do"         => Do,
-        "debugger"   => Debugger,
-        "default"    => Default,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `e`
-const L_E: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "else"       => Else,
-        "export"     => Export,
-        "extends"    => Extends,
-        "enum"       => Reserved(Enum),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `f`
-const L_F: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "finally"    => Finally,
-        "for"        => For,
-        "function"   => Function,
-        "false"      => Literal(Value::False),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `i`
-const L_I: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "in"         => Operator(In),
-        "instanceof" => Operator(Instanceof),
-        "if"         => If,
-        "import"     => Import,
-        "implements" => Reserved(Implements),
-        "interface"  => Reserved(Interface),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `l`
-const L_L: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "let"        => Declaration(Let),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `n`
-const L_N: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "new"        => Operator(New),
-        "null"       => Literal(Value::Null),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `p`
-const L_P: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "package"    => Reserved(Package),
-        "protected"  => Reserved(Protected),
-        "private"    => Reserved(Private),
-        "public"     => Reserved(Public),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `r`
-const L_R: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "return"     => Return,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `s`
-const L_S: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "super"      => Super,
-        "switch"     => Switch,
-        "static"     => Static,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `t`
-const L_T: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "typeof"     => Operator(Typeof),
-        "this"       => This,
-        "throw"      => Throw,
-        "try"        => Try,
-        "true"       => Literal(Value::True),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `u`
-const L_U: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "undefined"  => Literal(Value::Undefined),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `v`
-const L_V: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "void"       => Operator(Void),
-        "var"        => Declaration(Var),
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `w`
-const L_W: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "while"      => While,
-        "with"       => With,
-        slice        => Identifier(slice),
-    };
-});
-
-// Identifier or keyword starting with a letter `y`
-const L_Y: ByteHandler = Some(|lex| {
-    lex.token = match lex.read_label() {
-        "yield"      => Yield,
-        slice        => Identifier(slice),
-    };
 });
 
 // Unicode character
@@ -721,9 +519,7 @@ const UNI: ByteHandler = Some(|lex| {
 const ZER: ByteHandler = Some(|lex| {
     let start = lex.index;
 
-    lex.bump();
-
-    match lex.read_byte() {
+    match lex.next_byte() {
         b'b' | b'B' => {
             lex.bump();
 
@@ -757,6 +553,7 @@ const ZER: ByteHandler = Some(|lex| {
             },
             b'e' | b'E' => {
                 lex.bump();
+
                 return lex.read_scientific(start);
             }
             _ => break,
@@ -772,13 +569,9 @@ const ZER: ByteHandler = Some(|lex| {
 const DIG: ByteHandler = Some(|lex| {
     let start = lex.index;
 
-    lex.bump();
-
     unwind_loop!({
-        match lex.read_byte() {
-            b'0'...b'9' => {
-                lex.bump();
-            },
+        match lex.next_byte() {
+            b'0'...b'9' => {},
             b'.' => {
                 lex.bump();
 
@@ -786,6 +579,7 @@ const DIG: ByteHandler = Some(|lex| {
             },
             b'e' | b'E' => {
                 lex.bump();
+
                 return lex.read_scientific(start);
             },
             _ => {
@@ -801,9 +595,7 @@ const DIG: ByteHandler = Some(|lex| {
 const PRD: ByteHandler = Some(|lex| {
     let start = lex.index;
 
-    lex.bump();
-
-    match lex.read_byte() {
+    match lex.next_byte() {
         b'0'...b'9' => {
             lex.bump();
 
@@ -811,9 +603,7 @@ const PRD: ByteHandler = Some(|lex| {
         },
 
         b'.' => {
-            lex.bump();
-
-            lex.token = match lex.read_byte() {
+            lex.token = match lex.next_byte() {
                 b'.' => {
                     lex.bump();
 
@@ -1001,13 +791,17 @@ impl<'src> Lexer<'src> {
     }
 
     pub fn invalid_token(&mut self) -> Error {
+        let start = self.token_start;
+        let end = self.index;
+
         if self.token != EndOfProgram {
             self.consume();
         }
 
         Error::UnexpectedToken {
-            start: self.token_start,
-            end: self.index,
+            start,
+            end,
+            raw: self.slice_source(start, end).to_owned().into_boxed_str()
         }
     }
 
@@ -1027,6 +821,12 @@ impl<'src> Lexer<'src> {
     #[inline]
     fn bump(&mut self) {
         self.index += 1;
+    }
+
+    #[inline]
+    fn next_byte(&mut self) -> u8 {
+        self.bump();
+        self.read_byte()
     }
 
     #[inline]
@@ -1103,43 +903,10 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn read_label(&mut self) -> &'src str {
-        // Look up table that marks which ASCII characters are allowed in identifiers
-        const NU: bool = true; // digit
-        const AL: bool = true; // alphabet
-        const DO: bool = true; // dollar sign $
-        const US: bool = true; // underscore
-        const UN: bool = true; // unicode
-        const BS: bool = true; // backslash
-        const __: bool = false;
-
-        static TABLE: [bool; 256] = [
-        // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
-          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-          __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-          NU, NU, NU, NU, NU, NU, NU, NU, NU, NU, __, __, __, __, __, __, // 3
-          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, BS, __, __, US, // 5
-          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 8
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // 9
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // A
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // B
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // C
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // D
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // E
-          UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, UN, // F
-        ];
-
-        let legal: *const bool = TABLE.as_ptr();
-
-        let start = self.index;
-
-        self.bump();
+        let start = self.token_start;
 
         unwind_loop!({
-            if unsafe { *legal.offset(self.read_byte() as isize) } {
+            if util::legal_in_label(self.read_byte()) {
                 self.bump();
             } else {
                 return self.slice_from(start)

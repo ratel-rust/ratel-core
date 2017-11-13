@@ -1,10 +1,11 @@
 use std::fmt;
 
 /// Error type used by the tokenizer and the parser internally.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Error {
     UnexpectedEndOfProgram,
     UnexpectedToken {
+        raw: Box<str>,
         start: usize,
         end: usize,
     },
