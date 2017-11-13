@@ -1166,4 +1166,60 @@ mod test {
     fn unexpected_end() {
         assert_lex("'foo", [UnexpectedEndOfProgram])
     }
+
+    #[test]
+    fn keywords() {
+        assert_lex(
+            "
+                break case class const debugger default delete do else
+                export extends false finally for function if implements
+                import in instanceof interface let new null package
+                protected public return static super switch this throw
+                true try typeof var void while with yield
+            ",
+            &[
+                Break,
+                Case,
+                Class,
+                Declaration(Const),
+                Debugger,
+                Default,
+                Operator(Delete),
+                Do,
+                Else,
+                Export,
+                Extends,
+                Literal(Value::False),
+                Finally,
+                For,
+                Function,
+                If,
+                Reserved(Implements),
+                Import,
+                Operator(In),
+                Operator(Instanceof),
+                Reserved(Interface),
+                Declaration(Let),
+                Operator(New),
+                Literal(Value::Null),
+                Reserved(Package),
+                Reserved(Protected),
+                Reserved(Public),
+                Return,
+                Static,
+                Super,
+                Switch,
+                This,
+                Throw,
+                Literal(Value::True),
+                Try,
+                Operator(Typeof),
+                Declaration(Var),
+                Operator(Void),
+                While,
+                With,
+                Yield,
+            ][..]
+        );
+    }
 }
