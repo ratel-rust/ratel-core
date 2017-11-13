@@ -11,14 +11,8 @@ pub enum ReservedKind {
     Public,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum TemplateKind<'src> {
-    Open(&'src str),
-    Closed(&'src str),
-}
-
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token<'src> {
+pub enum Token {
     EndOfProgram,
     Semicolon,
     Colon,
@@ -68,12 +62,13 @@ pub enum Token<'src> {
     Reserved(ReservedKind),
     Identifier,
     Accessor,
-    Template(TemplateKind<'src>),
+    TemplateOpen,
+    TemplateClosed,
     UnexpectedToken,
     UnexpectedEndOfProgram,
 }
 
-impl<'src> Token<'src> {
+impl Token {
     pub fn as_word(&self) -> Option<&'static str> {
         use self::Token::*;
         use ast::OperatorKind::*;

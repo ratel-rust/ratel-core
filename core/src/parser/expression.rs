@@ -1,6 +1,6 @@
 use parser::Parser;
 use lexer::Token::*;
-use lexer::{Token, TemplateKind};
+use lexer::Token;
 use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
 use ast::OperatorKind::*;
 
@@ -76,9 +76,8 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 self.class_expression()
             },
-            Template(kind)     => {
-                self.lexer.consume();
-                self.template_expression(None, kind)
+            TemplateOpen | TemplateClosed => {
+                self.template_expression(None)
             },
             _                  => unexpected_token!(self)
         };
@@ -196,14 +195,12 @@ impl<'ast> Parser<'ast> {
                     }.at(0, 0))
                 },
 
-                Template(kind) => {
+                TemplateOpen | TemplateClosed => {
                     if lbp > 0 {
                         break;
                     }
 
-                    self.lexer.consume();
-
-                    self.template_expression(Some(left), kind)
+                    self.template_expression(Some(left))
                 },
 
                 _ => break
@@ -513,10 +510,13 @@ impl<'ast> Parser<'ast> {
         self.alloc(Expression::Value(Value::RegEx(value)).at(0, 0))
     }
 
-    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>, kind: TemplateKind<'ast>) -> ExpressionPtr<'ast> {
-        let (quasi, expression) = match kind {
-            TemplateKind::Open(quasi) => {
+    fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+        let (quasi, expression) = match self.lexer.token {
+            TemplateOpen => {
+                let quasi = self.lexer.quasi;
                 let quasi = self.alloc_in_loc(quasi);
+
+                self.lexer.consume();
 
                 let expression = self.sequence_or_expression();
 
@@ -528,8 +528,11 @@ impl<'ast> Parser<'ast> {
                 (quasi, expression)
             },
 
-            TemplateKind::Closed(quasi) => {
+            TemplateClosed => {
+                let quasi = self.lexer.quasi;
                 let quasi = self.alloc_in_loc(quasi);
+
+                self.lexer.consume();
 
                 let template = Expression::Template {
                     tag,
@@ -538,7 +541,9 @@ impl<'ast> Parser<'ast> {
                 };
 
                 return self.alloc_in_loc(template);
-            }
+            },
+
+            _ => unexpected_token!(self)
         };
 
         let mut quasis = ListBuilder::new(self.arena, quasi);
@@ -546,7 +551,8 @@ impl<'ast> Parser<'ast> {
 
         loop {
             match self.lexer.token {
-                Template(TemplateKind::Open(quasi)) => {
+                TemplateOpen => {
+                    let quasi = self.lexer.quasi;
                     self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
                     expressions.push(self.sequence_or_expression());
@@ -556,7 +562,8 @@ impl<'ast> Parser<'ast> {
                         _          => unexpected_token!(self)
                     }
                 },
-                Template(TemplateKind::Closed(quasi)) => {
+                TemplateClosed => {
+                    let quasi = self.lexer.quasi;
                     self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
                     break;
@@ -678,7 +685,7 @@ mod test {
                 Expression::Value(Value::Number("10")),
                 Expression::Value(Value::Number("20")),
             ]),
-            quasis: mock.list(["foo", "bar", "baz"]),
+            quasis: mock.list(["foo", "bar", "baz" ]),
         };
 
         assert_expr!(module, expected);

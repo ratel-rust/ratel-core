@@ -637,7 +637,7 @@ const TPL: ByteHandler = Some(|lex| {
 });
 
 pub struct Lexer<'src> {
-    pub token: Token<'src>,
+    pub token: Token,
 
     /// Flags whether or not a new line was read before the token
     asi: Asi,
@@ -652,6 +652,8 @@ pub struct Lexer<'src> {
     token_start: usize,
 
     accessor_start: usize,
+
+    pub quasi: &'src str,
 }
 
 
@@ -670,6 +672,7 @@ impl<'src> Lexer<'src> {
             index: 0,
             token_start: 0,
             accessor_start: 0,
+            quasi: "",
         };
 
         lexer.consume();
@@ -744,14 +747,17 @@ impl<'src> Lexer<'src> {
         loop {
             match self.read_byte() {
                 b'`' => {
-                    self.bump();
-                    let end = self.index - 1;
-                    let quasi = self.slice_source(start, end);
+                    let end = self.index;
 
-                    self.token = Template(TemplateKind::Closed(quasi));
+                    self.bump();
+                    self.quasi = self.slice_source(start, end);
+                    self.token = TemplateClosed;
+
                     return;
                 },
                 b'$' => {
+                    let end = self.index;
+
                     self.bump();
 
                     match self.read_byte() {
@@ -759,10 +765,8 @@ impl<'src> Lexer<'src> {
                         _    => continue
                     }
 
-                    let end = self.index - 2;
-                    let quasi = self.slice_source(start, end);
-
-                    self.token = Template(TemplateKind::Open(quasi));
+                    self.quasi = self.slice_source(start, end);
+                    self.token = TemplateOpen;
                     return;
                 },
                 b'\\' => {
@@ -1043,7 +1047,7 @@ impl<'src> Lexer<'src> {
 mod test {
     use super::*;
 
-    fn assert_lex<'src, T: AsRef<[Token<'src>]>>(source: &str, tokens: T) {
+    fn assert_lex<T>(source: &str, tokens: T) where T: AsRef<[Token]> {
         let arena = Arena::new();
         let mut lex = Lexer::new(&arena, source);
 
