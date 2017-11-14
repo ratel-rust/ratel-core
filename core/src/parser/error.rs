@@ -2,7 +2,7 @@ use error::Error;
 
 use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
-use ast::{Name, Function, Class, ClassMember};
+use ast::{Name, Function, Class, ClassMember, MandatoryName};
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -42,6 +42,12 @@ impl<'ast> ToError for ExpressionPtr<'ast> {
             end: 0,
             item: Expression::Error
         })
+    }
+}
+
+impl<'ast> ToError for MandatoryName<'ast> {
+    fn to_error() -> Self {
+        MandatoryName::empty()
     }
 }
 

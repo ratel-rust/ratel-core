@@ -38,6 +38,7 @@ impl<'ast> Name<'ast> for OptionalName<'ast> {
     }
 }
 
+#[cfg(test)]
 impl<'ast> From<IdentifierPtr<'ast>> for MandatoryName<'ast> {
     #[inline]
     fn from(name: IdentifierPtr<'ast>) -> Self {
@@ -45,6 +46,7 @@ impl<'ast> From<IdentifierPtr<'ast>> for MandatoryName<'ast> {
     }
 }
 
+#[cfg(test)]
 impl<'ast> From<IdentifierPtr<'ast>> for OptionalName<'ast> {
     #[inline]
     fn from(name: IdentifierPtr<'ast>) -> Self {
@@ -52,6 +54,7 @@ impl<'ast> From<IdentifierPtr<'ast>> for OptionalName<'ast> {
     }
 }
 
+#[cfg(test)]
 impl<'ast> From<Option<IdentifierPtr<'ast>>> for OptionalName<'ast> {
     #[inline]
     fn from(name: Option<IdentifierPtr<'ast>>) -> Self {

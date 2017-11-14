@@ -605,7 +605,7 @@ pub struct Lexer<'src> {
     /// Current index
     index: usize,
 
-    /// Index of current token in source
+    /// Position of current token in source
     token_start: usize,
 
     accessor_start: usize,
@@ -678,17 +678,17 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     pub fn loc(&self) -> (u32, u32) {
-        (self.token_start as u32, self.index as u32)
+        (self.start(), self.end())
     }
 
     #[inline]
-    pub fn loc_start(&self) -> usize {
-        self.token_start
+    pub fn start(&self) -> u32 {
+        self.token_start as u32
     }
 
     #[inline]
-    pub fn loc_end(&self) -> usize {
-        self.index
+    pub fn end(&self) -> u32 {
+        self.index as u32
     }
 
     /// On top of being called when the opening backtick (`) of a template

@@ -1,4 +1,4 @@
-use parser::Parser;
+use parser::{Parser, B0, B1, B15};
 use lexer::Token::*;
 use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr};
 use ast::{ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
@@ -68,20 +68,11 @@ macro_rules! create_handlers {
 create_handlers! {
     const ____ = |par| unexpected_token!(par);
 
-    const OBJ = |par| {
-        par.lexer.consume();
-        par.object_expression()
-    };
+    const OBJ = |par| par.object_expression();
 
-    const CLAS = |par| {
-        par.lexer.consume();
-        par.class_expression()
-    };
+    const CLAS = |par| par.class_expression();
 
-    const FUNC = |par| {
-        par.lexer.consume();
-        par.function_expression()
-    };
+    const FUNC = |par| par.function_expression();
 
     const IDEN = |par| {
         let value = par.lexer.token_as_str();
@@ -109,10 +100,7 @@ create_handlers! {
         par.paren_expression()
     };
 
-    pub const ARR = |par| {
-        par.lexer.consume();
-        par.array_expression()
-    };
+    pub const ARR = |par| par.array_expression();
 
     pub const REG = |par| par.regular_expression();
 
@@ -195,7 +183,7 @@ impl<'ast> Parser<'ast> {
                 self.block_statement()
             },
             _ => {
-                let expression = self.expression(1);
+                let expression = self.expression(B1);
                 self.wrap_expression(expression)
             }
         };
@@ -213,7 +201,7 @@ impl<'ast> Parser<'ast> {
             return List::empty();
         }
 
-        let expression = self.expression(1);
+        let expression = self.expression(B1);
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
@@ -224,7 +212,7 @@ impl<'ast> Parser<'ast> {
                 },
                 Comma      => {
                     self.lexer.consume();
-                    self.expression(1)
+                    self.expression(B1)
                 }
                 _          => unexpected_token!(self),
             };
@@ -244,7 +232,7 @@ impl<'ast> Parser<'ast> {
                 self.arrow_function_expression(List::empty())
             },
             _ => {
-                let expression = self.expression(0);
+                let expression = self.expression(B0);
 
                 expect!(self, ParenClose);
 
@@ -255,7 +243,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
-        let operand = self.expression(15);
+        let operand = self.expression(B15);
 
         self.alloc(Expression::Prefix {
             operator: operator,
@@ -265,6 +253,9 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
+        let start = self.lexer.start();
+        self.lexer.consume();
+
         if self.lexer.token == BraceClose {
             self.lexer.consume();
             return self.alloc_in_loc(Expression::Object {
@@ -299,7 +290,7 @@ impl<'ast> Parser<'ast> {
 
         self.alloc(Expression::Object {
             body: builder.into_list()
-        }.at(0, 0))
+        }.at(start, 0))
     }
 
     #[inline]
@@ -329,7 +320,7 @@ impl<'ast> Parser<'ast> {
             BracketOpen => {
                 self.lexer.consume();
 
-                let expression = self.expression(0);
+                let expression = self.expression(B0);
                 let property = Loc::new(0, 0, Property::Computed(expression));
 
                 expect!(self, BracketClose);
@@ -354,7 +345,7 @@ impl<'ast> Parser<'ast> {
             Colon => {
                 self.lexer.consume();
 
-                let value = self.expression(1);
+                let value = self.expression(B1);
 
                 self.alloc(Loc::new(0, 0, ObjectMember::Value {
                     property,
@@ -379,6 +370,9 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
+        let start = self.lexer.start();
+        self.lexer.consume();
+
         let expression = match self.lexer.token {
             Comma        => {
                 self.lexer.consume();
@@ -389,7 +383,7 @@ impl<'ast> Parser<'ast> {
                 return self.alloc(Expression::Array { body: List::empty() }.at(0,0))
             },
             _            => {
-                let expression = self.expression(1);
+                let expression = self.expression(B1);
 
                 match self.lexer.token {
                     BracketClose => {
@@ -427,7 +421,7 @@ impl<'ast> Parser<'ast> {
                     break;
                 },
                 _ => {
-                    let expression = self.expression(1);
+                    let expression = self.expression(B1);
 
                     builder.push(expression);
                 }
@@ -445,7 +439,7 @@ impl<'ast> Parser<'ast> {
 
         self.alloc(Expression::Array {
             body: builder.into_list()
-        }.at(0,0))
+        }.at(start, 0))
     }
 
     #[inline]
@@ -480,7 +474,7 @@ impl<'ast> Parser<'ast> {
 
         self.lexer.consume();
 
-        let expression = self.expression(0);
+        let expression = self.expression(B0);
 
         match self.lexer.token {
             BraceClose => self.lexer.read_template_kind(),
@@ -496,7 +490,7 @@ impl<'ast> Parser<'ast> {
                     let quasi = self.lexer.quasi;
                     self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
-                    expressions.push(self.expression(0));
+                    expressions.push(self.expression(B0));
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),
@@ -522,34 +516,22 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
-        let name = match self.lexer.token {
-            Identifier => {
-                let name = self.lexer.token_as_str();
-                self.lexer.consume();
-                Some(self.alloc_in_loc(name))
-            },
-            _ => None
-        };
+        let start = self.lexer.start();
+        self.lexer.consume();
 
-        let function = self.function(name);
+        let function = self.function();
 
-        self.alloc(Expression::Function { function }.at(0, 0))
+        self.alloc(Expression::Function { function }.at(start, 0))
     }
 
     #[inline]
     pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
-        let name = match self.lexer.token {
-            Identifier => {
-                let name = self.lexer.token_as_str();
-                self.lexer.consume();
-                Some(self.alloc_in_loc(name))
-            },
-            _ => None
-        };
+        let start = self.lexer.start();
+        self.lexer.consume();
 
-        let class = self.class(name);
+        let class = self.class();
 
-        self.alloc(Expression::Class { class }.at(0, 0))
+        self.alloc(Expression::Class { class }.at(start, 0))
     }
 }
 
@@ -1037,4 +1019,24 @@ mod test {
         assert_expr!(module, expected);
     }
 
+    #[test]
+    fn arrow_function_in_sequence() {
+        let src = "(() => {}, foo)";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = Expression::Sequence {
+            body: mock.list([
+                Expression::Arrow {
+                    params: List::empty(),
+                    body: mock.ptr(Statement::Block {
+                        body: List::empty()
+                    })
+                },
+                Expression::Identifier("foo"),
+            ])
+        };
+
+        assert_expr!(module, expected);
+    }
 }

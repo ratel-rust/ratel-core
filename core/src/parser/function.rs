@@ -1,32 +1,67 @@
-use parser::Parser;
+use parser::{Parser, B0, B1};
 use lexer::Token::*;
+use ast::{OptionalName, MandatoryName};
 use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property};
+
+pub trait Parse<'ast> {
+    fn parse(&mut Parser<'ast>) -> Self;
+}
+
+impl<'ast> Parse<'ast> for OptionalName<'ast> {
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self {
+        if par.lexer.token != Identifier {
+            return OptionalName(None);
+        }
+
+        let name = par.lexer.token_as_str();
+        let name = OptionalName(Some(par.alloc_in_loc(name)));
+        par.lexer.consume();
+        name
+    }
+}
+
+impl<'ast> Parse<'ast> for MandatoryName<'ast> {
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self {
+        if par.lexer.token != Identifier {
+            unexpected_token!(par);
+        }
+
+        let name = par.lexer.token_as_str();
+        let name = MandatoryName(par.alloc_in_loc(name));
+        par.lexer.consume();
+        name
+    }
+}
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn function<N, I>(&mut self, name: I) -> Function<'ast, N> where
-        N: Name<'ast>,
-        I: Into<N>,
+    pub fn function<N>(&mut self) -> Function<'ast, N> where
+        N: Name<'ast> + Parse<'ast>,
     {
+        let name = N::parse(self);
+
         expect!(self, ParenOpen);
 
         Function {
-            name: name.into(),
+            name,
             params: self.parameter_list(),
             body: self.block_body(),
         }
     }
 
     #[inline]
-    pub fn class<N, I>(&mut self, name: I) -> Class<'ast, N> where
-        N: Name<'ast>,
-        I: Into<N>,
+    pub fn class<N>(&mut self) -> Class<'ast, N> where
+        N: Name<'ast> + Parse<'ast>,
     {
+        let name = N::parse(self);
+
         let super_class = match self.lexer.token {
             Extends => {
                 self.lexer.consume();
 
-                let super_class = self.expression(1);
+                let super_class = self.expression(B1);
                 expect!(self, BraceOpen);
 
                 Some(super_class)
@@ -86,7 +121,7 @@ impl<'ast> Parser<'ast> {
             BracketOpen => {
                 self.lexer.consume();
 
-                let expression = self.expression(0);
+                let expression = self.expression(B0);
 
                 expect!(self, BracketClose);
 
@@ -128,7 +163,7 @@ impl<'ast> Parser<'ast> {
             OperatorAssign => {
                 self.lexer.consume();
 
-                let expression = self.expression(1);
+                let expression = self.expression(B1);
 
                 Loc::new(0, 0, ClassMember::Value {
                     is_static,

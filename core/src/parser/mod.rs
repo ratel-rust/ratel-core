@@ -4,11 +4,13 @@ mod error;
 mod expression;
 mod statement;
 mod function;
-mod nested_expression;
+mod nested;
 
 use error::Error;
 use arena::Arena;
 use module::Module;
+
+use self::nested::*;
 
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
@@ -164,7 +166,7 @@ impl<'ast> Parser<'ast> {
 
                     require_defaults = true;
 
-                    Some(self.expression(1))
+                    Some(self.expression(B1))
                 },
                 _ if require_defaults => unexpected_token!(self),
                 _ => None

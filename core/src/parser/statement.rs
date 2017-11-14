@@ -1,4 +1,4 @@
-use parser::Parser;
+use parser::{Parser, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
@@ -88,10 +88,9 @@ const CONT: StatementHandler = |par| {
     par.continue_statement()
 };
 
-const CLAS: StatementHandler = |par| {
-    par.lexer.consume();
-    par.class_statement()
-};
+const FUNC: StatementHandler = |par| par.function_statement();
+
+const CLAS: StatementHandler = |par| par.class_statement();
 
 const IF: StatementHandler = |par| {
     par.lexer.consume();
@@ -128,11 +127,6 @@ const SWCH: StatementHandler = |par| {
     par.switch_statement()
 };
 
-const FUNC: StatementHandler = |par| {
-    par.lexer.consume();
-    par.function_statement()
-};
-
 const LABL: StatementHandler = |par| {
     let label = par.lexer.token_as_str();
     par.lexer.consume();
@@ -154,7 +148,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_statement(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
-        let expression = self.nested_expression(expression, 0);
+        let expression = self.nested_expression(expression, B0);
 
         self.wrap_expression(expression)
     }
@@ -183,7 +177,7 @@ impl<'ast> Parser<'ast> {
         }
 
         let expression = self.alloc_in_loc(Expression::Identifier(label));
-        let expression = self.nested_expression(expression, 0);
+        let expression = self.nested_expression(expression, B0);
 
         expect_semicolon!(self);
 
@@ -192,27 +186,29 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn function_statement(&mut self) -> StatementPtr<'ast> {
-        let name = expect_identifier!(self);
-        let name = self.alloc_in_loc(name);
-        let function = self.function(name);
+        let start = self.lexer.start();
+        self.lexer.consume();
 
-        self.alloc(Statement::Function { function }.at(0, 0))
+        let function = self.function();
+
+        self.alloc(Statement::Function { function }.at(start, 0))
     }
 
     #[inline]
     fn class_statement(&mut self) -> StatementPtr<'ast> {
-        let name = expect_identifier!(self);
-        let name = self.alloc_in_loc(name);
-        let class = self.class(name);
+        let start = self.lexer.start();
+        self.lexer.consume();
 
-        self.alloc(Statement::Class { class }.at(0, 0))
+        let class = self.class();
+
+        self.alloc(Statement::Class { class }.at(start, 0))
     }
 
     #[inline]
     pub fn return_statement(&mut self) -> StatementPtr<'ast> {
         let value = match self.asi() {
             Asi::NoSemicolon => {
-                let expression = self.expression(0);
+                let expression = self.expression(B0);
 
                 expect_semicolon!(self);
 
@@ -247,14 +243,8 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn variable_declarator(&mut self) -> Ptr<'ast, Loc<Declarator<'ast>>> {
         let name = match self.lexer.token {
-            BraceOpen   => {
-                self.lexer.consume();
-                DeclaratorId::Pattern(self.object_expression())
-            },
-            BracketOpen => {
-                self.lexer.consume();
-                DeclaratorId::Pattern(self.array_expression())
-            },
+            BraceOpen   => DeclaratorId::Pattern(self.object_expression()),
+            BracketOpen => DeclaratorId::Pattern(self.array_expression()),
             Identifier  => {
                 let name = self.lexer.token_as_str();
                 self.lexer.consume();
@@ -266,7 +256,7 @@ impl<'ast> Parser<'ast> {
         let value = match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
-                Some(self.expression(1))
+                Some(self.expression(B1))
             },
             _ => None
         };
@@ -338,7 +328,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn throw_statement(&mut self) -> StatementPtr<'ast> {
-        let value = self.expression(0);
+        let value = self.expression(B0);
 
         expect_semicolon!(self);
 
@@ -368,7 +358,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn if_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
-        let test = self.expression(0);
+        let test = self.expression(B0);
         expect!(self, ParenClose);
 
         let consequent = self.statement();
@@ -391,7 +381,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn while_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
-        let test = self.expression(0);
+        let test = self.expression(B0);
         expect!(self, ParenClose);
 
         let body = self.statement();
@@ -407,7 +397,7 @@ impl<'ast> Parser<'ast> {
         let body = self.statement();
         expect!(self, While);
 
-        let test = self.expression(0);
+        let test = self.expression(B0);
 
         self.alloc(Statement::Do {
             body,
@@ -459,7 +449,7 @@ impl<'ast> Parser<'ast> {
             }
 
             _ => {
-                let expression = self.expression(0);
+                let expression = self.expression(B0);
 
                 if let Expression::Binary {
                     operator: In,
@@ -504,7 +494,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _         => {
-                let test = self.expression(0);
+                let test = self.expression(B0);
                 expect!(self, Semicolon);
 
                 Some(test)
@@ -517,7 +507,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _         => {
-                let update = self.expression(0);
+                let update = self.expression(B0);
                 expect!(self, ParenClose);
 
                 Some(update)
@@ -547,7 +537,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
-        let right = self.expression(0);
+        let right = self.expression(B0);
 
         expect!(self, ParenClose);
 
@@ -561,7 +551,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
-        let right = self.expression(0);
+        let right = self.expression(B0);
 
         expect!(self, ParenClose);
 
@@ -606,7 +596,7 @@ impl<'ast> Parser<'ast> {
     fn switch_statement(&mut self) -> StatementPtr<'ast> {
         expect!(self, ParenOpen);
 
-        let discriminant = self.expression(0);
+        let discriminant = self.expression(B0);
 
         expect!(self, ParenClose);
         expect!(self, BraceOpen);
@@ -621,7 +611,7 @@ impl<'ast> Parser<'ast> {
                 }
                 Case => {
                     self.lexer.consume();
-                    let expr = self.expression(0);
+                    let expr = self.expression(B0);
                     cases.push(self.case_statement(Some(expr)));
                 },
                 Default => {

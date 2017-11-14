@@ -1,4 +1,5 @@
 use parser::Parser;
+use lexer::Token;
 use lexer::Token::*;
 use ast::{Loc, List, ListBuilder, OperatorKind, Expression, ExpressionPtr};
 use ast::OperatorKind::*;
@@ -7,38 +8,8 @@ use ast::OperatorKind::*;
 type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionPtr<'ast>) -> ExpressionPtr<'ast>>;
 type Lookup = &'static [NestedHandler; 108];
 
-static BINDING_POWER: [Lookup; 20] = [
-    &BINDING_POWER_0,
-    &BINDING_POWER_1,
-    &BINDING_POWER_1,
-    &BINDING_POWER_1,
-    &BINDING_POWER_4,
-    &BINDING_POWER_5,
-    &BINDING_POWER_6,
-    &BINDING_POWER_7,
-    &BINDING_POWER_8,
-    &BINDING_POWER_9,
-    &BINDING_POWER_10,
-    &BINDING_POWER_11,
-    &BINDING_POWER_12,
-    &BINDING_POWER_13,
-    &BINDING_POWER_14,
-    &BINDING_POWER_15,
-    &BINDING_POWER_15,
-    &BINDING_POWER_17,
-    &BINDING_POWER_18,
-    &BINDING_POWER_19,
-];
-
-#[inline]
-fn lookup(bp: u8) -> *const NestedHandler {
-    unsafe {
-        (*(&BINDING_POWER as *const Lookup).offset(bp as isize)) as *const NestedHandler
-    }
-}
-
 /// All potential tokens, including Comma for sequence expressions
-static BINDING_POWER_0: [NestedHandler; 108] = [
+pub static B0: Lookup = &[
     ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
@@ -67,7 +38,7 @@ static BINDING_POWER_0: [NestedHandler; 108] = [
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ];
 
-static BINDING_POWER_1: [NestedHandler; 108] = [
+pub static B1: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -79,7 +50,7 @@ static BINDING_POWER_1: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_4: [NestedHandler; 108] = [
+pub static B4: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -91,7 +62,7 @@ static BINDING_POWER_4: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_5: [NestedHandler; 108] = [
+pub static B5: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -103,7 +74,7 @@ static BINDING_POWER_5: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_6: [NestedHandler; 108] = [
+pub static B6: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -115,7 +86,7 @@ static BINDING_POWER_6: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_7: [NestedHandler; 108] = [
+pub static B7: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -127,7 +98,7 @@ static BINDING_POWER_7: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_8: [NestedHandler; 108] = [
+pub static B8: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -139,7 +110,7 @@ static BINDING_POWER_8: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_9: [NestedHandler; 108] = [
+pub static B9: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -151,7 +122,7 @@ static BINDING_POWER_9: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_10: [NestedHandler; 108] = [
+pub static B10: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -163,7 +134,7 @@ static BINDING_POWER_10: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_11: [NestedHandler; 108] = [
+pub static B11: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   ____, ____,
@@ -175,7 +146,7 @@ static BINDING_POWER_11: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_12: [NestedHandler; 108] = [
+pub static B12: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -187,7 +158,7 @@ static BINDING_POWER_12: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_13: [NestedHandler; 108] = [
+pub static B13: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -199,7 +170,7 @@ static BINDING_POWER_13: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_14: [NestedHandler; 108] = [
+pub static B14: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -211,7 +182,7 @@ static BINDING_POWER_14: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_15: [NestedHandler; 108] = [
+pub static B15: Lookup = &[
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -223,41 +194,41 @@ static BINDING_POWER_15: [NestedHandler; 108] = [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ];
 
-static BINDING_POWER_17: [NestedHandler; 108] = [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+// pub static B17: Lookup = &[
+//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
+//     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
+// ];
 
-static BINDING_POWER_18: [NestedHandler; 108] = [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+// pub static B18: Lookup = &[
+//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
+//     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
+// ];
 
-static BINDING_POWER_19: [NestedHandler; 108] = [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+// pub static B19: Lookup = &[
+//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
+// ];
 
 const ____: NestedHandler = None;
 
@@ -265,11 +236,11 @@ const SEQ: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     let mut builder = ListBuilder::new(par.arena, left);
-    builder.push(par.expression(1));
+    builder.push(par.expression(B1));
 
     while let Comma = par.lexer.token {
         par.lexer.consume();
-        builder.push(par.expression(1));
+        builder.push(par.expression(B1));
     }
 
     par.alloc(Expression::Sequence {
@@ -300,9 +271,9 @@ const DEC: NestedHandler = Some(|par, left| {
 const COND: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let consequent = par.expression(4);
+    let consequent = par.expression(B4);
     expect!(par, Colon);
-    let alternate = par.expression(4);
+    let alternate = par.expression(B4);
 
     par.alloc(Expression::Conditional {
         test: left,
@@ -348,7 +319,7 @@ const CALL: NestedHandler = Some(|par, left| {
 const CMEM: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let property = par.expression(0);
+    let property = par.expression(B0);
 
     expect!(par, BracketClose);
 
@@ -366,83 +337,79 @@ const TPLE: NestedHandler = Some(|par, left| {
     par.template_expression(Some(left))
 });
 
-macro_rules! binary_handlers {
-    ($( [ $( $inner:tt )* ] )+) => {
-        $( binary_handlers!( $( $inner )* ); )*
-    };
+macro_rules! binary {
+    ($name:ident, $bp:expr => $op:ident) => {
+        const $name: NestedHandler = {
+            fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
+                par.lexer.consume();
 
-    ($name:ident @ $bp:expr => $op:ident) => {
-        const $name: NestedHandler = Some(|par, left| {
-            par.lexer.consume();
+                let right = par.expression($bp);
 
-            let right = par.expression($bp);
+                par.alloc(Loc::new(left.start, right.end, Expression::Binary {
+                    operator: $op,
+                    left,
+                    right,
+                }))
+            }
 
-            par.alloc(Loc::new(left.start, right.end, Expression::Binary {
-                operator: $op,
-                left,
-                right,
-            }))
-        });
-    };
+            Some(handler)
+        };
+    }
 }
 
-binary_handlers! {
-    [ASGN @ 3  => Assign]
-    [ADDA @ 3  => AddAssign]
-    [SUBA @ 3  => SubtractAssign]
-    [EXPA @ 3  => ExponentAssign]
-    [MULA @ 3  => MultiplyAssign]
-    [DIVA @ 3  => DivideAssign]
-    [REMA @ 3  => RemainderAssign]
-    [BSLA @ 3  => BSLAssign]
-    [BSRA @ 3  => BSRAssign]
-    [UBSA @ 3  => UBSRAssign]
-    [BWAA @ 3  => BitAndAssign]
-    [XORA @ 3  => BitXorAssign]
-    [BORA @ 3  => BitOrAssign]
-    [OR   @ 5  => LogicalOr]
-    [AND  @ 6  => LogicalAnd]
-    [BWOR @ 7  => BitwiseOr]
-    [BWXO @ 8  => BitwiseXor]
-    [BWAN @ 9  => BitwiseAnd]
-    [STEQ @ 10 => StrictEquality]
-    [SIEQ @ 10 => StrictInequality]
-    [EQ   @ 10 => Equality]
-    [INEQ @ 10 => Inequality]
-    [LESS @ 11 => Lesser]
-    [LSEQ @ 11 => LesserEquals]
-    [GRTR @ 11 => Greater]
-    [GREQ @ 11 => GreaterEquals]
-    [INOF @ 11 => Instanceof]
-    [IN   @ 11 => In]
-    [BSL  @ 12 => BitShiftLeft]
-    [BSR  @ 12 => BitShiftRight]
-    [UBSR @ 12 => UBitShiftRight]
-    [ADD  @ 13 => Addition]
-    [SUB  @ 13 => Subtraction]
-    [MUL  @ 14 => Multiplication]
-    [DIV  @ 14 => Division]
-    [REM  @ 14 => Remainder]
-    [EXPN @ 15 => Exponent]
-}
+binary!(ASGN , B1  => Assign);
+binary!(ADDA , B1  => AddAssign);
+binary!(SUBA , B1  => SubtractAssign);
+binary!(EXPA , B1  => ExponentAssign);
+binary!(MULA , B1  => MultiplyAssign);
+binary!(DIVA , B1  => DivideAssign);
+binary!(REMA , B1  => RemainderAssign);
+binary!(BSLA , B1  => BSLAssign);
+binary!(BSRA , B1  => BSRAssign);
+binary!(UBSA , B1  => UBSRAssign);
+binary!(BWAA , B1  => BitAndAssign);
+binary!(XORA , B1  => BitXorAssign);
+binary!(BORA , B1  => BitOrAssign);
+binary!(OR   , B5  => LogicalOr);
+binary!(AND  , B6  => LogicalAnd);
+binary!(BWOR , B7  => BitwiseOr);
+binary!(BWXO , B8  => BitwiseXor);
+binary!(BWAN , B9  => BitwiseAnd);
+binary!(STEQ , B10 => StrictEquality);
+binary!(SIEQ , B10 => StrictInequality);
+binary!(EQ   , B10 => Equality);
+binary!(INEQ , B10 => Inequality);
+binary!(LESS , B11 => Lesser);
+binary!(LSEQ , B11 => LesserEquals);
+binary!(GRTR , B11 => Greater);
+binary!(GREQ , B11 => GreaterEquals);
+binary!(INOF , B11 => Instanceof);
+binary!(IN   , B11 => In);
+binary!(BSL  , B12 => BitShiftLeft);
+binary!(BSR  , B12 => BitShiftRight);
+binary!(UBSR , B12 => UBitShiftRight);
+binary!(ADD  , B13 => Addition);
+binary!(SUB  , B13 => Subtraction);
+binary!(MUL  , B14 => Multiplication);
+binary!(DIV  , B14 => Division);
+binary!(REM  , B14 => Remainder);
+binary!(EXPN , B15 => Exponent);
 
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn expression(&mut self, bp: u8) -> ExpressionPtr<'ast> {
-        let parent = self.bound_expression();
+    pub fn expression(&mut self, lookup: Lookup) -> ExpressionPtr<'ast> {
+        let left = self.bound_expression();
 
-        self.nested_expression(parent, bp)
+        self.nested_expression(left, lookup)
     }
 
     #[inline]
-    pub fn nested_expression(&mut self, mut parent: ExpressionPtr<'ast>, bp: u8) -> ExpressionPtr<'ast> {
-        let table = lookup(bp);
-
+    pub fn nested_expression(&mut self, mut left: ExpressionPtr<'ast>, lookup: Lookup) -> ExpressionPtr<'ast> {
         loop {
-            parent = match unsafe { *table.offset(self.lexer.token as isize) } {
-                Some(handler) => handler(self, parent),
-                None          => return parent,
+            left = match lookup[self.lexer.token as usize] {
+                Some(handler) => handler(self, left),
+                None          => return left,
             }
         }
     }
