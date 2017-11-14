@@ -1,14 +1,20 @@
-use std::fmt;
+use std::fmt::{self, Debug, Display};
+use lexer::Token;
 
 /// Error type used by the tokenizer and the parser internally.
-#[derive(Debug, PartialEq, Clone)]
-pub enum Error {
-    UnexpectedEndOfProgram,
-    UnexpectedToken {
-        raw: Box<str>,
-        start: usize,
-        end: usize,
-    },
+#[derive(PartialEq, Clone)]
+pub struct Error {
+    pub token: Token,
+    pub raw: Box<str>,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Debug for Error {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Unexpected {:?}({}) at {}:{}", &self.token, &*self.raw, self.start, self.end)
+    }
 }
 
 /// Error type returned by `parser::parse`. This error will include
@@ -23,14 +29,14 @@ pub enum ParseError {
     },
 }
 
-impl fmt::Debug for ParseError {
+impl Debug for ParseError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl fmt::Display for ParseError {
+impl Display for ParseError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {

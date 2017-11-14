@@ -35,11 +35,16 @@ static STMT_HANDLERS: [StatementHandler; 108] = [
     ____, TRY,  ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
 //  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
 
-    ____, ____, ____, ____, ____, ____, IDEN, ____, TPL,  TPL,  ____, ____,
+    ____, ____, ____, ____, ____, ____, LABL, ____, TPLE, TPLS, ____, ____,
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ];
 
 const ____: StatementHandler = |par| unexpected_token!(par);
+
+/// Shared expression handlers that produce StatementPtr<'ast>
+use parser::expression::handlers::{
+    PRN, ARR, OP, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
+};
 
 const EMPT : StatementHandler = |par| {
     let stmt = par.alloc_in_loc(Statement::Empty);
@@ -48,37 +53,9 @@ const EMPT : StatementHandler = |par| {
     stmt
 };
 
-const PRN : StatementHandler = |par| {
-    par.lexer.consume();
-    let expr = par.paren_expression();
-
-    par.expression_statement(expr)
-};
-
-const ARR : StatementHandler = |par| {
-    par.lexer.consume();
-    let expr = par.array_expression();
-
-    par.expression_statement(expr)
-};
-
 const BLCK : StatementHandler = |par| {
     par.lexer.consume();
     par.block_statement()
-};
-
-const OP  : StatementHandler = |par| {
-    let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
-    par.lexer.consume();
-    let expr = par.prefix_expression(op);
-
-    par.expression_statement(expr)
-};
-
-const REG : StatementHandler = |par| {
-    let expr = par.regular_expression();
-
-    par.expression_statement(expr)
 };
 
 const VAR: StatementHandler = |par| {
@@ -156,74 +133,10 @@ const FUNC: StatementHandler = |par| {
     par.function_statement()
 };
 
-const THIS: StatementHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::This);
-    par.lexer.consume();
-
-    par.expression_statement(expr)
-};
-
-const TRUE: StatementHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::True));
-    par.lexer.consume();
-
-    par.expression_statement(expr)
-};
-
-const FALS: StatementHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::False));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const NULL: StatementHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::Null));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const UNDE: StatementHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::Undefined));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const STR : StatementHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::String(value)));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const NUM : StatementHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::Number(value)));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const BIN : StatementHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::Binary(value)));
-
-    par.lexer.consume();
-    par.expression_statement(expr)
-};
-
-const IDEN: StatementHandler = |par| {
+const LABL: StatementHandler = |par| {
     let label = par.lexer.token_as_str();
     par.lexer.consume();
     par.labeled_or_expression_statement(label)
-};
-
-const TPL : StatementHandler = |par| {
-    let expr = par.template_expression(None);
-    par.expression_statement(expr)
 };
 
 impl<'ast> Parser<'ast> {

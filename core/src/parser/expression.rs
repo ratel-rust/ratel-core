@@ -1,6 +1,7 @@
 use parser::Parser;
 use lexer::Token::*;
-use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
+use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr};
+use ast::{ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
@@ -30,112 +31,153 @@ static EXPR_HANDLERS: [ExpressionHandler; 108] = [
     ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
 //  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
 
-    ____, ____, ____, ____, ____, ____, IDEN, ____, TPL,  TPL,  ____, ____,
+    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ];
 
-const ____: ExpressionHandler = |par| unexpected_token!(par);
+macro_rules! create_handlers {
+    ($( const $name:ident = |$par:ident| $code:expr; )* $( pub const $pname:ident = |$ppar:ident| $pcode:expr; )*) => {
+        $(
+            #[allow(non_snake_case)]
+            fn $name<'ast>($par: &mut Parser<'ast>) -> ExpressionPtr<'ast> {
+                $code
+            }
+        )*
 
-const PRN : ExpressionHandler = |par| {
-    par.lexer.consume();
-    par.paren_expression()
-};
+        pub(crate) mod handlers {
+            use super::*;
 
-const ARR : ExpressionHandler = |par| {
-    par.lexer.consume();
-    par.array_expression()
-};
+            $(
+                #[allow(non_snake_case)]
+                pub fn $pname<'ast>($ppar: &mut Parser<'ast>) -> StatementPtr<'ast> {
+                    let expression = $pcode;
+                    $ppar.expression_statement(expression)
+                }
+            )*
+        }
 
-const OBJ : ExpressionHandler = |par| {
-    par.lexer.consume();
-    par.object_expression()
-};
+        $(
+            #[allow(non_snake_case)]
+            fn $pname<'ast>($ppar: &mut Parser<'ast>) -> ExpressionPtr<'ast> {
+                $pcode
+            }
+        )*
+    };
+}
 
-const OP  : ExpressionHandler = |par| {
-    let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
-    par.lexer.consume();
-    par.prefix_expression(op)
-};
-const REG : ExpressionHandler = |par| par.regular_expression();
+create_handlers! {
+    const ____ = |par| unexpected_token!(par);
 
-const CLAS: ExpressionHandler = |par| {
-    par.lexer.consume();
-    par.class_expression()
-};
+    const OBJ = |par| {
+        par.lexer.consume();
+        par.object_expression()
+    };
 
-const FUNC: ExpressionHandler = |par| {
-    par.lexer.consume();
-    par.function_expression()
-};
+    const CLAS = |par| {
+        par.lexer.consume();
+        par.class_expression()
+    };
 
-const THIS: ExpressionHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::This);
-    par.lexer.consume();
+    const FUNC = |par| {
+        par.lexer.consume();
+        par.function_expression()
+    };
 
-    expr
-};
+    const IDEN = |par| {
+        let value = par.lexer.token_as_str();
+        let expr = par.alloc_in_loc(Expression::Identifier(value));
 
-const TRUE: ExpressionHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::True));
-    par.lexer.consume();
+        par.lexer.consume();
+        expr
+    };
 
-    expr
-};
+    pub const THIS = |par| {
+        let expr = par.alloc_in_loc(Expression::This);
+        par.lexer.consume();
 
-const FALS: ExpressionHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::False));
+        expr
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const OP = |par| {
+        let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
+        par.lexer.consume();
+        par.prefix_expression(op)
+    };
 
-const NULL: ExpressionHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::Null));
+    pub const PRN = |par| {
+        par.lexer.consume();
+        par.paren_expression()
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const ARR = |par| {
+        par.lexer.consume();
+        par.array_expression()
+    };
 
-const UNDE: ExpressionHandler = |par| {
-    let expr = par.alloc_in_loc(Expression::Value(Value::Undefined));
+    pub const REG = |par| par.regular_expression();
 
-    par.lexer.consume();
-    expr
-};
+    pub const TRUE = |par| {
+        let expr = par.alloc_in_loc(Expression::Value(Value::True));
+        par.lexer.consume();
 
-const STR : ExpressionHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::String(value)));
+        expr
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const FALS = |par| {
+        let expr = par.alloc_in_loc(Expression::Value(Value::False));
 
-const NUM : ExpressionHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::Number(value)));
+        par.lexer.consume();
+        expr
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const NULL = |par| {
+        let expr = par.alloc_in_loc(Expression::Value(Value::Null));
 
-const BIN : ExpressionHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Value(Value::Binary(value)));
+        par.lexer.consume();
+        expr
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const UNDE = |par| {
+        let expr = par.alloc_in_loc(Expression::Value(Value::Undefined));
 
-const IDEN: ExpressionHandler = |par| {
-    let value = par.lexer.token_as_str();
-    let expr = par.alloc_in_loc(Expression::Identifier(value));
+        par.lexer.consume();
+        expr
+    };
 
-    par.lexer.consume();
-    expr
-};
+    pub const STR = |par| {
+        let value = par.lexer.token_as_str();
+        let expr = par.alloc_in_loc(Expression::Value(Value::String(value)));
 
-const TPL : ExpressionHandler = |par| par.template_expression(None);
+        par.lexer.consume();
+        expr
+    };
+
+    pub const NUM = |par| {
+        let value = par.lexer.token_as_str();
+        let expr = par.alloc_in_loc(Expression::Value(Value::Number(value)));
+
+        par.lexer.consume();
+        expr
+    };
+
+    pub const BIN = |par| {
+        let value = par.lexer.token_as_str();
+        let expr = par.alloc_in_loc(Expression::Value(Value::Binary(value)));
+
+        par.lexer.consume();
+        expr
+    };
+
+    pub const TPLS = |par| {
+        let quasi = par.lexer.quasi;
+        let expr = par.alloc_in_loc(Expression::Value(Value::Template(quasi)));
+
+        par.lexer.consume();
+        expr
+    };
+
+    pub const TPLE = |par| par.template_expression(None);
+}
 
 impl<'ast> Parser<'ast> {
     #[inline]
@@ -295,15 +337,14 @@ impl<'ast> Parser<'ast> {
                 property
             },
             _ => {
-                unexpected_token!(self);
-                // // Allow word tokens such as "null" and "typeof" as identifiers
-                // match self.lexer.token.as_word() {
-                //     Some(label) => {
-                //         self.lexer.consume();
-                //         self.in_loc(Property::Literal(label))
-                //     }
-                //     None        => unexpected_token!(self)
-                // }
+                // Allow word tokens such as "null" and "typeof" as identifiers
+                match self.lexer.token.as_word() {
+                    Some(label) => {
+                        self.lexer.consume();
+                        self.in_loc(Property::Literal(label))
+                    }
+                    None        => unexpected_token!(self)
+                }
             }
         };
 
@@ -416,41 +457,35 @@ impl<'ast> Parser<'ast> {
         self.alloc(Expression::Value(Value::RegEx(value)).at(0, 0))
     }
 
-    pub fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
-        let (quasi, expression) = match self.lexer.token {
-            TemplateOpen => {
-                let quasi = self.lexer.quasi;
-                let quasi = self.alloc_in_loc(quasi);
+    #[inline]
+    pub fn template_string(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+        let quasi = self.lexer.quasi;
+        let quasi = self.alloc_in_loc(quasi);
 
-                self.lexer.consume();
+        self.lexer.consume();
 
-                let expression = self.expression(0);
-
-                match self.lexer.token {
-                    BraceClose => self.lexer.read_template_kind(),
-                    _          => unexpected_token!(self)
-                }
-
-                (quasi, expression)
-            },
-
-            TemplateClosed => {
-                let quasi = self.lexer.quasi;
-                let quasi = self.alloc_in_loc(quasi);
-
-                self.lexer.consume();
-
-                let template = Expression::Template {
-                    tag,
-                    expressions: List::empty(),
-                    quasis: List::from(self.arena, quasi),
-                };
-
-                return self.alloc_in_loc(template);
-            },
-
-            _ => unexpected_token!(self)
+        let template = Expression::Template {
+            tag,
+            expressions: List::empty(),
+            quasis: List::from(self.arena, quasi),
         };
+
+        self.alloc_in_loc(template)
+    }
+
+    #[inline]
+    pub fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+        let quasi = self.lexer.quasi;
+        let quasi = self.alloc_in_loc(quasi);
+
+        self.lexer.consume();
+
+        let expression = self.expression(0);
+
+        match self.lexer.token {
+            BraceClose => self.lexer.read_template_kind(),
+            _          => unexpected_token!(self)
+        }
 
         let mut quasis = ListBuilder::new(self.arena, quasi);
         let mut expressions = ListBuilder::new(self.arena, expression);
@@ -555,11 +590,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = Expression::Template {
-            tag: None,
-            expressions: List::empty(),
-            quasis: mock.list(["foobar"]),
-        };
+        let expected = Expression::Value(Value::Template("foobar"));
 
         assert_expr!(module, expected);
     }

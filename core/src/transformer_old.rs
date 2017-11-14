@@ -394,7 +394,7 @@ impl Transformable for Expression {
 
                     arguments.push(Expression::Array(
                         quasis.drain(..)
-                              .map(|quasi| Expression::Literal(Value::RawQuasi(quasi)))
+                              .map(|quasi| Expression::Literal(Value::Template(quasi)))
                               .collect()
                     ));
 
@@ -410,7 +410,7 @@ impl Transformable for Expression {
                     let mut quasis = quasis.drain(..);
 
                     let mut left = Expression::Literal(
-                        Value::RawQuasi(quasis.next().expect("Must have first quasi"))
+                        Value::Template(quasis.next().expect("Must have first quasi"))
                     );
 
                     let iter = quasis.zip(expressions.drain(..));
@@ -430,7 +430,7 @@ impl Transformable for Expression {
                             left,
                             Addition,
                             Expression::Literal(
-                                Value::RawQuasi(quasi)
+                                Value::Template(quasi)
                             )
                         );
                     }

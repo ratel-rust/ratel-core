@@ -751,12 +751,14 @@ impl<'src> Lexer<'src> {
     pub fn invalid_token(&mut self) -> Error {
         let start = self.token_start;
         let end = self.index;
+        let token = self.token;
 
-        if self.token != EndOfProgram {
+        if token != EndOfProgram {
             self.consume();
         }
 
-        Error::UnexpectedToken {
+        Error {
+            token,
             start,
             end,
             raw: self.slice_source(start, end).to_owned().into_boxed_str()

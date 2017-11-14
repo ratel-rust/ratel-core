@@ -7,6 +7,6 @@ pub enum Value<'ast> {
     Number(&'ast str),
     Binary(&'ast str),
     String(&'ast str),
-    RawQuasi(&'ast str),
+    Template(&'ast str),
     RegEx(&'ast str),
 }

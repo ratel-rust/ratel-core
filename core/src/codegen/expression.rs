@@ -14,8 +14,12 @@ impl<'ast, G: Generator> ToCode<G> for Value<'ast> {
             Binary(n)         => gen.write(&format!("{}", n).as_str()),
             Number(ref val)   |
             String(ref val)   |
-            RawQuasi(ref val) |
             RegEx(ref val)    => gen.write(val),
+            Template(ref val) => {
+                gen.write_byte(b'`');
+                gen.write(val);
+                gen.write_byte(b'`');
+            }
         }
     }
 }
