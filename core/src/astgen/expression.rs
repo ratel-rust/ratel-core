@@ -22,12 +22,14 @@ impl<'ast> Serialize for Loc<TaggedTemplateExpression<'ast>> {
         state.serialize_field("type", &"TaggedTemplateExpression")?;
         state.serialize_field("tag", &*self.tag)?;
         state.serialize_field("quasi", &self.quasi)?;
+        state.serialize_field("start", &self.start)?;
+        state.serialize_field("end", &self.end)?;
         state.end()
     }
 }
 
 #[inline]
-fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'ast str {
+fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
     use self::OperatorKind::*;
 
     match operator {
@@ -272,13 +274,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                 let mut state = serializer.serialize_struct("ClassExpression", 6)?;
                 state.serialize_field("type", &"ClassExpression")?;
                 state.serialize_field("id", &Loc::new(self.start, self.end, class.name))?;
-
-                if let Some(extends) = class.extends {
-                    state.serialize_field("superClass", &*extends)?;
-                } else {
-                    state.serialize_field("superClass", &serde_json::Value::Null)?;
-                }
-
+                state.serialize_field("superClass", &class.extends)?;
                 state.serialize_field("body", &Loc::new(self.start, self.end, ClassBody { body: class.body }))?;
                 state
             },

@@ -1,3 +1,5 @@
+#[macro_use]
+mod macros;
 mod statement;
 mod expression;
 mod function;
@@ -52,13 +54,11 @@ pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
 mod test {
     use super::*;
     use parser::{parse};
+    use astgen::generate_ast;
 
     #[test]
     fn test_generate_ast() {
-        let module = parse(r#"this;"#).unwrap();
-        let result = generate_ast(&module);
-
-        assert_eq!(result, json!({
+        expect_parse!("this;", {
             "type": "Program",
             "body": [
                 {
@@ -74,6 +74,6 @@ mod test {
               ],
               "end": 0,
               "start": 0
-        }));
+        });
     }
 }

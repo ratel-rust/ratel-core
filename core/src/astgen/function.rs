@@ -26,7 +26,7 @@ impl<'ast> Serialize for ast::Loc<Function<'ast, MandatoryName<'ast>>> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("FunctionExpression", 3)?;
+        let mut state = serializer.serialize_struct("FunctionExpression", 6)?;
         state.serialize_field("type", &"FunctionExpression")?;
         state.serialize_field("id", &Loc::new(self.start, self.end, self.name))?;
         state.serialize_field("params", &self.params)?;
@@ -83,13 +83,13 @@ impl<'ast> Serialize for Loc<Parameter<'ast>> {
         };
         let mut state = match self.item.value {
             None => {
-                let mut state = serializer.serialize_struct("Identifier", 3)?;
+                let mut state = serializer.serialize_struct("Identifier", 4)?;
                 state.serialize_field("type", &"Identifier")?;
                 state.serialize_field("name", &key)?;
                 state
             },
             Some(value) => {
-                let mut state = serializer.serialize_struct("AssignmentPattern", 3)?;
+                let mut state = serializer.serialize_struct("AssignmentPattern", 5)?;
                 state.serialize_field("type", &"AssignmentPattern")?;
                 state.serialize_field("left", &Loc::new(self.start, self.end, Expression::Identifier(key)))?;
                 state.serialize_field("right", &*value)?;

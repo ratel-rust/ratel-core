@@ -150,7 +150,7 @@ impl<'ast> Serialize for Loc<ObjectMember<'ast>> {
                 where S: Serializer
         {
             use self::ObjectMember::*;
-            let mut state = serializer.serialize_struct("Property", 8)?;
+            let mut state = serializer.serialize_struct("Property", 7)?;
             state.serialize_field("type", "Property")?;
             match self.item {
                 Shorthand(value) => {
@@ -194,4 +194,220 @@ impl<'ast> Serialize for Loc<ObjectMember<'ast>> {
             };
             state.end()
         }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parser::{parse};
+    use astgen::generate_ast;
+
+    #[test]
+    fn test_value_undefined () {
+        expect_parse!("undefined", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": "undefined",
+                        "start": 0,
+                        "end": 9
+                    },
+                    "start": 0,
+                    "end": 9,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+    #[test]
+    fn test_value_null () {
+        expect_parse!("null", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": "null",
+                        "start": 0,
+                        "end": 4
+                    },
+                    "start": 0,
+                    "end": 4,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+    #[test]
+    fn test_value_true () {
+        expect_parse!("true", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": true,
+                        "start": 0,
+                        "end": 4
+                    },
+                    "start": 0,
+                    "end": 4,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+    #[test]
+    fn test_value_false () {
+        expect_parse!("false", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": false,
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+
+    #[test]
+    fn test_value_number () {
+        expect_parse!("0", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": "0",
+                        // FIXME
+                        // "value": 0,
+                        "start": 0,
+                        "end": 1
+                    },
+                    "start": 0,
+                    "end": 1,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+
+        expect_parse!("0x0", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": "0x0",
+                        // FIXME
+                        // "value": 0,
+                        "start": 0,
+                        "end": 3
+                    },
+                    "start": 0,
+                    "end": 3,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+
+
+        expect_parse!("0b0", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "value": "0b0",
+                        // FIXME
+                        // "value": 0,
+                        "start": 0,
+                        "end": 3
+                    },
+                    "start": 0,
+                    "end": 3,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+    #[test]
+    fn test_value_string () {
+        expect_parse!("'foo'", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        // FIXME
+                        "value": "\'foo\'",
+                        // "value": "foo",
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+    }
+
+    #[test]
+    fn test_regex () {
+        expect_parse!(r#"/^\b\w+/m"#, {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Literal",
+                        "regex": {
+                            "pattern": r#"^\b\w+"#,
+                            "flags": "m"
+                        },
+                        "start": 0,
+                        // FIXME
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0,
+                }
+            ],
+            "end": 0,
+            "start": 0
+        });
+
+    }
+
 }
