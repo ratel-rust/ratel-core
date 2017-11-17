@@ -3,83 +3,63 @@ use ast;
 use ast::{ParameterKey, Expression, Loc};
 use ast::{OptionalName, MandatoryName, Function, ClassMember, Parameter, List, Statement};
 use astgen::statement::BlockStatement;
+use astgen::SerializeInLoc;
 
 #[derive(Debug)]
 pub struct ClassBody<'ast> {
   pub body: List<'ast, Loc<ClassMember<'ast>>>
 }
 
-impl<'ast> Serialize for Loc<ClassBody<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for ClassBody<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("ClassBody", 4)?;
-        state.serialize_field("type", &"ClassBody")?;
-        state.serialize_field("body", &self.body)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        self.in_loc(serializer, "Program", 1, |state| {
+            state.serialize_field("body", &self.body)
+        })
     }
 }
 
-impl<'ast> Serialize for ast::Loc<Function<'ast, MandatoryName<'ast>>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+
+impl<'ast> SerializeInLoc for Function<'ast, MandatoryName<'ast>> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("FunctionExpression", 6)?;
-        state.serialize_field("type", &"FunctionExpression")?;
-        state.serialize_field("id", &self.name)?;
-        state.serialize_field("params", &self.params)?;
-        match self.body.only_element() {
-            Some(&Loc { item: Statement::Block { .. } , .. }) => {
-                state.serialize_field("body", &self.body)?;
-            },
-            _ => {
-              let body = BlockStatement { body: self.body };
-              state.serialize_field("body", &Loc::new(self.start, self.end, body))?;
-            }
-        };
+        self.in_loc(serializer, "FunctionDeclaration", 3, |state| {
+            state.serialize_field("id", &self.name)?;
+            state.serialize_field("params", &self.params)?;
+            state.serialize_field("body", &self.body)?;
 
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+            // TODO: Add "Block" type
+            let body = BlockStatement { body: self.body };
+
+            state.serialize_field("body", &Loc::new(0, 0, body))
+        })
     }
 }
 
-impl<'ast> Serialize for ast::Loc<Function<'ast, OptionalName<'ast>>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for Function<'ast, OptionalName<'ast>> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("FunctionExpression", 5)?;
-        state.serialize_field("type", &"FunctionExpression")?;
-        state.serialize_field("id", &self.name)?;
+        self.in_loc(serializer, "FunctionExpression", 3, |state| {
+            state.serialize_field("id", &self.name)?;
+            state.serialize_field("params", &self.params)?;
+            state.serialize_field("body", &self.body)?;
 
-        match self.body.only_element() {
-            Some(&Loc { item: Statement::Block { .. } , .. }) => {
-                state.serialize_field("body", &self.body)?;
-            },
-            _ => {
-              let body = BlockStatement { body: self.body };
-              state.serialize_field("body", &Loc::new(self.start, self.end, body))?;
-            }
-        };
+            // TODO: Add "Block" type
+            let body = BlockStatement { body: self.body };
 
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+            state.serialize_field("body", &Loc::new(0, 0, body))
+        })
     }
 }
 
-impl<'ast> Serialize for Loc<&'ast str> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for &'ast str {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("Identifier", 4)?;
-        state.serialize_field("type", &"Identifier")?;
-        state.serialize_field("name", &self.item)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        self.in_loc(serializer, "Identifier", 1, move |state| state.serialize_field("name", self))
     }
 }
 

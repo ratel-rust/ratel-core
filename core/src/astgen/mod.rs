@@ -14,16 +14,38 @@ struct Program<'ast> {
     body: StatementList<'ast>,
 }
 
-impl<'ast> Serialize for Loc<Program<'ast>> {
+pub trait SerializeInLoc {
+    #[inline]
+    fn in_loc<S, F>(&self, serializer: S, name: &'static str, length: usize, build: F) -> Result<S::SerializeStruct, S::Error>
+        where S: Serializer, F: FnOnce(&mut S::SerializeStruct) -> Result<(), S::Error>
+    {
+        let mut state = serializer.serialize_struct(name, length + 3)?;
+        state.serialize_field("type", name)?;
+        build(&mut state).map(move |_| state)
+    }
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+        where S: Serializer;
+}
+
+impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-      let mut state = serializer.serialize_struct("Program", 4)?;
-      state.serialize_field("type", &"Program")?;
-      state.serialize_field("body", &self.body)?;
-      state.serialize_field("start", &self.start)?;
-      state.serialize_field("end", &self.end)?;
-      state.end()
+        let mut state = self.item.serialize(serializer)?;
+        state.serialize_field("start", &self.start)?;
+        state.serialize_field("end", &self.end)?;
+        state.end()
+    }
+}
+
+impl<'ast> SerializeInLoc for Program<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+        where S: Serializer
+    {
+        self.in_loc(serializer, "Program", 1, |state| {
+            state.serialize_field("body", &self.body)
+        })
     }
 }
 
