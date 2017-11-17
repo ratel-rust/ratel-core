@@ -1,4 +1,4 @@
-use ast::{Loc, List, Value, OperatorKind, Function, Class, OptionalName};
+use ast::{Loc, List, Literal, OperatorKind, Function, Class, OptionalName};
 use ast::{PropertyPtr, IdentifierPtr};
 use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterList};
 
@@ -12,7 +12,7 @@ pub enum Property<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ObjectMember<'ast> {
     Shorthand(&'ast str),
-    Value {
+    Literal {
         property: PropertyPtr<'ast>,
         value: ExpressionPtr<'ast>,
     },
@@ -24,74 +24,80 @@ pub enum ObjectMember<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct SequenceExpr<'ast> {
+pub struct SequenceExpression<'ast> {
     pub body: ExpressionList<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ArrayExpr<'ast> {
+pub struct ArrayExpression<'ast> {
     pub body: ExpressionList<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct MemberExpr<'ast> {
+pub struct MemberExpression<'ast> {
     pub object: ExpressionPtr<'ast>,
     pub property: IdentifierPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ComputedMemberExpr<'ast> {
+pub struct ComputedMemberExpression<'ast> {
     pub object: ExpressionPtr<'ast>,
     pub property: ExpressionPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct CallExpr<'ast> {
+pub struct CallExpression<'ast> {
     pub callee: ExpressionPtr<'ast>,
     pub arguments: ExpressionList<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct BinaryExpr<'ast> {
+pub struct BinaryExpression<'ast> {
     pub operator: OperatorKind,
     pub left: ExpressionPtr<'ast>,
     pub right: ExpressionPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct PrefixExpr<'ast> {
+pub struct PrefixExpression<'ast> {
     pub operator: OperatorKind,
     pub operand: ExpressionPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct PostfixExpr<'ast> {
+pub struct PostfixExpression<'ast> {
     pub operator: OperatorKind,
     pub operand: ExpressionPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ConditionalExpr<'ast> {
+pub struct ConditionalExpression<'ast> {
     pub test: ExpressionPtr<'ast>,
     pub consequent: ExpressionPtr<'ast>,
     pub alternate: ExpressionPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct TemplateExpr<'ast> {
+pub struct TemplateExpression<'ast> {
     pub tag: Option<ExpressionPtr<'ast>>,
     pub expressions: ExpressionList<'ast>,
     pub quasis: List<'ast, Loc<&'ast str>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ArrowExpr<'ast> {
-    pub params: ParameterList<'ast>,
-    pub body: StatementPtr<'ast>,
+pub enum ArrowBody<'ast> {
+    Expression(ExpressionPtr<'ast>),
+    Block(StatementPtr<'ast>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ObjectExpr<'ast> {
+pub struct ArrowExpression<'ast> {
+    pub params: ParameterList<'ast>,
+    pub body: ArrowBody<'ast>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ObjectExpression<'ast> {
     pub body: List<'ast, Loc<ObjectMember<'ast>>>,
 }
 
@@ -101,19 +107,19 @@ pub enum Expression<'ast> {
     Void,
     This,
     Identifier(&'ast str),
-    Value(Value<'ast>),
-    Sequence(SequenceExpr<'ast>),
-    Array(ArrayExpr<'ast>),
-    Member(MemberExpr<'ast>),
-    ComputedMember(ComputedMemberExpr<'ast>),
-    Call(CallExpr<'ast>),
-    Binary(BinaryExpr<'ast>),
-    Prefix(PrefixExpr<'ast>),
-    Postfix(PostfixExpr<'ast>),
-    Conditional(ConditionalExpr<'ast>),
-    Template(TemplateExpr<'ast>),
-    Arrow(ArrowExpr<'ast>),
-    Object(ObjectExpr<'ast>),
+    Literal(Literal<'ast>),
+    Sequence(SequenceExpression<'ast>),
+    Array(ArrayExpression<'ast>),
+    Member(MemberExpression<'ast>),
+    ComputedMember(ComputedMemberExpression<'ast>),
+    Call(CallExpression<'ast>),
+    Binary(BinaryExpression<'ast>),
+    Prefix(PrefixExpression<'ast>),
+    Postfix(PostfixExpression<'ast>),
+    Conditional(ConditionalExpression<'ast>),
+    Template(TemplateExpression<'ast>),
+    Arrow(ArrowExpression<'ast>),
+    Object(ObjectExpression<'ast>),
     Function(Function<'ast, OptionalName<'ast>>),
     Class(Class<'ast, OptionalName<'ast>>),
 }
@@ -129,28 +135,30 @@ macro_rules! impl_from {
     )*)
 }
 
+impl<'ast> From<&'ast str> for Expression<'ast> {
+    #[inline]
+    fn from(val: &'ast str) -> Expression<'ast> {
+        Expression::Identifier(val)
+    }
+}
+
 impl_from! {
-    Value => Value,
-    SequenceExpr => Sequence,
-    ArrayExpr => Array,
-    MemberExpr => Member,
-    ComputedMemberExpr => ComputedMember,
-    CallExpr => Call,
-    BinaryExpr => Binary,
-    PrefixExpr => Prefix,
-    PostfixExpr => Postfix,
-    ConditionalExpr => Conditional,
-    TemplateExpr => Template,
-    ArrowExpr => Arrow,
-    ObjectExpr => Object
+    Literal => Literal,
+    SequenceExpression => Sequence,
+    ArrayExpression => Array,
+    MemberExpression => Member,
+    ComputedMemberExpression => ComputedMember,
+    CallExpression => Call,
+    BinaryExpression => Binary,
+    PrefixExpression => Prefix,
+    PostfixExpression => Postfix,
+    ConditionalExpression => Conditional,
+    TemplateExpression => Template,
+    ArrowExpression => Arrow,
+    ObjectExpression => Object
 }
 
 impl<'ast> Expression<'ast> {
-    #[inline]
-    pub fn at(self, start: u32, end: u32) -> Loc<Expression<'ast>> {
-        Loc::new(start, end, self)
-    }
-
     #[inline]
     pub fn binding_power(&self) -> u8 {
         use self::Expression::*;
@@ -162,8 +170,8 @@ impl<'ast> Expression<'ast> {
 
             Prefix(_) => 15,
 
-            Binary(BinaryExpr { ref operator, .. })   |
-            Postfix(PostfixExpr { ref operator, .. }) => operator.binding_power(),
+            Binary(BinaryExpression { ref operator, .. })   |
+            Postfix(PostfixExpression { ref operator, .. }) => operator.binding_power(),
 
             Conditional(_) => 4,
 

@@ -1,10 +1,10 @@
 pub mod expression;
+pub mod statement;
 mod variable;
 mod operator;
 mod types;
-mod statement;
 mod function;
-mod value;
+mod literal;
 mod ptr;
 mod list;
 
@@ -18,7 +18,7 @@ pub use ast::expression::{Expression, ObjectMember, Property};
 pub use ast::statement::{Statement, Declarator, DeclaratorId};
 pub use ast::function::{Function, Class, ClassMember};
 pub use ast::function::{Name, OptionalName, MandatoryName, Parameter, ParameterKey};
-pub use ast::value::Value;
+pub use ast::literal::Literal;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
 // Handful of useful aliases

@@ -15,7 +15,7 @@ use self::nested::*;
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
 use ast::{Expression, ExpressionPtr, ExpressionList};
-use ast::expression::BinaryExpr;
+use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
 
@@ -60,14 +60,27 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc<T: Copy>(&mut self, val: T) -> Ptr<'ast, T> {
-        Ptr::new(self.arena.alloc(val))
+    fn alloc<T>(&mut self, val: T) -> Ptr<'ast, T> where
+        T: Copy,
+    {
+        Ptr::new(self.arena.alloc(val.into()))
     }
 
     #[inline]
-    fn alloc_in_loc<T: Copy>(&mut self, item: T) -> Ptr<'ast, Loc<T>> {
-        let node = self.in_loc(item);
+    fn alloc_in_loc<T, I>(&mut self, item: I) -> Ptr<'ast, Loc<T>> where
+        T: Copy,
+        I: Into<T>,
+    {
+        let node = self.in_loc(item.into());
         self.alloc(node)
+    }
+
+    #[inline]
+    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Ptr<'ast, Loc<T>> where
+        T: Copy,
+        I: Into<T>,
+    {
+        self.alloc(Loc::new(start, end, item.into()))
     }
 
     #[inline]
@@ -114,7 +127,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     fn param_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> ParameterPtr<'ast> {
         let (key, value) = match expression.item {
-            Expression::Binary(BinaryExpr {
+            Expression::Binary(BinaryExpression {
                 operator: OperatorKind::Assign,
                 left,
                 right,
@@ -215,7 +228,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Expression, Value, ExpressionPtr, StatementPtr};
+    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, Name};
 
     pub struct Mock {
         arena: Arena
@@ -228,31 +241,29 @@ mod mock {
             }
         }
 
-        pub fn ptr<'a, T: 'a + Copy>(&'a self, val: T) -> Ptr<'a, Loc<T>> {
-            Ptr::new(self.arena.alloc(Loc::new(0, 0, val)))
+        pub fn ptr<'a, T, I>(&'a self, val: I) -> Ptr<'a, Loc<T>> where
+            T: 'a + Copy,
+            I: Into<T>,
+        {
+            Ptr::new(self.arena.alloc(Loc::new(0, 0, val.into())))
         }
 
-        pub fn ident<'a>(&'a self, ident: &'static str) -> ExpressionPtr<'a> {
-            self.ptr(Expression::Identifier(ident))
+        pub fn name<'a, N>(&'a self, val: &'a str) -> N where
+            N: Name<'a> + From<Ptr<'a, Loc<&'a str>>>,
+        {
+            N::from(Ptr::new(self.arena.alloc(Loc::new(0, 0, val))))
         }
 
         pub fn number<'a>(&'a self, number: &'static str) -> ExpressionPtr<'a> {
-            self.ptr(Expression::Value(Value::Number(number)))
+            self.ptr(Literal::Number(number))
         }
 
-        pub fn expr<'a, E: Into<Expression<'a>>>(&'a self, e: E) -> ExpressionPtr<'a> {
-            self.ptr(e.into())
-        }
-
-        pub fn stmt<'a, E: Into<Statement<'a>>>(&'a self, e: E) -> StatementPtr<'a> {
-            self.ptr(e.into())
-        }
-
-        pub fn list<'a, T, L>(&'a self, list: L) -> List<'a, Loc<T>> where
+        pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, Loc<T>> where
             T: 'a + Copy,
-            L: AsRef<[T]>
+            L: AsRef<[I]>,
+            I: Into<T> + Copy,
         {
-            List::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| Loc::new(0, 0, i)))
+            List::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| Loc::new(0, 0, i.into())))
         }
     }
 }

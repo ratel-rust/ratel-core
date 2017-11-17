@@ -82,7 +82,7 @@ pub enum ClassMember<'ast> {
         params: ParameterList<'ast>,
         body: StatementList<'ast>,
     },
-    Value {
+    Literal {
         is_static: bool,
         property: Property<'ast>,
         value: ExpressionPtr<'ast>,

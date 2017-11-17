@@ -165,7 +165,7 @@ impl<'ast> Parser<'ast> {
 
                 let expression = self.expression(B1);
 
-                Loc::new(0, 0, ClassMember::Value {
+                Loc::new(0, 0, ClassMember::Literal {
                     is_static,
                     property,
                     value: expression,
@@ -182,8 +182,9 @@ impl<'ast> Parser<'ast> {
 mod test {
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Value, Expression, Statement, Function, Class};
+    use ast::{List, Literal, Expression, Statement, Function, Class};
     use ast::{ClassMember, Property, Parameter, ParameterKey};
+    use ast::statement::*;
 
     #[test]
     fn function_empty() {
@@ -193,7 +194,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Function(Function {
-                name: mock.ptr("foo").into(),
+                name: mock.name("foo"),
                 params: List::empty(),
                 body: List::empty(),
             })
@@ -210,7 +211,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Function(Function {
-                name: mock.ptr("foo").into(),
+                name: mock.name("foo"),
                 params: mock.list([
                     Parameter {
                         key: ParameterKey::Identifier("bar"),
@@ -236,11 +237,11 @@ mod test {
 
         let expected = mock.list([
             Statement::Function(Function {
-                name: mock.ptr("foo").into(),
+                name: mock.name("foo"),
                 params: List::empty(),
                 body: mock.list([
-                    Statement::Expression(mock.ident("bar")),
-                    Statement::Expression(mock.ident("baz")),
+                    mock.ptr("bar"),
+                    mock.ptr("baz"),
                 ])
             })
         ]);
@@ -256,7 +257,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Function(Function {
-                name: mock.ptr("foo").into(),
+                name: mock.name("foo"),
                 params: mock.list([
                     Parameter {
                         key: ParameterKey::Identifier("a"),
@@ -272,7 +273,7 @@ mod test {
                     }
                 ]),
                 body: mock.list([
-                    Statement::Return {
+                    ReturnStatement {
                         value: Some(mock.number("2"))
                     }
                 ])
@@ -296,7 +297,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: List::empty(),
             })
@@ -313,8 +314,8 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
-                extends: Some(mock.ident("Bar")),
+                name: mock.name("Foo"),
+                extends: Some(mock.ptr("Bar")),
                 body: List::empty(),
             })
         ]);
@@ -338,7 +339,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: mock.list([
                     ClassMember::Constructor {
@@ -353,7 +354,7 @@ mod test {
                             },
                         ]),
                         body: mock.list([
-                            Statement::Expression(mock.ident("debug"))
+                            Statement::Expression(mock.ptr("debug"))
                         ])
                     }
                 ])
@@ -387,7 +388,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: mock.list([
                     ClassMember::Method {
@@ -404,7 +405,7 @@ mod test {
                             },
                         ]),
                         body: mock.list([
-                            Statement::Expression(mock.ident("debug"))
+                            Statement::Expression(mock.ptr("debug"))
                         ])
                     },
                     ClassMember::Method {
@@ -417,7 +418,7 @@ mod test {
                             },
                         ]),
                         body: mock.list([
-                            Statement::Expression(mock.ident("debug"))
+                            Statement::Expression(mock.ptr("debug"))
                         ])
                     },
                     ClassMember::Method {
@@ -462,25 +463,25 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: mock.list([
-                    ClassMember::Value {
+                    ClassMember::Literal {
                         is_static: false,
                         property: Property::Literal("doge"),
                         value: mock.number("10")
                     },
-                    ClassMember::Value {
+                    ClassMember::Literal {
                         is_static: false,
                         property: Property::Literal("to"),
                         value: mock.number("20")
                     },
-                    ClassMember::Value {
+                    ClassMember::Literal {
                         is_static: false,
                         property: Property::Literal("the"),
                         value: mock.number("30")
                     },
-                    ClassMember::Value {
+                    ClassMember::Literal {
                         is_static: true,
                         property: Property::Literal("moon"),
                         value: mock.number("42")
@@ -501,9 +502,9 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
-                extends: Some(mock.ptr(Expression::Value(Value::Null))),
-                body: mock.list([])
+                name: mock.name("Foo"),
+                extends: Some(mock.ptr(Expression::Literal(Literal::Null))),
+                body: List::empty()
             })
         ]);
 
@@ -524,7 +525,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: mock.list([
                     ClassMember::Method {

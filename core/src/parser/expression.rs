@@ -1,8 +1,8 @@
 use parser::{Parser, B0, B1, B15};
 use lexer::Token::*;
 use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr};
-use ast::{ObjectMember, Property, OperatorKind, Value, Parameter, ParameterKey, ParameterList};
-use ast::expression::{PrefixExpr, ArrowExpr, ArrayExpr, ObjectExpr, TemplateExpr};
+use ast::{ObjectMember, Property, OperatorKind, Literal, Parameter, ParameterKey, ParameterList};
+use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression, ObjectExpression, TemplateExpression};
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
@@ -76,8 +76,8 @@ create_handlers! {
     const FUNC = |par| par.function_expression();
 
     const IDEN = |par| {
-        let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Expression::Identifier(value));
+        let ident = par.lexer.token_as_str();
+        let expr = par.alloc_in_loc(ident);
 
         par.lexer.consume();
         expr
@@ -106,28 +106,28 @@ create_handlers! {
     pub const REG = |par| par.regular_expression();
 
     pub const TRUE = |par| {
-        let expr = par.alloc_in_loc(Expression::Value(Value::True));
+        let expr = par.alloc_in_loc(Literal::True);
         par.lexer.consume();
 
         expr
     };
 
     pub const FALS = |par| {
-        let expr = par.alloc_in_loc(Expression::Value(Value::False));
+        let expr = par.alloc_in_loc(Literal::False);
 
         par.lexer.consume();
         expr
     };
 
     pub const NULL = |par| {
-        let expr = par.alloc_in_loc(Expression::Value(Value::Null));
+        let expr = par.alloc_in_loc(Literal::Null);
 
         par.lexer.consume();
         expr
     };
 
     pub const UNDE = |par| {
-        let expr = par.alloc_in_loc(Expression::Value(Value::Undefined));
+        let expr = par.alloc_in_loc(Literal::Undefined);
 
         par.lexer.consume();
         expr
@@ -135,7 +135,7 @@ create_handlers! {
 
     pub const STR = |par| {
         let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Expression::Value(Value::String(value)));
+        let expr = par.alloc_in_loc(Literal::String(value));
 
         par.lexer.consume();
         expr
@@ -143,7 +143,7 @@ create_handlers! {
 
     pub const NUM = |par| {
         let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Expression::Value(Value::Number(value)));
+        let expr = par.alloc_in_loc(Literal::Number(value));
 
         par.lexer.consume();
         expr
@@ -151,7 +151,7 @@ create_handlers! {
 
     pub const BIN = |par| {
         let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Expression::Value(Value::Binary(value)));
+        let expr = par.alloc_in_loc(Literal::Binary(value));
 
         par.lexer.consume();
         expr
@@ -159,7 +159,7 @@ create_handlers! {
 
     pub const TPLS = |par| {
         let quasi = par.lexer.quasi;
-        let expr = par.alloc_in_loc(Expression::Value(Value::Template(quasi)));
+        let expr = par.alloc_in_loc(Literal::Template(quasi));
 
         par.lexer.consume();
         expr
@@ -181,18 +181,18 @@ impl<'ast> Parser<'ast> {
         let body = match self.lexer.token {
             BraceOpen => {
                 self.lexer.consume();
-                self.block_statement()
+                ArrowBody::Block(self.block_statement())
             },
             _ => {
                 let expression = self.expression(B1);
-                self.wrap_expression(expression)
+                ArrowBody::Expression(expression)
             }
         };
 
-        self.alloc(Expression::Arrow(ArrowExpr {
+        self.alloc_at_loc(0, 0, ArrowExpression {
             params,
             body,
-        }).at(0, 0))
+        })
     }
 
     #[inline]
@@ -246,10 +246,10 @@ impl<'ast> Parser<'ast> {
     pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
         let operand = self.expression(B15);
 
-        self.alloc(Expression::Prefix(PrefixExpr {
+        self.alloc_at_loc(0, 0, PrefixExpression {
             operator: operator,
             operand: operand,
-        }).at(0, 0))
+        })
     }
 
     #[inline]
@@ -259,7 +259,7 @@ impl<'ast> Parser<'ast> {
 
         if self.lexer.token == BraceClose {
             self.lexer.consume();
-            return self.alloc_in_loc(Expression::Object(ObjectExpr {
+            return self.alloc_in_loc(Expression::Object(ObjectExpression {
                 body: List::empty()
             }));
         }
@@ -289,9 +289,9 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc(Expression::Object(ObjectExpr {
+        self.alloc_at_loc(start, 0, ObjectExpression {
             body: builder.into_list()
-        }).at(start, 0))
+        })
     }
 
     #[inline]
@@ -348,10 +348,10 @@ impl<'ast> Parser<'ast> {
 
                 let value = self.expression(B1);
 
-                self.alloc(Loc::new(0, 0, ObjectMember::Value {
+                self.alloc_at_loc(0, 0,  ObjectMember::Literal {
                     property,
                     value,
-                }))
+                })
             },
             ParenOpen => {
                 self.lexer.consume();
@@ -359,11 +359,11 @@ impl<'ast> Parser<'ast> {
                 let params = self.parameter_list();
                 let body = self.block_body();
 
-                self.alloc(Loc::new(0, 0, ObjectMember::Method {
+                self.alloc_at_loc(0, 0, ObjectMember::Method {
                     property,
                     params,
                     body,
-                }))
+                })
             },
             _ => unexpected_token!(self)
         }
@@ -375,15 +375,15 @@ impl<'ast> Parser<'ast> {
         self.lexer.consume();
 
         let expression = match self.lexer.token {
-            Comma        => {
+            Comma => {
                 self.lexer.consume();
                 self.alloc_in_loc(Expression::Void)
             },
             BracketClose => {
                 self.lexer.consume();
-                return self.alloc(Expression::Array(ArrayExpr { body: List::empty() }).at(0,0))
+                return self.alloc_at_loc(0, 0, ArrayExpression { body: List::empty() });
             },
-            _            => {
+            _ => {
                 let expression = self.expression(B1);
 
                 match self.lexer.token {
@@ -392,13 +392,13 @@ impl<'ast> Parser<'ast> {
 
                         let body = List::from(self.arena, expression);
 
-                        return self.alloc(Expression::Array(ArrayExpr { body }).at(0, 0));
+                        return self.alloc_at_loc(0, 0, ArrayExpression { body });
                     },
-                    Comma        => {
+                    Comma => {
                         self.lexer.consume();
                         expression
                     },
-                    _            => unexpected_token!(self),
+                    _ => unexpected_token!(self),
                 }
             }
         };
@@ -438,9 +438,9 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc(Expression::Array(ArrayExpr {
+        self.alloc_at_loc(start, 0, ArrayExpression {
             body: builder.into_list()
-        }).at(start, 0))
+        })
     }
 
     #[inline]
@@ -449,7 +449,7 @@ impl<'ast> Parser<'ast> {
 
         expect!(self, LiteralRegEx);
 
-        self.alloc(Expression::Value(Value::RegEx(value)).at(0, 0))
+        self.alloc_at_loc(0, 0, Literal::RegEx(value))
     }
 
     #[inline]
@@ -459,13 +459,13 @@ impl<'ast> Parser<'ast> {
 
         self.lexer.consume();
 
-        let template = Expression::Template(TemplateExpr {
+        let quasis = List::from(self.arena, quasi);
+
+        self.alloc_in_loc(TemplateExpression {
             tag,
             expressions: List::empty(),
-            quasis: List::from(self.arena, quasi),
-        });
-
-        self.alloc_in_loc(template)
+            quasis,
+        })
     }
 
     #[inline]
@@ -508,11 +508,11 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc(Expression::Template(TemplateExpr {
+        self.alloc_at_loc(0, 0, TemplateExpression {
             tag,
             expressions: expressions.into_list(),
             quasis: quasis.into_list(),
-        }).at(0, 0))
+        })
     }
 
     #[inline]
@@ -522,7 +522,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc(Expression::Function(function).at(start, 0))
+        self.alloc_at_loc(start, 0, Expression::Function(function))
     }
 
     #[inline]
@@ -532,15 +532,16 @@ impl<'ast> Parser<'ast> {
 
         let class = self.class();
 
-        self.alloc(Expression::Class(class).at(start, 0))
+        self.alloc_at_loc(start, 0, Expression::Class(class))
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use ast::{OperatorKind, Value, Statement, Function, Class};
+    use ast::{OperatorKind, Literal, Statement, Function, Class};
     use ast::expression::*;
+    use ast::statement::*;
     use parser::parse;
     use parser::mock::Mock;
 
@@ -559,9 +560,9 @@ mod test {
         let module_b = parse("100;").unwrap();
         let module_c = parse("true;").unwrap();
 
-        let expected_a = Value::String(r#""foobar""#);
-        let expected_b = Value::Number("100");
-        let expected_c = Value::True;
+        let expected_a = Literal::String(r#""foobar""#);
+        let expected_b = Literal::Number("100");
+        let expected_c = Literal::True;
 
         assert_expr!(module_a, expected_a);
         assert_expr!(module_b, expected_b);
@@ -572,9 +573,8 @@ mod test {
     fn template_expression() {
         let src = "`foobar`;";
         let module = parse(src).unwrap();
-        let mock = Mock::new();
 
-        let expected = Value::Template("foobar");
+        let expected = Literal::Template("foobar");
 
         assert_expr!(module, expected);
     }
@@ -585,8 +585,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpr {
-            tag: Some(mock.ident("foo")),
+        let expected = TemplateExpression {
+            tag: Some(mock.ptr("foo")),
             expressions: List::empty(),
             quasis: mock.list(["bar"]),
         };
@@ -600,11 +600,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpr {
+        let expected = TemplateExpression {
             tag: None,
             expressions: mock.list([
-                Expression::Value(Value::Number("10")),
-                Expression::Value(Value::Number("20")),
+                Literal::Number("10"),
+                Literal::Number("20"),
             ]),
             quasis: mock.list(["foo", "bar", "baz" ]),
         };
@@ -618,10 +618,10 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpr {
-            tag: Some(mock.ident("foo")),
+        let expected = TemplateExpression {
+            tag: Some(mock.ptr("foo")),
             expressions: mock.list([
-                Expression::Value(Value::Number("42")),
+                Literal::Number("42"),
             ]),
             quasis: mock.list(["bar", "baz"]),
         };
@@ -635,12 +635,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = SequenceExpr {
-            body: mock.list([
-                Expression::Identifier("foo"),
-                Expression::Identifier("bar"),
-                Expression::Identifier("baz"),
-            ])
+        let expected = SequenceExpression {
+            body: mock.list(["foo", "bar", "baz"]),
         };
 
         assert_expr!(module, expected);
@@ -652,10 +648,10 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = BinaryExpr {
+        let expected = BinaryExpression {
             operator: OperatorKind::Addition,
-            left: mock.ident("foo"),
-            right: mock.ident("bar"),
+            left: mock.ptr("foo"),
+            right: mock.ptr("bar"),
         };
 
         assert_expr!(module, expected);
@@ -667,7 +663,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = BinaryExpr {
+        let expected = BinaryExpression {
             operator: OperatorKind::Addition,
             left: mock.number("2"),
             right: mock.number("2"),
@@ -683,10 +679,10 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ConditionalExpr {
-            test: mock.ptr(Expression::Value(Value::True)),
-            consequent: mock.ident("foo"),
-            alternate: mock.ident("bar"),
+        let expected = ConditionalExpression {
+            test: mock.ptr(Expression::Literal(Literal::True)),
+            consequent: mock.ptr("foo"),
+            alternate: mock.ptr("bar"),
         };
 
         assert_expr!(module, expected);
@@ -698,9 +694,9 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = PostfixExpr {
+        let expected = PostfixExpression {
             operator: OperatorKind::Increment,
-            operand: mock.ident("baz"),
+            operand: mock.ptr("baz"),
         };
 
         assert_expr!(module, expected);
@@ -712,8 +708,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = CallExpr {
-            callee: mock.ident("foo"),
+        let expected = CallExpression {
+            callee: mock.ptr("foo"),
             arguments: List::empty(),
         };
 
@@ -726,8 +722,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = MemberExpr {
-            object: mock.ident("foo"),
+        let expected = MemberExpression {
+            object: mock.ptr("foo"),
             property: mock.ptr("bar"),
         };
 
@@ -740,8 +736,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = MemberExpr {
-            object: mock.ident("foo"),
+        let expected = MemberExpression {
+            object: mock.ptr("foo"),
             property: mock.ptr("function"),
         };
 
@@ -754,8 +750,8 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ComputedMemberExpr {
-            object: mock.ident("foo"),
+        let expected = ComputedMemberExpression {
+            object: mock.ptr("foo"),
             property: mock.number("10"),
         };
 
@@ -767,7 +763,7 @@ mod test {
         let src = r#"/^[A-Z]+\/[\d]+/g"#;
         let module = parse(src).unwrap();
 
-        let expected = Value::RegEx("/^[A-Z]+\\/[\\d]+/g");
+        let expected = Literal::RegEx("/^[A-Z]+\\/[\\d]+/g");
 
         assert_expr!(module, expected);
     }
@@ -778,11 +774,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrayExpr {
+        let expected = ArrayExpression {
             body: mock.list([
-                Expression::Value(Value::Number("0")),
-                Expression::Value(Value::Number("1")),
-                Expression::Value(Value::Number("2")),
+                Literal::Number("0"),
+                Literal::Number("1"),
+                Literal::Number("2"),
             ])
         };
 
@@ -795,7 +791,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrayExpr {
+        let expected = ArrayExpression {
             body: mock.list([
                 Expression::Void,
                 Expression::Void,
@@ -830,7 +826,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = Expression::Function(Function {
-            name: mock.ptr("foo").into(),
+            name: mock.name("foo"),
             params: List::empty(),
             body: List::empty()
         });
@@ -844,9 +840,9 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrowExpr {
+        let expected = ArrowExpression {
             params: ParameterList::empty(),
-            body: mock.stmt(mock.ident("bar")),
+            body: ArrowBody::Expression(mock.ptr("bar")),
         };
         assert_expr!(module, expected);
     }
@@ -857,7 +853,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrowExpr {
+        let expected = ArrowExpression {
             params: mock.list([
                 Parameter {
                     key: ParameterKey::Identifier("n"),
@@ -865,10 +861,10 @@ mod test {
                 },
             ]),
 
-            body: mock.stmt(mock.expr(BinaryExpr {
+            body: ArrowBody::Expression(mock.ptr(BinaryExpression {
                 operator: OperatorKind::Multiplication,
-                left: mock.ident("n"),
-                right: mock.ident("n"),
+                left: mock.ptr("n"),
+                right: mock.ptr("n"),
             }))
 
         };
@@ -881,7 +877,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrowExpr {
+        let expected = ArrowExpression {
             params: mock.list([
                 Parameter {
                     key: ParameterKey::Identifier("a"),
@@ -896,7 +892,7 @@ mod test {
                     value: None,
                 }
             ]),
-            body: mock.stmt(mock.ident("bar"))
+            body: ArrowBody::Expression(mock.ptr("bar"))
         };
         assert_expr!(module, expected);
     }
@@ -914,7 +910,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = ArrowExpr {
+        let expected = ArrowExpression {
             params: mock.list([
                 Parameter {
                     key: ParameterKey::Identifier("a"),
@@ -926,10 +922,10 @@ mod test {
                 },
                 Parameter {
                     key: ParameterKey::Identifier("c"),
-                    value: Some(mock.expr(Value::Number("2")))
+                    value: Some(mock.ptr(Literal::Number("2")))
                 }
             ]),
-            body: mock.stmt(mock.ident("bar"))
+            body: ArrowBody::Expression(mock.ptr("bar"))
         };
         assert_expr!(module, expected);
     }
@@ -955,7 +951,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = Expression::Class(Class {
-            name: mock.ptr("Foo").into(),
+            name: mock.name("Foo"),
             extends: None,
             body: List::empty()
         });
@@ -970,8 +966,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = Expression::Class(Class {
-            name: mock.ptr("Foo").into(),
-            extends: Some(mock.ident("Bar")),
+            name: mock.name("Foo"),
+            extends: Some(mock.ptr("Bar")),
             body: List::empty()
         });
 
@@ -984,17 +980,17 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = BinaryExpr {
+        let expected = BinaryExpression {
             operator: OperatorKind::LogicalAnd,
-            left: mock.expr(BinaryExpr {
+            left: mock.ptr(BinaryExpression {
                 operator: OperatorKind::StrictEquality,
-                left: mock.expr(Value::True),
-                right: mock.expr(Value::True),
+                left: mock.ptr(Literal::True),
+                right: mock.ptr(Literal::True),
             }),
-            right: mock.expr(BinaryExpr {
+            right: mock.ptr(BinaryExpression {
                 operator: OperatorKind::StrictEquality,
-                left: mock.expr(Value::False),
-                right: mock.expr(Value::False),
+                left: mock.ptr(Literal::False),
+                right: mock.ptr(Literal::False),
             }),
         };
 
@@ -1007,13 +1003,13 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = SequenceExpr {
+        let expected = SequenceExpression {
             body: mock.list([
-                Expression::Arrow(ArrowExpr {
+                Expression::Arrow(ArrowExpression {
                     params: List::empty(),
-                    body: mock.ptr(Statement::Block {
+                    body: ArrowBody::Block(mock.ptr(BlockStatement {
                         body: List::empty()
-                    })
+                    }))
                 }),
                 Expression::Identifier("foo"),
             ])

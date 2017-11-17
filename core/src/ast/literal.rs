@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Value<'ast> {
+pub enum Literal<'ast> {
     Undefined,
     Null,
     True,

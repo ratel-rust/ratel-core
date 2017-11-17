@@ -2,8 +2,12 @@ use parser::{Parser, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
-use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Value};
-use ast::expression::BinaryExpr;
+use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Literal};
+use ast::expression::BinaryExpression;
+use ast::statement::{BlockStatement, ReturnStatement, IfStatement, WhileStatement, DoStatement};
+use ast::statement::{TryStatement, ThrowStatement, ContinueStatement, BreakStatement};
+use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
+use ast::statement::{SwitchStatement, SwitchCaseStatement, LabeledStatement};
 use ast::OperatorKind;
 use ast::OperatorKind::*;
 use ast::{EmptyListBuilder};
@@ -144,7 +148,7 @@ impl<'ast> Parser<'ast> {
     pub fn block_statement(&mut self) -> StatementPtr<'ast> {
         let body = self.block_body_tail();
 
-        self.alloc(Statement::Block { body }.at(0, 0))
+        self.alloc_at_loc(0, 0, BlockStatement { body })
     }
 
     #[inline]
@@ -161,7 +165,7 @@ impl<'ast> Parser<'ast> {
 
         expect_semicolon!(self);
 
-        self.alloc(Statement::Expression(expression).at(start, end))
+        self.alloc_at_loc(start, end, expression)
     }
 
     #[inline]
@@ -171,18 +175,18 @@ impl<'ast> Parser<'ast> {
 
             let body = self.statement();
 
-            return self.alloc(Statement::Labeled {
+            return self.alloc_at_loc(0, 0, LabeledStatement {
                 label,
                 body,
-            }.at(0, 0))
+            });
         }
 
-        let expression = self.alloc_in_loc(Expression::Identifier(label));
+        let expression = self.alloc_in_loc(label);
         let expression = self.nested_expression(expression, B0);
 
         expect_semicolon!(self);
 
-        self.alloc(Statement::Expression(expression).at(0, 0))
+        self.alloc_at_loc(0, 0, expression)
     }
 
     #[inline]
@@ -192,7 +196,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc(Statement::Function(function).at(start, 0))
+        self.alloc_at_loc(start, 0, Statement::Function(function))
     }
 
     #[inline]
@@ -202,7 +206,7 @@ impl<'ast> Parser<'ast> {
 
         let class = self.class();
 
-        self.alloc(Statement::Class(class).at(start, 0))
+        self.alloc_at_loc(start, 0, Statement::Class(class))
     }
 
     #[inline]
@@ -224,17 +228,17 @@ impl<'ast> Parser<'ast> {
             }
         };
 
-        self.alloc(Statement::Return { value }.at(0, 0))
+        self.alloc_at_loc(0, 0, ReturnStatement { value })
     }
 
     #[inline]
     pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> StatementPtr<'ast> {
         let declarators = self.variable_declarators();
 
-        let declaration = self.alloc(Statement::Declaration {
+        let declaration = self.alloc_at_loc(0, 0, DeclarationStatement {
             kind: kind,
             declarators
-        }.at(0, 0));
+        });
 
         expect_semicolon!(self);
 
@@ -262,10 +266,10 @@ impl<'ast> Parser<'ast> {
             _ => None
         };
 
-        self.alloc(Loc::new(0, 0, Declarator {
+        self.alloc_at_loc(0, 0, Declarator {
             name,
             value,
-        }))
+        })
     }
 
     #[inline]
@@ -300,11 +304,11 @@ impl<'ast> Parser<'ast> {
 
                 expect_semicolon!(self);
 
-                Some(self.alloc_in_loc(Expression::Identifier(label)))
+                Some(self.alloc_in_loc(label))
             }
         };
 
-        self.alloc(Statement::Break { label }.at(0, 0))
+        self.alloc_at_loc(0, 0, BreakStatement { label })
     }
 
     #[inline]
@@ -320,11 +324,11 @@ impl<'ast> Parser<'ast> {
 
                 expect_semicolon!(self);
 
-                Some(self.alloc_in_loc(Expression::Identifier(label)))
+                Some(self.alloc_in_loc(label))
             }
         };
 
-        self.alloc(Statement::Continue { label }.at(0, 0))
+        self.alloc_at_loc(0, 0, ContinueStatement { label })
     }
 
     #[inline]
@@ -333,7 +337,7 @@ impl<'ast> Parser<'ast> {
 
         expect_semicolon!(self);
 
-        self.alloc(Statement::Throw { value }.at(0, 0))
+        self.alloc_at_loc(0, 0, ThrowStatement { value })
     }
 
     #[inline]
@@ -343,17 +347,17 @@ impl<'ast> Parser<'ast> {
         expect!(self, ParenOpen);
 
         let error = expect_identifier!(self);
-        let error = self.alloc_in_loc(Expression::Identifier(error));
+        let error = self.alloc_in_loc(error);
         expect!(self, ParenClose);
 
         let handler = self.block_body();
         expect_semicolon!(self);
 
-        self.alloc(Statement::Try {
+        self.alloc_at_loc(0, 0, TryStatement {
             body,
             error,
             handler,
-        }.at(0, 0))
+        })
     }
 
     #[inline]
@@ -372,11 +376,11 @@ impl<'ast> Parser<'ast> {
             _ => None
         };
 
-        self.alloc(Statement::If {
+        self.alloc_at_loc(0, 0, IfStatement {
             test,
             consequent,
             alternate,
-        }.at(0, 0))
+        })
     }
 
     #[inline]
@@ -387,10 +391,10 @@ impl<'ast> Parser<'ast> {
 
         let body = self.statement();
 
-        self.alloc(Statement::While {
+        self.alloc_at_loc(0, 0, WhileStatement {
             test,
             body,
-        }.at(0, 0))
+        })
     }
 
     #[inline]
@@ -400,10 +404,10 @@ impl<'ast> Parser<'ast> {
 
         let test = self.expression(B0);
 
-        self.alloc(Statement::Do {
+        self.alloc_at_loc(0, 0, DoStatement {
             body,
             test,
-        }.at(0, 0))
+        })
     }
 
     #[inline]
@@ -433,37 +437,37 @@ impl<'ast> Parser<'ast> {
                     },
                     ..
                 }) = declarators.only_element() {
-                    if let Expression::Binary(BinaryExpr { operator: In, right, .. }) = value.item {
-                        let left = self.alloc(Statement::Declaration {
+                    if let Expression::Binary(BinaryExpression { operator: In, right, .. }) = value.item {
+                        let left = self.alloc_at_loc(0, 0, DeclarationStatement {
                             kind,
                             declarators,
-                        }.at(0, 0));
+                        });
 
                         return self.for_in_statement_from_parts(left, right);
                     }
                 }
 
-                Some(self.alloc(Statement::Declaration {
+                Some(self.alloc_at_loc(0, 0, DeclarationStatement {
                     kind,
                     declarators,
-                }.at(0, 0)))
+                }))
             }
 
             _ => {
                 let expression = self.expression(B0);
 
-                if let Expression::Binary(BinaryExpr {
+                if let Expression::Binary(BinaryExpression {
                     operator: In,
                     left,
                     right,
                     ..
                 }) = expression.item {
-                    let left = self.alloc(Statement::Expression(left).at(0, 0));
+                    let left = self.alloc_at_loc(0, 0, left);
 
                     return self.for_in_statement_from_parts(left, right);
                 }
 
-                Some(self.alloc(Statement::Expression(expression).at(0, 0)))
+                Some(self.alloc_at_loc(0, 0, expression))
             },
         };
 
@@ -513,12 +517,12 @@ impl<'ast> Parser<'ast> {
 
         let body = self.statement();
 
-        self.alloc(Statement::For {
+        self.alloc_at_loc(0, 0, ForStatement {
             init,
             test,
             update,
             body,
-        }.at(0, 0))
+        })
     }
 
     fn for_in_statement_from_parts(&mut self, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
@@ -526,11 +530,11 @@ impl<'ast> Parser<'ast> {
 
         let body = self.statement();
 
-        self.alloc(Statement::ForIn {
+        self.alloc_at_loc(0, 0, ForInStatement {
             left,
             right,
             body,
-        }.at(0, 0))
+        })
     }
 
     fn for_in_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
@@ -540,11 +544,11 @@ impl<'ast> Parser<'ast> {
 
         let body = self.statement();
 
-        self.alloc(Statement::ForIn {
+        self.alloc_at_loc(0, 0, ForInStatement {
             left,
             right,
             body,
-        }.at(0, 0))
+        })
     }
 
     fn for_of_statement(&mut self, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
@@ -554,11 +558,11 @@ impl<'ast> Parser<'ast> {
 
         let body = self.statement();
 
-        self.alloc(Statement::ForOf {
+        self.alloc_at_loc(0, 0, ForOfStatement {
             left,
             right,
             body,
-        }.at(0, 0))
+        })
     }
 
     fn case_statement(&mut self, expr: Option<ExpressionPtr<'ast>>) -> StatementPtr<'ast> {
@@ -584,10 +588,10 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc(Statement::SwitchCase {
+        self.alloc_at_loc(0, 0, SwitchCaseStatement {
             test: expr,
             consequent: consequent.into_list()
-        }.at(0, 0))
+        })
     }
 
     fn switch_statement(&mut self) -> StatementPtr<'ast> {
@@ -619,10 +623,10 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc(Statement::Switch {
+        self.alloc_at_loc(0, 0, SwitchStatement {
             discriminant,
             cases: cases.into_list()
-        }.at(0, 0))
+        })
     }
 }
 
@@ -631,7 +635,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Value, ObjectMember, Function, Class, OperatorKind};
+    use ast::{List, Literal, ObjectMember, Function, Class, OperatorKind};
     use ast::expression::*;
 
     #[test]
@@ -641,9 +645,9 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Block {
+            BlockStatement {
                 body: mock.list([
-                    Statement::Expression(mock.ptr(Expression::Value(Value::True)))
+                    mock.ptr(Literal::True)
                 ])
             }
         ]);
@@ -658,11 +662,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Labeled {
+            LabeledStatement {
                 label: "foobar",
-                body: mock.ptr(Statement::Block {
+                body: mock.ptr(BlockStatement {
                     body: mock.list([
-                        Statement::Expression(mock.ptr(Expression::Value(Value::True)))
+                        mock.ptr(Literal::True)
                     ])
                 })
             }
@@ -678,9 +682,9 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::If {
-                test: mock.ptr(Expression::Value(Value::True)),
-                consequent: mock.ptr(Statement::Expression(mock.ident("foo"))),
+            IfStatement {
+                test: mock.ptr(Literal::True),
+                consequent: mock.ptr(mock.ptr("foo")),
                 alternate: None
             }
         ]);
@@ -695,12 +699,12 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::If {
-                test: mock.ptr(Expression::Value(Value::True)),
-                consequent: mock.ptr(Statement::Expression(mock.ident("foo"))),
-                alternate: Some(mock.ptr(Statement::Block {
+            IfStatement {
+                test: mock.ptr(Literal::True),
+                consequent: mock.ptr(mock.ptr("foo")),
+                alternate: Some(mock.ptr(BlockStatement {
                     body: mock.list([
-                        Statement::Expression(mock.ident("bar"))
+                        mock.ptr("bar")
                     ])
                 }))
             }
@@ -716,9 +720,9 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::While {
-                test: mock.expr(Value::True),
-                body: mock.stmt(mock.ident("foo"))
+            WhileStatement {
+                test: mock.ptr(Literal::True),
+                body: mock.ptr(mock.ptr("foo"))
             }
         ]);
 
@@ -732,11 +736,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::While {
-                test: mock.expr(Value::True),
-                body: mock.ptr(Statement::Block {
+            WhileStatement {
+                test: mock.ptr(Literal::True),
+                body: mock.ptr(BlockStatement {
                     body: mock.list([
-                        Statement::Expression(mock.ident("foo"))
+                        mock.ptr("foo")
                     ])
                 })
             }
@@ -752,9 +756,9 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Do {
-                body: mock.stmt(mock.ident("foo")),
-                test: mock.expr(Value::True)
+            DoStatement {
+                body: mock.ptr(mock.ptr("foo")),
+                test: mock.ptr(Literal::True)
             }
         ]);
 
@@ -768,7 +772,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Break {
+            BreakStatement {
                 label: None,
             }
         ]);
@@ -783,8 +787,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Break {
-                label: Some(mock.ident("foo")),
+            BreakStatement {
+                label: Some(mock.ptr("foo")),
             }
         ]);
 
@@ -798,8 +802,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Throw {
-                value: mock.expr(Value::String("'3'")),
+            ThrowStatement {
+                value: mock.ptr(Literal::String("'3'")),
             }
         ]);
 
@@ -813,9 +817,9 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Try {
+            TryStatement {
                 body: List::empty(),
-                error: mock.ident("err"),
+                error: mock.ptr("err"),
                 handler: List::empty()
             }
         ]);
@@ -830,13 +834,13 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Try {
+            TryStatement {
                 body: mock.list([
-                    Statement::Expression(mock.ident("foo"))
+                    mock.ptr("foo")
                 ]),
-                error: mock.ident("err"),
+                error: mock.ptr("err"),
                 handler: mock.list([
-                    Statement::Expression(mock.ident("bar"))
+                    mock.ptr("bar")
                 ]),
             }
         ]);
@@ -851,7 +855,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Declaration {
+            DeclarationStatement {
                 kind: DeclarationKind::Var,
                 declarators: mock.list([
                     Declarator {
@@ -880,20 +884,20 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Declaration {
+            DeclarationStatement {
                 kind: DeclarationKind::Let,
                 declarators: mock.list([
                     Declarator {
-                        name: DeclaratorId::Pattern(mock.expr(ArrayExpr {
+                        name: DeclaratorId::Pattern(mock.ptr(ArrayExpression {
                             body: mock.list([
                                 Expression::Identifier("x"),
                                 Expression::Identifier("y"),
                             ])
                         })),
-                        value: Some(mock.expr(ArrayExpr {
+                        value: Some(mock.ptr(ArrayExpression {
                             body: mock.list([
-                                Expression::Value(Value::Number("1")),
-                                Expression::Value(Value::Number("2")),
+                                Expression::Literal(Literal::Number("1")),
+                                Expression::Literal(Literal::Number("2")),
                             ])
                         })),
                     },
@@ -911,17 +915,17 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Declaration {
+            DeclarationStatement {
                 kind: DeclarationKind::Const,
                 declarators: mock.list([
                     Declarator {
-                        name: DeclaratorId::Pattern(mock.expr(ObjectExpr {
+                        name: DeclaratorId::Pattern(mock.ptr(ObjectExpression {
                             body: mock.list([
                                 ObjectMember::Shorthand("x"),
                                 ObjectMember::Shorthand("y"),
                             ])
                         })),
-                        value: Some(mock.expr(ObjectExpr {
+                        value: Some(mock.ptr(ObjectExpression {
                             body: mock.list([
                                 ObjectMember::Shorthand("a"),
                                 ObjectMember::Shorthand("b"),
@@ -942,8 +946,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::For {
-                init: Some(mock.ptr(Statement::Declaration {
+            ForStatement {
+                init: Some(mock.ptr(DeclarationStatement {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
@@ -952,16 +956,16 @@ mod test {
                         }
                     ]),
                 })),
-                test: Some(mock.expr(BinaryExpr {
+                test: Some(mock.ptr(BinaryExpression {
                     operator: OperatorKind::Lesser,
-                    left: mock.ident("i"),
+                    left: mock.ptr("i"),
                     right: mock.number("10"),
                 })),
-                update: Some(mock.expr(PostfixExpr {
+                update: Some(mock.ptr(PostfixExpression {
                     operator: OperatorKind::Increment,
-                    operand: mock.ident("i")
+                    operand: mock.ptr("i")
                 })),
-                body: mock.ptr(Statement::Block {
+                body: mock.ptr(BlockStatement {
                     body: List::empty()
                 })
             }
@@ -977,11 +981,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::For {
+            ForStatement {
                 init: None,
                 test: None,
                 update: None,
-                body: mock.ptr(Statement::Block {
+                body: mock.ptr(BlockStatement {
                     body: List::empty()
                 })
             }
@@ -998,8 +1002,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::For {
-                init: Some(mock.ptr(Statement::Declaration {
+            ForStatement {
+                init: Some(mock.ptr(DeclarationStatement {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
@@ -1012,26 +1016,26 @@ mod test {
                         }
                     ]),
                 })),
-                test: Some(mock.expr(BinaryExpr {
+                test: Some(mock.ptr(BinaryExpression {
                     operator: OperatorKind::Lesser,
-                    left: mock.ident("i"),
+                    left: mock.ptr("i"),
                     right: mock.number("10"),
                 })),
-                update: Some(mock.expr(SequenceExpr {
+                update: Some(mock.ptr(SequenceExpression {
                     body: mock.list([
-                        Expression::Postfix(PostfixExpr {
+                        Expression::Postfix(PostfixExpression {
                             operator: OperatorKind::Increment,
-                            operand: mock.ident("i")
+                            operand: mock.ptr("i")
                         }),
-                        Expression::Postfix(PostfixExpr {
+                        Expression::Postfix(PostfixExpression {
                             operator: OperatorKind::Decrement,
-                            operand: mock.ident("j")
+                            operand: mock.ptr("j")
                         })
                     ])
                 })),
-                body: mock.ptr(Statement::Block {
+                body: mock.ptr(BlockStatement {
                     body: mock.list([
-                        Statement::Continue {
+                        ContinueStatement {
                             label: None
                         }
                     ]),
@@ -1050,8 +1054,8 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::For {
-                init: Some(mock.ptr(Statement::Declaration {
+            ForStatement {
+                init: Some(mock.ptr(DeclarationStatement {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
@@ -1064,24 +1068,24 @@ mod test {
                         }
                     ]),
                 })),
-                test: Some(mock.expr(BinaryExpr {
+                test: Some(mock.ptr(BinaryExpression {
                     operator: OperatorKind::Lesser,
-                    left: mock.ident("i"),
+                    left: mock.ptr("i"),
                     right: mock.number("10"),
                 })),
-                update: Some(mock.expr(SequenceExpr {
+                update: Some(mock.ptr(SequenceExpression {
                     body: mock.list([
-                        Expression::Postfix(PostfixExpr {
+                        Expression::Postfix(PostfixExpression {
                             operator: OperatorKind::Increment,
-                            operand: mock.ident("i")
+                            operand: mock.ptr("i")
                         }),
-                        Expression::Postfix(PostfixExpr {
+                        Expression::Postfix(PostfixExpression {
                             operator: OperatorKind::Decrement,
-                            operand: mock.ident("j")
+                            operand: mock.ptr("j")
                         })
                     ])
                 })),
-                body: mock.ptr(Statement::Block {
+                body: mock.ptr(BlockStatement {
                     body: List::empty()
                 })
             }
@@ -1098,7 +1102,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Function(Function {
-                name: mock.ptr("foo").into(),
+                name: mock.name("foo"),
                 params: List::empty(),
                 body: List::empty(),
             })
@@ -1120,7 +1124,7 @@ mod test {
 
         let expected = mock.list([
             Statement::Class(Class {
-                name: mock.ptr("Foo").into(),
+                name: mock.name("Foo"),
                 extends: None,
                 body: List::empty(),
             })
@@ -1151,29 +1155,29 @@ mod test {
         "#;
 
         let expected = mock.list([
-            Statement::Switch {
-                discriminant: mock.ident("times"),
+            SwitchStatement {
+                discriminant: mock.ptr("times"),
                 cases: mock.list([
-                    Statement::SwitchCase {
+                    SwitchCaseStatement {
                         test: Some(mock.number("3")),
                         consequent: mock.list([
-                            Statement::Break { label: None }
+                            BreakStatement { label: None }
                         ])
                     },
-                    Statement::SwitchCase {
+                    SwitchCaseStatement {
                         test: Some(mock.number("2")),
                         consequent: mock.list([
-                            Statement::Return { value: Some(mock.ident("b")) }
+                            ReturnStatement { value: Some(mock.ptr("b")) }
                         ])
                     },
-                    Statement::SwitchCase {
-                        test: Some(mock.ptr(Expression::Value(Value::String("\"1\"")))),
-                        consequent: mock.list([])
+                    SwitchCaseStatement {
+                        test: Some(mock.ptr(Expression::Literal(Literal::String("\"1\"")))),
+                        consequent: List::empty()
                     },
-                    Statement::SwitchCase {
+                    SwitchCaseStatement {
                         test: None,
                         consequent: mock.list([
-                            Statement::Return { value: Some(mock.ptr(Expression::Value(Value::False))) }
+                            ReturnStatement { value: Some(mock.ptr(Expression::Literal(Literal::False))) }
                         ])
                     },
                 ])

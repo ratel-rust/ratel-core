@@ -20,7 +20,7 @@ impl<'ast> Transformable<'ast> for ExpressionPtr<'ast> {
             Void => {},
             This => {},
             Identifier(ref ident) => unimplemented!(),
-            Value(ref value) => unimplemented!(),
+            Literal(ref value) => unimplemented!(),
             Sequence {
                 ref body
             } => {
