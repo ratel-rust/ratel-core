@@ -20,7 +20,7 @@ impl<'ast> Serialize for Loc<TaggedTemplateExpression<'ast>> {
     {
         let mut state = serializer.serialize_struct("TaggedTemplateExpression", 4)?;
         state.serialize_field("type", &"TaggedTemplateExpression")?;
-        state.serialize_field("tag", &*self.tag)?;
+        state.serialize_field("tag", &self.tag)?;
         state.serialize_field("quasi", &self.quasi)?;
         state.serialize_field("start", &self.start)?;
         state.serialize_field("end", &self.end)?;
@@ -124,7 +124,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             Member { object, property } => {
                 let mut state = serializer.serialize_struct("MemberExpression", 6)?;
                 state.serialize_field("type", &"MemberExpression")?;
-                state.serialize_field("object", &*object)?;
+                state.serialize_field("object", &object)?;
                 state.serialize_field("property", &Loc::new(property.start, property.end, Expression::Identifier(property.item)))?;
                 state.serialize_field("computed", &false)?;
                 state
@@ -133,8 +133,8 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             ComputedMember { object, property } => {
                 let mut state = serializer.serialize_struct("MemberExpression", 6)?;
                 state.serialize_field("type", &"MemberExpression")?;
-                state.serialize_field("object", &*object)?;
-                state.serialize_field("property", &*property)?;
+                state.serialize_field("object", &object)?;
+                state.serialize_field("property", &property)?;
                 state.serialize_field("computed", &true)?;
                 state
             },
@@ -142,7 +142,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             Call { callee, arguments } => {
                 let mut state = serializer.serialize_struct("CallExpression", 5)?;
                 state.serialize_field("type", &"CallExpression")?;
-                state.serialize_field("callee", &*callee)?;
+                state.serialize_field("callee", &callee)?;
                 state.serialize_field("arguments", &arguments)?;
                 state
             },
@@ -152,8 +152,8 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                 let mut state = serializer.serialize_struct(expr_type, 6)?;
                 state.serialize_field("type", &expr_type)?;
                 state.serialize_field("operator", &operator.as_str())?;
-                state.serialize_field("left", &*left)?;
-                state.serialize_field("right", &*right)?;
+                state.serialize_field("left", &left)?;
+                state.serialize_field("right", &right)?;
                 state
             },
 
@@ -164,12 +164,12 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
 
                     match operand.item {
                         Call { callee, arguments } => {
-                            state.serialize_field("callee", &*callee)?;
+                            state.serialize_field("callee", &callee)?;
                             state.serialize_field("arguments", &arguments)?;
                         },
                         Value(_) => {
                             let arguments: Vec<ExpressionPtr> = vec![];
-                            state.serialize_field("callee", &*operand)?;
+                            state.serialize_field("callee", &operand)?;
                             state.serialize_field("arguments", &arguments)?;
                         },
                         _ => {
@@ -186,7 +186,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                     state.serialize_field("type", &expr_type)?;
                     state.serialize_field("prefix", &true)?;
                     state.serialize_field("operator", &operator.as_str())?;
-                    state.serialize_field("argument", &*operand)?;
+                    state.serialize_field("argument", &operand)?;
                     state
                 }
             },
@@ -197,16 +197,16 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                 state.serialize_field("type", &expr_type)?;
                 state.serialize_field("prefix", &false)?;
                 state.serialize_field("operator", &operator.as_str())?;
-                state.serialize_field("argument", &*operand)?;
+                state.serialize_field("argument", &operand)?;
                 state
             },
 
             Conditional { test, consequent, alternate } => {
                 let mut state = serializer.serialize_struct("ConditionalExpression", 6)?;
                 state.serialize_field("type", &"ConditionalExpression")?;
-                state.serialize_field("test", &*test)?;
-                state.serialize_field("alternate", &*alternate)?;
-                state.serialize_field("consequent", &*consequent)?;
+                state.serialize_field("test", &test)?;
+                state.serialize_field("alternate", &alternate)?;
+                state.serialize_field("consequent", &consequent)?;
                 state
             },
 
@@ -239,9 +239,9 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             Arrow { params, body } => {
                 let mut state = serializer.serialize_struct("ArrowFunctionExpression", 6)?;
                 state.serialize_field("type", &"ArrowFunctionExpression")?;
-                state.serialize_field("id", &serde_json::Value::Null)?;
+                state.serialize_field("id", &())?;
                 state.serialize_field("params", &params)?;
-                state.serialize_field("body", &*body)?;
+                state.serialize_field("body", &body)?;
                 state
             },
 
@@ -255,7 +255,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             Function { function } => {
                 let mut state = serializer.serialize_struct("FunctionExpression", 6)?;
                 state.serialize_field("type", &"FunctionExpression")?;
-                state.serialize_field("id", &Loc::new(self.start, self.end, function.name))?;
+                state.serialize_field("id", &function.name)?;
                 state.serialize_field("params", &function.params)?;
 
                 match function.body.only_element() {
@@ -273,7 +273,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
             Class { class } => {
                 let mut state = serializer.serialize_struct("ClassExpression", 6)?;
                 state.serialize_field("type", &"ClassExpression")?;
-                state.serialize_field("id", &Loc::new(self.start, self.end, class.name))?;
+                state.serialize_field("id", &class.name)?;
                 state.serialize_field("superClass", &class.extends)?;
                 state.serialize_field("body", &Loc::new(self.start, self.end, ClassBody { body: class.body }))?;
                 state

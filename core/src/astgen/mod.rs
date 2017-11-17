@@ -41,7 +41,7 @@ impl<'ast, T: Serialize> Serialize for Ptr<'ast, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-        serializer.serialize_some(&*self)
+        T::serialize(&**self, serializer)
     }
 }
 
