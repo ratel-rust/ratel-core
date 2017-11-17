@@ -15,6 +15,7 @@ use self::nested::*;
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
 use ast::{Expression, ExpressionPtr, ExpressionList};
+use ast::expression::BinaryExpr;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
 
@@ -113,12 +114,12 @@ impl<'ast> Parser<'ast> {
     #[inline]
     fn param_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> ParameterPtr<'ast> {
         let (key, value) = match expression.item {
-            Expression::Binary {
+            Expression::Binary(BinaryExpr {
                 operator: OperatorKind::Assign,
                 left,
                 right,
-            } => (left, Some(right)),
-            _ => (expression, None)
+            }) => (left, Some(right)),
+            _  => (expression, None)
         };
 
         let key = match key.item {
@@ -214,7 +215,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Expression, Value};
+    use ast::{Expression, Value, ExpressionPtr, StatementPtr};
 
     pub struct Mock {
         arena: Arena
@@ -231,12 +232,20 @@ mod mock {
             Ptr::new(self.arena.alloc(Loc::new(0, 0, val)))
         }
 
-        pub fn ident<'a>(&'a self, ident: &'static str) -> Ptr<'a, Loc<Expression<'a>>> {
+        pub fn ident<'a>(&'a self, ident: &'static str) -> ExpressionPtr<'a> {
             self.ptr(Expression::Identifier(ident))
         }
 
-        pub fn number<'a>(&'a self, number: &'static str) -> Ptr<'a, Loc<Expression<'a>>> {
+        pub fn number<'a>(&'a self, number: &'static str) -> ExpressionPtr<'a> {
             self.ptr(Expression::Value(Value::Number(number)))
+        }
+
+        pub fn expr<'a, E: Into<Expression<'a>>>(&'a self, e: E) -> ExpressionPtr<'a> {
+            self.ptr(e.into())
+        }
+
+        pub fn stmt<'a, E: Into<Statement<'a>>>(&'a self, e: E) -> StatementPtr<'a> {
+            self.ptr(e.into())
         }
 
         pub fn list<'a, T, L>(&'a self, list: L) -> List<'a, Loc<T>> where

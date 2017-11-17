@@ -2,6 +2,8 @@ use parser::Parser;
 use lexer::Token;
 use lexer::Token::*;
 use ast::{Loc, List, ListBuilder, OperatorKind, Expression, ExpressionPtr};
+use ast::expression::{SequenceExpr, MemberExpr, ComputedMemberExpr, CallExpr, BinaryExpr};
+use ast::expression::{PostfixExpr, ConditionalExpr};
 use ast::OperatorKind::*;
 
 
@@ -243,29 +245,29 @@ const SEQ: NestedHandler = Some(|par, left| {
         builder.push(par.expression(B1));
     }
 
-    par.alloc(Expression::Sequence {
+    par.alloc(Expression::Sequence(SequenceExpr {
         body: builder.into_list()
-    }.at(0, 0))
+    }).at(0, 0))
 });
 
 const INC: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     // TODO: op.end
-    par.alloc(Loc::new(left.start, left.end, Expression::Postfix {
+    par.alloc(Loc::new(left.start, left.end, Expression::Postfix(PostfixExpr {
         operator: OperatorKind::Increment,
         operand: left,
-    }))
+    })))
 });
 
 const DEC: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     // TODO: op.end
-    par.alloc(Loc::new(left.start, left.end, Expression::Postfix {
+    par.alloc(Loc::new(left.start, left.end, Expression::Postfix(PostfixExpr {
         operator: OperatorKind::Decrement,
         operand: left,
-    }))
+    })))
 });
 
 const COND: NestedHandler = Some(|par, left| {
@@ -275,19 +277,19 @@ const COND: NestedHandler = Some(|par, left| {
     expect!(par, Colon);
     let alternate = par.expression(B4);
 
-    par.alloc(Expression::Conditional {
+    par.alloc(Expression::Conditional(ConditionalExpr {
         test: left,
         consequent: consequent,
         alternate: alternate,
-    }.at(0, 0))
+    }).at(0, 0))
 });
 
 const ARRW: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     let params = match left.item {
-        Expression::Sequence { body } => body,
-        _                             => List::from(par.arena, left)
+        Expression::Sequence(SequenceExpr { body }) => body,
+        _                                           => List::from(par.arena, left)
     };
 
     return par.arrow_function_expression(params);
@@ -299,10 +301,10 @@ const ACCS: NestedHandler = Some(|par, left| {
 
     let right = par.alloc_in_loc(member);
 
-    par.alloc(Loc::new(left.start, right.end, Expression::Member {
+    par.alloc(Loc::new(left.start, right.end, Expression::Member(MemberExpr {
         object: left,
         property: right,
-    }))
+    })))
 });
 
 const CALL: NestedHandler = Some(|par, left| {
@@ -310,10 +312,10 @@ const CALL: NestedHandler = Some(|par, left| {
 
     let arguments = par.expression_list();
 
-    par.alloc(Expression::Call {
+    par.alloc(Expression::Call(CallExpr {
         callee: left,
         arguments,
-    }.at(0, 0))
+    }).at(0, 0))
 });
 
 const CMEM: NestedHandler = Some(|par, left| {
@@ -323,10 +325,10 @@ const CMEM: NestedHandler = Some(|par, left| {
 
     expect!(par, BracketClose);
 
-    par.alloc(Expression::ComputedMember {
+    par.alloc(Expression::ComputedMember(ComputedMemberExpr {
         object: left,
         property: property,
-    }.at(0, 0))
+    }).at(0, 0))
 });
 
 const TPLS: NestedHandler = Some(|par, left| {
@@ -345,11 +347,11 @@ macro_rules! binary {
 
                 let right = par.expression($bp);
 
-                par.alloc(Loc::new(left.start, right.end, Expression::Binary {
+                par.alloc(Loc::new(left.start, right.end, Expression::Binary(BinaryExpr {
                     operator: $op,
                     left,
                     right,
-                }))
+                })))
             }
 
             Some(handler)

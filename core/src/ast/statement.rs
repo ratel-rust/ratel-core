@@ -13,13 +13,18 @@ pub enum DeclaratorId<'ast> {
     Pattern(ExpressionPtr<'ast>)
 }
 
+impl<'ast> From<ExpressionPtr<'ast>> for Statement<'ast> {
+    #[inline]
+    fn from(val: ExpressionPtr<'ast>) -> Statement<'ast> {
+        Statement::Expression(val)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Statement<'ast> {
     Error,
     Empty,
-    Expression {
-        expression: ExpressionPtr<'ast>
-    },
+    Expression(ExpressionPtr<'ast>),
     Declaration {
         kind: DeclarationKind,
         declarators: List<'ast, Loc<Declarator<'ast>>>,
@@ -74,12 +79,8 @@ pub enum Statement<'ast> {
         label: &'ast str,
         body: StatementPtr<'ast>,
     },
-    Function {
-        function: Function<'ast, MandatoryName<'ast>>,
-    },
-    Class {
-        class: Class<'ast, MandatoryName<'ast>>,
-    },
+    Function(Function<'ast, MandatoryName<'ast>>),
+    Class(Class<'ast, MandatoryName<'ast>>),
     Continue {
         label: Option<ExpressionPtr<'ast>>
     },

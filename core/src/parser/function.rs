@@ -192,13 +192,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: List::empty(),
-                    body: List::empty(),
-                }
-            }
+            Statement::Function(Function {
+                name: mock.ptr("foo").into(),
+                params: List::empty(),
+                body: List::empty(),
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -211,22 +209,20 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: mock.list([
-                        Parameter {
-                            key: ParameterKey::Identifier("bar"),
-                            value: None,
-                        },
-                        Parameter {
-                            key: ParameterKey::Identifier("baz"),
-                            value: None,
-                        },
-                    ]),
-                    body: List::empty(),
-                }
-            }
+            Statement::Function(Function {
+                name: mock.ptr("foo").into(),
+                params: mock.list([
+                    Parameter {
+                        key: ParameterKey::Identifier("bar"),
+                        value: None,
+                    },
+                    Parameter {
+                        key: ParameterKey::Identifier("baz"),
+                        value: None,
+                    },
+                ]),
+                body: List::empty(),
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -239,20 +235,14 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: List::empty(),
-                    body: mock.list([
-                        Statement::Expression {
-                            expression: mock.ident("bar")
-                        },
-                        Statement::Expression {
-                            expression: mock.ident("baz")
-                        },
-                    ])
-                }
-            }
+            Statement::Function(Function {
+                name: mock.ptr("foo").into(),
+                params: List::empty(),
+                body: mock.list([
+                    Statement::Expression(mock.ident("bar")),
+                    Statement::Expression(mock.ident("baz")),
+                ])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -265,30 +255,28 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Function {
-                function: Function {
-                    name: mock.ptr("foo").into(),
-                    params: mock.list([
-                        Parameter {
-                            key: ParameterKey::Identifier("a"),
-                            value: Some(mock.number("0")),
-                        },
-                        Parameter {
-                            key: ParameterKey::Identifier("b"),
-                            value: Some(mock.number("1")),
-                        },
-                        Parameter {
-                            key: ParameterKey::Identifier("c"),
-                            value: Some(mock.number("2")),
-                        }
-                    ]),
-                    body: mock.list([
-                        Statement::Return {
-                            value: Some(mock.number("2"))
-                        }
-                    ])
-                }
-            }
+            Statement::Function(Function {
+                name: mock.ptr("foo").into(),
+                params: mock.list([
+                    Parameter {
+                        key: ParameterKey::Identifier("a"),
+                        value: Some(mock.number("0")),
+                    },
+                    Parameter {
+                        key: ParameterKey::Identifier("b"),
+                        value: Some(mock.number("1")),
+                    },
+                    Parameter {
+                        key: ParameterKey::Identifier("c"),
+                        value: Some(mock.number("2")),
+                    }
+                ]),
+                body: mock.list([
+                    Statement::Return {
+                        value: Some(mock.number("2"))
+                    }
+                ])
+            })
         ]);
         assert_eq!(module.body(), expected);
     }
@@ -307,13 +295,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: None,
-                    body: List::empty(),
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
+                body: List::empty(),
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -326,13 +312,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: Some(mock.ident("Bar")),
-                    body: List::empty(),
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: Some(mock.ident("Bar")),
+                body: List::empty(),
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -353,31 +337,27 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: None,
-                    body: mock.list([
-                        ClassMember::Constructor {
-                            params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
-                                Parameter {
-                                    key: ParameterKey::Identifier("baz"),
-                                    value: None,
-                                },
-                            ]),
-                            body: mock.list([
-                                Statement::Expression {
-                                    expression: mock.ident("debug")
-                                }
-                            ])
-                        }
-                    ])
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
+                body: mock.list([
+                    ClassMember::Constructor {
+                        params: mock.list([
+                            Parameter {
+                                key: ParameterKey::Identifier("bar"),
+                                value: None,
+                            },
+                            Parameter {
+                                key: ParameterKey::Identifier("baz"),
+                                value: None,
+                            },
+                        ]),
+                        body: mock.list([
+                            Statement::Expression(mock.ident("debug"))
+                        ])
+                    }
+                ])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -406,66 +386,60 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: None,
-                    body: mock.list([
-                        ClassMember::Method {
-                            is_static: false,
-                            property: Property::Literal("doge"),
-                            params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
-                                Parameter {
-                                    key: ParameterKey::Identifier("baz"),
-                                    value: None,
-                                },
-                            ]),
-                            body: mock.list([
-                                Statement::Expression {
-                                    expression: mock.ident("debug")
-                                }
-                            ])
-                        },
-                        ClassMember::Method {
-                            is_static: true,
-                            property: Property::Literal("toThe"),
-                            params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("moon"),
-                                    value: None,
-                                },
-                            ]),
-                            body: mock.list([
-                                Statement::Expression {
-                                    expression: mock.ident("debug")
-                                }
-                            ])
-                        },
-                        ClassMember::Method {
-                            is_static: false,
-                            property: Property::Literal("function"),
-                            params: List::empty(),
-                            body: List::empty()
-                        },
-                        ClassMember::Method {
-                            is_static: true,
-                            property: Property::Literal("function"),
-                            params: List::empty(),
-                            body: List::empty()
-                        },
-                        ClassMember::Method {
-                            is_static: true,
-                            property: Property::Literal("constructor"),
-                            params: List::empty(),
-                            body: List::empty()
-                        },
-                    ])
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
+                body: mock.list([
+                    ClassMember::Method {
+                        is_static: false,
+                        property: Property::Literal("doge"),
+                        params: mock.list([
+                            Parameter {
+                                key: ParameterKey::Identifier("bar"),
+                                value: None,
+                            },
+                            Parameter {
+                                key: ParameterKey::Identifier("baz"),
+                                value: None,
+                            },
+                        ]),
+                        body: mock.list([
+                            Statement::Expression(mock.ident("debug"))
+                        ])
+                    },
+                    ClassMember::Method {
+                        is_static: true,
+                        property: Property::Literal("toThe"),
+                        params: mock.list([
+                            Parameter {
+                                key: ParameterKey::Identifier("moon"),
+                                value: None,
+                            },
+                        ]),
+                        body: mock.list([
+                            Statement::Expression(mock.ident("debug"))
+                        ])
+                    },
+                    ClassMember::Method {
+                        is_static: false,
+                        property: Property::Literal("function"),
+                        params: List::empty(),
+                        body: List::empty()
+                    },
+                    ClassMember::Method {
+                        is_static: true,
+                        property: Property::Literal("function"),
+                        params: List::empty(),
+                        body: List::empty()
+                    },
+                    ClassMember::Method {
+                        is_static: true,
+                        property: Property::Literal("constructor"),
+                        params: List::empty(),
+                        body: List::empty()
+                    },
+                ])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -487,34 +461,32 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: None,
-                    body: mock.list([
-                        ClassMember::Value {
-                            is_static: false,
-                            property: Property::Literal("doge"),
-                            value: mock.number("10")
-                        },
-                        ClassMember::Value {
-                            is_static: false,
-                            property: Property::Literal("to"),
-                            value: mock.number("20")
-                        },
-                        ClassMember::Value {
-                            is_static: false,
-                            property: Property::Literal("the"),
-                            value: mock.number("30")
-                        },
-                        ClassMember::Value {
-                            is_static: true,
-                            property: Property::Literal("moon"),
-                            value: mock.number("42")
-                        },
-                    ])
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
+                body: mock.list([
+                    ClassMember::Value {
+                        is_static: false,
+                        property: Property::Literal("doge"),
+                        value: mock.number("10")
+                    },
+                    ClassMember::Value {
+                        is_static: false,
+                        property: Property::Literal("to"),
+                        value: mock.number("20")
+                    },
+                    ClassMember::Value {
+                        is_static: false,
+                        property: Property::Literal("the"),
+                        value: mock.number("30")
+                    },
+                    ClassMember::Value {
+                        is_static: true,
+                        property: Property::Literal("moon"),
+                        value: mock.number("42")
+                    },
+                ])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -528,13 +500,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: Some(mock.ptr(Expression::Value(Value::Null))),
-                    body: mock.list([])
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: Some(mock.ptr(Expression::Value(Value::Null))),
+                body: mock.list([])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
@@ -553,42 +523,38 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class {
-                class: Class {
-                    name: mock.ptr("Foo").into(),
-                    extends: None,
-                    body: mock.list([
-                        ClassMember::Method {
-                            // FIXME: kind
-                            is_static: false,
-                            property: Property::Literal("length"),
-                            params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("foo"),
-                                    value: None,
-                                },
-                            ]),
-                            body: List::empty()
-                        },
-                        ClassMember::Method {
-                            // FIXME: kind
-                            is_static: false,
-                            property: Property::Literal("length"),
-                            params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
-                            ]),
-                            body: List::empty()
-                        },
-                    ])
-                }
-            }
+            Statement::Class(Class {
+                name: mock.ptr("Foo").into(),
+                extends: None,
+                body: mock.list([
+                    ClassMember::Method {
+                        // FIXME: kind
+                        is_static: false,
+                        property: Property::Literal("length"),
+                        params: mock.list([
+                            Parameter {
+                                key: ParameterKey::Identifier("foo"),
+                                value: None,
+                            },
+                        ]),
+                        body: List::empty()
+                    },
+                    ClassMember::Method {
+                        // FIXME: kind
+                        is_static: false,
+                        property: Property::Literal("length"),
+                        params: mock.list([
+                            Parameter {
+                                key: ParameterKey::Identifier("bar"),
+                                value: None,
+                            },
+                        ]),
+                        body: List::empty()
+                    },
+                ])
+            })
         ]);
 
         assert_eq!(module.body(), expected);
     }
-
-
 }

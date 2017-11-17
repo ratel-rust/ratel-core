@@ -1,7 +1,7 @@
+pub mod expression;
 mod variable;
 mod operator;
 mod types;
-mod expression;
 mod statement;
 mod function;
 mod value;

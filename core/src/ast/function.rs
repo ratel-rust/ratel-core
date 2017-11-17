@@ -1,4 +1,4 @@
-use ast::{Ptr, Loc, List, IdentifierPtr, ParameterList, ExpressionPtr, StatementList, Property};
+use ast::{Ptr, Loc, List, IdentifierPtr, ParameterList, ExpressionPtr, StatementPtr, StatementList, Property};
 
 pub trait Name<'ast> {
     fn empty() -> Self;

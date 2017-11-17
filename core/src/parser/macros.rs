@@ -90,9 +90,7 @@ macro_rules! assert_expr {
         let mut body = $module.body().iter();
 
         match **body.next().unwrap() {
-            Statement::Expression {
-                ref expression
-            } => assert_eq!(expression.item, $expr),
+            Statement::Expression(ref expression) => assert_eq!(expression.item, Expression::from($expr)),
             _ => panic!("Statement isn't an expression!")
         }
 
