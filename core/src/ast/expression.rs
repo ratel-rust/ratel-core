@@ -1,6 +1,6 @@
 use ast::{Loc, List, Literal, OperatorKind, Function, Class, OptionalName};
 use ast::{PropertyPtr, IdentifierPtr};
-use ast::{ExpressionPtr, ExpressionList, StatementPtr, StatementList, ParameterList};
+use ast::{ExpressionPtr, ExpressionList, BlockPtr, StatementList, ParameterList};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Property<'ast> {
@@ -19,7 +19,7 @@ pub enum ObjectMember<'ast> {
     Method {
         property: PropertyPtr<'ast>,
         params: ParameterList<'ast>,
-        body: StatementList<'ast>,
+        body: BlockPtr<'ast>,
     },
 }
 
@@ -87,7 +87,7 @@ pub struct TemplateExpression<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ArrowBody<'ast> {
     Expression(ExpressionPtr<'ast>),
-    Block(StatementPtr<'ast>)
+    Block(BlockPtr<'ast>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

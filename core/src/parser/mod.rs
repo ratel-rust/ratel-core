@@ -12,9 +12,10 @@ use module::Module;
 
 use self::nested::*;
 
-use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
+use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder, BlockPtr};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
 use ast::{Expression, ExpressionPtr, ExpressionList};
+use ast::statement::BlockStatement;
 use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
@@ -100,10 +101,31 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn block_body_tail(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
+    fn block(&mut self) -> BlockPtr<'ast> {
+        let start = match self.lexer.token {
+            BraceOpen => self.lexer.start_then_consume(),
+            _         => unexpected_token!(self),
+        };
+        let block = self.raw_block();
+        let end   = self.lexer.end_then_consume();
+
+        self.alloc_at_loc(start, end, block)
+    }
+
+    /// Same as above, but assumes that the opening brace has already been checked
+    #[inline]
+    fn unchecked_block(&mut self) -> BlockPtr<'ast> {
+        let start = self.lexer.start_then_consume();
+        let block = self.raw_block();
+        let end   = self.lexer.end_then_consume();
+
+        self.alloc_at_loc(start, end, block)
+    }
+
+    #[inline]
+    fn raw_block(&mut self) -> BlockStatement<'ast> {
         if self.lexer.token == BraceClose {
-            self.lexer.consume();
-            return List::empty();
+            return BlockStatement { body: List::empty() };
         }
 
         let statement = self.statement();
@@ -113,15 +135,7 @@ impl<'ast> Parser<'ast> {
             builder.push(self.statement());
         }
 
-        self.lexer.consume();
-
-        builder.into_list()
-    }
-
-    #[inline]
-    fn block_body(&mut self) -> List<'ast, Loc<Statement<'ast>>> {
-        expect!(self, BraceOpen);
-        self.block_body_tail()
+        BlockStatement { body: builder.into_list() }
     }
 
     #[inline]
@@ -228,7 +242,8 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, Name};
+    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, BlockPtr, Name};
+    use ast::statement::{BlockStatement};
 
     pub struct Mock {
         arena: Arena
@@ -256,6 +271,17 @@ mod mock {
 
         pub fn number<'a>(&'a self, number: &'static str) -> ExpressionPtr<'a> {
             self.ptr(Literal::Number(number))
+        }
+
+        pub fn block<'a, I, L>(&'a self, list: L) -> BlockPtr<'a> where
+            I: Into<Statement<'a>> + Copy,
+            L: AsRef<[I]>
+        {
+            self.ptr(BlockStatement { body: self.list(list) })
+        }
+
+        pub fn empty_block<'a>(&'a self) -> BlockPtr<'a> {
+            self.ptr(BlockStatement { body: List::empty() })
         }
 
         pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, Loc<T>> where

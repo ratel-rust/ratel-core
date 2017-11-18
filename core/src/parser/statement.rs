@@ -58,10 +58,7 @@ const EMPT : StatementHandler = |par| {
     stmt
 };
 
-const BLCK : StatementHandler = |par| {
-    par.lexer.consume();
-    par.block_statement()
-};
+const BLCK : StatementHandler = |par| par.block_statement();
 
 const VAR: StatementHandler = |par| {
     par.lexer.consume();
@@ -146,9 +143,11 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn block_statement(&mut self) -> StatementPtr<'ast> {
-        let body = self.block_body_tail();
+        let start = self.lexer.start_then_consume();
+        let block = self.raw_block();
+        let end   = self.lexer.end_then_consume();
 
-        self.alloc_at_loc(0, 0, BlockStatement { body })
+        self.alloc_at_loc(start, end, block)
     }
 
     #[inline]
@@ -196,7 +195,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc_at_loc(start, 0, Statement::Function(function))
+        self.alloc_at_loc(start, function.body.end, Statement::Function(function))
     }
 
     #[inline]
@@ -342,7 +341,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn try_statement(&mut self) -> StatementPtr<'ast> {
-        let body = self.block_body();
+        let body = self.block();
         expect!(self, Catch);
         expect!(self, ParenOpen);
 
@@ -350,7 +349,7 @@ impl<'ast> Parser<'ast> {
         let error = self.alloc_in_loc(error);
         expect!(self, ParenClose);
 
-        let handler = self.block_body();
+        let handler = self.block();
         expect_semicolon!(self);
 
         self.alloc_at_loc(0, 0, TryStatement {
@@ -818,9 +817,9 @@ mod test {
 
         let expected = mock.list([
             TryStatement {
-                body: List::empty(),
+                body: mock.empty_block(),
                 error: mock.ptr("err"),
-                handler: List::empty()
+                handler: mock.empty_block()
             }
         ]);
 
@@ -835,11 +834,11 @@ mod test {
 
         let expected = mock.list([
             TryStatement {
-                body: mock.list([
+                body: mock.block([
                     mock.ptr("foo")
                 ]),
                 error: mock.ptr("err"),
-                handler: mock.list([
+                handler: mock.block([
                     mock.ptr("bar")
                 ]),
             }
@@ -1104,7 +1103,7 @@ mod test {
             Statement::Function(Function {
                 name: mock.name("foo"),
                 params: List::empty(),
-                body: List::empty(),
+                body: mock.empty_block(),
             })
         ]);
 

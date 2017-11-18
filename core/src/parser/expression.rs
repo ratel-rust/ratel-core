@@ -179,14 +179,8 @@ impl<'ast> Parser<'ast> {
         let params = self.params_from_expressions(params);
 
         let body = match self.lexer.token {
-            BraceOpen => {
-                self.lexer.consume();
-                ArrowBody::Block(self.block_statement())
-            },
-            _ => {
-                let expression = self.expression(B1);
-                ArrowBody::Expression(expression)
-            }
+            BraceOpen => ArrowBody::Block(self.unchecked_block()),
+            _         => ArrowBody::Expression(self.expression(B1)),
         };
 
         self.alloc_at_loc(0, 0, ArrowExpression {
@@ -357,7 +351,7 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
 
                 let params = self.parameter_list();
-                let body = self.block_body();
+                let body = self.block();
 
                 self.alloc_at_loc(0, 0, ObjectMember::Method {
                     property,
@@ -522,7 +516,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc_at_loc(start, 0, Expression::Function(function))
+        self.alloc_at_loc(start, function.body.end, Expression::Function(function))
     }
 
     #[inline]
@@ -809,11 +803,12 @@ mod test {
     fn function_expression() {
         let src = "(function () {})";
         let module = parse(src).unwrap();
+        let mock = Mock::new();
 
         let expected = Expression::Function(Function {
             name: None.into(),
             params: List::empty(),
-            body: List::empty()
+            body: mock.empty_block()
         });
 
         assert_expr!(module, expected);
@@ -828,7 +823,7 @@ mod test {
         let expected = Expression::Function(Function {
             name: mock.name("foo"),
             params: List::empty(),
-            body: List::empty()
+            body: mock.empty_block()
         });
 
         assert_expr!(module, expected);

@@ -6,7 +6,7 @@ use std::fmt::{self, Debug};
 /// and implements Copy itself.
 #[derive(Debug, PartialEq)]
 pub struct CopyCell<T: Copy> {
-    value: T
+    pub(crate) value: T
 }
 
 impl<T: Copy> CopyCell<T> {

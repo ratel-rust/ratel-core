@@ -691,6 +691,20 @@ impl<'src> Lexer<'src> {
         self.index as u32
     }
 
+    #[inline]
+    pub fn start_then_consume(&mut self) -> u32 {
+        let start = self.start();
+        self.consume();
+        start
+    }
+
+    #[inline]
+    pub fn end_then_consume(&mut self) -> u32 {
+        let end = self.end();
+        self.consume();
+        end
+    }
+
     /// On top of being called when the opening backtick (`) of a template
     /// literal occurs, this method needs to be used by the parser while
     /// parsing a complex template string expression.

@@ -2,8 +2,19 @@ use ast::ptr::{Ptr, CopyCell};
 use std::fmt::{self, Debug};
 use arena::Arena;
 
+/// Const-constructor that avoids issues with lifetimes.
+/// Use List::empty() unless you need to create a 'static reference to a list.
+#[macro_export]
+macro_rules! empty_list {
+    () => (List {
+        root: $crate::ast::ptr::CopyCell {
+            value: None
+        }
+    })
+}
+
 #[derive(Debug, PartialEq, Clone)]
-struct ListItem<'ast, T: 'ast> {
+pub(crate) struct ListItem<'ast, T: 'ast> {
     value: Ptr<'ast, T>,
     next: CopyCell<Option<&'ast ListItem<'ast, T>>>,
 }
@@ -98,7 +109,7 @@ impl<'ast, T: 'ast + Copy> EmptyListBuilder<'ast, T> {
 
 #[derive(Clone)]
 pub struct List<'ast, T: 'ast> {
-    root: CopyCell<Option<&'ast ListItem<'ast, T>>>,
+    pub(crate) root: CopyCell<Option<&'ast ListItem<'ast, T>>>,
 }
 
 impl<'ast, T: Copy> Copy for List<'ast, T> { }

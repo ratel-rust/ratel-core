@@ -1,5 +1,5 @@
 use ast::{Loc, List, DeclarationKind, Function, Class, MandatoryName};
-use ast::{ExpressionPtr, StatementPtr, StatementList};
+use ast::{ExpressionPtr, StatementPtr, StatementList, BlockPtr};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
@@ -77,9 +77,9 @@ pub struct ForOfStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TryStatement<'ast> {
-    pub body: StatementList<'ast>,
+    pub body: BlockPtr<'ast>,
     pub error: ExpressionPtr<'ast>,
-    pub handler: StatementList<'ast>,
+    pub handler: BlockPtr<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

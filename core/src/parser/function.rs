@@ -47,7 +47,7 @@ impl<'ast> Parser<'ast> {
         Function {
             name,
             params: self.parameter_list(),
-            body: self.block_body(),
+            body: self.block(),
         }
     }
 
@@ -144,7 +144,7 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
 
                 let params = self.parameter_list();
-                let body = self.block_body();
+                let body = self.block();
 
                 Loc::new(0, 0, if !is_static && property.is_constructor() {
                     ClassMember::Constructor {
@@ -196,7 +196,7 @@ mod test {
             Statement::Function(Function {
                 name: mock.name("foo"),
                 params: List::empty(),
-                body: List::empty(),
+                body: mock.empty_block(),
             })
         ]);
 
@@ -222,7 +222,7 @@ mod test {
                         value: None,
                     },
                 ]),
-                body: List::empty(),
+                body: mock.empty_block(),
             })
         ]);
 
@@ -239,7 +239,7 @@ mod test {
             Statement::Function(Function {
                 name: mock.name("foo"),
                 params: List::empty(),
-                body: mock.list([
+                body: mock.block([
                     mock.ptr("bar"),
                     mock.ptr("baz"),
                 ])
@@ -272,7 +272,7 @@ mod test {
                         value: Some(mock.number("2")),
                     }
                 ]),
-                body: mock.list([
+                body: mock.block([
                     ReturnStatement {
                         value: Some(mock.number("2"))
                     }
@@ -353,8 +353,8 @@ mod test {
                                 value: None,
                             },
                         ]),
-                        body: mock.list([
-                            Statement::Expression(mock.ptr("debug"))
+                        body: mock.block([
+                            mock.ptr("debug")
                         ])
                     }
                 ])
@@ -404,8 +404,8 @@ mod test {
                                 value: None,
                             },
                         ]),
-                        body: mock.list([
-                            Statement::Expression(mock.ptr("debug"))
+                        body: mock.block([
+                            mock.ptr("debug")
                         ])
                     },
                     ClassMember::Method {
@@ -417,27 +417,27 @@ mod test {
                                 value: None,
                             },
                         ]),
-                        body: mock.list([
-                            Statement::Expression(mock.ptr("debug"))
+                        body: mock.block([
+                            mock.ptr("debug")
                         ])
                     },
                     ClassMember::Method {
                         is_static: false,
                         property: Property::Literal("function"),
                         params: List::empty(),
-                        body: List::empty()
+                        body: mock.empty_block()
                     },
                     ClassMember::Method {
                         is_static: true,
                         property: Property::Literal("function"),
                         params: List::empty(),
-                        body: List::empty()
+                        body: mock.empty_block()
                     },
                     ClassMember::Method {
                         is_static: true,
                         property: Property::Literal("constructor"),
                         params: List::empty(),
-                        body: List::empty()
+                        body: mock.empty_block()
                     },
                 ])
             })
@@ -538,7 +538,7 @@ mod test {
                                 value: None,
                             },
                         ]),
-                        body: List::empty()
+                        body: mock.empty_block()
                     },
                     ClassMember::Method {
                         // FIXME: kind
@@ -550,7 +550,7 @@ mod test {
                                 value: None,
                             },
                         ]),
-                        body: List::empty()
+                        body: mock.empty_block()
                     },
                 ])
             })
