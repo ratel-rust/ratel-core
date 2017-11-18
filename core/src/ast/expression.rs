@@ -101,6 +101,9 @@ pub struct ObjectExpression<'ast> {
     pub body: List<'ast, Loc<ObjectMember<'ast>>>,
 }
 
+pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
+pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Expression<'ast> {
     Error,
@@ -120,8 +123,8 @@ pub enum Expression<'ast> {
     Template(TemplateExpression<'ast>),
     Arrow(ArrowExpression<'ast>),
     Object(ObjectExpression<'ast>),
-    Function(Function<'ast, OptionalName<'ast>>),
-    Class(Class<'ast, OptionalName<'ast>>),
+    Function(FunctionExpression<'ast>),
+    Class(ClassExpression<'ast>),
 }
 
 macro_rules! impl_from {
@@ -155,7 +158,9 @@ impl_from! {
     ConditionalExpression => Conditional,
     TemplateExpression => Template,
     ArrowExpression => Arrow,
-    ObjectExpression => Object
+    ObjectExpression => Object,
+    FunctionExpression => Function,
+    ClassExpression => Class
 }
 
 impl<'ast> Expression<'ast> {

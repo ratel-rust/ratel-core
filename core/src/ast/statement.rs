@@ -1,5 +1,5 @@
 use ast::{Loc, List, DeclarationKind, Function, Class, MandatoryName};
-use ast::{ExpressionPtr, StatementPtr, StatementList, BlockPtr};
+use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
@@ -83,11 +83,6 @@ pub struct TryStatement<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct BlockStatement<'ast> {
-    pub body: StatementList<'ast>
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct LabeledStatement<'ast> {
     pub label: &'ast str,
     pub body: StatementPtr<'ast>,
@@ -110,6 +105,10 @@ pub struct SwitchCaseStatement<'ast> {
     pub consequent: StatementList<'ast>,
 }
 
+pub type BlockStatement<'ast> = Block<'ast, Statement<'ast>>;
+pub type FunctionStatement<'ast> = Function<'ast, MandatoryName<'ast>>;
+pub type ClassStatement<'ast> = Class<'ast, MandatoryName<'ast>>;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Statement<'ast> {
     Error,
@@ -128,8 +127,8 @@ pub enum Statement<'ast> {
     Try(TryStatement<'ast>),
     Block(BlockStatement<'ast>),
     Labeled(LabeledStatement<'ast>),
-    Function(Function<'ast, MandatoryName<'ast>>),
-    Class(Class<'ast, MandatoryName<'ast>>),
+    Function(FunctionStatement<'ast>),
+    Class(ClassStatement<'ast>),
     Continue(ContinueStatement<'ast>),
     Switch(SwitchStatement<'ast>),
     SwitchCase(SwitchCaseStatement<'ast>)
@@ -162,6 +161,8 @@ impl_from! {
     BlockStatement => Block,
     LabeledStatement => Labeled,
     ContinueStatement => Continue,
+    FunctionStatement => Function,
+    ClassStatement => Class,
     SwitchStatement => Switch,
     SwitchCaseStatement => SwitchCase
 }

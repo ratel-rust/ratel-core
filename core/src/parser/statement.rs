@@ -1,4 +1,4 @@
-use parser::{Parser, B0, B1};
+use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
@@ -44,7 +44,7 @@ static STMT_HANDLERS: [StatementHandler; 108] = [
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ];
 
-const ____: StatementHandler = |par| unexpected_token!(par);
+const ____: StatementHandler = |par| return par.error();
 
 /// Shared expression handlers that produce StatementPtr<'ast>
 use parser::expression::handlers::{
@@ -135,6 +135,15 @@ const LABL: StatementHandler = |par| {
     par.labeled_or_expression_statement(label)
 };
 
+impl<'ast> Parse<'ast> for Statement<'ast> {
+    type Output = StatementPtr<'ast>;
+
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        par.statement()
+    }
+}
+
 impl<'ast> Parser<'ast> {
     #[inline]
     pub fn statement(&mut self) -> StatementPtr<'ast> {
@@ -159,12 +168,9 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn wrap_expression(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
-        let start = expression.start;
-        let end = expression.end;
-
         expect_semicolon!(self);
 
-        self.alloc_at_loc(start, end, expression)
+        self.alloc_at_loc(expression.start, expression.end, expression)
     }
 
     #[inline]
@@ -254,7 +260,7 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 DeclaratorId::Identifier(name)
             },
-            _                => unexpected_token!(self),
+            _ => return self.error(),
         };
 
         let value = match self.lexer.token {
@@ -478,13 +484,13 @@ impl<'ast> Parser<'ast> {
                 },
                 Identifier => {
                     if self.lexer.token_as_str() != "of" {
-                        unexpected_token!(self);
+                        return self.error();
                     }
                     self.lexer.consume();
                     return self.for_of_statement(init);
                 },
                 Semicolon => self.lexer.consume(),
-                _         => unexpected_token!(self),
+                _         => return self.error(),
             }
         }
 
@@ -618,7 +624,7 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     cases.push(self.case_statement(None));
                 }
-                _ => unexpected_token!(self)
+                _ => return self.error()
             }
         }
 

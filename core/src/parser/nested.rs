@@ -332,7 +332,7 @@ const CMEM: NestedHandler = Some(|par, left| {
 });
 
 const TPLS: NestedHandler = Some(|par, left| {
-    par.template_string(Some(left))
+    par.template_string(left)
 });
 
 const TPLE: NestedHandler = Some(|par, left| {

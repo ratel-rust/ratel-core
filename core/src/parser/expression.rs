@@ -67,7 +67,7 @@ macro_rules! create_handlers {
 }
 
 create_handlers! {
-    const ____ = |par| unexpected_token!(par);
+    const ____ = |par| return par.error();
 
     const OBJ = |par| par.object_expression();
 
@@ -209,7 +209,7 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     self.expression(B1)
                 }
-                _          => unexpected_token!(self),
+                _ => return self.error(),
             };
 
             builder.push(expression);
@@ -249,11 +249,12 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
         let start = self.lexer.start();
+        let end;
         self.lexer.consume();
 
         if self.lexer.token == BraceClose {
-            self.lexer.consume();
-            return self.alloc_in_loc(Expression::Object(ObjectExpression {
+            end = self.lexer.end_then_consume();
+            return self.alloc_at_loc(start, end, Expression::Object(ObjectExpression {
                 body: List::empty()
             }));
         }
@@ -265,25 +266,25 @@ impl<'ast> Parser<'ast> {
         loop {
             match self.lexer.token {
                 BraceClose => {
-                    self.lexer.consume();
+                    end = self.lexer.end_then_consume();
                     break;
                 },
                 Comma      => {
                     self.lexer.consume();
                 },
-                _          => unexpected_token!(self)
+                _ => return self.error()
             }
 
             match self.lexer.token {
                 BraceClose => {
-                    self.lexer.consume();
+                    end = self.lexer.end_then_consume();
                     break;
                 },
                 _ => builder.push(self.object_member()),
             }
         }
 
-        self.alloc_at_loc(start, 0, ObjectExpression {
+        self.alloc_at_loc(start, end, ObjectExpression {
             body: builder.into_list()
         })
     }
@@ -329,7 +330,7 @@ impl<'ast> Parser<'ast> {
                         self.lexer.consume();
                         self.in_loc(Property::Literal(label))
                     }
-                    None        => unexpected_token!(self)
+                    None => return self.error()
                 }
             }
         };
@@ -359,13 +360,14 @@ impl<'ast> Parser<'ast> {
                     body,
                 })
             },
-            _ => unexpected_token!(self)
+            _ => return self.error()
         }
     }
 
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
         let start = self.lexer.start();
+        let end;
         self.lexer.consume();
 
         let expression = match self.lexer.token {
@@ -374,25 +376,25 @@ impl<'ast> Parser<'ast> {
                 self.alloc_in_loc(Expression::Void)
             },
             BracketClose => {
-                self.lexer.consume();
-                return self.alloc_at_loc(0, 0, ArrayExpression { body: List::empty() });
+                end = self.lexer.end_then_consume();
+                return self.alloc_at_loc(start, end, ArrayExpression { body: List::empty() });
             },
             _ => {
                 let expression = self.expression(B1);
 
                 match self.lexer.token {
                     BracketClose => {
-                        self.lexer.consume();
+                        end = self.lexer.end_then_consume();
 
                         let body = List::from(self.arena, expression);
 
-                        return self.alloc_at_loc(0, 0, ArrayExpression { body });
+                        return self.alloc_at_loc(start, end, ArrayExpression { body });
                     },
                     Comma => {
                         self.lexer.consume();
                         expression
                     },
-                    _ => unexpected_token!(self),
+                    _ => return self.error(),
                 }
             }
         };
@@ -409,7 +411,7 @@ impl<'ast> Parser<'ast> {
                     continue;
                 },
                 BracketClose => {
-                    self.lexer.consume();
+                    end = self.lexer.end_then_consume();
 
                     builder.push(self.alloc_in_loc(Expression::Void));
 
@@ -424,15 +426,15 @@ impl<'ast> Parser<'ast> {
 
             match self.lexer.token {
                 BracketClose => {
-                    self.lexer.consume();
+                    end = self.lexer.end_then_consume();
                     break;
                 }
-                Comma        => self.lexer.consume(),
-                _            => unexpected_token!(self),
+                Comma => self.lexer.consume(),
+                _     => return self.error(),
             }
         }
 
-        self.alloc_at_loc(start, 0, ArrayExpression {
+        self.alloc_at_loc(start, end, ArrayExpression {
             body: builder.into_list()
         })
     }
@@ -447,16 +449,15 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn template_string(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+    pub fn template_string(&mut self, tag: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
+        let start = tag.start;
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
-
-        self.lexer.consume();
-
+        let end = self.lexer.end_then_consume();
         let quasis = List::from(self.arena, quasi);
 
-        self.alloc_in_loc(TemplateExpression {
-            tag,
+        self.alloc_at_loc(start, end, TemplateExpression {
+            tag: Some(tag),
             expressions: List::empty(),
             quasis,
         })
@@ -466,6 +467,11 @@ impl<'ast> Parser<'ast> {
     pub fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
+        let start = match tag {
+            Some(ref expr) => expr.start,
+            _              => self.lexer.start()
+        };
+        let end;
 
         self.lexer.consume();
 
@@ -473,7 +479,7 @@ impl<'ast> Parser<'ast> {
 
         match self.lexer.token {
             BraceClose => self.lexer.read_template_kind(),
-            _          => unexpected_token!(self)
+            _          => return self.error()
         }
 
         let mut quasis = ListBuilder::new(self.arena, quasi);
@@ -483,26 +489,26 @@ impl<'ast> Parser<'ast> {
             match self.lexer.token {
                 TemplateOpen => {
                     let quasi = self.lexer.quasi;
-                    self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
+                    self.lexer.consume();
                     expressions.push(self.expression(B0));
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),
-                        _          => unexpected_token!(self)
+                        _          => return self.error()
                     }
                 },
                 TemplateClosed => {
                     let quasi = self.lexer.quasi;
-                    self.lexer.consume();
                     quasis.push(self.alloc_in_loc(quasi));
+                    end = self.lexer.end_then_consume();
                     break;
                 },
-                _ => unexpected_token!(self)
+                _ => return self.error()
             }
         }
 
-        self.alloc_at_loc(0, 0, TemplateExpression {
+        self.alloc_at_loc(start, end, TemplateExpression {
             tag,
             expressions: expressions.into_list(),
             quasis: quasis.into_list(),

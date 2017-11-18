@@ -1,13 +1,11 @@
-use parser::{Parser, B0, B1};
+use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use ast::{OptionalName, MandatoryName};
 use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property};
 
-pub trait Parse<'ast> {
-    fn parse(&mut Parser<'ast>) -> Self;
-}
-
 impl<'ast> Parse<'ast> for OptionalName<'ast> {
+    type Output = Self;
+
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self {
         if par.lexer.token != Identifier {
@@ -22,10 +20,12 @@ impl<'ast> Parse<'ast> for OptionalName<'ast> {
 }
 
 impl<'ast> Parse<'ast> for MandatoryName<'ast> {
+    type Output = Self;
+
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self {
         if par.lexer.token != Identifier {
-            unexpected_token!(par);
+            return par.error();
         }
 
         let name = par.lexer.token_as_str();
@@ -38,7 +38,7 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
 impl<'ast> Parser<'ast> {
     #[inline]
     pub fn function<N>(&mut self) -> Function<'ast, N> where
-        N: Name<'ast> + Parse<'ast>,
+        N: Name<'ast> + Parse<'ast, Output = N>,
     {
         let name = N::parse(self);
 
@@ -53,7 +53,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn class<N>(&mut self) -> Class<'ast, N> where
-        N: Name<'ast> + Parse<'ast>,
+        N: Name<'ast> + Parse<'ast, Output = N>,
     {
         let name = N::parse(self);
 
@@ -71,7 +71,7 @@ impl<'ast> Parser<'ast> {
 
                 None
             },
-            _ => unexpected_token!(self)
+            _ => return self.error()
         };
 
         let mut body = EmptyListBuilder::new(self.arena);
@@ -134,7 +134,7 @@ impl<'ast> Parser<'ast> {
                         self.lexer.consume();
                         Property::Literal(label)
                     },
-                    _           => unexpected_token!(self)
+                    _           => return self.error()
                 }
             }
         };
@@ -171,7 +171,7 @@ impl<'ast> Parser<'ast> {
                     value: expression,
                 })
             },
-            _ => unexpected_token!(self),
+            _ => return self.error(),
         };
 
         self.alloc(member)

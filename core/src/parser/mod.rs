@@ -10,15 +10,21 @@ use error::Error;
 use arena::Arena;
 use module::Module;
 
+use self::error::ToError;
 use self::nested::*;
 
-use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder, BlockPtr};
+use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
-use ast::{Expression, ExpressionPtr, ExpressionList};
-use ast::statement::BlockStatement;
+use ast::{Expression, ExpressionPtr, ExpressionList, Block};
 use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
+
+pub trait Parse<'ast> {
+    type Output;
+
+    fn parse(&mut Parser<'ast>) -> Self::Output;
+}
 
 pub struct Parser<'ast> {
     arena: &'ast Arena,
@@ -41,6 +47,14 @@ impl<'ast> Parser<'ast> {
             errors: Vec::new(),
             body: List::empty(),
         }
+    }
+
+    fn error<T: ToError>(&mut self) -> T {
+        let err = self.lexer.invalid_token();
+
+        self.errors.push(err);
+
+        T::to_error()
     }
 
     #[inline]
@@ -101,10 +115,12 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn block(&mut self) -> BlockPtr<'ast> {
+    fn block<I>(&mut self) -> Ptr<'ast, Loc<Block<'ast, I>>> where
+        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+    {
         let start = match self.lexer.token {
             BraceOpen => self.lexer.start_then_consume(),
-            _         => unexpected_token!(self),
+            _         => return self.error(),
         };
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
@@ -114,7 +130,9 @@ impl<'ast> Parser<'ast> {
 
     /// Same as above, but assumes that the opening brace has already been checked
     #[inline]
-    fn unchecked_block(&mut self) -> BlockPtr<'ast> {
+    fn unchecked_block<I>(&mut self) -> Ptr<'ast, Loc<Block<'ast, I>>> where
+        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+    {
         let start = self.lexer.start_then_consume();
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
@@ -123,19 +141,21 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn raw_block(&mut self) -> BlockStatement<'ast> {
+    fn raw_block<I>(&mut self) -> Block<'ast, I> where
+        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+    {
         if self.lexer.token == BraceClose {
-            return BlockStatement { body: List::empty() };
+            return Block { body: List::empty() };
         }
 
-        let statement = self.statement();
+        let statement = I::parse(self);
         let mut builder = ListBuilder::new(self.arena, statement);
 
         while self.lexer.token != BraceClose {
-            builder.push(self.statement());
+            builder.push(I::parse(self));
         }
 
-        BlockStatement { body: builder.into_list() }
+        Block { body: builder.into_list() }
     }
 
     #[inline]
@@ -152,7 +172,7 @@ impl<'ast> Parser<'ast> {
         let key = match key.item {
             Expression::Identifier(ident) => ParameterKey::Identifier(ident),
             // TODO: ParameterKey::Pattern
-            _ => unexpected_token!(self)
+            _ => return self.error()
         };
 
         self.alloc(Loc::new(expression.start, expression.end, Parameter {
@@ -196,7 +216,7 @@ impl<'ast> Parser<'ast> {
 
                     Some(self.expression(B1))
                 },
-                _ if require_defaults => unexpected_token!(self),
+                _ if require_defaults => return self.error(),
                 _ => None
             };
 
@@ -214,7 +234,7 @@ impl<'ast> Parser<'ast> {
                 Comma => {
                     self.lexer.consume();
                 },
-                _ => unexpected_token!(self)
+                _ => return self.error()
             }
         }
 
@@ -243,7 +263,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 mod mock {
     use super::*;
     use ast::{Expression, Literal, ExpressionPtr, StatementPtr, BlockPtr, Name};
-    use ast::statement::{BlockStatement};
+    use ast::statement::BlockStatement;
 
     pub struct Mock {
         arena: Arena

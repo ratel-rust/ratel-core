@@ -22,6 +22,11 @@ pub use ast::function::{Name, OptionalName, MandatoryName, Parameter, ParameterK
 pub use ast::literal::Literal;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Block<'ast, T: 'ast> {
+    pub body: List<'ast, Loc<T>>
+}
+
 // Handful of useful aliases
 pub type BlockPtr<'ast> = Ptr<'ast, Loc<BlockStatement<'ast>>>;
 pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;

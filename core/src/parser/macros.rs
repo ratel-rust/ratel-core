@@ -18,7 +18,7 @@ macro_rules! expect {
     ($parser:ident, $p:pat) => {
         match $parser.lexer.token {
             $p => $parser.lexer.consume(),
-            _  => unexpected_token!($parser)
+            _  => return $parser.error()
         }
     }
 }
@@ -34,7 +34,7 @@ macro_rules! expect_identifier {
                 $parser.lexer.consume();
                 ident
             },
-            _                        => unexpected_token!($parser)
+            _                        => return $parser.error()
         }
     }
 }
@@ -47,22 +47,9 @@ macro_rules! expect_semicolon {
         match $parser.asi() {
             Asi::ExplicitSemicolon => $parser.lexer.consume(),
             Asi::ImplicitSemicolon => {},
-            Asi::NoSemicolon       => unexpected_token!($parser),
+            Asi::NoSemicolon       => return $parser.error(),
         }
     }
-}
-
-/// Return an error for current token.
-#[macro_export]
-macro_rules! unexpected_token {
-    ($parser:ident) => ({
-        // return Err($parser.lexer.invalid_token())
-        use parser::error::Handle;
-
-        let err = $parser.lexer.invalid_token();
-
-        return Handle::handle_error($parser, err);
-    });
 }
 
 #[macro_export]
@@ -78,7 +65,7 @@ macro_rules! parameter_key {
                 $parser.lexer.consume();
                 ParameterKey::Identifier(ident)
             },
-            _ => unexpected_token!($parser)
+            _ => return $parser.error()
         }
     }
 }

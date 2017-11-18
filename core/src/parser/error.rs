@@ -2,7 +2,7 @@ use error::Error;
 
 use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
-use ast::{Name, Function, Class, ClassMember, MandatoryName, BlockStatement, BlockPtr};
+use ast::{Name, Function, Class, ClassMember, MandatoryName, BlockStatement, Block};
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -29,18 +29,18 @@ impl<'ast> ToError for StatementPtr<'ast> {
     }
 }
 
-impl<'ast> ToError for BlockStatement<'ast> {
+impl<'ast, I> ToError for Block<'ast, I> {
     fn to_error() -> Self {
-        BlockStatement { body: List::empty() }
+        Block { body: List::empty() }
     }
 }
 
-impl<'ast> ToError for BlockPtr<'ast> {
+impl<'ast, I> ToError for Ptr<'ast, Loc<Block<'ast, I>>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
             end: 0,
-            item: BlockStatement { body: empty_list!() }
+            item: Block { body: empty_list!() }
         })
     }
 }
@@ -119,18 +119,8 @@ impl<'ast> ToError for Ptr<'ast, Loc<ClassMember<'ast>>> {
     }
 }
 
-impl<'ast, T: ToError> Handle<'ast> for T {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
-        ToError::to_error()
-    }
-}
-
-impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, N: Name<'ast>> ToError for Function<'ast, N> {
+    fn to_error() -> Self {
         Function {
             name: N::empty(),
             params: List::empty(),
@@ -143,10 +133,8 @@ impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
     }
 }
 
-impl<'ast, N: Name<'ast>> Handle<'ast> for Class<'ast, N> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, N: Name<'ast>> ToError for Class<'ast, N> {
+    fn to_error() -> Self {
         Class {
             name: N::empty(),
             extends: None,
@@ -155,18 +143,18 @@ impl<'ast, N: Name<'ast>> Handle<'ast> for Class<'ast, N> {
     }
 }
 
-impl<'ast, T: 'ast + ToError> Handle<'ast> for Loc<T> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
-        parser.in_loc(ToError::to_error())
+impl<'ast, T: 'ast + ToError> ToError for Loc<T> {
+    fn to_error() -> Self {
+        Loc {
+            start: 0,
+            end: 0,
+            item: T::to_error()
+        }
     }
 }
 
-impl<'ast, T: 'ast + Copy> Handle<'ast> for List<'ast, Loc<T>> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, T: 'ast + Copy> ToError for List<'ast, Loc<T>> {
+    fn to_error() -> Self {
         List::empty()
     }
 }
