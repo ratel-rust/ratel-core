@@ -15,7 +15,7 @@ use self::nested::*;
 
 use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
 use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
-use ast::{Expression, ExpressionPtr, ExpressionList, Block};
+use ast::{Expression, ExpressionPtr, ExpressionList, Block, BlockPtr};
 use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
@@ -115,7 +115,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn block<I>(&mut self) -> Ptr<'ast, Loc<Block<'ast, I>>> where
+    fn block<I>(&mut self) -> BlockPtr<'ast, I> where
         I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
     {
         let start = match self.lexer.token {
@@ -130,7 +130,7 @@ impl<'ast> Parser<'ast> {
 
     /// Same as above, but assumes that the opening brace has already been checked
     #[inline]
-    fn unchecked_block<I>(&mut self) -> Ptr<'ast, Loc<Block<'ast, I>>> where
+    fn unchecked_block<I>(&mut self) -> BlockPtr<'ast, I> where
         I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
     {
         let start = self.lexer.start_then_consume();
@@ -262,7 +262,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, BlockPtr, Name};
+    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, Block, BlockPtr, Name};
     use ast::statement::BlockStatement;
 
     pub struct Mock {
@@ -293,15 +293,16 @@ mod mock {
             self.ptr(Literal::Number(number))
         }
 
-        pub fn block<'a, I, L>(&'a self, list: L) -> BlockPtr<'a> where
-            I: Into<Statement<'a>> + Copy,
-            L: AsRef<[I]>
+        pub fn block<'a, I, T, L>(&'a self, list: L) -> BlockPtr<'a, I> where
+            I: Copy,
+            T: Into<I> + Copy,
+            L: AsRef<[T]>
         {
-            self.ptr(BlockStatement { body: self.list(list) })
+            self.ptr(Block { body: self.list(list) })
         }
 
-        pub fn empty_block<'a>(&'a self) -> BlockPtr<'a> {
-            self.ptr(BlockStatement { body: List::empty() })
+        pub fn empty_block<'a, I: Copy>(&'a self) -> BlockPtr<'a, I> {
+            self.ptr(Block { body: List::empty() })
         }
 
         pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, Loc<T>> where

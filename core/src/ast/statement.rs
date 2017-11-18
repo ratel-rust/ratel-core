@@ -77,9 +77,9 @@ pub struct ForOfStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TryStatement<'ast> {
-    pub body: BlockPtr<'ast>,
+    pub body: BlockPtr<'ast, Statement<'ast>>,
     pub error: ExpressionPtr<'ast>,
-    pub handler: BlockPtr<'ast>,
+    pub handler: BlockPtr<'ast, Statement<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

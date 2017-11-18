@@ -28,7 +28,7 @@ pub struct Block<'ast, T: 'ast> {
 }
 
 // Handful of useful aliases
-pub type BlockPtr<'ast> = Ptr<'ast, Loc<BlockStatement<'ast>>>;
+pub type BlockPtr<'ast, T> = Ptr<'ast, Loc<Block<'ast, T>>>;
 pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
 pub type ParameterPtr<'ast> = Ptr<'ast, Loc<Parameter<'ast>>>;
 pub type ParameterList<'ast> = List<'ast, Loc<Parameter<'ast>>>;

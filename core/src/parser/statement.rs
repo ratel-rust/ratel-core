@@ -201,7 +201,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc_at_loc(start, function.body.end, Statement::Function(function))
+        self.alloc_at_loc(start, function.body.end, function)
     }
 
     #[inline]
@@ -211,7 +211,7 @@ impl<'ast> Parser<'ast> {
 
         let class = self.class();
 
-        self.alloc_at_loc(start, 0, Statement::Class(class))
+        self.alloc_at_loc(start, 0, class)
     }
 
     #[inline]
@@ -1106,11 +1106,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Function(Function {
+            Function {
                 name: mock.name("foo"),
                 params: List::empty(),
                 body: mock.empty_block(),
-            })
+            }
         ]);
 
         assert_eq!(module.body(), expected);
@@ -1128,11 +1128,11 @@ mod test {
         let mock = Mock::new();
 
         let expected = mock.list([
-            Statement::Class(Class {
+            Class {
                 name: mock.name("Foo"),
                 extends: None,
                 body: List::empty(),
-            })
+            }
         ]);
 
         assert_eq!(module.body(), expected);

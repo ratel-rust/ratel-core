@@ -522,7 +522,7 @@ impl<'ast> Parser<'ast> {
 
         let function = self.function();
 
-        self.alloc_at_loc(start, function.body.end, Expression::Function(function))
+        self.alloc_at_loc(start, function.body.end, function)
     }
 
     #[inline]
@@ -532,7 +532,7 @@ impl<'ast> Parser<'ast> {
 
         let class = self.class();
 
-        self.alloc_at_loc(start, 0, Expression::Class(class))
+        self.alloc_at_loc(start, 0, class)
     }
 }
 
@@ -811,11 +811,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = Expression::Function(Function {
+        let expected = Function {
             name: None.into(),
             params: List::empty(),
             body: mock.empty_block()
-        });
+        };
 
         assert_expr!(module, expected);
     }
@@ -826,11 +826,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = Expression::Function(Function {
+        let expected = Function {
             name: mock.name("foo"),
             params: List::empty(),
             body: mock.empty_block()
-        });
+        };
 
         assert_expr!(module, expected);
     }
@@ -936,11 +936,11 @@ mod test {
         let src = "(class {})";
         let module = parse(src).unwrap();
 
-        let expected = Expression::Class(Class {
+        let expected = Class {
             name: None.into(),
             extends: None,
             body: List::empty()
-        });
+        };
 
         assert_expr!(module, expected);
     }
@@ -951,11 +951,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = Expression::Class(Class {
+        let expected = Class {
             name: mock.name("Foo"),
             extends: None,
             body: List::empty()
-        });
+        };
 
         assert_expr!(module, expected);
     }
@@ -966,11 +966,11 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = Expression::Class(Class {
+        let expected = Class {
             name: mock.name("Foo"),
             extends: Some(mock.ptr("Bar")),
             body: List::empty()
-        });
+        };
 
         assert_expr!(module, expected);
     }
