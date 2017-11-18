@@ -124,47 +124,49 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn as_word(&self) -> Option<&'static str> {
+    #[inline]
+    pub fn is_word(&self) -> bool {
         use self::Token::*;
 
         match *self {
-            Break              => Some("break"),
-            Do                 => Some("do"),
-            Case               => Some("case"),
-            Else               => Some("else"),
-            Catch              => Some("catch"),
-            Export             => Some("export"),
-            Class              => Some("class"),
-            Extends            => Some("extends"),
-            Return             => Some("return"),
-            While              => Some("while"),
-            Finally            => Some("finally"),
-            Super              => Some("super"),
-            With               => Some("with"),
-            Continue           => Some("continue"),
-            For                => Some("for"),
-            Switch             => Some("switch"),
-            Yield              => Some("yield"),
-            Debugger           => Some("debugger"),
-            Function           => Some("function"),
-            This               => Some("this"),
-            Default            => Some("default"),
-            If                 => Some("if"),
-            Throw              => Some("throw"),
-            Import             => Some("import"),
-            Try                => Some("try"),
-            Static             => Some("static"),
-            OperatorNew        => Some("new"),
-            OperatorTypeof     => Some("typeof"),
-            OperatorVoid       => Some("void"),
-            OperatorDelete     => Some("delete"),
-            OperatorInstanceof => Some("instanceof"),
-            LiteralTrue        => Some("true"),
-            LiteralFalse       => Some("false"),
-            LiteralNull        => Some("null"),
-            LiteralUndefined   => Some("undefined"),
+            Identifier         |
+            Break              |
+            Do                 |
+            Case               |
+            Else               |
+            Catch              |
+            Export             |
+            Class              |
+            Extends            |
+            Return             |
+            While              |
+            Finally            |
+            Super              |
+            With               |
+            Continue           |
+            For                |
+            Switch             |
+            Yield              |
+            Debugger           |
+            Function           |
+            This               |
+            Default            |
+            If                 |
+            Throw              |
+            Import             |
+            Try                |
+            Static             |
+            OperatorNew        |
+            OperatorTypeof     |
+            OperatorVoid       |
+            OperatorDelete     |
+            OperatorInstanceof |
+            LiteralTrue        |
+            LiteralFalse       |
+            LiteralNull        |
+            LiteralUndefined   => true,
 
-            _                  => None,
+            _                  => false,
         }
     }
 }

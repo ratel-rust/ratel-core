@@ -1,13 +1,22 @@
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
-use ast::{OptionalName, MandatoryName};
+use ast::{NoName, OptionalName, MandatoryName, MethodKind};
 use ast::{Ptr, Loc, EmptyListBuilder, Name, Function, Class, ClassMember, Property};
+
+impl<'ast> Parse<'ast> for NoName {
+    type Output = Self;
+
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        NoName
+    }
+}
 
 impl<'ast> Parse<'ast> for OptionalName<'ast> {
     type Output = Self;
 
     #[inline]
-    fn parse(par: &mut Parser<'ast>) -> Self {
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
         if par.lexer.token != Identifier {
             return OptionalName(None);
         }
@@ -23,7 +32,7 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
     type Output = Self;
 
     #[inline]
-    fn parse(par: &mut Parser<'ast>) -> Self {
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
         if par.lexer.token != Identifier {
             return par.error();
         }
@@ -35,151 +44,154 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
     }
 }
 
-impl<'ast> Parser<'ast> {
-    #[inline]
-    pub fn function<N>(&mut self) -> Function<'ast, N> where
-        N: Name<'ast> + Parse<'ast, Output = N>,
-    {
-        let name = N::parse(self);
+impl<'ast, N> Parse<'ast> for Function<'ast, N> where
+    N: Name<'ast> + Parse<'ast, Output = N>,
+{
+    type Output = Self;
 
-        expect!(self, ParenOpen);
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        let name = N::parse(par);
+
+        expect!(par, ParenOpen);
 
         Function {
             name,
-            params: self.parameter_list(),
-            body: self.block(),
+            params: par.parameter_list(),
+            body: par.block(),
         }
     }
+}
+
+impl<'ast> Parse<'ast> for ClassMember<'ast> {
+    type Output = Ptr<'ast, Loc<ClassMember<'ast>>>;
 
     #[inline]
-    pub fn class<N>(&mut self) -> Class<'ast, N> where
-        N: Name<'ast> + Parse<'ast, Output = N>,
-    {
-        let name = N::parse(self);
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        let start = par.lexer.start();
 
-        let super_class = match self.lexer.token {
-            Extends => {
-                self.lexer.consume();
-
-                let super_class = self.expression(B1);
-                expect!(self, BraceOpen);
-
-                Some(super_class)
-            },
-            BraceOpen => {
-                self.lexer.consume();
-
-                None
-            },
-            _ => return self.error()
+        let is_static = match par.lexer.token {
+            Static => {
+                par.lexer.consume();
+                true
+            }
+            _ => false
         };
 
-        let mut body = EmptyListBuilder::new(self.arena);
+        let mut kind = MethodKind::Method;
 
-        loop {
-            match self.lexer.token {
-                Semicolon  => {
-                    self.lexer.consume();
-                    continue;
-                },
-                BraceClose => {
-                    self.lexer.consume();
-                    break;
-                },
-                Static     => {
-                    self.lexer.consume();
-                    body.push(self.class_member(true))
-                },
-                _ => body.push(self.class_member(false)),
-            }
+        let key = match par.lexer.token {
+            _ if par.lexer.token.is_word() => {
+                let mut label = par.lexer.token_as_str();
+                par.lexer.consume();
+
+                if par.lexer.token.is_word() {
+                    kind = match label {
+                        "get" => MethodKind::Get,
+                        "set" => MethodKind::Set,
+                        _     => return par.error()
+                    };
+                    label = par.lexer.token_as_str();
+                    par.lexer.consume();
+                } else if !is_static && label == "constructor" {
+                    kind = MethodKind::Constructor;
+                }
+
+                Property::Literal(label)
+            },
+            LiteralNumber => {
+                let num = par.lexer.token_as_str();
+                par.lexer.consume();
+                Property::Literal(num)
+            },
+            LiteralBinary => {
+                let num = par.lexer.token_as_str();
+                par.lexer.consume();
+                Property::Binary(num)
+            },
+            BracketOpen => {
+                par.lexer.consume();
+
+                let expression = par.expression(B0);
+
+                expect!(par, BracketClose);
+
+                Property::Computed(expression)
+            },
+            _ => return par.error()
+        };
+
+        let end;
+        let member = match par.lexer.token {
+            ParenOpen => {
+                par.lexer.consume();
+
+                let params = par.parameter_list();
+                let body = par.block();
+
+                end = body.end;
+
+                ClassMember::Method {
+                    is_static: is_static,
+                    key,
+                    kind,
+                    params,
+                    body,
+                }
+            },
+            OperatorAssign => {
+                par.lexer.consume();
+
+                let expression = par.expression(B1);
+
+                end = expression.end;
+
+                ClassMember::Literal {
+                    is_static,
+                    key,
+                    value: expression,
+                }
+            },
+            _ => return par.error(),
+        };
+
+        if par.lexer.token == Semicolon {
+            par.lexer.consume();
         }
+
+        par.alloc_at_loc(start, end, member)
+    }
+}
+
+impl<'ast, N> Parse<'ast> for Class<'ast, N> where
+    N: Name<'ast> + Parse<'ast, Output = N>,
+{
+    type Output = Self;
+
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        let name = N::parse(par);
+
+        let super_class = match par.lexer.token {
+            Extends => {
+                par.lexer.consume();
+
+                Some(par.expression(B1))
+            },
+            _ => None
+        };
 
         Class {
             name: name.into(),
             extends: super_class,
-            body: body.into_list(),
+            body: par.block(),
         }
-    }
-
-    fn class_member(&mut self, is_static: bool) -> Ptr<'ast, Loc<ClassMember<'ast>>> {
-        let property = match self.lexer.token {
-            Identifier => {
-                let label = self.lexer.token_as_str();
-                self.lexer.consume();
-                Property::Literal(label)
-            },
-            LiteralNumber => {
-                let num = self.lexer.token_as_str();
-                self.lexer.consume();
-                Property::Literal(num)
-            },
-            LiteralBinary => {
-                let num = self.lexer.token_as_str();
-                self.lexer.consume();
-                Property::Binary(num)
-            },
-            BracketOpen => {
-                self.lexer.consume();
-
-                let expression = self.expression(B0);
-
-                expect!(self, BracketClose);
-
-                Property::Computed(expression)
-            },
-            _ => {
-                // Allow word tokens such as "null" and "typeof" as identifiers
-                match self.lexer.token.as_word() {
-                    Some(label) => {
-                        self.lexer.consume();
-                        Property::Literal(label)
-                    },
-                    _           => return self.error()
-                }
-            }
-        };
-
-        let member = match self.lexer.token {
-            ParenOpen => {
-                self.lexer.consume();
-
-                let params = self.parameter_list();
-                let body = self.block();
-
-                Loc::new(0, 0, if !is_static && property.is_constructor() {
-                    ClassMember::Constructor {
-                        params,
-                        body,
-                    }
-                } else {
-                    ClassMember::Method {
-                        is_static: is_static,
-                        property,
-                        params,
-                        body,
-                    }
-                })
-            },
-            OperatorAssign => {
-                self.lexer.consume();
-
-                let expression = self.expression(B1);
-
-                Loc::new(0, 0, ClassMember::Literal {
-                    is_static,
-                    property,
-                    value: expression,
-                })
-            },
-            _ => return self.error(),
-        };
-
-        self.alloc(member)
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use parser::parse;
     use parser::mock::Mock;
     use ast::{List, Literal, Expression, Statement, Function, Class};
@@ -299,7 +311,7 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: List::empty(),
+                body: mock.empty_block(),
             })
         ]);
 
@@ -316,7 +328,7 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: Some(mock.ptr("Bar")),
-                body: List::empty(),
+                body: mock.empty_block(),
             })
         ]);
 
@@ -341,8 +353,11 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: mock.list([
-                    ClassMember::Constructor {
+                body: mock.block([
+                    ClassMember::Method {
+                        is_static: false,
+                        key: Property::Literal("constructor"),
+                        kind: MethodKind::Constructor,
                         params: mock.list([
                             Parameter {
                                 key: ParameterKey::Identifier("bar"),
@@ -390,10 +405,11 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: mock.list([
+                body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        property: Property::Literal("doge"),
+                        key: Property::Literal("doge"),
+                        kind: MethodKind::Method,
                         params: mock.list([
                             Parameter {
                                 key: ParameterKey::Identifier("bar"),
@@ -410,7 +426,8 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        property: Property::Literal("toThe"),
+                        key: Property::Literal("toThe"),
+                        kind: MethodKind::Method,
                         params: mock.list([
                             Parameter {
                                 key: ParameterKey::Identifier("moon"),
@@ -423,19 +440,22 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: false,
-                        property: Property::Literal("function"),
+                        key: Property::Literal("function"),
+                        kind: MethodKind::Method,
                         params: List::empty(),
                         body: mock.empty_block()
                     },
                     ClassMember::Method {
                         is_static: true,
-                        property: Property::Literal("function"),
+                        key: Property::Literal("function"),
+                        kind: MethodKind::Method,
                         params: List::empty(),
                         body: mock.empty_block()
                     },
                     ClassMember::Method {
                         is_static: true,
-                        property: Property::Literal("constructor"),
+                        key: Property::Literal("constructor"),
+                        kind: MethodKind::Method,
                         params: List::empty(),
                         body: mock.empty_block()
                     },
@@ -465,25 +485,25 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: mock.list([
+                body: mock.block([
                     ClassMember::Literal {
                         is_static: false,
-                        property: Property::Literal("doge"),
+                        key: Property::Literal("doge"),
                         value: mock.number("10")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        property: Property::Literal("to"),
+                        key: Property::Literal("to"),
                         value: mock.number("20")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        property: Property::Literal("the"),
+                        key: Property::Literal("the"),
                         value: mock.number("30")
                     },
                     ClassMember::Literal {
                         is_static: true,
-                        property: Property::Literal("moon"),
+                        key: Property::Literal("moon"),
                         value: mock.number("42")
                     },
                 ])
@@ -504,13 +524,14 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: Some(mock.ptr(Expression::Literal(Literal::Null))),
-                body: List::empty()
+                body: mock.empty_block()
             })
         ]);
 
         assert_eq!(module.body(), expected);
     }
 
+    #[test]
     fn class_methods() {
         let src = r#"
 
@@ -527,11 +548,11 @@ mod test {
             Statement::Class(Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: mock.list([
+                body: mock.block([
                     ClassMember::Method {
-                        // FIXME: kind
                         is_static: false,
-                        property: Property::Literal("length"),
+                        key: Property::Literal("length"),
+                        kind: MethodKind::Get,
                         params: mock.list([
                             Parameter {
                                 key: ParameterKey::Identifier("foo"),
@@ -541,9 +562,9 @@ mod test {
                         body: mock.empty_block()
                     },
                     ClassMember::Method {
-                        // FIXME: kind
                         is_static: false,
-                        property: Property::Literal("length"),
+                        key: Property::Literal("length"),
+                        kind: MethodKind::Set,
                         params: mock.list([
                             Parameter {
                                 key: ParameterKey::Identifier("bar"),

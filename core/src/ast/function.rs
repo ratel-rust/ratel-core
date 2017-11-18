@@ -18,10 +18,19 @@ pub enum ParameterKey<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub struct NoName;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MandatoryName<'ast>(pub IdentifierPtr<'ast>);
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct OptionalName<'ast>(pub Option<IdentifierPtr<'ast>>);
+
+impl<'ast> Name<'ast> for NoName {
+    fn empty() -> Self {
+        NoName
+    }
+}
 
 impl<'ast> Name<'ast> for MandatoryName<'ast> {
     fn empty() -> Self {
@@ -71,21 +80,26 @@ pub struct Function<'ast, N: Name<'ast>> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MethodKind {
+    Constructor,
+    Method,
+    Get,
+    Set,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ClassMember<'ast> {
     Error,
-    Constructor {
-        params: ParameterList<'ast>,
-        body: BlockPtr<'ast, Statement<'ast>>,
-    },
     Method {
         is_static: bool,
-        property: Property<'ast>,
-        params: ParameterList<'ast>,
+        key: Property<'ast>,
+        kind: MethodKind,
+        value: ParameterList<'ast>,
         body: BlockPtr<'ast, Statement<'ast>>,
     },
     Literal {
         is_static: bool,
-        property: Property<'ast>,
+        key: Property<'ast>,
         value: ExpressionPtr<'ast>,
     }
 }
@@ -94,5 +108,5 @@ pub enum ClassMember<'ast> {
 pub struct Class<'ast, N: Name<'ast>> {
     pub name: N,
     pub extends: Option<ExpressionPtr<'ast>>,
-    pub body: List<'ast, Loc<ClassMember<'ast>>>,
+    pub body: BlockPtr<'ast, ClassMember<'ast>>,
 }

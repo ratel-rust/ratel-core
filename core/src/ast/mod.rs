@@ -17,8 +17,8 @@ pub use ast::ptr::Ptr;
 pub use ast::types::{Type, Primitive};
 pub use ast::expression::{Expression, ObjectMember, Property};
 pub use ast::statement::{Statement, Declarator, DeclaratorId, BlockStatement};
-pub use ast::function::{Function, Class, ClassMember};
-pub use ast::function::{Name, OptionalName, MandatoryName, Parameter, ParameterKey};
+pub use ast::function::{Function, Class, ClassMember, MethodKind};
+pub use ast::function::{Name, NoName, OptionalName, MandatoryName, Parameter, ParameterKey};
 pub use ast::literal::Literal;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 

@@ -2,7 +2,7 @@ use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
-use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Literal};
+use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Literal, Class, Function};
 use ast::expression::BinaryExpression;
 use ast::statement::{BlockStatement, ReturnStatement, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{TryStatement, ThrowStatement, ContinueStatement, BreakStatement};
@@ -199,7 +199,7 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start();
         self.lexer.consume();
 
-        let function = self.function();
+        let function = Function::parse(self);
 
         self.alloc_at_loc(start, function.body.end, function)
     }
@@ -209,9 +209,9 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start();
         self.lexer.consume();
 
-        let class = self.class();
+        let class = Class::parse(self);
 
-        self.alloc_at_loc(start, 0, class)
+        self.alloc_at_loc(start, class.body.end, class)
     }
 
     #[inline]
@@ -1131,7 +1131,7 @@ mod test {
             Class {
                 name: mock.name("Foo"),
                 extends: None,
-                body: List::empty(),
+                body: mock.empty_block(),
             }
         ]);
 

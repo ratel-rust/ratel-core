@@ -2,7 +2,7 @@ use error::Error;
 
 use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
-use ast::{Name, Function, Class, ClassMember, MandatoryName, BlockStatement, Block};
+use ast::{Name, Function, Class, ClassMember, MandatoryName, Block};
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -127,7 +127,7 @@ impl<'ast, N: Name<'ast>> ToError for Function<'ast, N> {
             body: Ptr::new(&Loc {
                 start: 0,
                 end: 0,
-                item: BlockStatement { body: empty_list!() }
+                item: Block { body: empty_list!() }
             }),
         }
     }
@@ -138,7 +138,11 @@ impl<'ast, N: Name<'ast>> ToError for Class<'ast, N> {
         Class {
             name: N::empty(),
             extends: None,
-            body: List::empty(),
+            body: Ptr::new(&Loc {
+                start: 0,
+                end: 0,
+                item: Block { body: empty_list!() }
+            }),
         }
     }
 }

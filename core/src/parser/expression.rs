@@ -1,7 +1,7 @@
-use parser::{Parser, B0, B1, B15};
+use parser::{Parser, Parse, B0, B1, B15};
 use lexer::Token::*;
-use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr};
-use ast::{ObjectMember, Property, OperatorKind, Literal, Parameter, ParameterKey, ParameterList};
+use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr, Function};
+use ast::{ObjectMember, Property, OperatorKind, Literal, Parameter, ParameterKey, ParameterList, Class};
 use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression, ObjectExpression, TemplateExpression};
 
 
@@ -292,7 +292,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn object_member(&mut self) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
         let property = match self.lexer.token {
-            Identifier => {
+            _ if self.lexer.token.is_word() => {
                 let label = self.lexer.token_as_str();
                 self.lexer.consume();
 
@@ -323,16 +323,7 @@ impl<'ast> Parser<'ast> {
 
                 property
             },
-            _ => {
-                // Allow word tokens such as "null" and "typeof" as identifiers
-                match self.lexer.token.as_word() {
-                    Some(label) => {
-                        self.lexer.consume();
-                        self.in_loc(Property::Literal(label))
-                    }
-                    None => return self.error()
-                }
-            }
+            _ => return self.error(),
         };
 
         let property = self.alloc(property);
@@ -520,7 +511,7 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start();
         self.lexer.consume();
 
-        let function = self.function();
+        let function = Function::parse(self);
 
         self.alloc_at_loc(start, function.body.end, function)
     }
@@ -530,9 +521,9 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start();
         self.lexer.consume();
 
-        let class = self.class();
+        let class = Class::parse(self);
 
-        self.alloc_at_loc(start, 0, class)
+        self.alloc_at_loc(start, class.body.end, class)
     }
 }
 
@@ -935,11 +926,12 @@ mod test {
     fn class_expression() {
         let src = "(class {})";
         let module = parse(src).unwrap();
+        let mock = Mock::new();
 
         let expected = Class {
             name: None.into(),
             extends: None,
-            body: List::empty()
+            body: mock.empty_block()
         };
 
         assert_expr!(module, expected);
@@ -954,7 +946,7 @@ mod test {
         let expected = Class {
             name: mock.name("Foo"),
             extends: None,
-            body: List::empty()
+            body: mock.empty_block()
         };
 
         assert_expr!(module, expected);
@@ -969,7 +961,7 @@ mod test {
         let expected = Class {
             name: mock.name("Foo"),
             extends: Some(mock.ptr("Bar")),
-            body: List::empty()
+            body: mock.empty_block()
         };
 
         assert_expr!(module, expected);
