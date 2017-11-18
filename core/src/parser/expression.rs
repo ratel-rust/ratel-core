@@ -290,7 +290,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn object_member(&mut self) -> Ptr<'ast, Loc<ObjectMember<'ast>>> {
+    pub fn object_member(&mut self) -> Ptr<'ast, ObjectMember<'ast>> {
         let property = match self.lexer.token {
             _ if self.lexer.token.is_word() => {
                 let label = self.lexer.token_as_str();

@@ -1,3 +1,4 @@
+use ast::Loc;
 use ast::ptr::{Ptr, CopyCell};
 use std::fmt::{self, Debug};
 use arena::Arena;
@@ -189,7 +190,7 @@ impl<'ast, T: 'ast> List<'ast, T> {
     /// Returns the first element if, and only if, the list contains
     /// just that single element.
     #[inline]
-    pub fn only_element(&self) -> Option<&'ast T> {
+    pub fn only_element(&self) -> Option<&'ast Loc<T>> {
         match self.root.get() {
             Some(&ListItem { ref value, ref next, .. }) => {
                 match next.get() {
@@ -214,7 +215,7 @@ impl<'ast, T: 'ast + Copy> List<'ast, T> {
     }
 
     pub fn from_iter<I>(arena: &'ast Arena, source: I) -> List<'ast, T> where
-        I: IntoIterator<Item = T>
+        I: IntoIterator<Item = Loc<T>>
     {
         let mut iter = source.into_iter();
 
@@ -233,7 +234,7 @@ impl<'ast, T: 'ast + Copy> List<'ast, T> {
 
 
 impl<'ast, T: 'ast> IntoIterator for List<'ast, T> {
-    type Item = &'ast T;
+    type Item = &'ast Loc<T>;
     type IntoIter = ListIter<'ast, T>;
 
     #[inline]
@@ -243,7 +244,7 @@ impl<'ast, T: 'ast> IntoIterator for List<'ast, T> {
 }
 
 impl<'a, 'ast, T: 'ast> IntoIterator for &'a List<'ast, T> {
-    type Item = &'ast T;
+    type Item = &'ast Loc<T>;
     type IntoIter = ListIter<'ast, T>;
 
     #[inline]
@@ -257,7 +258,7 @@ pub struct ListIter<'ast, T: 'ast> {
 }
 
 impl<'ast, T: 'ast> Iterator for ListIter<'ast, T> {
-    type Item = &'ast T;
+    type Item = &'ast Loc<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

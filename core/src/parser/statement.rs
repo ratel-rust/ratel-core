@@ -251,7 +251,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declarator(&mut self) -> Ptr<'ast, Loc<Declarator<'ast>>> {
+    pub fn variable_declarator(&mut self) -> Ptr<'ast, Declarator<'ast>> {
         let name = match self.lexer.token {
             BraceOpen   => DeclaratorId::Pattern(self.object_expression()),
             BracketOpen => DeclaratorId::Pattern(self.array_expression()),
@@ -278,7 +278,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declarators(&mut self) -> List<'ast, Loc<Declarator<'ast>>> {
+    pub fn variable_declarators(&mut self) -> List<'ast, Declarator<'ast>> {
         let mut builder = ListBuilder::new(self.arena, self.variable_declarator());
 
         match self.lexer.token {

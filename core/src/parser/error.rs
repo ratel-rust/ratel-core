@@ -35,7 +35,7 @@ impl<'ast, I> ToError for Block<'ast, I> {
     }
 }
 
-impl<'ast, I> ToError for Ptr<'ast, Loc<Block<'ast, I>>> {
+impl<'ast, I> ToError for Ptr<'ast, Block<'ast, I>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
@@ -80,7 +80,7 @@ impl<'ast> ToError for ParameterPtr<'ast> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Loc<Declarator<'ast>>> {
+impl<'ast> ToError for Ptr<'ast, Declarator<'ast>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
@@ -99,7 +99,7 @@ impl<'ast> ToError for ObjectMember<'ast> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Loc<ObjectMember<'ast>>> {
+impl<'ast> ToError for Ptr<'ast, ObjectMember<'ast>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
@@ -109,7 +109,7 @@ impl<'ast> ToError for Ptr<'ast, Loc<ObjectMember<'ast>>> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Loc<ClassMember<'ast>>> {
+impl<'ast> ToError for Ptr<'ast, ClassMember<'ast>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
@@ -157,7 +157,7 @@ impl<'ast, T: 'ast + ToError> ToError for Loc<T> {
     }
 }
 
-impl<'ast, T: 'ast + Copy> ToError for List<'ast, Loc<T>> {
+impl<'ast, T: 'ast + Copy> ToError for List<'ast, T> {
     fn to_error() -> Self {
         List::empty()
     }

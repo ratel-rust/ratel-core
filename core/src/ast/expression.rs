@@ -81,7 +81,7 @@ pub struct ConditionalExpression<'ast> {
 pub struct TemplateExpression<'ast> {
     pub tag: Option<ExpressionPtr<'ast>>,
     pub expressions: ExpressionList<'ast>,
-    pub quasis: List<'ast, Loc<&'ast str>>,
+    pub quasis: List<'ast, &'ast str>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -98,7 +98,7 @@ pub struct ArrowExpression<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ObjectExpression<'ast> {
-    pub body: List<'ast, Loc<ObjectMember<'ast>>>,
+    pub body: List<'ast, ObjectMember<'ast>>,
 }
 
 pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;

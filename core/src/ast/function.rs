@@ -94,7 +94,7 @@ pub enum ClassMember<'ast> {
         is_static: bool,
         key: Property<'ast>,
         kind: MethodKind,
-        value: ParameterList<'ast>,
+        params: ParameterList<'ast>,
         body: BlockPtr<'ast, Statement<'ast>>,
     },
     Literal {

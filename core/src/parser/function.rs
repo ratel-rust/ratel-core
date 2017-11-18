@@ -64,7 +64,7 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
 }
 
 impl<'ast> Parse<'ast> for ClassMember<'ast> {
-    type Output = Ptr<'ast, Loc<ClassMember<'ast>>>;
+    type Output = Ptr<'ast, ClassMember<'ast>>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {

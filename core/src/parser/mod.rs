@@ -36,7 +36,7 @@ pub struct Parser<'ast> {
     errors: Vec<Error>,
 
     /// AST under construction
-    body: List<'ast, Loc<Statement<'ast>>>,
+    body: List<'ast, Statement<'ast>>,
 }
 
 impl<'ast> Parser<'ast> {
@@ -75,14 +75,14 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc<T>(&mut self, val: T) -> Ptr<'ast, T> where
+    fn alloc<T>(&mut self, val: Loc<T>) -> Ptr<'ast, T> where
         T: Copy,
     {
         Ptr::new(self.arena.alloc(val.into()))
     }
 
     #[inline]
-    fn alloc_in_loc<T, I>(&mut self, item: I) -> Ptr<'ast, Loc<T>> where
+    fn alloc_in_loc<T, I>(&mut self, item: I) -> Ptr<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
@@ -91,7 +91,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Ptr<'ast, Loc<T>> where
+    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Ptr<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
@@ -116,7 +116,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn block<I>(&mut self) -> BlockPtr<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
     {
         let start = match self.lexer.token {
             BraceOpen => self.lexer.start_then_consume(),
@@ -131,7 +131,7 @@ impl<'ast> Parser<'ast> {
     /// Same as above, but assumes that the opening brace has already been checked
     #[inline]
     fn unchecked_block<I>(&mut self) -> BlockPtr<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
     {
         let start = self.lexer.start_then_consume();
         let block = self.raw_block();
@@ -142,7 +142,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn raw_block<I>(&mut self) -> Block<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, Loc<I>>> + Copy
+        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
     {
         if self.lexer.token == BraceClose {
             return Block { body: List::empty() };
@@ -276,7 +276,7 @@ mod mock {
             }
         }
 
-        pub fn ptr<'a, T, I>(&'a self, val: I) -> Ptr<'a, Loc<T>> where
+        pub fn ptr<'a, T, I>(&'a self, val: I) -> Ptr<'a, T> where
             T: 'a + Copy,
             I: Into<T>,
         {
@@ -284,7 +284,7 @@ mod mock {
         }
 
         pub fn name<'a, N>(&'a self, val: &'a str) -> N where
-            N: Name<'a> + From<Ptr<'a, Loc<&'a str>>>,
+            N: Name<'a> + From<Ptr<'a, &'a str>>,
         {
             N::from(Ptr::new(self.arena.alloc(Loc::new(0, 0, val))))
         }
@@ -305,7 +305,7 @@ mod mock {
             self.ptr(Block { body: List::empty() })
         }
 
-        pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, Loc<T>> where
+        pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, T> where
             T: 'a + Copy,
             L: AsRef<[I]>,
             I: Into<T> + Copy,

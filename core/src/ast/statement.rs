@@ -16,7 +16,7 @@ pub enum DeclaratorId<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct DeclarationStatement<'ast> {
     pub kind: DeclarationKind,
-    pub declarators: List<'ast, Loc<Declarator<'ast>>>,
+    pub declarators: List<'ast, Declarator<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

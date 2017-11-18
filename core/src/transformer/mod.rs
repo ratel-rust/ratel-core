@@ -70,7 +70,7 @@ impl<'ast> Transformer<'ast> {
     }
 
     #[inline]
-    pub fn swap<T: Copy + 'ast>(&self, ptr: &Ptr<'ast, Loc<T>>, item: T) {
+    pub fn swap<T: Copy + 'ast>(&self, ptr: &Ptr<'ast, T>, item: T) {
         let new = self.arena.alloc(Loc {
             start: ptr.start,
             end: ptr.end,
