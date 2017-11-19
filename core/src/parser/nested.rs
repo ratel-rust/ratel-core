@@ -1,7 +1,6 @@
 use parser::Parser;
-use lexer::Token;
 use lexer::Token::*;
-use ast::{Loc, List, ListBuilder, OperatorKind, Expression, ExpressionPtr};
+use ast::{List, ListBuilder, OperatorKind, Expression, ExpressionPtr};
 use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression, CallExpression, BinaryExpression};
 use ast::expression::{PostfixExpression, ConditionalExpression};
 use ast::OperatorKind::*;

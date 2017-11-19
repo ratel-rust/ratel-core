@@ -262,8 +262,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Expression, Literal, ExpressionPtr, StatementPtr, Block, BlockPtr, Name};
-    use ast::statement::BlockStatement;
+    use ast::{Literal, ExpressionPtr, Block, BlockPtr, Name};
 
     pub struct Mock {
         arena: Arena

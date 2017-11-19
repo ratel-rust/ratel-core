@@ -1,5 +1,5 @@
-use ast::{Ptr, Loc, List, IdentifierPtr, ParameterList, ExpressionPtr};
-use ast::{BlockPtr, Statement, StatementPtr, StatementList, Property};
+use ast::{Ptr, Loc, IdentifierPtr, ParameterList, ExpressionPtr};
+use ast::{BlockPtr, Statement, Property};
 
 pub trait Name<'ast> {
     fn empty() -> Self;
@@ -18,7 +18,7 @@ pub enum ParameterKey<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct NoName;
+pub struct EmptyName;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MandatoryName<'ast>(pub IdentifierPtr<'ast>);
@@ -26,9 +26,9 @@ pub struct MandatoryName<'ast>(pub IdentifierPtr<'ast>);
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct OptionalName<'ast>(pub Option<IdentifierPtr<'ast>>);
 
-impl<'ast> Name<'ast> for NoName {
+impl<'ast> Name<'ast> for EmptyName {
     fn empty() -> Self {
-        NoName
+        EmptyName
     }
 }
 
@@ -94,8 +94,7 @@ pub enum ClassMember<'ast> {
         is_static: bool,
         key: Property<'ast>,
         kind: MethodKind,
-        params: ParameterList<'ast>,
-        body: BlockPtr<'ast, Statement<'ast>>,
+        value: Ptr<'ast, Function<'ast, EmptyName>>,
     },
     Literal {
         is_static: bool,

@@ -2,13 +2,12 @@ use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, Declarator, DeclaratorId, DeclarationKind};
-use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Literal, Class, Function};
+use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function};
 use ast::expression::BinaryExpression;
-use ast::statement::{BlockStatement, ReturnStatement, IfStatement, WhileStatement, DoStatement};
+use ast::statement::{ReturnStatement, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{TryStatement, ThrowStatement, ContinueStatement, BreakStatement};
 use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
 use ast::statement::{SwitchStatement, SwitchCaseStatement, LabeledStatement};
-use ast::OperatorKind;
 use ast::OperatorKind::*;
 use ast::{EmptyListBuilder};
 
@@ -44,96 +43,110 @@ static STMT_HANDLERS: [StatementHandler; 108] = [
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ];
 
-const ____: StatementHandler = |par| return par.error();
+
+macro_rules! create_handlers {
+    ($( const $name:ident = |$par:ident| $code:expr; )*) => {
+        $(
+            #[allow(non_snake_case)]
+            fn $name<'ast>($par: &mut Parser<'ast>) -> StatementPtr<'ast> {
+                $code
+            }
+        )*
+    };
+}
 
 /// Shared expression handlers that produce StatementPtr<'ast>
 use parser::expression::handlers::{
     PRN, ARR, OP, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
 };
 
-const EMPT : StatementHandler = |par| {
-    let stmt = par.alloc_in_loc(Statement::Empty);
-    par.lexer.consume();
+create_handlers! {
+    const ____ = |par| return par.error();
 
-    stmt
-};
+    const EMPT = |par| {
+        let stmt = par.alloc_in_loc(Statement::Empty);
+        par.lexer.consume();
 
-const BLCK : StatementHandler = |par| par.block_statement();
+        stmt
+    };
 
-const VAR: StatementHandler = |par| {
-    par.lexer.consume();
-    par.variable_declaration_statement(DeclarationKind::Var)
-};
+    const BLCK = |par| par.block_statement();
 
-const LET: StatementHandler = |par| {
-    par.lexer.consume();
-    par.variable_declaration_statement(DeclarationKind::Let)
-};
+    const VAR = |par| {
+        par.lexer.consume();
+        par.variable_declaration_statement(DeclarationKind::Var)
+    };
 
-const CONS: StatementHandler = |par| {
-    par.lexer.consume();
-    par.variable_declaration_statement(DeclarationKind::Const)
-};
+    const LET = |par| {
+        par.lexer.consume();
+        par.variable_declaration_statement(DeclarationKind::Let)
+    };
 
-const RET: StatementHandler = |par| {
-    par.lexer.consume();
-    par.return_statement()
-};
+    const CONS = |par| {
+        par.lexer.consume();
+        par.variable_declaration_statement(DeclarationKind::Const)
+    };
 
-const BRK: StatementHandler = |par| {
-    par.lexer.consume();
-    par.break_statement()
-};
+    const RET = |par| {
+        par.lexer.consume();
+        par.return_statement()
+    };
 
-const CONT: StatementHandler = |par| {
-    par.lexer.consume();
-    par.continue_statement()
-};
+    const BRK = |par| {
+        par.lexer.consume();
+        par.break_statement()
+    };
 
-const FUNC: StatementHandler = |par| par.function_statement();
+    const CONT = |par| {
+        par.lexer.consume();
+        par.continue_statement()
+    };
 
-const CLAS: StatementHandler = |par| par.class_statement();
+    const FUNC = |par| par.function_statement();
 
-const IF: StatementHandler = |par| {
-    par.lexer.consume();
-    par.if_statement()
-};
+    const CLAS = |par| par.class_statement();
 
-const WHL: StatementHandler = |par| {
-    par.lexer.consume();
-    par.while_statement()
-};
+    const IF = |par| {
+        par.lexer.consume();
+        par.if_statement()
+    };
 
-const DO: StatementHandler = |par| {
-    par.lexer.consume();
-    par.do_statement()
-};
+    const WHL = |par| {
+        par.lexer.consume();
+        par.while_statement()
+    };
 
-const FOR: StatementHandler = |par| {
-    par.lexer.consume();
-    par.for_statement()
-};
+    const DO = |par| {
+        par.lexer.consume();
+        par.do_statement()
+    };
 
-const THRW: StatementHandler = |par| {
-    par.lexer.consume();
-    par.throw_statement()
-};
+    const FOR = |par| {
+        par.lexer.consume();
+        par.for_statement()
+    };
 
-const TRY: StatementHandler = |par| {
-    par.lexer.consume();
-    par.try_statement()
-};
+    const THRW = |par| {
+        par.lexer.consume();
+        par.throw_statement()
+    };
 
-const SWCH: StatementHandler = |par| {
-    par.lexer.consume();
-    par.switch_statement()
-};
+    const TRY = |par| {
+        par.lexer.consume();
+        par.try_statement()
+    };
 
-const LABL: StatementHandler = |par| {
-    let label = par.lexer.token_as_str();
-    par.lexer.consume();
-    par.labeled_or_expression_statement(label)
-};
+    const SWCH = |par| {
+        par.lexer.consume();
+        par.switch_statement()
+    };
+
+    const LABL = |par| {
+        let label = par.lexer.token_as_str();
+        par.lexer.consume();
+        par.labeled_or_expression_statement(label)
+    };
+}
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
     type Output = StatementPtr<'ast>;
@@ -640,7 +653,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Literal, ObjectMember, Function, Class, OperatorKind};
+    use ast::{List, Literal, ObjectMember, Function, Class, OperatorKind, BlockStatement};
     use ast::expression::*;
 
     #[test]

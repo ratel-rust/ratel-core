@@ -1,4 +1,4 @@
-use ast::{Loc, List, DeclarationKind, Function, Class, MandatoryName};
+use ast::{List, DeclarationKind, Function, Class, MandatoryName};
 use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr};
 
 #[derive(Debug, PartialEq, Clone, Copy)]

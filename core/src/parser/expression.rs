@@ -1,7 +1,7 @@
 use parser::{Parser, Parse, B0, B1, B15};
 use lexer::Token::*;
-use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList, StatementPtr, Function};
-use ast::{ObjectMember, Property, OperatorKind, Literal, Parameter, ParameterKey, ParameterList, Class};
+use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
+use ast::{ObjectMember, Property, OperatorKind, Literal, Function, Class, StatementPtr};
 use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression, ObjectExpression, TemplateExpression};
 
 
@@ -291,6 +291,8 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn object_member(&mut self) -> Ptr<'ast, ObjectMember<'ast>> {
+        let start = self.lexer.start();
+
         let property = match self.lexer.token {
             _ if self.lexer.token.is_word() => {
                 let label = self.lexer.token_as_str();
@@ -326,7 +328,7 @@ impl<'ast> Parser<'ast> {
             _ => return self.error(),
         };
 
-        let property = self.alloc(property);
+        let key = self.alloc(property);
 
         match self.lexer.token {
             Colon => {
@@ -334,21 +336,17 @@ impl<'ast> Parser<'ast> {
 
                 let value = self.expression(B1);
 
-                self.alloc_at_loc(0, 0,  ObjectMember::Literal {
-                    property,
+                self.alloc_at_loc(start, value.end,  ObjectMember::Literal {
+                    key,
                     value,
                 })
             },
             ParenOpen => {
-                self.lexer.consume();
+                let value = Ptr::parse(self);
 
-                let params = self.parameter_list();
-                let body = self.block();
-
-                self.alloc_at_loc(0, 0, ObjectMember::Method {
-                    property,
-                    params,
-                    body,
+                self.alloc_at_loc(start, value.end, ObjectMember::Method {
+                    key,
+                    value,
                 })
             },
             _ => return self.error()
@@ -530,7 +528,7 @@ impl<'ast> Parser<'ast> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ast::{OperatorKind, Literal, Statement, Function, Class};
+    use ast::{OperatorKind, Literal, Statement, Function, Parameter, ParameterKey, Class};
     use ast::expression::*;
     use ast::statement::*;
     use parser::parse;
@@ -833,7 +831,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = ArrowExpression {
-            params: ParameterList::empty(),
+            params: List::empty(),
             body: ArrowBody::Expression(mock.ptr("bar")),
         };
         assert_expr!(module, expected);
