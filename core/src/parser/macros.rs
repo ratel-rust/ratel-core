@@ -31,10 +31,11 @@ macro_rules! expect_identifier {
         match $parser.lexer.token {
             Identifier => {
                 let ident = $parser.lexer.token_as_str();
+                let ident = $parser.alloc_in_loc(ident);
                 $parser.lexer.consume();
                 ident
             },
-            _                        => return $parser.error()
+            _ => return $parser.error()
         }
     }
 }

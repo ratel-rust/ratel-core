@@ -3,6 +3,7 @@ use error::Error;
 use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
 use ast::{Name, Function, Class, ClassMember, MandatoryName, Block};
+use ast::statement::SwitchCase;
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -160,5 +161,18 @@ impl<'ast, T: 'ast + ToError> ToError for Loc<T> {
 impl<'ast, T: 'ast + Copy> ToError for List<'ast, T> {
     fn to_error() -> Self {
         List::empty()
+    }
+}
+
+impl<'ast> ToError for Ptr<'ast, SwitchCase<'ast>> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: SwitchCase {
+                test: None,
+                consequent: empty_list!(),
+            }
+        })
     }
 }

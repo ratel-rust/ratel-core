@@ -1,4 +1,4 @@
-use ast::{List, DeclarationKind, Function, Class, MandatoryName};
+use ast::{List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
 use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -26,7 +26,12 @@ pub struct ReturnStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BreakStatement<'ast> {
-    pub label: Option<ExpressionPtr<'ast>>,
+    pub label: Option<IdentifierPtr<'ast>>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ContinueStatement<'ast> {
+    pub label: Option<IdentifierPtr<'ast>>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -78,7 +83,7 @@ pub struct ForOfStatement<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TryStatement<'ast> {
     pub body: BlockPtr<'ast, Statement<'ast>>,
-    pub error: ExpressionPtr<'ast>,
+    pub error: IdentifierPtr<'ast>,
     pub handler: BlockPtr<'ast, Statement<'ast>>,
 }
 
@@ -89,18 +94,13 @@ pub struct LabeledStatement<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ContinueStatement<'ast> {
-    pub label: Option<ExpressionPtr<'ast>>
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SwitchStatement<'ast> {
     pub discriminant: ExpressionPtr<'ast>,
-    pub cases: StatementList<'ast>,
+    pub cases: BlockPtr<'ast, SwitchCase<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct SwitchCaseStatement<'ast> {
+pub struct SwitchCase<'ast> {
     pub test: Option<ExpressionPtr<'ast>>,
     pub consequent: StatementList<'ast>,
 }
@@ -117,6 +117,7 @@ pub enum Statement<'ast> {
     Declaration(DeclarationStatement<'ast>),
     Return(ReturnStatement<'ast>),
     Break(BreakStatement<'ast>),
+    Continue(ContinueStatement<'ast>),
     Throw(ThrowStatement<'ast>),
     If(IfStatement<'ast>),
     While(WhileStatement<'ast>),
@@ -129,9 +130,7 @@ pub enum Statement<'ast> {
     Labeled(LabeledStatement<'ast>),
     Function(FunctionStatement<'ast>),
     Class(ClassStatement<'ast>),
-    Continue(ContinueStatement<'ast>),
-    Switch(SwitchStatement<'ast>),
-    SwitchCase(SwitchCaseStatement<'ast>)
+    Switch(SwitchStatement<'ast>)
 }
 
 macro_rules! impl_from {
@@ -163,8 +162,7 @@ impl_from! {
     ContinueStatement => Continue,
     FunctionStatement => Function,
     ClassStatement => Class,
-    SwitchStatement => Switch,
-    SwitchCaseStatement => SwitchCase
+    SwitchStatement => Switch
 }
 
 impl<'ast> Statement<'ast> {
