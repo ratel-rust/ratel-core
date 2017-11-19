@@ -506,9 +506,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
-        let start = self.lexer.start();
-        self.lexer.consume();
-
+        let start = self.lexer.start_then_consume();
         let function = Function::parse(self);
 
         self.alloc_at_loc(start, function.body.end, function)
@@ -516,9 +514,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
-        let start = self.lexer.start();
-        self.lexer.consume();
-
+        let start = self.lexer.start_then_consume();
         let class = Class::parse(self);
 
         self.alloc_at_loc(start, class.body.end, class)
