@@ -85,17 +85,17 @@ mod test {
             "body": [
                 {
                     "type": "ExpressionStatement",
-                    "end": 4,
                     "expression": {
                         "type": "ThisExpression",
+                        "start": 0,
                         "end": 4,
-                        "start": 0
                     },
-                    "start": 0
+                    "start": 0,
+                    "end": 4,
                 }
               ],
+              "start": 0,
               "end": 0,
-              "start": 0
         });
     }
 }

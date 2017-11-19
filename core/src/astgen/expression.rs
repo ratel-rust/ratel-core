@@ -6,6 +6,7 @@ use astgen::function::ClassBody;
 use astgen::value::TemplateElement;
 use astgen::value::TemplateLiteral;
 use astgen::statement::BlockStatement;
+use astgen::SerializeInLoc;
 
 #[derive(Debug)]
 
@@ -14,17 +15,15 @@ struct TaggedTemplateExpression<'ast> {
     quasi: Loc<TemplateLiteral<'ast>>,
 }
 
-impl<'ast> Serialize for Loc<TaggedTemplateExpression<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for TaggedTemplateExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("TaggedTemplateExpression", 4)?;
-        state.serialize_field("type", &"TaggedTemplateExpression")?;
-        state.serialize_field("tag", &self.tag)?;
-        state.serialize_field("quasi", &self.quasi)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+
+        self.in_loc(serializer, "TaggedTemplateExpression", 2, |state| {
+            state.serialize_field("tag", &self.tag)?;
+            state.serialize_field("quasi", &self.quasi)
+        })
     }
 }
 
@@ -56,7 +55,7 @@ fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
         Subtraction         |
         Addition            |
         LogicalNot          |
-        BitwiseNot          => if prefix {"UnaryExpression" } else { "BinaryExpression" },
+        BitwiseNot          => if prefix { "UnaryExpression" } else { "BinaryExpression" },
         _                   => "BinaryExpression"
     }
 }
@@ -184,9 +183,9 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                     let expr_type = expression_type(operator, true);
                     let mut state = serializer.serialize_struct(expr_type, 5)?;
                     state.serialize_field("type", &expr_type)?;
-                    state.serialize_field("prefix", &true)?;
                     state.serialize_field("operator", &operator.as_str())?;
                     state.serialize_field("argument", &operand)?;
+                    state.serialize_field("prefix", &true)?;
                     state
                 }
             },
@@ -195,9 +194,9 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                 let expr_type = expression_type(operator, false);
                 let mut state = serializer.serialize_struct(expr_type, 5)?;
                 state.serialize_field("type", &expr_type)?;
-                state.serialize_field("prefix", &false)?;
                 state.serialize_field("operator", &operator.as_str())?;
                 state.serialize_field("argument", &operand)?;
+                state.serialize_field("prefix", &false)?;
                 state
             },
 

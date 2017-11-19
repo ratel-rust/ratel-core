@@ -63,36 +63,30 @@ impl<'ast> SerializeInLoc for &'ast str {
     }
 }
 
-impl<'ast> Serialize for Loc<Parameter<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for Parameter<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
 
-        let key = match self.item.key {
+        let key = match self.key {
             ParameterKey::Identifier(value) => value,
             ParameterKey::Pattern(_) => {
                 panic!("Unimplemented: ParameterKey::Pattern(expr)");
             }
         };
-        let mut state = match self.item.value {
+        return match self.value {
             None => {
-                let mut state = serializer.serialize_struct("Identifier", 4)?;
-                state.serialize_field("type", &"Identifier")?;
-                state.serialize_field("name", &key)?;
-                state
+                self.in_loc(serializer, "Identifier", 1, |state| {
+                    state.serialize_field("name", &key)
+                })
             },
             Some(value) => {
-                let mut state = serializer.serialize_struct("AssignmentPattern", 5)?;
-                state.serialize_field("type", &"AssignmentPattern")?;
-                state.serialize_field("left", &Loc::new(self.start, self.end, Expression::Identifier(key)))?;
-                state.serialize_field("right", &value)?;
-                state
+                self.in_loc(serializer, "AssignmentPattern", 2, |state| {
+                    state.serialize_field("left", &Loc::new(0, 0, Expression::Identifier(key)))?;
+                    state.serialize_field("right", &value)
+                })
             }
-        };
-
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        }
     }
 }
 

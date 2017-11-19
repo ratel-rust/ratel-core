@@ -3,6 +3,7 @@ use ast::{StatementList, Statement, Loc, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId};
 
 use astgen::function::ClassBody;
+use astgen::SerializeInLoc;
 
 #[derive(Debug)]
 struct CatchClause<'ast> {
@@ -15,16 +16,13 @@ pub struct BlockStatement<'ast> {
     pub body: StatementList<'ast>
 }
 
-impl<'ast> Serialize for Loc<BlockStatement<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for BlockStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
     {
-        let mut state = serializer.serialize_struct("BlockStatement", 4)?;
-        state.serialize_field("type", &"BlockStatement")?;
-        state.serialize_field("body", &self.body)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        self.in_loc(serializer, "BlockStatement", 1, |state| {
+            state.serialize_field("body", &self.body)
+        })
     }
 }
 
@@ -50,7 +48,6 @@ impl<'ast> Serialize for Loc<Declarator<'ast>> {
 
         let mut state = serializer.serialize_struct("VariableDeclarator", 4)?;
         state.serialize_field("type", &"VariableDeclarator")?;
-
         state.serialize_field("id", &Loc::new(self.start, self.end, self.name))?;
         state.serialize_field("init", &self.value)?;
         state.serialize_field("start", &self.start)?;
@@ -206,7 +203,7 @@ impl<'ast> Serialize for Loc<Statement<'ast>> {
         Function { function } => {
             let mut state = serializer.serialize_struct("FunctionDeclaration", 6)?;
             state.serialize_field("type", &"FunctionDeclaration")?;
-            state.serialize_field("name", &function.name)?;
+            state.serialize_field("id", &function.name)?;
             state.serialize_field("params", &function.params)?;
 
             match function.body.only_element() {
@@ -273,8 +270,8 @@ mod test {
                     "end": 1,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -287,16 +284,16 @@ mod test {
                     "type": "ExpressionStatement",
                     "expression": {
                         "type": "Literal",
+                        "value": true,
                         "start": 0,
                         "end": 4,
-                        "value": true
                     },
                     "start": 0,
                     "end": 4,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -306,28 +303,28 @@ mod test {
             "type": "Program",
             "body": [
                 {
+                    "type": "VariableDeclaration",
+                    "kind": "var",
                     "declarations": [
                         {
-                            "end": 0,
+                            "type": "VariableDeclarator",
                             "id": {
-                                "end": 0,
+                                "type": "Identifier",
                                 "name": "a",
                                 "start": 0,
-                                "type": "Identifier"
+                                "end": 0,
                             },
                             "init": null,
                             "start": 0,
-                            "type": "VariableDeclarator"
+                            "end": 0,
                         }
                     ],
-                    "end": 0,
-                    "kind": "var",
                     "start": 0,
-                    "type": "VariableDeclaration"
+                    "end": 0,
                 }
             ],
-            "end": 0,
             "start": 0,
+            "end": 0,
         });
     }
 
@@ -344,30 +341,30 @@ mod test {
                         "start": 7,
                         "end": 11,
                     },
-                    "end": 0,
                     "start": 0,
+                    "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
         expect_parse!("return true", {
             "type": "Program",
             "body": [
                 {
-                        "type": "ReturnStatement",
-                        "argument": {
+                    "type": "ReturnStatement",
+                    "argument": {
                         "type": "Literal",
+                        "value": true,
                         "start": 7,
                         "end": 11,
-                        "value": true,
                     },
-                    "end": 0,
                     "start": 0,
+                    "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -377,14 +374,14 @@ mod test {
             "type": "Program",
             "body": [
                 {
-                    "end": 0,
+                    "type": "BreakStatement",
                     "label": null,
                     "start": 0,
-                    "type": "BreakStatement"
+                    "end": 0,
                 }
             ],
-            "end": 0,
             "start": 0,
+            "end": 0,
         }
         );
     }
@@ -395,19 +392,19 @@ mod test {
             "type": "Program",
             "body": [
                 {
+                    "type": "ThrowStatement",
                     "argument": {
-                        "end": 7,
+                        "type": "Identifier",
                         "name": "a",
                         "start": 6,
-                        "type": "Identifier"
+                        "end": 7,
                     },
-                    "end": 0,
                     "start": 0,
-                    "type": "ThrowStatement"
+                    "end": 0,
                 }
             ],
-            "end": 0,
             "start": 0,
+            "end": 0,
         });
     }
 
@@ -435,8 +432,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -467,9 +464,9 @@ mod test {
                                 "type": "ExpressionStatement",
                                 "expression": {
                                     "type": "Literal",
+                                    "value": false,
                                     "start": 20,
                                     "end": 25,
-                                    "value": false
                                 },
                                 "start": 20,
                                 "end": 25,
@@ -482,8 +479,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -502,8 +499,7 @@ mod test {
                     },
                     "body": {
                         "type": "BlockStatement",
-                        "body": [
-                        ],
+                        "body": [],
                         "start": 0,
                         "end": 0,
                     },
@@ -511,8 +507,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -523,12 +519,6 @@ mod test {
             "body": [
                 {
                     "type": "DoWhileStatement",
-                    "test": {
-                        "type": "Literal",
-                        "value": false,
-                        "start": 20,
-                        "end": 25,
-                    },
                     "body": {
                         "type": "BlockStatement",
                         "body": [
@@ -547,12 +537,18 @@ mod test {
                         "start": 0,
                         "end": 0,
                     },
+                    "test": {
+                        "type": "Literal",
+                        "value": false,
+                        "start": 20,
+                        "end": 25,
+                    },
                     "start": 0,
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -586,8 +582,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
         expect_parse!("for (i; i < 10; i++) {}", {
@@ -608,32 +604,32 @@ mod test {
                     },
                     "test": {
                         "type": "BinaryExpression",
-                        "end": 14,
+                        "operator": "<",
                         "left": {
-                            "end": 9,
+                            "type": "Identifier",
                             "name": "i",
                             "start": 8,
-                            "type": "Identifier"
+                            "end": 9,
                         },
-                        "operator": "<",
                         "right": {
-                            "end": 14,
-                            "start": 12,
                             "type": "Literal",
-                            "value": "10"
+                            "value": "10",
+                            "start": 12,
+                            "end": 14,
                         },
                         "start": 8,
+                        "end": 14,
                     },
                     "update": {
                         "type": "UpdateExpression",
                         "operator": "++",
-                        "prefix": false,
                         "argument": {
-                            "end": 17,
+                            "type": "Identifier",
                             "name": "i",
                             "start": 16,
-                            "type": "Identifier"
+                            "end": 17,
                         },
+                        "prefix": false,
                         "start": 16,
                         "end": 17,
                     },
@@ -647,8 +643,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
         expect_parse!("for (key in {}) {} ", {
@@ -683,8 +679,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
         expect_parse!("for (key of {}) {} ", {
@@ -719,8 +715,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -758,8 +754,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -787,8 +783,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -796,7 +792,83 @@ mod test {
     fn test_labeled_statement() {}
 
     #[test]
-    fn test_function_statement() {}
+    fn test_function_statement() {
+        expect_parse!("function foo () {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12
+                    },
+                    "params": [],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 0,
+                        "end": 0,
+                    },
+                    "start": 0,
+                    "end": 0,
+                }
+            ],
+            "start": 0,
+            "end": 0,
+        });
+
+        expect_parse!("function foo (a, value = true) {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12
+                    },
+                    "params": [
+                        {
+                            "type": "Identifier",
+                            "name": "a",
+                            "start": 15,
+                            "end": 16
+                        },
+                        {
+                            "type": "AssignmentPattern",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "value",
+                                "start": 0,
+                                "end": 0
+                            },
+                            "right": {
+                                "type": "Literal",
+                                "value": true,
+                                "start": 25,
+                                "end": 29,
+                            },
+                            "start": 29,
+                            "end": 30
+                        }
+                    ],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 0,
+                        "end": 0,
+                    },
+                    "start": 0,
+                    "end": 0,
+                }
+            ],
+            "start": 0,
+            "end": 0,
+        });
+    }
 
     #[test]
     fn test_class_statement() {}

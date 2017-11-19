@@ -2,6 +2,7 @@ use serde::ser::{Serialize, Serializer, SerializeStruct};
 use ast;
 use ast::{Expression, Loc, Property, DeclarationKind, ObjectMember};
 use ast::Function;
+use astgen::SerializeInLoc;
 
 #[derive(Debug, Serialize)]
 pub struct RegExLiteral<'ast> {
@@ -39,36 +40,31 @@ fn parse_regex (value: &str) -> (&str, &str) {
     (&value[1..end], &value[(end+1)..value.len()])
 }
 
-impl<'ast> Serialize for Loc<TemplateElement<'ast>> {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for TemplateElement<'ast> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
                 where S: Serializer
         {
-
-            let mut state = serializer.serialize_struct("TemplateElement", 5)?;
-            state.serialize_field("type", &"TemplateElement")?;
-            state.serialize_field("tail", &self.tail)?;
-            let value = TemplateElementValue {
-                raw: self.value,
-                cooked: self.value
-            };
-            state.serialize_field("value", &value)?;
-            state.serialize_field("start", &self.start)?;
-            state.serialize_field("end", &self.end)?;
-            state.end()
+            self.in_loc(serializer, "TemplateElement", 2, |state| {
+                state.serialize_field("tail", &self.tail)?;
+                let value = TemplateElementValue {
+                    raw: self.value,
+                    cooked: self.value
+                };
+                state.serialize_field("value", &value)
+            })
         }
 }
 
-impl<'ast> Serialize for Loc<TemplateLiteral<'ast>> {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'ast> SerializeInLoc for TemplateLiteral<'ast> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
                 where S: Serializer
         {
-            let mut state = serializer.serialize_struct("TemplateLiteral", 5)?;
-            state.serialize_field("type", &"TemplateLiteral")?;
-            state.serialize_field("quasis", &self.quasis)?;
-            state.serialize_field("expressions", &self.expressions)?;
-            state.serialize_field("start", &self.start)?;
-            state.serialize_field("end", &self.end)?;
-            state.end()
+
+            self.in_loc(serializer, "TemplateLiteral", 3, |state| {
+                state.serialize_field("type", &"TemplateLiteral")?;
+                state.serialize_field("quasis", &self.quasis)?;
+                state.serialize_field("expressions", &self.expressions)
+            })
         }
 }
 
@@ -118,7 +114,7 @@ impl<'ast> Serialize for Loc<Property<'ast>> {
         {
             use self::Property::*;
 
-            return match self.item {
+            match self.item {
                 Computed(expr) => {
                     serializer.serialize_some(&*expr)
                 },
@@ -220,8 +216,8 @@ mod test {
                     "end": 9,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -242,8 +238,8 @@ mod test {
                     "end": 4,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -264,8 +260,8 @@ mod test {
                     "end": 4,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -286,8 +282,8 @@ mod test {
                     "end": 5,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -311,8 +307,8 @@ mod test {
                     "end": 1,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
         expect_parse!("0x0", {
@@ -332,8 +328,8 @@ mod test {
                     "end": 3,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
 
@@ -354,8 +350,8 @@ mod test {
                     "end": 3,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -378,8 +374,8 @@ mod test {
                     "end": 5,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
     }
 
@@ -404,8 +400,8 @@ mod test {
                     "end": 0,
                 }
             ],
+            "start": 0,
             "end": 0,
-            "start": 0
         });
 
     }
