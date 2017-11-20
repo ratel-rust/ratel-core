@@ -135,7 +135,7 @@ fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Stat
                         Expression::binary(
                             param.name,
                             StrictEquality,
-                            Expression::Literal(Value::Undefined)
+                            Expression::Literal(Literal::Undefined)
                         ),
                         LogicalAnd,
                         Expression::Binary {
@@ -254,7 +254,7 @@ impl Transformable for Expression {
 
                 let mut computed = partition_vec(members, |member| {
                     match member {
-                        &ObjectMember::Value {
+                        &ObjectMember::Literal {
                             key: ObjectKey::Computed(_),
                             ..
                         } => false,
@@ -286,7 +286,7 @@ impl Transformable for Expression {
 
                 for member in computed.drain(..) {
                     body.push(match member {
-                        ObjectMember::Value {
+                        ObjectMember::Literal {
                             key: ObjectKey::Computed(key),
                             value,
                         } => {
@@ -394,7 +394,7 @@ impl Transformable for Expression {
 
                     arguments.push(Expression::Array(
                         quasis.drain(..)
-                              .map(|quasi| Expression::Literal(Value::Template(quasi)))
+                              .map(|quasi| Expression::Literal(Literal::Template(quasi)))
                               .collect()
                     ));
 
@@ -410,7 +410,7 @@ impl Transformable for Expression {
                     let mut quasis = quasis.drain(..);
 
                     let mut left = Expression::Literal(
-                        Value::Template(quasis.next().expect("Must have first quasi"))
+                        Literal::Template(quasis.next().expect("Must have first quasi"))
                     );
 
                     let iter = quasis.zip(expressions.drain(..));
@@ -430,7 +430,7 @@ impl Transformable for Expression {
                             left,
                             Addition,
                             Expression::Literal(
-                                Value::Template(quasi)
+                                Literal::Template(quasi)
                             )
                         );
                     }
@@ -620,13 +620,13 @@ impl Transformable for ObjectMember {
                     return;
                 }
 
-                ObjectMember::Value {
+                ObjectMember::Literal {
                     key: ObjectKey::Literal(*key),
                     value: Expression::Identifier(*key),
                 }
             },
 
-            ObjectMember::Value {
+            ObjectMember::Literal {
                 ref mut key,
                 ref mut value,
             } => {
@@ -653,7 +653,7 @@ impl Transformable for ObjectMember {
                     return;
                 }
 
-                ObjectMember::Value {
+                ObjectMember::Literal {
                     key: key.take(),
                     value: Expression::Function {
                         name: None,
@@ -668,7 +668,7 @@ impl Transformable for ObjectMember {
     fn contains_this(&self) -> bool {
         match *self {
 
-            ObjectMember::Value {
+            ObjectMember::Literal {
                 ref key,
                 ref value,
             } => key.contains_this() || value.contains_this(),
@@ -829,11 +829,11 @@ fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
         ClassKey::Computed(ref mut expr) => expr.take(),
 
         ClassKey::Number(ref num) => {
-            Expression::Literal(Value::Number(*num))
+            Expression::Literal(Literal::Number(*num))
         },
 
         ClassKey::Binary(ref num) => {
-            Expression::Literal(Value::Binary(*num))
+            Expression::Literal(Literal::Binary(*num))
         }
     };
 

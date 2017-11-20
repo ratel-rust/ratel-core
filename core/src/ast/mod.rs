@@ -1,38 +1,63 @@
+#[macro_use]
+mod list;
 mod variable;
 mod operator;
-mod types;
-mod expression;
-mod statement;
+// mod types;
 mod function;
-mod value;
-mod ptr;
-mod list;
+mod literal;
+pub mod ptr;
+pub mod expression;
+pub mod statement;
 
 use std::ops::Deref;
 
 pub use ast::variable::*;
 pub use ast::operator::*;
 pub use ast::ptr::Ptr;
-pub use ast::types::{Type, Primitive};
-pub use ast::expression::{Expression, ObjectMember, Property};
-pub use ast::statement::{Statement, Declarator, DeclaratorId};
-pub use ast::function::{Function, Class, ClassMember};
-pub use ast::function::{Name, OptionalName, MandatoryName, Parameter, ParameterKey};
-pub use ast::value::Value;
+// pub use ast::types::{Type, Primitive};
+pub use ast::expression::{Expression, Property, PropertyKey};
+pub use ast::statement::{Statement, Declarator, BlockStatement};
+pub use ast::function::{Function, Class, ClassMember, MethodKind};
+pub use ast::function::{Name, EmptyName, OptionalName, MandatoryName};
+pub use ast::literal::Literal;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Block<'ast, T: 'ast> {
+    pub body: List<'ast, T>
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Pattern<'ast> {
+    /// Only used inside ArrayPattern
+    Void,
+    Identifier(&'ast str),
+    ObjectPattern {
+        properties: List<'ast, Property<'ast>>
+    },
+    ArrayPattern {
+        elements: List<'ast, Pattern<'ast>>
+    },
+    RestElement {
+        argument: IdentifierPtr<'ast>
+    },
+    AssignmentPattern {
+        left: Ptr<'ast, Pattern<'ast>>,
+        right: ExpressionPtr<'ast>,
+    }
+}
+
 // Handful of useful aliases
-pub type PropertyPtr<'ast> = Ptr<'ast, Loc<Property<'ast>>>;
-pub type ParameterPtr<'ast> = Ptr<'ast, Loc<Parameter<'ast>>>;
-pub type ParameterList<'ast> = List<'ast, Loc<Parameter<'ast>>>;
-pub type TypePtr<'ast> = List<'ast, Loc<Type<'ast>>>;
-pub type TypeList<'ast> = List<'ast, Loc<Type<'ast>>>;
-pub type ExpressionPtr<'ast> = Ptr<'ast, Loc<Expression<'ast>>>;
-pub type ExpressionList<'ast> = List<'ast, Loc<Expression<'ast>>>;
-pub type StatementPtr<'ast> = Ptr<'ast, Loc<Statement<'ast>>>;
-pub type StatementList<'ast> = List<'ast, Loc<Statement<'ast>>>;
-pub type IdentifierPtr<'ast> = Ptr<'ast, Loc<&'ast str>>;
-pub type IdentifierList<'ast> = List<'ast, Loc<&'ast str>>;
+pub type BlockPtr<'ast, T> = Ptr<'ast, Block<'ast, T>>;
+pub type PropertyPtr<'ast> = Ptr<'ast, Property<'ast>>;
+pub type ExpressionPtr<'ast> = Ptr<'ast, Expression<'ast>>;
+pub type ExpressionList<'ast> = List<'ast, Expression<'ast>>;
+pub type StatementPtr<'ast> = Ptr<'ast, Statement<'ast>>;
+pub type StatementList<'ast> = List<'ast, Statement<'ast>>;
+pub type IdentifierPtr<'ast> = Ptr<'ast, &'ast str>;
+pub type IdentifierList<'ast> = List<'ast, &'ast str>;
+// pub type TypePtr<'ast> = List<'ast, Type<'ast>>;
+// pub type TypeList<'ast> = List<'ast, Type<'ast>>;
 
 #[derive(Debug, Clone)]
 pub struct Loc<T> {
@@ -54,7 +79,7 @@ impl<T> Deref for Loc<T> {
 
 pub struct Program<'ast> {
     pub source: &'ast str,
-    pub body: List<'ast, Loc<Statement<'ast>>>,
+    pub body: List<'ast, Statement<'ast>>,
 }
 
 impl<T> Loc<T> {
@@ -77,7 +102,7 @@ impl<T: PartialEq> PartialEq for Loc<T> {
 
 impl<'ast> Program<'ast> {
     #[inline]
-    pub fn statements(&'ast self) -> &'ast List<'ast, Loc<Statement<'ast>>> {
+    pub fn statements(&'ast self) -> &'ast List<'ast, Statement<'ast>> {
         &self.body
     }
 }

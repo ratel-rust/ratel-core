@@ -18,51 +18,9 @@ macro_rules! expect {
     ($parser:ident, $p:pat) => {
         match $parser.lexer.token {
             $p => $parser.lexer.consume(),
-            _  => unexpected_token!($parser)
+            _  => $parser.error()
         }
     }
-}
-
-/// Expect the next token to be an Identifier, extracting the OwnedSlice
-/// out of it. Returns an error otherwise.
-#[macro_export]
-macro_rules! expect_identifier {
-    ($parser:ident) => {
-        match $parser.lexer.token {
-            Identifier => {
-                let ident = $parser.lexer.token_as_str();
-                $parser.lexer.consume();
-                ident
-            },
-            _                        => unexpected_token!($parser)
-        }
-    }
-}
-
-/// Expecta semicolon to terminate a statement. Will assume a semicolon
-/// following the ASI rules.
-#[macro_export]
-macro_rules! expect_semicolon {
-    ($parser:ident) => {
-        match $parser.asi() {
-            Asi::ExplicitSemicolon => $parser.lexer.consume(),
-            Asi::ImplicitSemicolon => {},
-            Asi::NoSemicolon       => unexpected_token!($parser),
-        }
-    }
-}
-
-/// Return an error for current token.
-#[macro_export]
-macro_rules! unexpected_token {
-    ($parser:ident) => ({
-        // return Err($parser.lexer.invalid_token())
-        use parser::error::Handle;
-
-        let err = $parser.lexer.invalid_token();
-
-        return Handle::handle_error($parser, err);
-    });
 }
 
 #[macro_export]
@@ -78,7 +36,7 @@ macro_rules! parameter_key {
                 $parser.lexer.consume();
                 ParameterKey::Identifier(ident)
             },
-            _ => unexpected_token!($parser)
+            _ => return $parser.error()
         }
     }
 }
@@ -90,9 +48,7 @@ macro_rules! assert_expr {
         let mut body = $module.body().iter();
 
         match **body.next().unwrap() {
-            Statement::Expression {
-                ref expression
-            } => assert_eq!(expression.item, $expr),
+            Statement::Expression(ref expression) => assert_eq!(expression.item, Expression::from($expr)),
             _ => panic!("Statement isn't an expression!")
         }
 

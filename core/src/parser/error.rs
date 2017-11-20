@@ -1,8 +1,7 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
-use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
-use ast::{Name, Function, Class, ClassMember, MandatoryName};
+use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Pattern};
+use ast::{Name, Function, Class, ClassMember, Property, PropertyKey, MandatoryName, Block};
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -29,6 +28,22 @@ impl<'ast> ToError for StatementPtr<'ast> {
     }
 }
 
+impl<'ast, I> ToError for Block<'ast, I> {
+    fn to_error() -> Self {
+        Block { body: List::empty() }
+    }
+}
+
+impl<'ast, I> ToError for Ptr<'ast, Block<'ast, I>> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Block { body: empty_list!() }
+        })
+    }
+}
+
 impl<'ast> ToError for Expression<'ast> {
     fn to_error() -> Self {
         Expression::Error
@@ -51,49 +66,17 @@ impl<'ast> ToError for MandatoryName<'ast> {
     }
 }
 
-impl<'ast> ToError for ParameterPtr<'ast> {
+impl<'ast> ToError for Ptr<'ast, Property<'ast>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
             end: 0,
-            item: Parameter {
-                key: ParameterKey::Identifier(""),
-                value: None
-            }
+            item: Property::Shorthand("")
         })
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Loc<Declarator<'ast>>> {
-    fn to_error() -> Self {
-        Ptr::new(&Loc {
-            start: 0,
-            end: 0,
-            item: Declarator {
-                name: DeclaratorId::Identifier(""),
-                value: None
-            }
-        })
-    }
-}
-
-impl<'ast> ToError for ObjectMember<'ast> {
-    fn to_error() -> Self {
-        ObjectMember::Shorthand("")
-    }
-}
-
-impl<'ast> ToError for Ptr<'ast, Loc<ObjectMember<'ast>>> {
-    fn to_error() -> Self {
-        Ptr::new(&Loc {
-            start: 0,
-            end: 0,
-            item: ObjectMember::Shorthand("")
-        })
-    }
-}
-
-impl<'ast> ToError for Ptr<'ast, Loc<ClassMember<'ast>>> {
+impl<'ast> ToError for Ptr<'ast, ClassMember<'ast>> {
     fn to_error() -> Self {
         Ptr::new(&Loc {
             start: 0,
@@ -103,50 +86,93 @@ impl<'ast> ToError for Ptr<'ast, Loc<ClassMember<'ast>>> {
     }
 }
 
-impl<'ast, T: ToError> Handle<'ast> for T {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
-        ToError::to_error()
-    }
-}
-
-impl<'ast, N: Name<'ast>> Handle<'ast> for Function<'ast, N> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, N: Name<'ast>> ToError for Function<'ast, N> {
+    fn to_error() -> Self {
         Function {
             name: N::empty(),
             params: List::empty(),
-            body: List::empty(),
+            body: Ptr::new(&Loc {
+                start: 0,
+                end: 0,
+                item: Block { body: empty_list!() }
+            }),
         }
     }
 }
 
-impl<'ast, N: Name<'ast>> Handle<'ast> for Class<'ast, N> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, N: Name<'ast>> ToError for Class<'ast, N> {
+    fn to_error() -> Self {
         Class {
             name: N::empty(),
             extends: None,
-            body: List::empty(),
+            body: Ptr::new(&Loc {
+                start: 0,
+                end: 0,
+                item: Block { body: empty_list!() }
+            }),
         }
     }
 }
 
-impl<'ast, T: 'ast + ToError> Handle<'ast> for Loc<T> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
-        parser.in_loc(ToError::to_error())
+impl<'ast, T: 'ast + ToError> ToError for Loc<T> {
+    fn to_error() -> Self {
+        Loc {
+            start: 0,
+            end: 0,
+            item: T::to_error()
+        }
     }
 }
 
-impl<'ast, T: 'ast + Copy> Handle<'ast> for List<'ast, Loc<T>> {
-    fn handle_error(parser: &mut Parser<'ast>, err: Error) -> Self {
-        parser.errors.push(err);
-
+impl<'ast, T: 'ast + Copy> ToError for List<'ast, T> {
+    fn to_error() -> Self {
         List::empty()
+    }
+}
+
+impl<'ast> ToError for Ptr<'ast, &'ast str> {
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: ""
+        })
+    }
+}
+
+
+impl<'ast> ToError for Pattern<'ast> {
+    #[inline]
+    fn to_error() -> Self {
+        Pattern::Void
+    }
+}
+
+impl<'ast> ToError for Ptr<'ast, Pattern<'ast>> {
+    #[inline]
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: Pattern::Void
+        })
+    }
+}
+
+impl<'ast> ToError for Ptr<'ast, PropertyKey<'ast>> {
+    #[inline]
+    fn to_error() -> Self {
+        Ptr::new(&Loc {
+            start: 0,
+            end: 0,
+            item: PropertyKey::Literal("")
+        })
+    }
+}
+
+impl ToError for () {
+    #[inline]
+    fn to_error() -> Self {
+        ()
     }
 }

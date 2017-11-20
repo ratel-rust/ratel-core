@@ -1,12 +1,13 @@
 use std::ops::Deref;
 use std::fmt::{self, Debug};
+use ast::Loc;
 
 /// This should be identical to the `Cell` implementation in the standard
 /// library, but always require that the internal type implements `Copy`
 /// and implements Copy itself.
 #[derive(Debug, PartialEq)]
 pub struct CopyCell<T: Copy> {
-    value: T
+    pub(crate) value: T
 }
 
 impl<T: Copy> CopyCell<T> {
@@ -56,33 +57,33 @@ impl<T: Copy> Copy for CopyCell<T> { }
 /// `Ptr` has defined lifetime and implements `Defer<Target = T>` for convenience.
 #[derive(Clone, Copy)]
 pub struct Ptr<'ast, T: 'ast> {
-    inner: CopyCell<&'ast T>
+    inner: CopyCell<&'ast Loc<T>>
 }
 
 impl<'ast, T: 'ast> Ptr<'ast, T> {
     #[inline]
-    pub fn new(ptr: &'ast T) -> Self {
+    pub fn new(ptr: &'ast Loc<T>) -> Self {
         Ptr {
             inner: CopyCell::new(ptr)
         }
     }
 
     #[inline]
-    pub fn set(&self, ptr: &'ast T) {
+    pub fn set(&self, ptr: &'ast Loc<T>) {
         self.inner.set(ptr)
     }
 
     #[inline]
-    pub fn get_mut(&mut self) -> &mut &'ast T {
+    pub fn get_mut(&mut self) -> &mut &'ast Loc<T> {
         self.inner.get_mut()
     }
 }
 
 impl<'ast, T: 'ast> Deref for Ptr<'ast, T> {
-    type Target = T;
+    type Target = Loc<T>;
 
     #[inline]
-    fn deref(&self) -> &T {
+    fn deref(&self) -> &Self::Target {
         self.inner.get()
     }
 }
@@ -107,18 +108,18 @@ mod test {
 
     #[test]
     fn ptr() {
-        let foo = "foo";
-        let bar = "bar";
+        let foo = Loc::new(0, 0, "foo");
+        let bar = Loc::new(0, 0, "bar");
 
         let foo_ptr = Ptr::new(&foo);
         let bar_ptr = foo_ptr.clone();
 
-        assert_eq!(*foo_ptr, "foo");
-        assert_eq!(*bar_ptr, "foo");
+        assert_eq!(*foo_ptr, Loc::new(0, 0, "foo"));
+        assert_eq!(*bar_ptr, Loc::new(0, 0, "foo"));
 
         bar_ptr.set(&bar);
 
-        assert_eq!(*foo_ptr, "foo");
-        assert_eq!(*bar_ptr, "bar");
+        assert_eq!(*foo_ptr, Loc::new(0, 0, "foo"));
+        assert_eq!(*bar_ptr, Loc::new(0, 0, "bar"));
     }
 }

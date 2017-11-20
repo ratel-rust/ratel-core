@@ -8,13 +8,12 @@ repository = "https://github.com/ratel-rust/ratel-core"
 documentation = "https://github.com/ratel-rust/ratel-core"
 
 [dependencies]
-lazy_static = "0.2.9"
 serde = "1.0"
-serde_derive = "1.0"
 
 [dev-dependencies]
 pretty_assertions = "0.4.0"
+serde_derive = "1.0"
 
-[dependencies.serde_json]
+[dev-dependencies.serde_json]
 version = "1.0"
 features = ["preserve_order"]

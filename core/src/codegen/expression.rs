@@ -1,10 +1,10 @@
-use ast::{Expression, Statement, Value, OperatorKind, ObjectMember, Property};
+use ast::{Expression, Statement, Literal, OperatorKind, ObjectMember, Property};
 use codegen::{ToCode, Generator};
 
-impl<'ast, G: Generator> ToCode<G> for Value<'ast> {
+impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::Value::*;
+        use ast::Literal::*;
 
         match *self {
             Undefined         => gen.write_bytes(b"undefined"),
@@ -55,7 +55,7 @@ impl<'ast, G: Generator> ToCode<G> for ObjectMember<'ast> {
 
         match *self {
             Shorthand(ref label) => gen.write(label),
-            Value {
+            Literal {
                 ref property,
                 ref value,
             } => {
@@ -92,7 +92,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Void => {},
             This => gen.write_bytes(b"this"),
             Identifier(ref ident) => gen.write(ident),
-            Value(ref value) => gen.write(value),
+            Literal(ref value) => gen.write(value),
             Sequence {
                 ref body
             } => {

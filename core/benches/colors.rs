@@ -130,14 +130,14 @@ fn tokenize(b: &mut Bencher) {
 //     });
 // }
 
-#[bench]
-fn codegen_from_ast(b: &mut Bencher) {
-    let module = ratel::parser::parse(SOURCE).expect("Must parse");
-    let output = ratel::codegen::codegen(&module, true);
+// #[bench]
+// fn codegen_from_ast(b: &mut Bencher) {
+//     let module = ratel::parser::parse(SOURCE).expect("Must parse");
+//     let output = ratel::codegen::codegen(&module, true);
 
-    b.bytes = output.len() as u64;
+//     b.bytes = output.len() as u64;
 
-    b.iter(|| {
-        ratel::codegen::codegen(&module, true)
-    });
-}
+//     b.iter(|| {
+//         ratel::codegen::codegen(&module, true)
+//     });
+// }

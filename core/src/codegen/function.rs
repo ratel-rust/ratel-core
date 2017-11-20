@@ -104,7 +104,7 @@ impl<'ast, G: Generator> ToCode<G> for ClassMember<'ast> {
                 gen.write_block(body);
                 gen.write_byte(b'}');
             },
-            Value {
+            Literal {
                 is_static,
                 ref property,
                 ref value,

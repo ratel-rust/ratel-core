@@ -1,26 +1,24 @@
-use ast::{Ptr, Loc, List, IdentifierPtr, ParameterList, ExpressionPtr, StatementList, Property};
+use ast::{Ptr, Loc, List, IdentifierPtr, ExpressionPtr};
+use ast::{BlockPtr, Statement, Pattern, PropertyKey};
 
 pub trait Name<'ast> {
     fn empty() -> Self;
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Parameter<'ast> {
-    pub key: ParameterKey<'ast>,
-    pub value: Option<ExpressionPtr<'ast>>
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ParameterKey<'ast> {
-    Identifier(&'ast str),
-    Pattern(ExpressionPtr<'ast>)
-}
+pub struct EmptyName;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MandatoryName<'ast>(pub IdentifierPtr<'ast>);
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct OptionalName<'ast>(pub Option<IdentifierPtr<'ast>>);
+
+impl<'ast> Name<'ast> for EmptyName {
+    fn empty() -> Self {
+        EmptyName
+    }
+}
 
 impl<'ast> Name<'ast> for MandatoryName<'ast> {
     fn empty() -> Self {
@@ -65,26 +63,30 @@ impl<'ast> From<Option<IdentifierPtr<'ast>>> for OptionalName<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
-    pub params: ParameterList<'ast>,
-    pub body: StatementList<'ast>,
+    pub params: List<'ast, Pattern<'ast>>,
+    pub body: BlockPtr<'ast, Statement<'ast>>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MethodKind {
+    Constructor,
+    Method,
+    Get,
+    Set,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ClassMember<'ast> {
     Error,
-    Constructor {
-        params: ParameterList<'ast>,
-        body: StatementList<'ast>,
-    },
     Method {
         is_static: bool,
-        property: Property<'ast>,
-        params: ParameterList<'ast>,
-        body: StatementList<'ast>,
+        key: PropertyKey<'ast>,
+        kind: MethodKind,
+        value: Ptr<'ast, Function<'ast, EmptyName>>,
     },
-    Value {
+    Literal {
         is_static: bool,
-        property: Property<'ast>,
+        key: PropertyKey<'ast>,
         value: ExpressionPtr<'ast>,
     }
 }
@@ -93,5 +95,5 @@ pub enum ClassMember<'ast> {
 pub struct Class<'ast, N: Name<'ast>> {
     pub name: N,
     pub extends: Option<ExpressionPtr<'ast>>,
-    pub body: List<'ast, Loc<ClassMember<'ast>>>,
+    pub body: BlockPtr<'ast, ClassMember<'ast>>,
 }

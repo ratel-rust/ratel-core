@@ -1,8 +1,6 @@
 use lexer::{util, ByteHandler};
 use lexer::token::Token::*;
 
-use ast::Value;
-
 macro_rules! match_label {
     ($lex:ident [$( $byte:expr )* => $token:expr]) => {
         if $(
