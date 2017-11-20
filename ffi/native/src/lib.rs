@@ -13,10 +13,7 @@ use neon::js::{JsString, JsBoolean};
 use neon::js::error::{JsError, Kind};
 use ratel::{parser, codegen, error, transformer};
 use error::{Error, ParseError};
-
 use ratel::{module, ast};
-
-mod serializer;
 
 fn ast(call: Call) -> JsResult<JsString> {
     let scope = call.scope;
@@ -26,6 +23,7 @@ fn ast(call: Call) -> JsResult<JsString> {
     }
 
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
+    let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
     let module = match parser::parse(source.value().as_str()) {
         Err(errors) => {
@@ -35,7 +33,13 @@ fn ast(call: Call) -> JsResult<JsString> {
         Ok(module) => module,
     };
 
-    let out = serializer::serialize(&module).unwrap().to_string();
+    let result = ratel::astgen::generate_ast(&module);
+    let result = match minify.value () {
+        true => serde_json::to_string_pretty(&result),
+        false => serde_json::to_string(&result)
+    };
+
+    let out = result.unwrap().to_string();
     Ok(JsString::new(scope, &out).unwrap())
 }
 
@@ -44,11 +48,8 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
     .into_iter()
     .map(|err| {
         match err {
-            Error::UnexpectedToken { start, end, .. } => {
+            Error { start, end, .. } => {
                ParseError::UnexpectedToken { start, end, source: source.value() }
-            },
-            Error::UnexpectedEndOfProgram => {
-                ParseError::UnexpectedEndOfProgram
             }
         }
     })
