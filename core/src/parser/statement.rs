@@ -4,8 +4,8 @@ use lexer::Asi;
 use ast::{Ptr, Loc, List, ListBuilder, EmptyListBuilder, Declarator, DeclaratorId, DeclarationKind};
 use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function};
 use ast::expression::BinaryExpression;
-use ast::statement::{ReturnStatement, IfStatement, WhileStatement, DoStatement};
-use ast::statement::{TryStatement, ThrowStatement, ContinueStatement, BreakStatement};
+use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
+use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
 use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement};
 use ast::OperatorKind::*;
@@ -87,7 +87,7 @@ create_handlers! {
 }
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
-    type Output = StatementPtr<'ast>;
+    type Output = Ptr<'ast, Self>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -96,7 +96,7 @@ impl<'ast> Parse<'ast> for Statement<'ast> {
 }
 
 impl<'ast> Parse<'ast> for SwitchCase<'ast> {
-    type Output = Ptr<'ast, SwitchCase<'ast>>;
+    type Output = Ptr<'ast, Self>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -355,18 +355,44 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn try_statement(&mut self) -> StatementPtr<'ast> {
         let start = self.lexer.start_then_consume();
-        let body = self.block();
-        expect!(self, Catch);
-        expect!(self, ParenOpen);
-        let error = expect_identifier!(self);
-        expect!(self, ParenClose);
-        let handler = self.block();
-        expect_semicolon!(self);
+        let block = self.block::<Statement<'ast>>();
 
-        self.alloc_at_loc(start, handler.end, TryStatement {
-            body,
-            error,
+        let (handler, finalizer, end) = match self.lexer.token {
+            Catch => {
+                let start = self.lexer.start_then_consume();
+                expect!(self, ParenOpen);
+                let param = expect_identifier!(self);
+                expect!(self, ParenClose);
+                let body = self.block();
+
+                let handler = self.alloc_at_loc(start, body.end, CatchClause {
+                    param,
+                    body,
+                });
+
+                match self.lexer.token {
+                    Finally => {
+                        self.lexer.consume();
+                        let block = self.block();
+
+                        (Some(handler), Some(block), block.end)
+                    },
+                    _ => (Some(handler), None, handler.end)
+                }
+            },
+            Finally => {
+                self.lexer.consume();
+                let block = self.block();
+
+                (None, Some(block), block.end)
+            },
+            _ => return self.error()
+        };
+
+        self.alloc_at_loc(start, end, TryStatement {
+            block,
             handler,
+            finalizer,
         })
     }
 
@@ -781,16 +807,19 @@ mod test {
     }
 
     #[test]
-    fn try_statement_empty() {
+    fn try_statement() {
         let src = "try {} catch (err) {}";
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
             TryStatement {
-                body: mock.empty_block(),
-                error: mock.ptr("err"),
-                handler: mock.empty_block()
+                block: mock.empty_block(),
+                handler: Some(mock.ptr(CatchClause {
+                    param: mock.ptr("err"),
+                    body: mock.empty_block()
+                })),
+                finalizer: None
             }
         ]);
 
@@ -798,24 +827,55 @@ mod test {
     }
 
     #[test]
-    fn try_statement() {
-        let src = "try { foo; } catch (err) { bar; }";
+    fn try_statement_finally() {
+        let src = "try { foo; } finally { bar; }";
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
             TryStatement {
-                body: mock.block([
+                block: mock.block([
                     mock.ptr("foo")
                 ]),
-                error: mock.ptr("err"),
-                handler: mock.block([
+                handler: None,
+                finalizer: Some(mock.block([
                     mock.ptr("bar")
-                ]),
+                ])),
             }
         ]);
 
         assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn try_statement_full() {
+        let src = "try { foo; } catch (err) { bar; } finally { qux; }";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            TryStatement {
+                block: mock.block([
+                    mock.ptr("foo")
+                ]),
+                handler: Some(mock.ptr(CatchClause {
+                    param: mock.ptr("err"),
+                    body: mock.block([
+                        mock.ptr("bar")
+                    ])
+                })),
+                finalizer: Some(mock.block([
+                    mock.ptr("qux")
+                ])),
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn try_statement_no_tail() {
+        assert!(parse("try {}").is_err())
     }
 
     #[test]

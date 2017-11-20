@@ -1,4 +1,4 @@
-use ast::{List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
+use ast::{Ptr, List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
 use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -81,10 +81,17 @@ pub struct ForOfStatement<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct TryStatement<'ast> {
+pub struct CatchClause<'ast> {
+    // TODO: PatternPtr<'ast>
+    pub param: IdentifierPtr<'ast>,
     pub body: BlockPtr<'ast, Statement<'ast>>,
-    pub error: IdentifierPtr<'ast>,
-    pub handler: BlockPtr<'ast, Statement<'ast>>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct TryStatement<'ast> {
+    pub block: BlockPtr<'ast, Statement<'ast>>,
+    pub handler: Option<Ptr<'ast, CatchClause<'ast>>>,
+    pub finalizer: Option<BlockPtr<'ast, Statement<'ast>>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

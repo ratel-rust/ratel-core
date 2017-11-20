@@ -3,7 +3,7 @@ use error::Error;
 use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr};
 use ast::{Declarator, DeclaratorId, ObjectMember, Parameter, ParameterKey, ParameterPtr};
 use ast::{Name, Function, Class, ClassMember, MandatoryName, Block};
-use ast::statement::SwitchCase;
+use ast::statement::{SwitchCase};
 use parser::Parser;
 
 pub trait Handle<'ast> {
