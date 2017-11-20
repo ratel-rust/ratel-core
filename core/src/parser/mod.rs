@@ -13,9 +13,9 @@ use module::Module;
 use self::error::ToError;
 use self::nested::*;
 
-use ast::{Loc, Ptr, Statement, List, ListBuilder, EmptyListBuilder};
-use ast::{Parameter, ParameterKey, ParameterPtr, ParameterList, OperatorKind};
-use ast::{Expression, ExpressionPtr, ExpressionList, Block, BlockPtr};
+use ast::{Loc, Ptr, Statement, List, ListBuilder, Block, BlockPtr};
+use ast::{Expression, ExpressionPtr, ExpressionList, IdentifierPtr};
+use ast::{OperatorKind, Pattern};
 use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
 use lexer::Token::*;
@@ -159,35 +159,47 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn param_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> ParameterPtr<'ast> {
-        let (key, value) = match expression.item {
+    fn identifier(&mut self) -> IdentifierPtr<'ast> {
+        match self.lexer.token {
+            Identifier => {
+                let ident = self.lexer.token_as_str();
+                let ident = self.alloc_in_loc(ident);
+                self.lexer.consume();
+                ident
+            },
+            _ => self.error()
+        }
+    }
+
+    #[inline]
+    fn pattern_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> Ptr<'ast, Pattern<'ast>> {
+        let pattern = match expression.item {
             Expression::Binary(BinaryExpression {
                 operator: OperatorKind::Assign,
                 left,
                 right,
-            }) => (left, Some(right)),
-            _  => (expression, None)
+            }) => {
+                Pattern::AssignmentPattern {
+                    left: self.pattern_from_expression(left),
+                    right
+                }
+            },
+            Expression::Identifier(ident) => {
+                Pattern::Identifier(ident)
+            },
+            _ => self.error()
         };
 
-        let key = match key.item {
-            Expression::Identifier(ident) => ParameterKey::Identifier(ident),
-            // TODO: ParameterKey::Pattern
-            _ => return self.error()
-        };
-
-        self.alloc(Loc::new(expression.start, expression.end, Parameter {
-            key,
-            value
-        }))
+        self.alloc_at_loc(expression.start, expression.end, pattern)
     }
 
     #[inline]
-    fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> ParameterList<'ast> {
+    fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> List<'ast, Pattern<'ast>> {
         let mut expressions = expressions.ptr_iter();
 
         let mut builder = match expressions.next() {
             Some(&expression) => {
-                let param = self.param_from_expression(expression);
+                let param = self.pattern_from_expression(expression);
 
                 ListBuilder::new(self.arena, param)
             },
@@ -195,47 +207,7 @@ impl<'ast> Parser<'ast> {
         };
 
         for &expression in expressions {
-            builder.push(self.param_from_expression(expression));
-        }
-
-        builder.into_list()
-    }
-
-    #[inline]
-    fn parameter_list(&mut self) -> ParameterList<'ast> {
-        let mut builder = EmptyListBuilder::new(self.arena);
-        let mut require_defaults = false;
-
-        loop {
-            let key = parameter_key!(self);
-            let value = match self.lexer.token {
-                OperatorAssign => {
-                    self.lexer.consume();
-
-                    require_defaults = true;
-
-                    Some(self.expression(B1))
-                },
-                _ if require_defaults => return self.error(),
-                _ => None
-            };
-
-            builder.push(self.alloc_in_loc(Parameter {
-                key,
-                value,
-            }));
-
-            match self.lexer.token {
-                ParenClose => {
-                    self.lexer.consume();
-
-                    break;
-                },
-                Comma => {
-                    self.lexer.consume();
-                },
-                _ => return self.error()
-            }
+            builder.push(self.pattern_from_expression(expression));
         }
 
         builder.into_list()

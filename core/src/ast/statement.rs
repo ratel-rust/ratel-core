@@ -1,16 +1,10 @@
 use ast::{Ptr, List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
-use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr};
+use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
-    pub name: DeclaratorId<'ast>,
-    pub value: Option<ExpressionPtr<'ast>>,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DeclaratorId<'ast> {
-    Identifier(&'ast str),
-    Pattern(ExpressionPtr<'ast>)
+    pub id: Ptr<'ast, Pattern<'ast>>,
+    pub init: Option<ExpressionPtr<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -82,8 +76,7 @@ pub struct ForOfStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CatchClause<'ast> {
-    // TODO: PatternPtr<'ast>
-    pub param: IdentifierPtr<'ast>,
+    pub param: Ptr<'ast, Pattern<'ast>>,
     pub body: BlockPtr<'ast, Statement<'ast>>,
 }
 

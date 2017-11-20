@@ -1,20 +1,8 @@
-use ast::{Ptr, Loc, IdentifierPtr, ParameterList, ExpressionPtr};
-use ast::{BlockPtr, Statement, Property};
+use ast::{Ptr, Loc, List, IdentifierPtr, ExpressionPtr};
+use ast::{BlockPtr, Statement, Pattern, PropertyKey};
 
 pub trait Name<'ast> {
     fn empty() -> Self;
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Parameter<'ast> {
-    pub key: ParameterKey<'ast>,
-    pub value: Option<ExpressionPtr<'ast>>
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ParameterKey<'ast> {
-    Identifier(&'ast str),
-    Pattern(ExpressionPtr<'ast>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -75,7 +63,7 @@ impl<'ast> From<Option<IdentifierPtr<'ast>>> for OptionalName<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
-    pub params: ParameterList<'ast>,
+    pub params: List<'ast, Pattern<'ast>>,
     pub body: BlockPtr<'ast, Statement<'ast>>,
 }
 
@@ -92,13 +80,13 @@ pub enum ClassMember<'ast> {
     Error,
     Method {
         is_static: bool,
-        key: Property<'ast>,
+        key: PropertyKey<'ast>,
         kind: MethodKind,
         value: Ptr<'ast, Function<'ast, EmptyName>>,
     },
     Literal {
         is_static: bool,
-        key: Property<'ast>,
+        key: PropertyKey<'ast>,
         value: ExpressionPtr<'ast>,
     }
 }

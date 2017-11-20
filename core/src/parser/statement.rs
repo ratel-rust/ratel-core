@@ -1,8 +1,8 @@
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Ptr, Loc, List, ListBuilder, EmptyListBuilder, Declarator, DeclaratorId, DeclarationKind};
-use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function};
+use ast::{Ptr, Loc, List, ListBuilder, EmptyListBuilder, Declarator, DeclarationKind};
+use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
 use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
@@ -112,7 +112,11 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
 
                 None
             },
-            _ => return par.error()
+            _ => {
+                par.error::<()>();
+
+                None
+            }
         };
 
         let mut end = par.lexer.end();
@@ -144,6 +148,17 @@ impl<'ast> Parser<'ast> {
         unsafe { (*(&STMT_HANDLERS as *const StatementHandler).offset(self.lexer.token as isize))(self) }
     }
 
+    /// Expect a semicolon to terminate a statement. Will assume a semicolon
+    /// following the ASI rules.
+    #[inline]
+    fn expect_semicolon(&mut self) {
+        match self.asi() {
+            Asi::ExplicitSemicolon => self.lexer.consume(),
+            Asi::ImplicitSemicolon => {},
+            Asi::NoSemicolon       => self.error(),
+        }
+    }
+
     #[inline]
     pub fn block_statement(&mut self) -> StatementPtr<'ast> {
         let start = self.lexer.start_then_consume();
@@ -162,8 +177,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn wrap_expression(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
-        expect_semicolon!(self);
-
+        self.expect_semicolon();
         self.alloc_at_loc(expression.start, expression.end, expression)
     }
 
@@ -186,7 +200,7 @@ impl<'ast> Parser<'ast> {
         let expression = self.alloc_in_loc(label);
         let expression = self.nested_expression(expression, B0);
 
-        expect_semicolon!(self);
+        self.expect_semicolon();
 
         self.alloc_at_loc(start, expression.end, expression)
     }
@@ -217,35 +231,28 @@ impl<'ast> Parser<'ast> {
             declarators
         });
 
-        expect_semicolon!(self);
+        self.expect_semicolon();
 
         declaration
     }
 
     #[inline]
     pub fn variable_declarator(&mut self) -> Ptr<'ast, Declarator<'ast>> {
-        let name = match self.lexer.token {
-            BraceOpen   => DeclaratorId::Pattern(self.object_expression()),
-            BracketOpen => DeclaratorId::Pattern(self.array_expression()),
-            Identifier  => {
-                let name = self.lexer.token_as_str();
-                self.lexer.consume();
-                DeclaratorId::Identifier(name)
-            },
-            _ => return self.error(),
-        };
+        let id = Pattern::parse(self);
 
-        let value = match self.lexer.token {
+        let (init, end) = match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
-                Some(self.expression(B1))
+                let init = self.expression(B1);
+
+                (Some(init), init.end)
             },
-            _ => None
+            _ => (None, id.end)
         };
 
-        self.alloc_at_loc(0, 0, Declarator {
-            name,
-            value,
+        self.alloc_at_loc(id.start, end, Declarator {
+            id,
+            init,
         })
     }
 
@@ -278,7 +285,7 @@ impl<'ast> Parser<'ast> {
                 let expression = self.expression(B0);
                 end = expression.end;
 
-                expect_semicolon!(self);
+                self.expect_semicolon();
 
                 Some(expression)
             }
@@ -306,10 +313,10 @@ impl<'ast> Parser<'ast> {
             },
             Asi::ImplicitSemicolon => None,
             Asi::NoSemicolon => {
-                let label = expect_identifier!(self);
+                let label = self.identifier();
                 end = label.end;
 
-                expect_semicolon!(self);
+                self.expect_semicolon();
 
                 Some(label)
             }
@@ -330,10 +337,10 @@ impl<'ast> Parser<'ast> {
             },
             Asi::ImplicitSemicolon => None,
             Asi::NoSemicolon => {
-                let label = expect_identifier!(self);
+                let label = self.identifier();
                 end = label.end;
 
-                expect_semicolon!(self);
+                self.expect_semicolon();
 
                 Some(label)
             }
@@ -347,7 +354,7 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start_then_consume();
         let value = self.expression(B0);
 
-        expect_semicolon!(self);
+        self.expect_semicolon();
 
         self.alloc_at_loc(start, value.end, ThrowStatement { value })
     }
@@ -355,13 +362,13 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn try_statement(&mut self) -> StatementPtr<'ast> {
         let start = self.lexer.start_then_consume();
-        let block = self.block::<Statement<'ast>>();
+        let block = self.block();
 
         let (handler, finalizer, end) = match self.lexer.token {
             Catch => {
                 let start = self.lexer.start_then_consume();
                 expect!(self, ParenOpen);
-                let param = expect_identifier!(self);
+                let param = Pattern::parse(self);
                 expect!(self, ParenClose);
                 let body = self.block();
 
@@ -475,7 +482,7 @@ impl<'ast> Parser<'ast> {
 
                 if let Some(&Loc {
                     item: Declarator {
-                        value: Some(ref value),
+                        init: Some(ref value),
                         ..
                     },
                     start: d_start,
@@ -631,7 +638,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Literal, ObjectMember, Function, Class, OperatorKind, BlockStatement};
+    use ast::{List, Literal, Function, Class, OperatorKind, BlockStatement};
     use ast::expression::*;
 
     #[test]
@@ -816,7 +823,7 @@ mod test {
             TryStatement {
                 block: mock.empty_block(),
                 handler: Some(mock.ptr(CatchClause {
-                    param: mock.ptr("err"),
+                    param: mock.ptr(Pattern::Identifier("err")),
                     body: mock.empty_block()
                 })),
                 finalizer: None
@@ -859,7 +866,7 @@ mod test {
                     mock.ptr("foo")
                 ]),
                 handler: Some(mock.ptr(CatchClause {
-                    param: mock.ptr("err"),
+                    param: mock.ptr(Pattern::Identifier("err")),
                     body: mock.block([
                         mock.ptr("bar")
                     ])
@@ -889,16 +896,16 @@ mod test {
                 kind: DeclarationKind::Var,
                 declarators: mock.list([
                     Declarator {
-                        name: DeclaratorId::Identifier("x"),
-                        value: None,
+                        id: mock.ptr(Pattern::Identifier("x")),
+                        init: None,
                     },
                     Declarator {
-                        name: DeclaratorId::Identifier("y"),
-                        value: None,
+                        id: mock.ptr(Pattern::Identifier("y")),
+                        init: None,
                     },
                     Declarator {
-                        name: DeclaratorId::Identifier("z"),
-                        value: Some(mock.number("42"))
+                        id: mock.ptr(Pattern::Identifier("z")),
+                        init: Some(mock.number("42"))
                     }
                 ])
             }
@@ -918,13 +925,13 @@ mod test {
                 kind: DeclarationKind::Let,
                 declarators: mock.list([
                     Declarator {
-                        name: DeclaratorId::Pattern(mock.ptr(ArrayExpression {
-                            body: mock.list([
-                                Expression::Identifier("x"),
-                                Expression::Identifier("y"),
+                        id: mock.ptr(Pattern::ArrayPattern {
+                            elements: mock.list([
+                                Pattern::Identifier("x"),
+                                Pattern::Identifier("y")
                             ])
-                        })),
-                        value: Some(mock.ptr(ArrayExpression {
+                        }),
+                        init: Some(mock.ptr(ArrayExpression {
                             body: mock.list([
                                 Expression::Literal(Literal::Number("1")),
                                 Expression::Literal(Literal::Number("2")),
@@ -949,16 +956,16 @@ mod test {
                 kind: DeclarationKind::Const,
                 declarators: mock.list([
                     Declarator {
-                        name: DeclaratorId::Pattern(mock.ptr(ObjectExpression {
-                            body: mock.list([
-                                ObjectMember::Shorthand("x"),
-                                ObjectMember::Shorthand("y"),
+                        id: mock.ptr(Pattern::ObjectPattern {
+                            properties: mock.list([
+                                Property::Shorthand("x"),
+                                Property::Shorthand("y"),
                             ])
-                        })),
-                        value: Some(mock.ptr(ObjectExpression {
+                        }),
+                        init: Some(mock.ptr(ObjectExpression {
                             body: mock.list([
-                                ObjectMember::Shorthand("a"),
-                                ObjectMember::Shorthand("b"),
+                                Property::Shorthand("a"),
+                                Property::Shorthand("b"),
                             ])
                         })),
                     },
@@ -981,8 +988,8 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: DeclaratorId::Identifier("i"),
-                            value: Some(mock.number("0")),
+                            id: mock.ptr(Pattern::Identifier("i")),
+                            init: Some(mock.number("0")),
                         }
                     ]),
                 })),
@@ -1037,12 +1044,12 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: DeclaratorId::Identifier("i"),
-                            value: Some(mock.number("0")),
+                            id: mock.ptr(Pattern::Identifier("i")),
+                            init: Some(mock.number("0")),
                         },
                         Declarator {
-                            name: DeclaratorId::Identifier("j"),
-                            value: Some(mock.number("10")),
+                            id: mock.ptr(Pattern::Identifier("j")),
+                            init: Some(mock.number("10")),
                         }
                     ]),
                 })),
@@ -1089,12 +1096,12 @@ mod test {
                     kind: DeclarationKind::Let,
                     declarators: mock.list([
                         Declarator {
-                            name: DeclaratorId::Identifier("i"),
-                            value: Some(mock.number("0")),
+                            id: mock.ptr(Pattern::Identifier("i")),
+                            init: Some(mock.number("0")),
                         },
                         Declarator {
-                            name: DeclaratorId::Identifier("j"),
-                            value: Some(mock.number("10")),
+                            id: mock.ptr(Pattern::Identifier("j")),
+                            init: Some(mock.number("10")),
                         }
                     ]),
                 })),

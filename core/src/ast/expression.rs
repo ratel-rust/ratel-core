@@ -1,23 +1,22 @@
 use ast::{Ptr, List, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
-use ast::{PropertyPtr, IdentifierPtr, BlockPtr, ExpressionPtr, Statement};
-use ast::{ExpressionList, ParameterList};
+use ast::{IdentifierPtr, BlockPtr, ExpressionPtr, Statement, ExpressionList, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Property<'ast> {
+pub enum PropertyKey<'ast> {
     Computed(ExpressionPtr<'ast>),
     Literal(&'ast str),
     Binary(&'ast str),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ObjectMember<'ast> {
+pub enum Property<'ast> {
     Shorthand(&'ast str),
     Literal {
-        key: PropertyPtr<'ast>,
+        key: Ptr<'ast, PropertyKey<'ast>>,
         value: ExpressionPtr<'ast>,
     },
     Method {
-        key: PropertyPtr<'ast>,
+        key: Ptr<'ast, PropertyKey<'ast>>,
         value: Ptr<'ast, Function<'ast, EmptyName>>,
     },
 }
@@ -91,13 +90,13 @@ pub enum ArrowBody<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ArrowExpression<'ast> {
-    pub params: ParameterList<'ast>,
+    pub params: List<'ast, Pattern<'ast>>,
     pub body: ArrowBody<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ObjectExpression<'ast> {
-    pub body: List<'ast, ObjectMember<'ast>>,
+    pub body: List<'ast, Property<'ast>>,
 }
 
 pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
@@ -194,16 +193,6 @@ impl<'ast> Expression<'ast> {
             Function(_) |
             Class(_)    => false,
             _           => true,
-        }
-    }
-}
-
-impl<'ast> Property<'ast> {
-    #[inline]
-    pub fn is_constructor(&self) -> bool {
-        match *self {
-            Property::Literal("constructor") => true,
-            _                                => false,
         }
     }
 }

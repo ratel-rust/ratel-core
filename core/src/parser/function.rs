@@ -1,7 +1,7 @@
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
-use ast::{EmptyName, OptionalName, MandatoryName, MethodKind};
-use ast::{Ptr, Name, Function, Class, ClassMember, Property};
+use ast::{Ptr, List, ListBuilder, EmptyName, OptionalName, MandatoryName, Name};
+use ast::{MethodKind, Pattern, Function, Class, ClassMember, PropertyKey};
 
 impl<'ast> Parse<'ast> for EmptyName {
     type Output = Self;
@@ -44,6 +44,43 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
     }
 }
 
+impl<'ast> Parse<'ast> for Pattern<'ast> {
+    type Output = Ptr<'ast, Self>;
+
+    #[inline]
+    fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        match par.lexer.token {
+            Identifier => {
+                let ident = Pattern::Identifier(par.lexer.token_as_str());
+                let ident = par.alloc_in_loc(ident);
+
+                par.lexer.consume();
+
+                ident
+            },
+            BraceOpen => {
+                let start = par.lexer.start_then_consume();
+                let properties = par.property_list();
+                let end = par.lexer.end_then_consume();
+
+                par.alloc_at_loc(start, end, Pattern::ObjectPattern {
+                    properties,
+                })
+            },
+            BracketOpen => {
+                let start = par.lexer.start_then_consume();
+                let elements = par.array_elements(Parser::param_allow_assign, Parser::void_pattern);
+                let end = par.lexer.end_then_consume();
+
+                par.alloc_at_loc(start, end, Pattern::ArrayPattern {
+                    elements
+                })
+            }
+            _ => par.error()
+        }
+    }
+}
+
 impl<'ast, N> Parse<'ast> for Function<'ast, N> where
     N: Name<'ast> + Parse<'ast, Output = N>,
 {
@@ -53,11 +90,9 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         let name = N::parse(par);
 
-        expect!(par, ParenOpen);
-
         Function {
             name,
-            params: par.parameter_list(),
+            params: par.params(),
             body: par.block(),
         }
     }
@@ -111,17 +146,17 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
                     kind = MethodKind::Constructor;
                 }
 
-                Property::Literal(label)
+                PropertyKey::Literal(label)
             },
             LiteralNumber => {
                 let num = par.lexer.token_as_str();
                 par.lexer.consume();
-                Property::Literal(num)
+                PropertyKey::Literal(num)
             },
             LiteralBinary => {
                 let num = par.lexer.token_as_str();
                 par.lexer.consume();
-                Property::Binary(num)
+                PropertyKey::Binary(num)
             },
             BracketOpen => {
                 par.lexer.consume();
@@ -130,7 +165,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
 
                 expect!(par, BracketClose);
 
-                Property::Computed(expression)
+                PropertyKey::Computed(expression)
             },
             _ => return par.error()
         };
@@ -199,13 +234,116 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
     }
 }
 
+impl<'ast> Parser<'ast> {
+    #[inline]
+    fn void_pattern(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let loc = self.lexer.start();
+        self.alloc_at_loc(loc, loc, Pattern::Void)
+    }
+
+    #[inline]
+    fn param_allow_assign(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let left = Pattern::parse(self);
+
+        match self.lexer.token {
+            OperatorAssign => {
+                self.lexer.consume();
+
+                let right = self.expression(B1);
+
+                self.alloc_at_loc(left.start, right.end, Pattern::AssignmentPattern {
+                    left,
+                    right,
+                })
+            },
+            _ => left
+        }
+    }
+
+    #[inline]
+    fn rest_element(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let start = self.lexer.start_then_consume();
+        let argument = match self.lexer.token {
+            Identifier => {
+                let ident = self.lexer.token_as_str();
+                let ident = self.alloc_in_loc(ident);
+
+                self.lexer.consume();
+
+                ident
+            },
+            _ => self.error()
+        };
+
+        expect!(self, ParenClose);
+
+        self.alloc_at_loc(start, argument.end, Pattern::RestElement {
+            argument
+        })
+    }
+
+    #[inline]
+    fn params(&mut self) -> List<'ast, Pattern<'ast>> {
+        expect!(self, ParenOpen);
+
+        if self.lexer.token == ParenClose {
+            self.lexer.consume();
+
+            return List::empty();
+        }
+
+        let item = match self.lexer.token {
+            OperatorSpread => return List::from(self.arena, self.rest_element()),
+            _              => self.param_allow_assign()
+        };
+
+        let mut builder = ListBuilder::new(self.arena, item);
+
+        loop {
+            match self.lexer.token {
+                Comma => {
+                    self.lexer.consume();
+                },
+                ParenClose => {
+                    self.lexer.consume();
+
+                    break;
+                },
+                _ => {
+                    self.error::<()>();
+
+                    break;
+                }
+            }
+
+            match self.lexer.token {
+                ParenClose => {
+                    self.lexer.consume();
+
+                    break;
+                },
+                OperatorSpread => {
+                    builder.push(self.rest_element());
+
+                    break;
+                },
+                _ => {
+                    builder.push(self.param_allow_assign());
+                }
+            }
+        }
+
+        builder.into_list()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
     use ast::{List, Literal, Expression, Function, Class};
-    use ast::{ClassMember, Property, Parameter, ParameterKey};
+    use ast::{ClassMember, Pattern};
     use ast::statement::*;
 
     #[test]
@@ -235,14 +373,8 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 params: mock.list([
-                    Parameter {
-                        key: ParameterKey::Identifier("bar"),
-                        value: None,
-                    },
-                    Parameter {
-                        key: ParameterKey::Identifier("baz"),
-                        value: None,
-                    },
+                    Pattern::Identifier("bar"),
+                    Pattern::Identifier("baz"),
                 ]),
                 body: mock.empty_block(),
             }
@@ -281,17 +413,17 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 params: mock.list([
-                    Parameter {
-                        key: ParameterKey::Identifier("a"),
-                        value: Some(mock.number("0")),
+                    Pattern::AssignmentPattern {
+                        left: mock.ptr(Pattern::Identifier("a")),
+                        right: mock.number("0")
                     },
-                    Parameter {
-                        key: ParameterKey::Identifier("b"),
-                        value: Some(mock.number("1")),
+                    Pattern::AssignmentPattern {
+                        left: mock.ptr(Pattern::Identifier("b")),
+                        right: mock.number("1")
                     },
-                    Parameter {
-                        key: ParameterKey::Identifier("c"),
-                        value: Some(mock.number("2")),
+                    Pattern::AssignmentPattern {
+                        left: mock.ptr(Pattern::Identifier("c")),
+                        right: mock.number("2")
                     }
                 ]),
                 body: mock.block([
@@ -305,10 +437,81 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn function_with_non_trailing_default_params() {
         let src = "function foo (a, b, c = 2, d) { return 2 }";
-        parse(src).unwrap();
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Function {
+                name: mock.name("foo"),
+                params: mock.list([
+                    Pattern::Identifier("a"),
+                    Pattern::Identifier("b"),
+                    Pattern::AssignmentPattern {
+                        left: mock.ptr(Pattern::Identifier("c")),
+                        right: mock.number("2")
+                    },
+                    Pattern::Identifier("d")
+                ]),
+                body: mock.block([
+                    ReturnStatement {
+                        value: Some(mock.number("2"))
+                    }
+                ])
+            }
+        ]);
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn function_with_rest_element() {
+        let src = "function foo(...rest) {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Function {
+                name: mock.name("foo"),
+                params: mock.list([
+                    Pattern::RestElement {
+                        argument: mock.ptr("rest"),
+                    }
+                ]),
+                body: mock.empty_block()
+            }
+        ]);
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn function_with_tailing_rest_element() {
+        let src = "function foo(a, b = 10, ...rest) {}";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            Function {
+                name: mock.name("foo"),
+                params: mock.list([
+                    Pattern::Identifier("a"),
+                    Pattern::AssignmentPattern {
+                        left: mock.ptr(Pattern::Identifier("b")),
+                        right: mock.number("10")
+                    },
+                    Pattern::RestElement {
+                        argument: mock.ptr("rest"),
+                    }
+                ]),
+                body: mock.empty_block()
+            }
+        ]);
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn function_with_non_trailing_rest_element() {
+        assert!(parse("function foo(...rest, a) {}").is_err());
     }
 
     #[test]
@@ -366,19 +569,13 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: Property::Literal("constructor"),
+                        key: PropertyKey::Literal("constructor"),
                         kind: MethodKind::Constructor,
                         value: mock.ptr(Function {
                             name: EmptyName,
                             params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
-                                Parameter {
-                                    key: ParameterKey::Identifier("baz"),
-                                    value: None,
-                                },
+                                Pattern::Identifier("bar"),
+                                Pattern::Identifier("baz")
                             ]),
                             body: mock.block([
                                 mock.ptr("debug")
@@ -421,19 +618,13 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: Property::Literal("doge"),
+                        key: PropertyKey::Literal("doge"),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
                             params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
-                                Parameter {
-                                    key: ParameterKey::Identifier("baz"),
-                                    value: None,
-                                },
+                                Pattern::Identifier("bar"),
+                                Pattern::Identifier("baz")
                             ]),
                             body: mock.block([
                                 mock.ptr("debug")
@@ -442,15 +633,12 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: Property::Literal("toThe"),
+                        key: PropertyKey::Literal("toThe"),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
                             params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("moon"),
-                                    value: None,
-                                },
+                                Pattern::Identifier("moon")
                             ]),
                             body: mock.block([
                                 mock.ptr("debug")
@@ -459,7 +647,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: false,
-                        key: Property::Literal("function"),
+                        key: PropertyKey::Literal("function"),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -469,7 +657,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: Property::Literal("function"),
+                        key: PropertyKey::Literal("function"),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -479,7 +667,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: Property::Literal("constructor"),
+                        key: PropertyKey::Literal("constructor"),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -516,22 +704,22 @@ mod test {
                 body: mock.block([
                     ClassMember::Literal {
                         is_static: false,
-                        key: Property::Literal("doge"),
+                        key: PropertyKey::Literal("doge"),
                         value: mock.number("10")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        key: Property::Literal("to"),
+                        key: PropertyKey::Literal("to"),
                         value: mock.number("20")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        key: Property::Literal("the"),
+                        key: PropertyKey::Literal("the"),
                         value: mock.number("30")
                     },
                     ClassMember::Literal {
                         is_static: true,
-                        key: Property::Literal("moon"),
+                        key: PropertyKey::Literal("moon"),
                         value: mock.number("42")
                     },
                 ])
@@ -579,30 +767,24 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: Property::Literal("length"),
+                        key: PropertyKey::Literal("length"),
                         kind: MethodKind::Get,
                         value: mock.ptr(Function {
                             name: EmptyName,
                             params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("foo"),
-                                    value: None,
-                                },
+                                Pattern::Identifier("foo")
                             ]),
                             body: mock.empty_block()
                         })
                     },
                     ClassMember::Method {
                         is_static: false,
-                        key: Property::Literal("length"),
+                        key: PropertyKey::Literal("length"),
                         kind: MethodKind::Set,
                         value: mock.ptr(Function {
                             name: EmptyName,
                             params: mock.list([
-                                Parameter {
-                                    key: ParameterKey::Identifier("bar"),
-                                    value: None,
-                                },
+                                Pattern::Identifier("bar")
                             ]),
                             body: mock.empty_block()
                         })

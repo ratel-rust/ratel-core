@@ -18,37 +18,7 @@ macro_rules! expect {
     ($parser:ident, $p:pat) => {
         match $parser.lexer.token {
             $p => $parser.lexer.consume(),
-            _  => return $parser.error()
-        }
-    }
-}
-
-/// Expect the next token to be an Identifier, extracting the OwnedSlice
-/// out of it. Returns an error otherwise.
-#[macro_export]
-macro_rules! expect_identifier {
-    ($parser:ident) => {
-        match $parser.lexer.token {
-            Identifier => {
-                let ident = $parser.lexer.token_as_str();
-                let ident = $parser.alloc_in_loc(ident);
-                $parser.lexer.consume();
-                ident
-            },
-            _ => return $parser.error()
-        }
-    }
-}
-
-/// Expecta semicolon to terminate a statement. Will assume a semicolon
-/// following the ASI rules.
-#[macro_export]
-macro_rules! expect_semicolon {
-    ($parser:ident) => {
-        match $parser.asi() {
-            Asi::ExplicitSemicolon => $parser.lexer.consume(),
-            Asi::ImplicitSemicolon => {},
-            Asi::NoSemicolon       => return $parser.error(),
+            _  => $parser.error()
         }
     }
 }

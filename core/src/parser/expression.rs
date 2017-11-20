@@ -1,8 +1,9 @@
 use parser::{Parser, Parse, B0, B1, B15};
 use lexer::Token::*;
-use ast::{Ptr, Loc, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
-use ast::{ObjectMember, Property, OperatorKind, Literal, Function, Class, StatementPtr};
-use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression, ObjectExpression, TemplateExpression};
+use ast::{Ptr, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
+use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementPtr};
+use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
+use ast::expression::{ObjectExpression, TemplateExpression};
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
@@ -209,7 +210,10 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     self.expression(B1)
                 }
-                _ => return self.error(),
+                _ => {
+                    self.error::<()>();
+                    break;
+                }
             };
 
             builder.push(expression);
@@ -248,87 +252,87 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
-        let start = self.lexer.start();
-        let end;
-        self.lexer.consume();
-
-        if self.lexer.token == BraceClose {
-            end = self.lexer.end_then_consume();
-            return self.alloc_at_loc(start, end, Expression::Object(ObjectExpression {
-                body: List::empty()
-            }));
-        }
-
-        let member = self.object_member();
-
-        let mut builder = ListBuilder::new(self.arena, member);
-
-        loop {
-            match self.lexer.token {
-                BraceClose => {
-                    end = self.lexer.end_then_consume();
-                    break;
-                },
-                Comma      => {
-                    self.lexer.consume();
-                },
-                _ => return self.error()
-            }
-
-            match self.lexer.token {
-                BraceClose => {
-                    end = self.lexer.end_then_consume();
-                    break;
-                },
-                _ => builder.push(self.object_member()),
-            }
-        }
+        let start = self.lexer.start_then_consume();
+        let body = self.property_list();
+        let end = self.lexer.end_then_consume();
 
         self.alloc_at_loc(start, end, ObjectExpression {
-            body: builder.into_list()
+            body
         })
     }
 
     #[inline]
-    pub fn object_member(&mut self) -> Ptr<'ast, ObjectMember<'ast>> {
+    pub fn property_list(&mut self) -> List<'ast, Property<'ast>> {
+        if self.lexer.token == BraceClose {
+            return List::empty();
+        }
+
+        let mut builder = ListBuilder::new(self.arena, self.property());
+
+        loop {
+            match self.lexer.token {
+                BraceClose => break,
+                Comma      => self.lexer.consume(),
+                _          => {
+                    self.error::<()>();
+                    break;
+                }
+            }
+
+            match self.lexer.token {
+                BraceClose => break,
+                _          => builder.push(self.property()),
+            }
+        }
+
+        builder.into_list()
+    }
+
+    #[inline]
+    pub fn property(&mut self) -> Ptr<'ast, Property<'ast>> {
         let start = self.lexer.start();
 
-        let property = match self.lexer.token {
+        let key = match self.lexer.token {
             _ if self.lexer.token.is_word() => {
+                let (start, end) = self.lexer.loc();
                 let label = self.lexer.token_as_str();
+
                 self.lexer.consume();
 
                 match self.lexer.token {
-                    Colon | ParenOpen => self.in_loc(Property::Literal(label)),
+                    Colon | ParenOpen => self.alloc_at_loc(start, end, PropertyKey::Literal(label)),
 
-                    _ => return self.alloc_in_loc(ObjectMember::Shorthand(label)),
+                    _ => return self.alloc_at_loc(start, end, Property::Shorthand(label)),
                 }
             },
             LiteralString |
             LiteralNumber => {
-                let key = self.lexer.token_as_str();
+                let num = self.lexer.token_as_str();
+                let key = self.alloc_in_loc(PropertyKey::Literal(num));
+
                 self.lexer.consume();
-                self.in_loc(Property::Literal(key))
+
+                key
             },
             LiteralBinary => {
                 let num = self.lexer.token_as_str();
-                self.lexer.consume();
-                self.in_loc(Property::Binary(num))
-            },
-            BracketOpen => {
+                let key = self.alloc_in_loc(PropertyKey::Binary(num));
+
                 self.lexer.consume();
 
+                key
+            },
+            BracketOpen => {
+                let start = self.lexer.start_then_consume();
                 let expression = self.expression(B0);
-                let property = Loc::new(0, 0, Property::Computed(expression));
+                let end = self.lexer.end();
 
                 expect!(self, BracketClose);
 
-                property
+                self.alloc_at_loc(start, end, PropertyKey::Computed(expression))
             },
             _ => return self.error(),
         };
-
-        let key = self.alloc(property);
 
         match self.lexer.token {
             Colon => {
@@ -336,7 +340,7 @@ impl<'ast> Parser<'ast> {
 
                 let value = self.expression(B1);
 
-                self.alloc_at_loc(start, value.end,  ObjectMember::Literal {
+                self.alloc_at_loc(start, value.end, Property::Literal {
                     key,
                     value,
                 })
@@ -344,7 +348,7 @@ impl<'ast> Parser<'ast> {
             ParenOpen => {
                 let value = Ptr::parse(self);
 
-                self.alloc_at_loc(start, value.end, ObjectMember::Method {
+                self.alloc_at_loc(start, value.end, Property::Method {
                     key,
                     value,
                 })
@@ -355,77 +359,83 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
-        let start = self.lexer.start();
-        let end;
-        self.lexer.consume();
+        let start = self.lexer.start_then_consume();
+        let body = self.array_elements(|par| par.expression(B1), Parser::void_expression);
+        let end = self.lexer.end_then_consume();
 
-        let expression = match self.lexer.token {
+        self.alloc_at_loc(start, end, ArrayExpression { body })
+    }
+
+    #[inline]
+    pub fn void_expression(&mut self) -> ExpressionPtr<'ast> {
+        let loc = self.lexer.start();
+        self.alloc_at_loc(loc, loc, Expression::Void)
+    }
+
+    #[inline]
+    pub fn array_elements<F, V, I>(&mut self, get: F, void: V) -> List<'ast, I> where
+        F: Fn(&mut Parser<'ast>) -> Ptr<'ast, I>,
+        V: Fn(&mut Parser<'ast>) -> Ptr<'ast, I>,
+        I: 'ast + Copy,
+    {
+        let item = match self.lexer.token {
             Comma => {
+                let item = void(self);
                 self.lexer.consume();
-                self.alloc_in_loc(Expression::Void)
+                item
             },
-            BracketClose => {
-                end = self.lexer.end_then_consume();
-                return self.alloc_at_loc(start, end, ArrayExpression { body: List::empty() });
-            },
+            BracketClose => return List::empty(),
             _ => {
-                let expression = self.expression(B1);
+                let item = get(self);
 
                 match self.lexer.token {
-                    BracketClose => {
-                        end = self.lexer.end_then_consume();
-
-                        let body = List::from(self.arena, expression);
-
-                        return self.alloc_at_loc(start, end, ArrayExpression { body });
-                    },
+                    BracketClose => return List::from(self.arena, item),
                     Comma => {
                         self.lexer.consume();
-                        expression
+                        item
                     },
-                    _ => return self.error(),
+                    _ => {
+                        self.error::<()>();
+                        item
+                    }
                 }
             }
         };
 
-        let mut builder = ListBuilder::new(self.arena, expression);
+        let mut builder = ListBuilder::new(self.arena, item);
 
         loop {
             match self.lexer.token {
                 Comma => {
-                    self.lexer.consume();
+                    builder.push(void(self));
 
-                    builder.push(self.alloc_in_loc(Expression::Void));
+                    self.lexer.consume();
 
                     continue;
                 },
                 BracketClose => {
-                    end = self.lexer.end_then_consume();
-
-                    builder.push(self.alloc_in_loc(Expression::Void));
+                    builder.push(void(self));
 
                     break;
                 },
                 _ => {
-                    let expression = self.expression(B1);
+                    let item = get(self);
 
-                    builder.push(expression);
+                    builder.push(item);
                 }
             }
 
             match self.lexer.token {
-                BracketClose => {
-                    end = self.lexer.end_then_consume();
+                BracketClose => break,
+                Comma        => self.lexer.consume(),
+                _            => {
+                    self.error::<()>();
                     break;
                 }
-                Comma => self.lexer.consume(),
-                _     => return self.error(),
             }
         }
 
-        self.alloc_at_loc(start, end, ArrayExpression {
-            body: builder.into_list()
-        })
+        builder.into_list()
     }
 
     #[inline]
@@ -524,7 +534,7 @@ impl<'ast> Parser<'ast> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ast::{OperatorKind, Literal, Statement, Function, Parameter, ParameterKey, Class};
+    use ast::{OperatorKind, Literal, Statement, Function, Pattern, Class};
     use ast::expression::*;
     use ast::statement::*;
     use parser::parse;
@@ -835,16 +845,13 @@ mod test {
 
     #[test]
     fn arrow_function_shorthand() {
-        let src = "n => n* n";
+        let src = "n => n * n";
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrowExpression {
             params: mock.list([
-                Parameter {
-                    key: ParameterKey::Identifier("n"),
-                    value: None,
-                },
+                Pattern::Identifier("n")
             ]),
 
             body: ArrowBody::Expression(mock.ptr(BinaryExpression {
@@ -865,29 +872,18 @@ mod test {
 
         let expected = ArrowExpression {
             params: mock.list([
-                Parameter {
-                    key: ParameterKey::Identifier("a"),
-                    value: None,
-                },
-                Parameter {
-                    key: ParameterKey::Identifier("b"),
-                    value: None,
-                },
-                Parameter {
-                    key: ParameterKey::Identifier("c"),
-                    value: None,
-                }
+                Pattern::Identifier("a"),
+                Pattern::Identifier("b"),
+                Pattern::Identifier("c")
             ]),
             body: ArrowBody::Expression(mock.ptr("bar"))
         };
         assert_expr!(module, expected);
     }
 
-
     #[test]
-    #[should_panic]
     fn arrow_function_invalid_params_throws() {
-        parse("(a, b, c * 2) => bar").unwrap();
+        assert!(parse("(a, b, c * 2) => bar").is_err());
     }
 
     #[test]
@@ -898,17 +894,11 @@ mod test {
 
         let expected = ArrowExpression {
             params: mock.list([
-                Parameter {
-                    key: ParameterKey::Identifier("a"),
-                    value: None,
-                },
-                Parameter {
-                    key: ParameterKey::Identifier("b"),
-                    value: None,
-                },
-                Parameter {
-                    key: ParameterKey::Identifier("c"),
-                    value: Some(mock.ptr(Literal::Number("2")))
+                Pattern::Identifier("a"),
+                Pattern::Identifier("b"),
+                Pattern::AssignmentPattern {
+                    left: mock.ptr(Pattern::Identifier("c")),
+                    right: mock.number("2")
                 }
             ]),
             body: ArrowBody::Expression(mock.ptr("bar"))

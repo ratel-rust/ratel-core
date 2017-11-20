@@ -15,10 +15,10 @@ pub use ast::variable::*;
 pub use ast::operator::*;
 pub use ast::ptr::Ptr;
 // pub use ast::types::{Type, Primitive};
-pub use ast::expression::{Expression, ObjectMember, Property};
-pub use ast::statement::{Statement, Declarator, DeclaratorId, BlockStatement};
+pub use ast::expression::{Expression, Property, PropertyKey};
+pub use ast::statement::{Statement, Declarator, BlockStatement};
 pub use ast::function::{Function, Class, ClassMember, MethodKind};
-pub use ast::function::{Name, EmptyName, OptionalName, MandatoryName, Parameter, ParameterKey};
+pub use ast::function::{Name, EmptyName, OptionalName, MandatoryName};
 pub use ast::literal::Literal;
 pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
 
@@ -27,11 +27,29 @@ pub struct Block<'ast, T: 'ast> {
     pub body: List<'ast, T>
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Pattern<'ast> {
+    /// Only used inside ArrayPattern
+    Void,
+    Identifier(&'ast str),
+    ObjectPattern {
+        properties: List<'ast, Property<'ast>>
+    },
+    ArrayPattern {
+        elements: List<'ast, Pattern<'ast>>
+    },
+    RestElement {
+        argument: IdentifierPtr<'ast>
+    },
+    AssignmentPattern {
+        left: Ptr<'ast, Pattern<'ast>>,
+        right: ExpressionPtr<'ast>,
+    }
+}
+
 // Handful of useful aliases
 pub type BlockPtr<'ast, T> = Ptr<'ast, Block<'ast, T>>;
 pub type PropertyPtr<'ast> = Ptr<'ast, Property<'ast>>;
-pub type ParameterPtr<'ast> = Ptr<'ast, Parameter<'ast>>;
-pub type ParameterList<'ast> = List<'ast, Parameter<'ast>>;
 pub type ExpressionPtr<'ast> = Ptr<'ast, Expression<'ast>>;
 pub type ExpressionList<'ast> = List<'ast, Expression<'ast>>;
 pub type StatementPtr<'ast> = Ptr<'ast, Statement<'ast>>;
