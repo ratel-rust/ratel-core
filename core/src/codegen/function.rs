@@ -1,6 +1,10 @@
-use ast::{Function, Class, ClassMember, Name, MandatoryName, OptionalName};
-use ast::{Parameter, ParameterKey};
+use ast::{Function, Class, ClassMember, Name, EmptyName, MandatoryName, OptionalName, MethodKind};
 use codegen::{ToCode, Generator};
+
+impl<G: Generator> ToCode<G> for EmptyName {
+    #[inline]
+    fn to_code(&self, _: &mut G) {}
+}
 
 impl<'ast, G: Generator> ToCode<G> for MandatoryName<'ast> {
     #[inline]
@@ -23,47 +27,42 @@ impl<'ast, G: Generator> ToCode<G> for OptionalName<'ast> {
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for ParameterKey<'ast> {
+pub trait ClassFunctionDeclaration<G: Generator> {
     #[inline]
-    fn to_code(&self, gen: &mut G) {
-        use ast::ParameterKey::*;
+    fn write_class(gen: &mut G) {
+        gen.write_bytes(b"class");
+    }
 
-        match *self {
-            Identifier(ref label) => gen.write(label),
-            Pattern(ref pattern) => gen.write(pattern),
-        }
+    #[inline]
+    fn write_function(gen: &mut G) {
+        gen.write_bytes(b"function");
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for Parameter<'ast> {
+impl<G: Generator> ClassFunctionDeclaration<G> for EmptyName {
     #[inline]
-    fn to_code(&self, gen: &mut G) {
-        gen.write(&self.key);
+    fn write_class(_: &mut G) {}
 
-        if let Some(ref value) = self.value {
-            gen.write_pretty(b' ');
-            gen.write_byte(b'=');
-            gen.write_pretty(b' ');
-            gen.write(value);
-        }
-    }
+    #[inline]
+    fn write_function(_: &mut G) {}
 }
+
+impl<'ast, G: Generator> ClassFunctionDeclaration<G> for OptionalName<'ast> {}
+impl<'ast, G: Generator> ClassFunctionDeclaration<G> for MandatoryName<'ast> {}
 
 impl<'ast, G, N> ToCode<G> for Function<'ast, N> where
     G: Generator,
-    N: Name<'ast> + ToCode<G>,
+    N: Name<'ast> + ToCode<G> + ClassFunctionDeclaration<G>,
 {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write_bytes(b"function");
+        N::write_function(gen);
         gen.write(&self.name);
         gen.write_byte(b'(');
         gen.write_list(&self.params);
         gen.write_byte(b')');
         gen.write_pretty(b' ');
-        gen.write_byte(b'{');
-        gen.write_block(&self.body);
-        gen.write_byte(b'}');
+        gen.write(&self.body);
     }
 }
 
@@ -74,45 +73,32 @@ impl<'ast, G: Generator> ToCode<G> for ClassMember<'ast> {
 
         match *self {
             Error => panic!("Module contains errors"),
-            Constructor {
-                ref params,
-                ref body,
-            } => {
-                gen.write_bytes(b"constructor(");
-                gen.write_list(params);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write_byte(b'{');
-                gen.write_block(body);
-                gen.write_byte(b'}');
-            },
             Method {
                 is_static,
-                ref property,
-                ref params,
-                ref body,
-            } => {
-                if is_static {
-                    gen.write_bytes(b"static ");
-                }
-                gen.write(property);
-                gen.write_byte(b'(');
-                gen.write_list(params);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write_byte(b'{');
-                gen.write_block(body);
-                gen.write_byte(b'}');
-            },
-            Literal {
-                is_static,
-                ref property,
+                kind,
+                ref key,
                 ref value,
             } => {
                 if is_static {
                     gen.write_bytes(b"static ");
                 }
-                gen.write(property);
+                match kind {
+                    MethodKind::Get => gen.write_bytes(b"get "),
+                    MethodKind::Set => gen.write_bytes(b"set "),
+                    _               => {},
+                }
+                gen.write(key);
+                gen.write(value);
+            },
+            Literal {
+                is_static,
+                ref key,
+                ref value,
+            } => {
+                if is_static {
+                    gen.write_bytes(b"static ");
+                }
+                gen.write(key);
                 gen.write_pretty(b' ');
                 gen.write_byte(b'=');
                 gen.write_pretty(b' ');
@@ -125,20 +111,18 @@ impl<'ast, G: Generator> ToCode<G> for ClassMember<'ast> {
 
 impl<'ast, G, N> ToCode<G> for Class<'ast, N> where
     G: Generator,
-    N: Name<'ast> + ToCode<G>,
+    N: Name<'ast> + ToCode<G> + ClassFunctionDeclaration<G>,
 {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write_bytes(b"class");
+        N::write_class(gen);
         gen.write(&self.name);
         if let Some(ref super_class) = self.extends {
             gen.write_bytes(b" extends ");
             gen.write(super_class);
         }
         gen.write_pretty(b' ');
-        gen.write_byte(b'{');
-        gen.write_block(&self.body);
-        gen.write_byte(b'}');
+        gen.write(&self.body);
     }
 }
 
@@ -152,6 +136,11 @@ mod test {
         assert_min("function foo(a) {}", "function foo(a){}");
         assert_min("function foo(a, b, c) {}", "function foo(a,b,c){}");
         assert_min("function foo(bar) { return 10; }", "function foo(bar){return 10;}");
+    }
+
+    #[test]
+    fn rest_and_spread() {
+        assert_min("function foo(...things) { bar(...things); }", "function foo(...things){bar(...things);}");
     }
 
     #[test]

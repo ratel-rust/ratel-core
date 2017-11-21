@@ -50,33 +50,10 @@ impl<'ast> Parse<'ast> for Pattern<'ast> {
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         match par.lexer.token {
-            Identifier => {
-                let ident = Pattern::Identifier(par.lexer.token_as_str());
-                let ident = par.alloc_in_loc(ident);
-
-                par.lexer.consume();
-
-                ident
-            },
-            BraceOpen => {
-                let start = par.lexer.start_then_consume();
-                let properties = par.property_list();
-                let end = par.lexer.end_then_consume();
-
-                par.alloc_at_loc(start, end, Pattern::ObjectPattern {
-                    properties,
-                })
-            },
-            BracketOpen => {
-                let start = par.lexer.start_then_consume();
-                let elements = par.array_elements(Parser::param_allow_assign, Parser::void_pattern);
-                let end = par.lexer.end_then_consume();
-
-                par.alloc_at_loc(start, end, Pattern::ArrayPattern {
-                    elements
-                })
-            }
-            _ => par.error()
+            Identifier  => par.pattern_identifier(),
+            BracketOpen => par.pattern_array(),
+            BraceOpen   => par.pattern_object(),
+            _           => par.error()
         }
     }
 }
@@ -236,15 +213,45 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    fn void_pattern(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_void(&mut self) -> Ptr<'ast, Pattern<'ast>> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Pattern::Void)
     }
 
     #[inline]
-    fn param_allow_assign(&mut self) -> Ptr<'ast, Pattern<'ast>> {
-        let left = Pattern::parse(self);
+    fn pattern_identifier(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let ident = Pattern::Identifier(self.lexer.token_as_str());
+        let ident = self.alloc_in_loc(ident);
 
+        self.lexer.consume();
+
+        ident
+    }
+
+    #[inline]
+    fn pattern_array(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let start = self.lexer.start_then_consume();
+        let elements = self.array_elements(Parser::pattern_array_element);
+        let end = self.lexer.end_then_consume();
+
+        self.alloc_at_loc(start, end, Pattern::ArrayPattern {
+            elements
+        })
+    }
+
+    #[inline]
+    fn pattern_object(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let start = self.lexer.start_then_consume();
+        let properties = self.property_list();
+        let end = self.lexer.end_then_consume();
+
+        self.alloc_at_loc(start, end, Pattern::ObjectPattern {
+            properties,
+        })
+    }
+
+    #[inline]
+    fn pattern_assign(&mut self, left: Ptr<'ast, Pattern<'ast>>) -> Ptr<'ast, Pattern<'ast>> {
         match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
@@ -258,6 +265,31 @@ impl<'ast> Parser<'ast> {
             },
             _ => left
         }
+    }
+
+    #[inline]
+    fn pattern_array_element(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let left = match self.lexer.token {
+            Identifier           => self.pattern_identifier(),
+            BracketOpen          => self.pattern_array(),
+            BraceOpen            => self.pattern_object(),
+            Comma | BracketClose => return self.pattern_void(),
+            _                    => self.error()
+        };
+
+        self.pattern_assign(left)
+    }
+
+    #[inline]
+    fn pattern_param(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+        let left = match self.lexer.token {
+            Identifier           => self.pattern_identifier(),
+            BracketOpen          => self.pattern_array(),
+            BraceOpen            => self.pattern_object(),
+            _                    => self.error()
+        };
+
+        self.pattern_assign(left)
     }
 
     #[inline]
@@ -294,7 +326,7 @@ impl<'ast> Parser<'ast> {
 
         let item = match self.lexer.token {
             OperatorSpread => return List::from(self.arena, self.rest_element()),
-            _              => self.param_allow_assign()
+            _              => self.pattern_param()
         };
 
         let mut builder = ListBuilder::new(self.arena, item);
@@ -328,7 +360,7 @@ impl<'ast> Parser<'ast> {
                     break;
                 },
                 _ => {
-                    builder.push(self.param_allow_assign());
+                    builder.push(self.pattern_param());
                 }
             }
         }

@@ -7,7 +7,7 @@ use ast::OperatorKind::*;
 
 
 type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionPtr<'ast>) -> ExpressionPtr<'ast>>;
-type Lookup = &'static [NestedHandler; 108];
+pub type Lookup = &'static [NestedHandler; 108];
 
 /// All potential tokens, including Comma for sequence expressions
 pub static B0: Lookup = &[
@@ -307,11 +307,11 @@ const ACCS: NestedHandler = Some(|par, left| {
 });
 
 const CALL: NestedHandler = Some(|par, left| {
-    par.lexer.consume();
+    let start = par.lexer.start_then_consume();
+    let arguments = par.call_arguments();
+    let end = par.lexer.end_then_consume();
 
-    let arguments = par.expression_list();
-
-    par.alloc_at_loc(0, 0, CallExpression {
+    par.alloc_at_loc(start, end, CallExpression {
         callee: left,
         arguments,
     })
@@ -398,13 +398,6 @@ binary!(EXPN , B15 => Exponent);
 
 
 impl<'ast> Parser<'ast> {
-    #[inline]
-    pub fn expression(&mut self, lookup: Lookup) -> ExpressionPtr<'ast> {
-        let left = self.bound_expression();
-
-        self.nested_expression(left, lookup)
-    }
-
     #[inline]
     pub fn nested_expression(&mut self, mut left: ExpressionPtr<'ast>, lookup: Lookup) -> ExpressionPtr<'ast> {
         loop {

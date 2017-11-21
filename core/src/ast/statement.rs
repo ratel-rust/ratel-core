@@ -53,8 +53,14 @@ pub struct DoStatement<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ForInit<'ast> {
+    Declaration(DeclarationStatement<'ast>),
+    Expression(ExpressionPtr<'ast>)
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForStatement<'ast> {
-    pub init: Option<StatementPtr<'ast>>,
+    pub init: Option<Ptr<'ast, ForInit<'ast>>>,
     pub test: Option<ExpressionPtr<'ast>>,
     pub update: Option<ExpressionPtr<'ast>>,
     pub body: StatementPtr<'ast>
@@ -62,14 +68,14 @@ pub struct ForStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForInStatement<'ast> {
-    pub left: StatementPtr<'ast>,
+    pub left: Ptr<'ast, ForInit<'ast>>,
     pub right: ExpressionPtr<'ast>,
     pub body: StatementPtr<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForOfStatement<'ast> {
-    pub left: StatementPtr<'ast>,
+    pub left: Ptr<'ast, ForInit<'ast>>,
     pub right: ExpressionPtr<'ast>,
     pub body: StatementPtr<'ast>
 }
@@ -137,7 +143,7 @@ macro_rules! impl_from {
     ($( $type:ident => $variant:ident ),*) => ($(
         impl<'ast> From<$type<'ast>> for Statement<'ast> {
             #[inline]
-            fn from(val: $type<'ast>) -> Statement<'ast> {
+            fn from(val: $type<'ast>) -> Self {
                 Statement::$variant(val)
             }
         }
@@ -163,6 +169,20 @@ impl_from! {
     FunctionStatement => Function,
     ClassStatement => Class,
     SwitchStatement => Switch
+}
+
+impl<'ast> From<DeclarationStatement<'ast>> for ForInit<'ast> {
+    #[inline]
+    fn from(val: DeclarationStatement<'ast>) -> Self {
+        ForInit::Declaration(val)
+    }
+}
+
+impl<'ast> From<ExpressionPtr<'ast>> for ForInit<'ast> {
+    #[inline]
+    fn from(val: ExpressionPtr<'ast>) -> Self {
+        ForInit::Expression(val)
+    }
 }
 
 impl<'ast> Statement<'ast> {

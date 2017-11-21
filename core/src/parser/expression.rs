@@ -1,14 +1,16 @@
-use parser::{Parser, Parse, B0, B1, B15};
+use parser::{Parser, Parse, Lookup, B0, B1, B15};
 use lexer::Token::*;
 use ast::{Ptr, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementPtr};
 use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
-use ast::expression::{ObjectExpression, TemplateExpression};
+use ast::expression::{ObjectExpression, TemplateExpression, SpreadExpression};
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
 
-static EXPR_HANDLERS: [ExpressionHandler; 108] = [
+pub type Context = &'static [ExpressionHandler; 108];
+
+static DEF_CONTEXT: Context = &[
     ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
@@ -35,6 +37,32 @@ static EXPR_HANDLERS: [ExpressionHandler; 108] = [
 
     ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
+];
+
+// Adds handlers for VoidExpression and SpreadExpression
+pub static ARRAY_CONTEXT: Context = &[
+    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, OP,
+    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
+    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, SPRD, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
+    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
+    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
+];
+
+// Adds handler for SpreadExpression
+pub static CALL_CONTEXT: Context = &[
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
+    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, SPRD, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
+    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
+    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
 ];
 
 macro_rules! create_handlers {
@@ -70,6 +98,8 @@ macro_rules! create_handlers {
 create_handlers! {
     const ____ = |par| return par.error();
 
+    const VOID = |par| par.void_expression();
+
     const OBJ = |par| par.object_expression();
 
     const CLAS = |par| par.class_expression();
@@ -82,6 +112,13 @@ create_handlers! {
 
         par.lexer.consume();
         expr
+    };
+
+    const SPRD = |par| {
+        let start = par.lexer.start_then_consume();
+        let argument = par.expression(B1);
+
+        par.alloc_at_loc(start, argument.end, SpreadExpression { argument })
     };
 
     pub const THIS = |par| {
@@ -171,8 +208,27 @@ create_handlers! {
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn bound_expression(&mut self) -> ExpressionPtr<'ast> {
-        unsafe { (*(&EXPR_HANDLERS as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
+    fn bound_expression(&mut self) -> ExpressionPtr<'ast> {
+        unsafe { (*(DEF_CONTEXT as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
+    }
+
+    #[inline]
+    fn context_bound_expression(&mut self, context: Context) -> ExpressionPtr<'ast> {
+        unsafe { (*(context as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
+    }
+
+    #[inline]
+    pub fn expression(&mut self, lookup: Lookup) -> ExpressionPtr<'ast> {
+        let left = self.bound_expression();
+
+        self.nested_expression(left, lookup)
+    }
+
+    #[inline]
+    pub fn expression_in_context(&mut self, context: Context, lookup: Lookup) -> ExpressionPtr<'ast> {
+        let left = self.context_bound_expression(context);
+
+        self.nested_expression(left, lookup)
     }
 
     #[inline]
@@ -191,24 +247,20 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn expression_list(&mut self) -> ExpressionList<'ast> {
+    pub fn call_arguments(&mut self) -> ExpressionList<'ast> {
         if self.lexer.token == ParenClose {
-            self.lexer.consume();
             return List::empty();
         }
 
-        let expression = self.expression(B1);
+        let expression = self.expression_in_context(CALL_CONTEXT, B1);
         let mut builder = ListBuilder::new(self.arena, expression);
 
         loop {
             let expression = match self.lexer.token {
-                ParenClose => {
-                    self.lexer.consume();
-                    break;
-                },
+                ParenClose => break,
                 Comma      => {
                     self.lexer.consume();
-                    self.expression(B1)
+                    self.expression_in_context(CALL_CONTEXT, B1)
                 }
                 _ => {
                     self.error::<()>();
@@ -360,79 +412,42 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
         let start = self.lexer.start_then_consume();
-        let body = self.array_elements(|par| par.expression(B1), Parser::void_expression);
+        let body = self.array_elements(|par| par.expression_in_context(ARRAY_CONTEXT, B1));
         let end = self.lexer.end_then_consume();
 
         self.alloc_at_loc(start, end, ArrayExpression { body })
     }
 
     #[inline]
+    /// Only in ArrayExpression
     pub fn void_expression(&mut self) -> ExpressionPtr<'ast> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Expression::Void)
     }
 
     #[inline]
-    pub fn array_elements<F, V, I>(&mut self, get: F, void: V) -> List<'ast, I> where
+    pub fn array_elements<F, I>(&mut self, get: F) -> List<'ast, I> where
         F: Fn(&mut Parser<'ast>) -> Ptr<'ast, I>,
-        V: Fn(&mut Parser<'ast>) -> Ptr<'ast, I>,
         I: 'ast + Copy,
     {
         let item = match self.lexer.token {
-            Comma => {
-                let item = void(self);
-                self.lexer.consume();
-                item
-            },
             BracketClose => return List::empty(),
-            _ => {
-                let item = get(self);
-
-                match self.lexer.token {
-                    BracketClose => return List::from(self.arena, item),
-                    Comma => {
-                        self.lexer.consume();
-                        item
-                    },
-                    _ => {
-                        self.error::<()>();
-                        item
-                    }
-                }
-            }
+            _            => get(self),
         };
 
         let mut builder = ListBuilder::new(self.arena, item);
 
         loop {
             match self.lexer.token {
-                Comma => {
-                    builder.push(void(self));
-
-                    self.lexer.consume();
-
-                    continue;
-                },
-                BracketClose => {
-                    builder.push(void(self));
-
-                    break;
-                },
-                _ => {
-                    let item = get(self);
-
-                    builder.push(item);
-                }
-            }
-
-            match self.lexer.token {
-                BracketClose => break,
                 Comma        => self.lexer.consume(),
+                BracketClose => break,
                 _            => {
                     self.error::<()>();
                     break;
                 }
             }
+
+            builder.push(get(self))
         }
 
         builder.into_list()
@@ -798,6 +813,51 @@ mod test {
         };
 
         assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn spread_expression_in_array() {
+        let src = "[a, b, ...c]";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = ArrayExpression {
+            body: mock.list([
+                Expression::Identifier("a"),
+                Expression::Identifier("b"),
+                Expression::Spread(SpreadExpression {
+                    argument: mock.ptr("c")
+                })
+            ])
+        };
+
+        assert_expr!(module, expected);
+    }
+
+    #[test]
+    fn spread_expression_in_call() {
+        let src = "foo(a, b, ...c)";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = CallExpression {
+            callee: mock.ptr("foo"),
+            arguments: mock.list([
+                Expression::Identifier("a"),
+                Expression::Identifier("b"),
+                Expression::Spread(SpreadExpression {
+                    argument: mock.ptr("c")
+                })
+            ])
+        };
+
+        assert_expr!(module, expected);
+    }
+
+
+    #[test]
+    fn spread_expression_illegal_bare() {
+        assert!(parse("let foo = ...c;").is_err());
     }
 
     #[test]

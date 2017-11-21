@@ -83,6 +83,11 @@ pub struct TemplateExpression<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub struct SpreadExpression<'ast> {
+    pub argument: ExpressionPtr<'ast>
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ArrowBody<'ast> {
     Expression(ExpressionPtr<'ast>),
     Block(BlockPtr<'ast, Statement<'ast>>)
@@ -119,6 +124,7 @@ pub enum Expression<'ast> {
     Postfix(PostfixExpression<'ast>),
     Conditional(ConditionalExpression<'ast>),
     Template(TemplateExpression<'ast>),
+    Spread(SpreadExpression<'ast>),
     Arrow(ArrowExpression<'ast>),
     Object(ObjectExpression<'ast>),
     Function(FunctionExpression<'ast>),
@@ -155,6 +161,7 @@ impl_from! {
     PostfixExpression => Postfix,
     ConditionalExpression => Conditional,
     TemplateExpression => Template,
+    SpreadExpression => Spread,
     ArrowExpression => Arrow,
     ObjectExpression => Object,
     FunctionExpression => Function,

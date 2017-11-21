@@ -1,13 +1,13 @@
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Ptr, Loc, List, ListBuilder, EmptyListBuilder, Declarator, DeclarationKind};
+use ast::{Ptr, List, ListBuilder, EmptyListBuilder, Declarator, DeclarationKind};
 use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
 use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
-use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement};
+use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
 use ast::OperatorKind::*;
 
 
@@ -460,6 +460,19 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
+    fn for_init(&mut self, kind: DeclarationKind) -> Ptr<'ast, ForInit<'ast>> {
+        let start = self.lexer.start_then_consume();
+        let declarators = self.variable_declarators();
+        let end = self.lexer.end();
+        let declaration = self.alloc_at_loc(start, end, DeclarationStatement {
+            kind: kind,
+            declarators
+        });
+
+        declaration
+    }
+
+    #[inline]
     fn for_statement(&mut self) -> StatementPtr<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
@@ -469,74 +482,38 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 None
             },
-            DeclarationVar | DeclarationLet | DeclarationConst => {
-                // TODO: DRY
-                let kind = match self.lexer.token {
-                    DeclarationVar => DeclarationKind::Var,
-                    DeclarationLet => DeclarationKind::Let,
-                    DeclarationConst => DeclarationKind::Const,
-                    _ => unreachable!()
-                };
-                self.lexer.consume();
-                let declarators = self.variable_declarators();
-
-                if let Some(&Loc {
-                    item: Declarator {
-                        init: Some(ref value),
-                        ..
-                    },
-                    start: d_start,
-                    ..
-                }) = declarators.only_element() {
-                    if let Expression::Binary(BinaryExpression { left, operator: In, right, .. }) = value.item {
-                        let left = self.alloc_at_loc(d_start, left.end, DeclarationStatement {
-                            kind,
-                            declarators,
-                        });
-
-                        return self.for_in_statement_from_parts(start, left, right);
-                    }
-                }
-
-                Some(self.alloc_at_loc(0, 0, DeclarationStatement {
-                    kind,
-                    declarators,
-                }))
-            }
-
+            DeclarationVar   => Some(self.for_init(DeclarationKind::Var)),
+            DeclarationLet   => Some(self.for_init(DeclarationKind::Let)),
+            DeclarationConst => Some(self.for_init(DeclarationKind::Const)),
             _ => {
-                let expression = self.expression(B0);
+                let init = self.expression(B0);
 
                 if let Expression::Binary(BinaryExpression {
                     operator: In,
                     left,
                     right,
                     ..
-                }) = expression.item {
-                    let left = self.wrap_expression(left);
+                }) = init.item {
+                    let left = self.alloc_at_loc(left.start, left.end, left);
 
                     return self.for_in_statement_from_parts(start, left, right);
                 }
 
-                Some(self.wrap_expression(expression))
+                Some(self.alloc_at_loc(init.start, init.end, init))
             },
         };
 
-        if let Some(init) = init {
+        if let Some(ref init) = init {
             match self.lexer.token {
                 OperatorIn => {
                     self.lexer.consume();
-                    return self.for_in_statement(start, init);
+                    return self.for_in_statement(start, *init);
                 },
-                Identifier => {
-                    if self.lexer.token_as_str() != "of" {
-                        return self.error();
-                    }
+                Identifier if self.lexer.token_as_str() == "of" => {
                     self.lexer.consume();
-                    return self.for_of_statement(start, init);
+                    return self.for_of_statement(start, *init);
                 },
-                Semicolon => self.lexer.consume(),
-                _         => return self.error(),
+                _ => expect!(self, Semicolon)
             }
         }
 
@@ -545,7 +522,7 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 None
             },
-            _         => {
+            _ => {
                 let test = self.expression(B0);
                 expect!(self, Semicolon);
 
@@ -576,7 +553,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_in_statement_from_parts(&mut self, start: u32, left: StatementPtr<'ast>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
+    fn for_in_statement_from_parts(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
         expect!(self, ParenClose);
 
         let body = self.statement();
@@ -588,7 +565,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_in_statement(&mut self, start: u32, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
+    fn for_in_statement(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>) -> StatementPtr<'ast> {
         let right = self.expression(B0);
 
         expect!(self, ParenClose);
@@ -602,7 +579,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_of_statement(&mut self, start: u32, left: StatementPtr<'ast>) -> StatementPtr<'ast> {
+    fn for_of_statement(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>) -> StatementPtr<'ast> {
         let right = self.expression(B0);
 
         expect!(self, ParenClose);
@@ -937,6 +914,32 @@ mod test {
                                 Expression::Literal(Literal::Number("2")),
                             ])
                         })),
+                    },
+                ])
+            }
+        ]);
+
+        assert_eq!(module.body(), expected);
+    }
+
+    #[test]
+    fn variable_declaration_statement_destructuring_array_sparse() {
+        let src = "let [, foo] = bar;";
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            DeclarationStatement {
+                kind: DeclarationKind::Let,
+                declarators: mock.list([
+                    Declarator {
+                        id: mock.ptr(Pattern::ArrayPattern {
+                            elements: mock.list([
+                                Pattern::Void,
+                                Pattern::Identifier("foo")
+                            ])
+                        }),
+                        init: Some(mock.ptr("bar")),
                     },
                 ])
             }

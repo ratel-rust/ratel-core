@@ -1,5 +1,40 @@
-use ast::{Expression, Statement, Literal, OperatorKind, ObjectMember, Property};
 use codegen::{ToCode, Generator};
+use ast::{Loc, Expression, Literal, OperatorKind, Property, PropertyKey, Pattern};
+use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
+use ast::expression::{ObjectExpression, TemplateExpression, CallExpression, BinaryExpression};
+use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression};
+use ast::expression::{PostfixExpression, ConditionalExpression, SpreadExpression};
+
+
+impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::Expression::*;
+
+        match *self {
+            Error                        => panic!("Module contains errors"),
+            Void                         => {},
+            This                         => gen.write_bytes(b"this"),
+            Identifier(ref ident)        => gen.write(ident),
+            Literal(ref value)           => gen.write(value),
+            Sequence(ref sequence)       => gen.write(sequence),
+            Array(ref array)             => gen.write(array),
+            Member(ref member)           => gen.write(member),
+            ComputedMember(ref computed) => gen.write(computed),
+            Call(ref call)               => gen.write(call),
+            Binary(ref binary)           => gen.write(binary),
+            Prefix(ref prefix)           => gen.write(prefix),
+            Postfix(ref postfix)         => gen.write(postfix),
+            Conditional(ref conditional) => gen.write(conditional),
+            Template(ref template)       => gen.write(template),
+            Spread(ref spread)           => gen.write(spread),
+            Arrow(ref arrow)             => gen.write(arrow),
+            Object(ref object)           => gen.write(object),
+            Function(ref function)       => gen.write(function),
+            Class(ref class)             => gen.write(class),
+        }
+    }
+}
 
 impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
     #[inline]
@@ -31,10 +66,10 @@ impl<G: Generator> ToCode<G> for OperatorKind {
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
+impl<'ast, G: Generator> ToCode<G> for PropertyKey<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::Property::*;
+        use ast::PropertyKey::*;
 
         match *self {
             Computed(ref val) => {
@@ -48,251 +83,240 @@ impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for ObjectMember<'ast> {
+impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::ObjectMember::*;
+        use ast::Property::*;
 
         match *self {
             Shorthand(ref label) => gen.write(label),
             Literal {
-                ref property,
+                ref key,
                 ref value,
             } => {
-                gen.write(property);
+                gen.write(key);
                 gen.write_byte(b':');
                 gen.write_pretty(b' ');
                 gen.write(value);
             },
             Method {
-                ref property,
-                ref params,
-                ref body,
+                ref key,
+                ref value,
             } => {
-                gen.write(property);
-                gen.write_byte(b'(');
-                gen.write_list(params);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write_byte(b'{');
-                gen.write_block(body);
-                gen.write_byte(b'}');
+                gen.write(key);
+                gen.write(value);
             }
         }
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
+impl<'ast, G: Generator> ToCode<G> for SequenceExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::Expression::*;
+        gen.write_list(&self.body);
+    }
+}
 
-        match *self {
-            Error => panic!("Module contains errors"),
-            Void => {},
-            This => gen.write_bytes(b"this"),
-            Identifier(ref ident) => gen.write(ident),
-            Literal(ref value) => gen.write(value),
-            Sequence {
-                ref body
-            } => {
-                gen.write_list(body.iter());
-            },
-            Array {
-                ref body
-            } => {
-                gen.write_byte(b'[');
-                gen.write_list(body.iter());
-                gen.write_byte(b']');
-            },
-            Member {
-                ref object,
-                ref property,
-            } => {
-                gen.write(object);
-                gen.write_byte(b'.');
-                gen.write(property);
-            },
-            ComputedMember {
-                ref object,
-                ref property,
-            } => {
-                gen.write(object);
-                gen.write_byte(b'[');
-                gen.write(property);
-                gen.write_byte(b']');
-            },
-            Call {
-                ref callee,
-                ref arguments,
-            } => {
-                gen.write(callee);
-                gen.write_byte(b'(');
-                gen.write_list(arguments);
-                gen.write_byte(b')');
-            },
-            Binary {
-                ref operator,
-                ref left,
-                ref right,
-                ..
-            } => {
-                let bp = self.binding_power();
-                let spacing = operator.is_word();
+impl<'ast, G: Generator> ToCode<G> for ArrayExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_byte(b'[');
+        gen.write_list(&self.body);
+        gen.write_byte(b']');
+    }
+}
 
-                if left.binding_power() < bp {
-                    gen.write_byte(b'(');
-                    gen.write(left);
-                    gen.write_byte(b')');
-                } else {
-                    gen.write(left);
+impl<'ast, G: Generator> ToCode<G> for MemberExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.object);
+        gen.write_byte(b'.');
+        gen.write(&self.property);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ComputedMemberExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.object);
+        gen.write_byte(b'[');
+        gen.write(&self.property);
+        gen.write_byte(b']');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for CallExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.callee);
+        gen.write_byte(b'(');
+        gen.write_list(&self.arguments);
+        gen.write_byte(b')');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        let bp = self.operator.binding_power();
+        let spacing = self.operator.is_word();
+
+        if self.left.binding_power() < bp {
+            gen.write_byte(b'(');
+            gen.write(&self.left);
+            gen.write_byte(b')');
+        } else {
+            gen.write(&self.left);
+        }
+
+        if spacing {
+            gen.write_byte(b' ');
+        } else {
+            gen.write_pretty(b' ');
+        }
+        gen.write(&self.operator);
+        if spacing {
+            gen.write_byte(b' ');
+        } else {
+            gen.write_pretty(b' ');
+        }
+
+        if self.right.binding_power() <= bp {
+            gen.write_byte(b'(');
+            gen.write(&self.right);
+            gen.write_byte(b')');
+        } else {
+            gen.write(&self.right);
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for PrefixExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.operator);
+        if self.operator.is_word() {
+            gen.write_byte(b' ');
+        }
+        gen.write(&self.operand);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for PostfixExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.operand);
+        gen.write(&self.operator);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ConditionalExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.test);
+        gen.write_pretty(b' ');
+        gen.write_byte(b'?');
+        gen.write_pretty(b' ');
+        gen.write(&self.consequent);
+        gen.write_pretty(b' ');
+        gen.write_byte(b':');
+        gen.write_pretty(b' ');
+        gen.write(&self.alternate);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for TemplateExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.tag);
+        gen.write_byte(b'`');
+
+        match self.quasis.only_element() {
+            Some(ref quasi) => gen.write(quasi),
+            None => {
+                let mut quasis = self.quasis.iter();
+
+                if let Some(ref quasi) = quasis.next() {
+                    gen.write(quasi);
                 }
 
-                if spacing {
-                    gen.write_byte(b' ');
-                } else {
+                for (ref quasi, ref expression) in quasis.zip(&self.expressions) {
+                    gen.write_bytes(b"${");
                     gen.write_pretty(b' ');
-                }
-                gen.write(operator);
-                if spacing {
-                    gen.write_byte(b' ');
-                } else {
+                    gen.write(expression);
                     gen.write_pretty(b' ');
+                    gen.write_byte(b'}');
+                    gen.write(quasi);
                 }
-
-                if right.binding_power() <= bp {
-                    gen.write_byte(b'(');
-                    gen.write(right);
-                    gen.write_byte(b')');
-                } else {
-                    gen.write(right);
-                }
-            },
-            Prefix {
-                ref operator,
-                ref operand,
-            } => {
-                gen.write(operator);
-                if operator.is_word() {
-                    gen.write_byte(b' ');
-                }
-                gen.write(operand);
-            },
-            Postfix {
-                ref operator,
-                ref operand,
-            } => {
-                gen.write(operand);
-                gen.write(operator);
-            },
-            Conditional {
-                ref test,
-                ref consequent,
-                ref alternate,
-            } => {
-                gen.write(test);
-                gen.write_pretty(b' ');
-                gen.write_byte(b'?');
-                gen.write_pretty(b' ');
-                gen.write(consequent);
-                gen.write_pretty(b' ');
-                gen.write_byte(b':');
-                gen.write_pretty(b' ');
-                gen.write(alternate);
-            },
-            Template {
-                ref tag,
-                ref expressions,
-                ref quasis,
-            } => {
-                if let Some(ref tag) = *tag {
-                    gen.write(tag);
-                }
-                gen.write_byte(b'`');
-
-                match quasis.only_element() {
-                    Some(ref quasi) => gen.write(quasi),
-                    None => {
-                        let mut quasis = quasis.iter();
-
-                        if let Some(ref quasi) = quasis.next() {
-                            gen.write(quasi);
-                        }
-
-                        for (ref quasi, ref expression) in quasis.zip(expressions) {
-                            gen.write_bytes(b"${");
-                            gen.write_pretty(b' ');
-                            gen.write(expression);
-                            gen.write_pretty(b' ');
-                            gen.write_byte(b'}');
-                            gen.write(quasi);
-                        }
-                    }
-                }
-
-                gen.write_byte(b'`');
-            },
-            Arrow {
-                ref params,
-                ref body,
-            } => {
-                match params.only_element() {
-                    Some(param) => gen.write(param),
-                    None        => {
-                        gen.write_byte(b'(');
-                        gen.write_list(params);
-                        gen.write_byte(b')');
-                    }
-                }
-                gen.write_pretty(b' ');
-                gen.write_bytes(b"=>");
-                gen.write_pretty(b' ');
-                match body.item {
-                    Statement::Expression {
-                        ref expression,
-                    } => gen.write(expression),
-                    _ => gen.write(body),
-                }
-            },
-            Object {
-                ref body,
-            } => {
-                if body.is_empty() {
-                    gen.write_bytes(b"{}");
-                    return;
-                }
-
-                gen.write_byte(b'{');
-                gen.indent();
-
-                let mut iter = body.iter();
-
-                for member in iter.next() {
-                    gen.new_line();
-                    gen.write(member);
-                }
-
-                for member in iter {
-                    gen.write_byte(b',');
-                    gen.new_line();
-                    gen.write(member);
-                }
-
-                gen.dedent();
-                gen.new_line();
-                gen.write_byte(b'}');
-            },
-            Function {
-                ref function,
-            } => {
-                gen.write(function);
-            },
-            Class {
-                ref class,
-            } => {
-                gen.write(class);
             }
         }
+
+        gen.write_byte(b'`');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for SpreadExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"...");
+        gen.write(&self.argument);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ArrowBody<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match *self {
+            ArrowBody::Expression(ref expression) => gen.write(expression),
+            ArrowBody::Block(ref block)           => gen.write(block),
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ArrowExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match self.params.only_element() {
+            Some(&Loc { item: Pattern::Identifier(ref ident), .. }) => gen.write(ident),
+            _ => {
+                gen.write_byte(b'(');
+                gen.write_list(&self.params);
+                gen.write_byte(b')');
+            }
+        }
+        gen.write_pretty(b' ');
+        gen.write_bytes(b"=>");
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ObjectExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        let mut properties = self.body.iter();
+
+        match properties.next() {
+            Some(property) => {
+                gen.write_byte(b'{');
+                gen.indent();
+                gen.new_line();
+                gen.write(&property);
+            },
+            None => {
+                gen.write_bytes(b"{}");
+                return;
+            }
+        }
+
+        for property in properties {
+            gen.new_line();
+            gen.write_byte(b',');
+            gen.write(property);
+        }
+        gen.dedent();
+        gen.new_line();
+        gen.write_byte(b'}');
     }
 }
 
@@ -427,6 +451,11 @@ mod test {
         assert_min("[foo]", "[foo];");
         assert_min("[foo,bar]", "[foo,bar];");
         assert_min("[foo,bar,baz]", "[foo,bar,baz];");
+    }
+
+    #[test]
+    fn array_spread() {
+        assert_min("[...foo,...bar]", "[...foo,...bar];");
     }
 
     #[test]

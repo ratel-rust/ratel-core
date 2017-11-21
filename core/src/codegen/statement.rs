@@ -1,5 +1,52 @@
-use ast::{Statement, Declarator, DeclarationKind, DeclaratorId};
+use ast::{Statement, Declarator, DeclarationKind};
+use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
+use ast::statement::{TryStatement, IfStatement, WhileStatement, DoStatement};
+use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
+use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
 use codegen::{ToCode, Generator};
+
+
+impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::Statement::*;
+
+        match *self {
+            Error => panic!("Module contains errors"),
+            Empty => {},
+            Expression(ref expression) => {
+                if expression.is_allowed_as_bare_statement() {
+                    gen.write(expression);
+                } else {
+                    gen.write_byte(b'(');
+                    gen.write(expression);
+                    gen.write_byte(b')');
+                }
+                gen.write_byte(b';');
+            },
+            Declaration(ref declaration) => {
+                gen.write(declaration);
+                gen.write_byte(b';');
+            },
+            Return(ref return_statement) => gen.write(return_statement),
+            Break(ref break_statement)   => gen.write(break_statement),
+            Throw(ref throw)             => gen.write(throw),
+            If(ref if_statement)         => gen.write(if_statement),
+            While(ref while_statement)   => gen.write(while_statement),
+            Do(ref do_statement)         => gen.write(do_statement),
+            For(ref for_statement)       => gen.write(for_statement),
+            ForIn(ref for_in)            => gen.write(for_in),
+            ForOf(ref for_of)            => gen.write(for_of),
+            Try(ref try)                 => gen.write(try),
+            Labeled(ref labeled)         => gen.write(labeled),
+            Block(ref block)             => gen.write(block),
+            Function(ref function)       => gen.write(function),
+            Class(ref class)             => gen.write(class),
+            Continue(ref cont)           => gen.write(cont),
+            Switch(ref switch)           => gen.write(switch)
+        }
+    }
+}
 
 impl<G: Generator> ToCode<G> for DeclarationKind {
     #[inline]
@@ -14,271 +61,254 @@ impl<G: Generator> ToCode<G> for DeclarationKind {
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for DeclaratorId<'ast> {
-    #[inline]
-    fn to_code(&self, gen: &mut G) {
-        use ast::DeclaratorId::*;
-
-        match *self {
-            Identifier(ref ident) => gen.write(ident),
-            Pattern(ref pattern)  => gen.write(pattern)
-        }
-    }
-}
-
 impl<'ast, G: Generator> ToCode<G> for Declarator<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write(&self.name);
+        gen.write(&self.id);
 
-        if let Some(ref value) = self.value {
+        if let Some(ref init) = self.init {
             gen.write_pretty(b' ');
             gen.write_byte(b'=');
             gen.write_pretty(b' ');
-            gen.write(value);
+            gen.write(init);
         }
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
+impl<'ast, G: Generator> ToCode<G> for DeclarationStatement<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        use ast::Statement::*;
+        gen.write(&self.kind);
+        gen.write_list(&self.declarators);
+    }
+}
 
-        match *self {
-            Error => panic!("Module contains errors"),
-            Empty => {},
-            Expression {
-                ref expression
-            } => {
-                if expression.is_allowed_as_bare_statement() {
-                    gen.write(expression);
-                } else {
-                    gen.write_byte(b'(');
-                    gen.write(expression);
-                    gen.write_byte(b')');
-                }
-                gen.write_byte(b';');
-            },
-            Declaration {
-                ref kind,
-                ref declarators,
-            } => {
-                gen.write(kind);
-                gen.write_list(declarators);
-                gen.write_byte(b';');
-            },
-            Return {
-                ref value,
-            } => {
-                match *value {
-                    Some(ref value) => {
-                        gen.write_bytes(b"return ");
-                        gen.write(value);
-                        gen.write_byte(b';');
-                    },
-                    None => gen.write_bytes(b"return;")
-                }
-            },
-            Break {
-                ref label,
-            } => {
-                match *label {
-                    Some(ref label) => {
-                        gen.write_bytes(b"break ");
-                        gen.write(label);
-                        gen.write_byte(b';');
-                    },
-                    None => gen.write_bytes(b"break;")
-                }
-            },
-            Throw {
-                ref value,
-            } => {
-                gen.write_bytes(b"throw ");
+impl<'ast, G: Generator> ToCode<G> for ReturnStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match self.value {
+            Some(ref value) => {
+                gen.write_bytes(b"return ");
                 gen.write(value);
                 gen.write_byte(b';');
             },
-            If {
-                ref test,
-                ref consequent,
-                ref alternate,
-            } => {
-                gen.write_bytes(b"if");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write(test);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write(consequent);
-
-                if let Some(ref alternate) = *alternate {
-                    if consequent.is_block() {
-                        gen.write_pretty(b' ');
-                    } else {
-                        gen.write_byte(b' ');
-                    }
-                    gen.write_bytes(b"else");
-                    if alternate.is_block() {
-                        gen.write_pretty(b' ');
-                    } else {
-                        gen.write_byte(b' ');
-                    }
-                    gen.write(alternate);
-                }
-            },
-            While {
-                ref test,
-                ref body,
-            } => {
-                gen.write_bytes(b"while");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write(test);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write(body);
-            },
-            Do {
-                ref test,
-                ref body,
-            } => {
-                gen.write_bytes(b"do");
-                if body.is_block() {
-                    gen.write_pretty(b' ');
-                } else {
-                    gen.write_byte(b' ');
-                }
-                gen.write(body);
-                gen.write_bytes(b"while");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write(test);
-                gen.write_byte(b')');
-            },
-            For {
-                ref init,
-                ref test,
-                ref update,
-                ref body,
-            } => {
-                gen.write_bytes(b"for");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                if let Some(ref init) = *init {
-                    gen.write_declaration_or_expression(init);
-                }
-                gen.write_byte(b';');
-                gen.write_pretty(b' ');
-                if let Some(ref test) = *test {
-                    gen.write(test);
-                }
-                gen.write_byte(b';');
-                gen.write_pretty(b' ');
-                if let Some(ref update) = *update {
-                    gen.write(update);
-                }
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write(body);
-            },
-            ForIn {
-                ref left,
-                ref right,
-                ref body,
-            } => {
-                gen.write_bytes(b"for");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write_declaration_or_expression(left);
-                gen.write_bytes(b" in ");
-                gen.write(right);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write(body);
-            },
-            ForOf {
-                ref left,
-                ref right,
-                ref body,
-            } => {
-                gen.write_bytes(b"for");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write_declaration_or_expression(left);
-                gen.write_bytes(b" of ");
-                gen.write(right);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write(body);
-            },
-
-            Try {
-                ref body,
-                ref error,
-                ref handler,
-            } => {
-                gen.write_bytes(b"try");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'{');
-                gen.write_block(body);
-                gen.write_byte(b'}');
-                gen.write_pretty(b' ');
-                gen.write_bytes(b"catch");
-                gen.write_pretty(b' ');
-                gen.write_byte(b'(');
-                gen.write(error);
-                gen.write_byte(b')');
-                gen.write_pretty(b' ');
-                gen.write_byte(b'{');
-                gen.write_block(handler);
-                gen.write_byte(b'}');
-            },
-            Labeled {
-                ref label,
-                ref body,
-            } => {
-                gen.write(label);
-                gen.write_byte(b':');
-                gen.write_pretty(b' ');
-                gen.write(body);
-            },
-            Block {
-                ref body,
-            } => {
-                gen.write_byte(b'{');
-                gen.write_block(body);
-                gen.write_byte(b'}');
-            },
-            Function {
-                ref function,
-            } => {
-                gen.write(function);
-                gen.new_line();
-            },
-            Class {
-                ref class,
-            } => {
-                gen.write(class);
-            },
-            Continue {
-                ref label
-            } => {
-                unimplemented!();
-            },
-            Switch {
-                ref discriminant,
-                ref cases
-            } => {
-                unimplemented!();
-            },
-            SwitchCase {
-                ref test,
-                ref consequent
-            } => {
-                unimplemented!();
-            },
+            None => gen.write_bytes(b"return;")
         }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for BreakStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match self.label {
+            Some(ref label) => {
+                gen.write_bytes(b"break ");
+                gen.write(label);
+                gen.write_byte(b';');
+            },
+            None => gen.write_bytes(b"break;")
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ThrowStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"throw ");
+        gen.write(&self.value);
+        gen.write_byte(b';');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for IfStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"if");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.test);
+        gen.write_byte(b')');
+        gen.write_pretty(b' ');
+        gen.write(&self.consequent);
+
+        if let Some(ref alternate) = self.alternate {
+            if self.consequent.is_block() {
+                gen.write_pretty(b' ');
+            } else {
+                gen.write_byte(b' ');
+            }
+            gen.write_bytes(b"else");
+            if alternate.is_block() {
+                gen.write_pretty(b' ');
+            } else {
+                gen.write_byte(b' ');
+            }
+            gen.write(alternate);
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for WhileStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"while");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.test);
+        gen.write_byte(b')');
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for DoStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"do");
+        if self.body.is_block() {
+            gen.write_pretty(b' ');
+        } else {
+            gen.write_byte(b' ');
+        }
+        gen.write(&self.body);
+        gen.write_bytes(b"while");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.test);
+        gen.write_byte(b')');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ForInit<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match *self {
+            ForInit::Declaration(ref declaration) => gen.write(declaration),
+            ForInit::Expression(ref expression) => gen.write(expression),
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ForStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"for");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.init);
+        gen.write_byte(b';');
+        gen.write_pretty(b' ');
+        gen.write(&self.test);
+        gen.write_byte(b';');
+        gen.write_pretty(b' ');
+        gen.write(&self.update);
+        gen.write_byte(b')');
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ForInStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"for");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.left);
+        gen.write_bytes(b" in ");
+        gen.write(&self.right);
+        gen.write_byte(b')');
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ForOfStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"for");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.left);
+        gen.write_bytes(b" of ");
+        gen.write(&self.right);
+        gen.write_byte(b')');
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for TryStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"try");
+        gen.write_pretty(b' ');
+        gen.write(&self.block);
+        if let Some(ref handler) = self.handler {
+            gen.write_pretty(b' ');
+            gen.write_bytes(b"catch");
+            gen.write_pretty(b' ');
+            gen.write_byte(b'(');
+            gen.write(&handler.param);
+            gen.write_byte(b')');
+            gen.write_pretty(b' ');
+            gen.write(&handler.body);
+        }
+        if let Some(ref finalizer) = self.finalizer {
+            gen.write_pretty(b' ');
+            gen.write(finalizer);
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for LabeledStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.label);
+        gen.write_byte(b':');
+        gen.write_pretty(b' ');
+        gen.write(&self.body);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for ContinueStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match self.label {
+            Some(ref label) => {
+                gen.write_bytes(b"continue ");
+                gen.write(label);
+                gen.write_byte(b';');
+            },
+            None => gen.write_bytes(b"continue;")
+        }
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for SwitchStatement<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"switch");
+        gen.write_pretty(b' ');
+        gen.write_byte(b'(');
+        gen.write(&self.discriminant);
+        gen.write_byte(b')');
+        gen.write(&self.cases);
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for SwitchCase<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        match self.test {
+            Some(ref test) => {
+                gen.write_bytes(b"case ");
+                gen.write(test);
+                gen.write_byte(b':');
+            }
+            None => gen.write_bytes(b"default:")
+        }
+        gen.write_block(&self.consequent);
     }
 }
 
@@ -345,10 +375,10 @@ mod test {
     fn for_statement() {
         assert_min("for (var i = 0; i < 10; i++) {}", "for(var i=0;i<10;i++){}");
         assert_min("for (i = 0; i < 10; i++) {}", "for(i=0;i<10;i++){}");
-        // assert_min("for (;;) {}", "for(;;){}");
-        // assert_min("for (foo in bar){}", "for(foo in bar){}");
-        // assert_min("for (let foo in bar){}", "for(let foo in bar){}");
-        // assert_min("for (foo of bar){}", "for(foo of bar){}");
-        // assert_min("for (let foo of bar){}", "for(let foo of bar){}");
+        assert_min("for (;;) {}", "for(;;){}");
+        assert_min("for (foo in bar){}", "for(foo in bar){}");
+        assert_min("for (let foo in bar){}", "for(let foo in bar){}");
+        assert_min("for (foo of bar){}", "for(foo of bar){}");
+        assert_min("for (let foo of bar){}", "for(let foo of bar){}");
     }
 }

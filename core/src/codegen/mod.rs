@@ -1,4 +1,4 @@
-use ast::{Ptr, Loc, Statement, StatementPtr};
+use ast::{Ptr, Loc, Block, Pattern};
 use module::Module;
 
 mod expression;
@@ -60,26 +60,6 @@ pub trait Generator: Sized {
         }
         self.dedent();
         self.new_line();
-    }
-
-    fn write_declaration_or_expression(&mut self, statement: &StatementPtr) {
-        match statement.item {
-            Statement::Declaration {
-                ref kind,
-                ref declarators,
-            } => {
-                self.write(kind);
-                self.write_list(declarators);
-            },
-
-            Statement::Expression {
-                ref expression,
-            } => {
-                self.write(expression);
-            },
-
-            _ => panic!("Invalid AST structure!"),
-        }
     }
 
     #[inline]
@@ -193,9 +173,7 @@ pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
         let mut gen = PrettyGenerator::new();
         let mut body = module.body().iter();
 
-        if let Some(statement) = body.next() {
-            gen.write(&statement);
-        }
+        gen.write(&body.next());
 
         for statement in body {
             gen.new_line();
@@ -255,6 +233,72 @@ impl<G: Generator> ToCode<G> for u64 {
     #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(format!("{}", self).as_str().as_bytes())
+    }
+}
+
+impl<G, T> ToCode<G> for Option<T> where
+    G: Generator,
+    T: ToCode<G>
+{
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        if let Some(ref val) = *self {
+            gen.write(val);
+        }
+    }
+}
+
+impl<'ast, G, T> ToCode<G> for Block<'ast, T> where
+    G: Generator,
+    T: ToCode<G>
+{
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_byte(b'{');
+        gen.write_block(&self.body);
+        gen.write_byte(b'}');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for Pattern<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        use ast::Pattern::*;
+
+        match *self {
+            Void => {},
+            Identifier(ref ident) => gen.write(ident),
+            ObjectPattern {
+                ref properties,
+            } => {
+                gen.write_byte(b'{');
+                gen.write_list(properties);
+                gen.write_byte(b'}');
+            },
+            ArrayPattern {
+                ref elements,
+            } => {
+                gen.write_byte(b'[');
+                gen.write_list(elements);
+                gen.write_byte(b']');
+            },
+            RestElement {
+                ref argument,
+            } => {
+                gen.write_bytes(b"...");
+                gen.write(argument);
+            },
+            AssignmentPattern {
+                ref left,
+                ref right,
+            } => {
+                gen.write(left);
+                gen.write_pretty(b' ');
+                gen.write_byte(b'=');
+                gen.write_pretty(b' ');
+                gen.write(right);
+            }
+        }
     }
 }
 
