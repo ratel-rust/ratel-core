@@ -1,7 +1,7 @@
 use ast::{Ptr, Loc, List, IdentifierPtr, ExpressionPtr};
 use ast::{BlockPtr, Statement, Pattern, PropertyKey};
 
-pub trait Name<'ast> {
+pub trait Name<'ast>: Copy {
     fn empty() -> Self;
 }
 

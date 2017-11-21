@@ -76,7 +76,7 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
 }
 
 impl<'ast, N> Parse<'ast> for Ptr<'ast, Function<'ast, N>> where
-    N: Name<'ast> + Parse<'ast, Output = N> + Copy,
+    N: Name<'ast> + Parse<'ast, Output = N>,
 {
     type Output = Self;
 
