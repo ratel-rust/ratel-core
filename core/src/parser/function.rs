@@ -318,13 +318,12 @@ impl<'ast> Parser<'ast> {
     fn params(&mut self) -> List<'ast, Pattern<'ast>> {
         expect!(self, ParenOpen);
 
-        if self.lexer.token == ParenClose {
-            self.lexer.consume();
-
-            return List::empty();
-        }
-
         let item = match self.lexer.token {
+            ParenClose     => {
+                self.lexer.consume();
+
+                return List::empty();
+            },
             OperatorSpread => return List::from(self.arena, self.rest_element()),
             _              => self.pattern_param()
         };
