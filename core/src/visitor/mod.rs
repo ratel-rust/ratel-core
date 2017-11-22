@@ -1,24 +1,23 @@
-use ast::{ExpressionPtr, StatementPtr};
+use ast::{Ptr, List, ExpressionList, StatementList, ExpressionPtr, Statement, StatementPtr, Block};
 use ast::{OptionalName, MandatoryName, Function, Class, Literal};
 
-use ast::expression::{PrefixExpression, ArrowExpression, ArrayExpression};
-use ast::expression::{ObjectExpression, TemplateExpression, CallExpression, BinaryExpression};
-use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression};
-use ast::expression::{PostfixExpression, ConditionalExpression, SpreadExpression};
-
-use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
-use ast::statement::{TryStatement, IfStatement, WhileStatement, DoStatement};
-use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
-use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
+use ast::expression::*;
+use ast::statement::*;
 
 type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
 type FunctionStatement<'ast> = Function<'ast, MandatoryName<'ast>>;
 type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 type ClassStatement<'ast> = Class<'ast, MandatoryName<'ast>>;
+type BlockStatement<'ast> = Block<'ast, Statement<'ast>>;
 type Identifier<'ast> = &'ast str;
 
 #[macro_use]
 mod build;
+mod expression;
+mod statement;
+
+pub struct Yes;
+pub struct No;
 
 build! {
     #[expressions]
@@ -42,6 +41,8 @@ build! {
     on_template_expression        => TemplateExpression;
 
     #[statements]
+    on_expression_statement  => ExpressionPtr;
+    on_block_statement       => BlockStatement;
     on_break_statement       => BreakStatement;
     on_continue_statement    => ContinueStatement;
     on_class_statement       => ClassStatement;
@@ -61,3 +62,113 @@ build! {
     on_try_statement         => TryStatement;
     on_while_statement       => WhileStatement;
 }
+
+pub trait Visitable<'ast> {
+    type Iterable;
+
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context) where V: Visitor<'ast>;
+}
+
+impl<'ast, T> Visitable<'ast> for Option<T> where
+    T: Visitable<'ast>
+{
+    type Iterable = T::Iterable;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        if let Some(ref visitable) = *self {
+            visitable.visit(visitor, ctx);
+        }
+    }
+}
+
+impl<'ast, T> Visitable<'ast> for Ptr<'ast, T> where
+    // P: Visitable<'ast> + 'ast,
+    T: Visitable<'ast, Iterable = Yes>,
+{
+    type Iterable = No;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        (**self).visit(visitor, ctx);
+    }
+}
+
+impl<'ast, T> Visitable<'ast> for List<'ast, T> where
+    // P: Visitable<'ast> + 'ast,
+    T: Visitable<'ast, Iterable = Yes>,
+{
+    type Iterable = No;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        for item in self {
+            item.visit(visitor, ctx);
+        }
+    }
+}
+
+impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
+    type Iterable = No;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        for ptr in self.ptr_iter() {
+            ptr.visit(visitor, ctx);
+        }
+    }
+}
+
+impl<'ast> Visitable<'ast> for StatementList<'ast> {
+    type Iterable = No;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        for ptr in self.ptr_iter() {
+            ptr.visit(visitor, ctx);
+        }
+    }
+}
+
+// impl<'ast, T> Visitable<'ast> for BlockPtr<'ast, T> where
+//     T: Visitable<'ast>,
+// {
+//     #[inline]
+//     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+//         where V: Visitor<'ast>
+//     {
+//         self.body.visit(visitor, ctx);
+//     }
+// }
+
+// impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
+//     #[inline]
+//     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+//         where V: Visitor<'ast>
+//     {
+//         for item in self.ptr_iter() {
+//             item.visit(visitor, ctx);
+//         }
+//     }
+// }
+
+// impl<'ast> Visitable<'ast> for StatementList<'ast> {
+//     #[inline]
+//     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+//         where V: Visitor<'ast>
+//     {
+//         for item in self.ptr_iter() {
+//             item.visit(visitor, ctx);
+//         }
+//     }
+// }

@@ -1,3 +1,5 @@
+use ast::{ExpressionPtr, StatementPtr};
+
 pub mod expression;
 
 mod scope;

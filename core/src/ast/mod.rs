@@ -20,7 +20,7 @@ pub use ast::statement::{Statement, Declarator, BlockStatement};
 pub use ast::function::{Function, Class, ClassMember, MethodKind};
 pub use ast::function::{Name, EmptyName, OptionalName, MandatoryName};
 pub use ast::literal::Literal;
-pub use ast::list::{RawList, List, ListIter, ListBuilder, EmptyListBuilder};
+pub use ast::list::{RawList, List, ListIter, ListPtrIter, ListBuilder, EmptyListBuilder};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Block<'ast, T: 'ast> {

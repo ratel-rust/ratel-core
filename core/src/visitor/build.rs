@@ -13,21 +13,24 @@ macro_rules! build {
             type Context;
 
             #[inline]
-            fn on_class<N: Name<'ast>>(Class<'ast, N>, &mut Self::Context) {}
+            fn on_class<N: Name<'ast>>(&self, &Class<'ast, N>, &mut Self::Context) {}
 
             #[inline]
-            fn on_function<N: Name<'ast>>(Function<'ast, N>, &mut Self::Context) {}
+            fn on_function<N: Name<'ast>>(&self, &Function<'ast, N>, &mut Self::Context) {}
+
+            #[inline]
+            fn on_this(&self, &ExpressionPtr<'ast>, &mut Self::Context) {}
 
             // Construct methods for expressions
             $(
                 #[inline]
-                fn $ename(&$etype<'ast>, &ExpressionPtr<'ast>, &mut Self::Context) {}
+                fn $ename(&self, &$etype<'ast>, &ExpressionPtr<'ast>, &mut Self::Context) {}
             )*
 
             // Construct methods for statements
             $(
                 #[inline]
-                fn $sname(&$stype<'ast>, &StatementPtr<'ast>, &mut Self::Context) {}
+                fn $sname(&self, &$stype<'ast>, &StatementPtr<'ast>, &mut Self::Context) {}
             )*
         }
 
@@ -38,32 +41,38 @@ macro_rules! build {
             type Context = CTX;
 
             #[inline]
-            fn on_class<N: Name<'ast>>(node: Class<'ast, N>, ctx: &mut CTX) {
-                A::on_class(node, ctx);
-                B::on_class(node, ctx);
+            fn on_class<N: Name<'ast>>(&self, node: &Class<'ast, N>, ctx: &mut CTX) {
+                A::on_class(&self.0, node, ctx);
+                B::on_class(&self.1, node, ctx);
             }
 
             #[inline]
-            fn on_function<N: Name<'ast>>(node: Function<'ast, N>, ctx: &mut CTX) {
-                A::on_function(node, ctx);
-                B::on_function(node, ctx);
+            fn on_function<N: Name<'ast>>(&self, node: &Function<'ast, N>, ctx: &mut CTX) {
+                A::on_function(&self.0, node, ctx);
+                B::on_function(&self.1, node, ctx);
+            }
+
+            #[inline]
+            fn on_this(&self, ptr: &ExpressionPtr<'ast>, ctx: &mut CTX) {
+                A::on_this(&self.0, ptr, ctx);
+                B::on_this(&self.1, ptr, ctx);
             }
 
             // Construct methods for expressions
             $(
                 #[inline]
-                fn $ename(node: &$etype<'ast>, ptr: &ExpressionPtr<'ast>, ctx: &mut CTX) {
-                    A::$ename(node, ptr, ctx);
-                    B::$ename(node, ptr, ctx);
+                fn $ename(&self, node: &$etype<'ast>, ptr: &ExpressionPtr<'ast>, ctx: &mut CTX) {
+                    A::$ename(&self.0, node, ptr, ctx);
+                    B::$ename(&self.1, node, ptr, ctx);
                 }
             )*
 
             // Construct methods for statements
             $(
                 #[inline]
-                fn $sname(node: &$stype<'ast>, ptr: &StatementPtr<'ast>, ctx: &mut CTX) {
-                    A::$sname(node, ptr, ctx);
-                    B::$sname(node, ptr, ctx);
+                fn $sname(&self, node: &$stype<'ast>, ptr: &StatementPtr<'ast>, ctx: &mut CTX) {
+                    A::$sname(&self.0, node, ptr, ctx);
+                    B::$sname(&self.1, node, ptr, ctx);
                 }
             )*
         }

@@ -253,6 +253,13 @@ impl<'a, 'ast, T: 'ast> IntoIterator for &'a List<'ast, T> {
     }
 }
 
+impl<'ast, T: 'ast> From<List<'ast, T>> for ListPtrIter<'ast, T> {
+    #[inline]
+    fn from(list: List<'ast, T>) -> Self {
+        list.ptr_iter()
+    }
+}
+
 pub struct ListIter<'ast, T: 'ast> {
     next: Option<&'ast ListItem<'ast, T>>
 }

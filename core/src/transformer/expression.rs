@@ -9,7 +9,7 @@ pub struct TransformArrow;
 impl<'ast> Visitor<'ast> for TransformArrow {
     type Context = Transformer<'ast>;
 
-    fn on_arrow_expression(node: &ArrowExpression<'ast>, ptr: &ExpressionPtr<'ast>, t: &mut Transformer<'ast>) {
+    fn on_arrow_expression(&self, node: &ArrowExpression<'ast>, ptr: &ExpressionPtr<'ast>, t: &mut Transformer<'ast>) {
         let body = match node.body {
             ArrowBody::Block(block)     => block,
             ArrowBody::Expression(expr) => {
