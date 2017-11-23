@@ -2,8 +2,7 @@ use parser::{Parser, Parse, Lookup, B0, B1, B15};
 use lexer::Token::*;
 use ast::{Ptr, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementPtr};
-use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
-use ast::expression::{ObjectExpression, TemplateExpression, SpreadExpression};
+use ast::expression::*;
 
 
 type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
@@ -122,7 +121,7 @@ create_handlers! {
     };
 
     pub const THIS = |par| {
-        let expr = par.alloc_in_loc(Expression::This);
+        let expr = par.alloc_in_loc(ThisExpression);
         par.lexer.consume();
 
         expr

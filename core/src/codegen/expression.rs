@@ -14,7 +14,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
         match *self {
             Error                        => panic!("Module contains errors"),
             Void                         => {},
-            This                         => gen.write_bytes(b"this"),
+            This(_)                      => gen.write_bytes(b"this"),
             Identifier(ref ident)        => gen.write(ident),
             Literal(ref value)           => gen.write(value),
             Sequence(ref sequence)       => gen.write(sequence),

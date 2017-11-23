@@ -1,10 +1,10 @@
-use visitor::{Visitor, Visitable, Yes, No};
-use ast::{Expression, ExpressionPtr};
+use visitor::{Visitor, Visitable, NoParent};
+use ast::{Ptr, Expression, ExpressionPtr, StatementPtr, Literal, ClassMember};
 use ast::expression::*;
 
 
 impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
-    type Iterable = No;
+    type Parent = StatementPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -13,20 +13,26 @@ impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
         use self::Expression::*;
 
         match self.item {
-            Error                        => panic!("Module contains errors"),
-            Void                         => {},
-            This                         => visitor.on_this(self, ctx),
-            Identifier(ref ident)        => visitor.on_identifier(ident, self, ctx),
-            Literal(ref value)           => visitor.on_literal(value, self, ctx),
-            Sequence(ref sequence)       => {
+            Error => panic!("Module contains errors"),
+            Void => {},
+            This(ref this) => {
+                visitor.on_this(this, self, ctx);
+            },
+            Identifier(ref ident) => {
+                visitor.on_identifier(ident, self, ctx);
+            },
+            Literal(ref literal) => {
+                visitor.on_literal(literal, self, ctx);
+            },
+            Sequence(ref sequence) => {
                 sequence.visit(visitor, ctx);
                 visitor.on_sequence_expression(sequence, self, ctx);
             },
-            Array(ref array)             => {
+            Array(ref array) => {
                 array.visit(visitor, ctx);
                 visitor.on_array_expression(array, self, ctx);
             },
-            Member(ref member)           => {
+            Member(ref member) => {
                 member.visit(visitor, ctx);
                 visitor.on_member_expression(member, self, ctx);
             },
@@ -34,19 +40,19 @@ impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
                 computed.visit(visitor, ctx);
                 visitor.on_computed_member_expression(computed, self, ctx);
             },
-            Call(ref call)               => {
+            Call(ref call) => {
                 call.visit(visitor, ctx);
                 visitor.on_call_expression(call, self, ctx);
             },
-            Binary(ref binary)           => {
+            Binary(ref binary) => {
                 binary.visit(visitor, ctx);
                 visitor.on_binary_expression(binary, self, ctx);
             },
-            Prefix(ref prefix)           => {
+            Prefix(ref prefix) => {
                 prefix.visit(visitor, ctx);
                 visitor.on_prefix_expression(prefix, self, ctx);
             },
-            Postfix(ref postfix)         => {
+            Postfix(ref postfix) => {
                 postfix.visit(visitor, ctx);
                 visitor.on_postfix_expression(postfix, self, ctx);
             },
@@ -54,38 +60,55 @@ impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
                 conditional.visit(visitor, ctx);
                 visitor.on_conditional_expression(conditional, self, ctx);
             },
-            Template(ref template)       => {
+            Template(ref template) => {
                 template.visit(visitor, ctx);
                 visitor.on_template_expression(template, self, ctx);
             },
-            Spread(ref spread)           => {
+            Spread(ref spread) => {
                 spread.visit(visitor, ctx);
                 visitor.on_spread_expression(spread, self, ctx);
             },
-            Arrow(ref arrow)             => {
+            Arrow(ref arrow) => {
                 arrow.visit(visitor, ctx);
                 visitor.on_arrow_expression(arrow, self, ctx);
             },
-            Object(ref object)           => {
+            Object(ref object) => {
                 object.visit(visitor, ctx);
                 visitor.on_object_expression(object, self, ctx);
             },
-            Function(ref function)       => {
-                visitor.on_function(function, ctx);
+            Function(ref function) => {
                 visitor.on_function_expression(function, self, ctx);
             },
-            Class(ref class)             => {
-                visitor.on_class(class, ctx);
+            Class(ref class) => {
                 visitor.on_class_expression(class, self, ctx);
             }
         }
     }
 }
 
+impl<'ast> Visitable<'ast> for ThisExpression {
+    type Parent = ExpressionPtr<'ast>;
 
+    #[inline]
+    fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
+}
+
+impl<'ast> Visitable<'ast> for Identifier<'ast> {
+    type Parent = ExpressionPtr<'ast>;
+
+    #[inline]
+    fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
+}
+
+impl<'ast> Visitable<'ast> for Literal<'ast> {
+    type Parent = ExpressionPtr<'ast>;
+
+    #[inline]
+    fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
+}
 
 impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -96,7 +119,7 @@ impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -107,7 +130,7 @@ impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -118,7 +141,7 @@ impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -130,7 +153,7 @@ impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for CallExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -142,7 +165,7 @@ impl<'ast> Visitable<'ast> for CallExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -154,7 +177,7 @@ impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -165,7 +188,7 @@ impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -176,7 +199,7 @@ impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -189,7 +212,7 @@ impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -201,7 +224,7 @@ impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -212,7 +235,7 @@ impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -226,7 +249,7 @@ impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -238,12 +261,61 @@ impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ObjectExpression<'ast> {
-    type Iterable = Yes;
+    type Parent = ExpressionPtr<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
         where V: Visitor<'ast>
     {
         self.body.visit(visitor, ctx);
+    }
+}
+
+impl<'ast> Visitable<'ast> for FunctionExpression<'ast> {
+    type Parent = ExpressionPtr<'ast>;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        self.params.visit(visitor, ctx);
+        self.body.body.visit(visitor, ctx);
+    }
+}
+
+impl<'ast> Visitable<'ast> for ClassMember<'ast> {
+    type Parent = Ptr<'ast, Self>;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        use self::ClassMember::*;
+
+        match *self {
+            Error => panic!("Invalid AST"),
+            Method {
+                ref key,
+                ref value,
+                ..
+            } => unimplemented!(),
+            Literal {
+                ref key,
+                ref value,
+                ..
+            } => unimplemented!(),
+        }
+    }
+}
+
+impl<'ast> Visitable<'ast> for ClassExpression<'ast> {
+    type Parent = ExpressionPtr<'ast>;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        self.extends.visit(visitor, ctx);
+        self.body.body.visit(visitor, ctx);
     }
 }

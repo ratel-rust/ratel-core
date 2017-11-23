@@ -21,6 +21,11 @@ pub enum Property<'ast> {
     },
 }
 
+/// While not technically necessary, having a type
+/// helps with implementing the visitor pattern on AST.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ThisExpression;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SequenceExpression<'ast> {
     pub body: ExpressionList<'ast>
@@ -104,6 +109,7 @@ pub struct ObjectExpression<'ast> {
     pub body: List<'ast, Property<'ast>>,
 }
 
+pub type Identifier<'ast> = &'ast str;
 pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
 pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 
@@ -111,8 +117,8 @@ pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 pub enum Expression<'ast> {
     Error,
     Void,
-    This,
-    Identifier(&'ast str),
+    This(ThisExpression),
+    Identifier(Identifier<'ast>),
     Literal(Literal<'ast>),
     Sequence(SequenceExpression<'ast>),
     Array(ArrayExpression<'ast>),
@@ -132,40 +138,35 @@ pub enum Expression<'ast> {
 }
 
 macro_rules! impl_from {
-    ($( $type:ident => $variant:ident ),*) => ($(
-        impl<'ast> From<$type<'ast>> for Expression<'ast> {
+    ($( $type:ty => $variant:ident ),*) => ($(
+        impl<'ast> From<$type> for Expression<'ast> {
             #[inline]
-            fn from(val: $type<'ast>) -> Expression<'ast> {
+            fn from(val: $type) -> Expression<'ast> {
                 Expression::$variant(val)
             }
         }
     )*)
 }
 
-impl<'ast> From<&'ast str> for Expression<'ast> {
-    #[inline]
-    fn from(val: &'ast str) -> Expression<'ast> {
-        Expression::Identifier(val)
-    }
-}
-
 impl_from! {
-    Literal => Literal,
-    SequenceExpression => Sequence,
-    ArrayExpression => Array,
-    MemberExpression => Member,
-    ComputedMemberExpression => ComputedMember,
-    CallExpression => Call,
-    BinaryExpression => Binary,
-    PrefixExpression => Prefix,
-    PostfixExpression => Postfix,
-    ConditionalExpression => Conditional,
-    TemplateExpression => Template,
-    SpreadExpression => Spread,
-    ArrowExpression => Arrow,
-    ObjectExpression => Object,
-    FunctionExpression => Function,
-    ClassExpression => Class
+    ThisExpression => This,
+    Identifier<'ast> => Identifier,
+    Literal<'ast> => Literal,
+    SequenceExpression<'ast> => Sequence,
+    ArrayExpression<'ast> => Array,
+    MemberExpression<'ast> => Member,
+    ComputedMemberExpression<'ast> => ComputedMember,
+    CallExpression<'ast> => Call,
+    BinaryExpression<'ast> => Binary,
+    PrefixExpression<'ast> => Prefix,
+    PostfixExpression<'ast> => Postfix,
+    ConditionalExpression<'ast> => Conditional,
+    TemplateExpression<'ast> => Template,
+    SpreadExpression<'ast> => Spread,
+    ArrowExpression<'ast> => Arrow,
+    ObjectExpression<'ast> => Object,
+    FunctionExpression<'ast> => Function,
+    ClassExpression<'ast> => Class
 }
 
 impl<'ast> Expression<'ast> {
