@@ -1,4 +1,4 @@
-use ast::{Ptr, Loc, Block, Pattern};
+use ast::{Node, Loc, Block, Pattern};
 use module::Module;
 
 mod expression;
@@ -21,27 +21,27 @@ pub trait Generator: Sized {
     }
 
     #[inline]
-    fn write_list<T, I>(&mut self, items: I) where
-        T: ToCode<Self>,
-        I: IntoIterator<Item = T>,
+    fn write_list<'a, T, I>(&mut self, items: I) where
+        T: ToCode<Self> + 'a,
+        I: IntoIterator<Item = &'a Node<'a, T>>,
     {
         let mut items = items.into_iter();
 
         for item in items.next() {
-            self.write(&item);
+            self.write(item);
         }
 
         for item in items {
             self.write_byte(b',');
             self.write_pretty(b' ');
-            self.write(&item);
+            self.write(item);
         }
     }
 
     #[inline]
-    fn write_block<T, I>(&mut self, items: I) where
-        T: ToCode<Self>,
-        I: IntoIterator<Item = T>,
+    fn write_block<'a, T, I>(&mut self, items: I) where
+        T: ToCode<Self> + 'a,
+        I: IntoIterator<Item = &'a Node<'a, T>>,
     {
         let mut items = items.into_iter();
 
@@ -49,14 +49,14 @@ pub trait Generator: Sized {
             Some(item) => {
                 self.indent();
                 self.new_line();
-                self.write(&item);
+                self.write(item);
             },
             None => return,
         }
 
         for item in items {
             self.new_line();
-            self.write(&item);
+            self.write(item);
         }
         self.dedent();
         self.new_line();
@@ -165,7 +165,7 @@ pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
         let mut gen = MinifyingGenerator::new();
 
         for statement in module.body() {
-            gen.write(&statement);
+            gen.write(statement);
         }
 
         gen.consume()
@@ -173,11 +173,11 @@ pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
         let mut gen = PrettyGenerator::new();
         let mut body = module.body().iter();
 
-        gen.write(&body.next());
+        gen.write(&body.next().map(|s| *s));
 
         for statement in body {
             gen.new_line();
-            gen.write(&statement);
+            gen.write(statement);
         }
 
         gen.consume()
@@ -190,7 +190,7 @@ pub trait ToCode<G: Generator> {
     fn to_code(&self, gen: &mut G);
 }
 
-impl<'ast, G, T> ToCode<G> for Ptr<'ast, T> where
+impl<'ast, G, T> ToCode<G> for Node<'ast, T> where
     G: Generator,
     T: 'ast + ToCode<G>,
 {

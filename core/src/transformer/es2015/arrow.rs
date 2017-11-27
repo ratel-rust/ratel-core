@@ -1,5 +1,5 @@
-use ast::{List, ExpressionPtr, Function, Name, OptionalName, Block};
-use ast::expression::{ArrowExpression, ArrowBody, ThisExpression};
+use ast::{List, ExpressionNode, Function, Name, OptionalName, Block};
+use ast::expression::{ArrowExpression, ArrowBody};
 use ast::statement::ReturnStatement;
 use transformer::Transformer;
 use visitor::{StaticVisitor, DynamicVisitor};
@@ -9,7 +9,7 @@ pub struct TransformArrow;
 impl<'ast> StaticVisitor<'ast> for TransformArrow {
     type Context = Transformer<'ast>;
 
-    fn on_arrow_expression(node: &ArrowExpression<'ast>, ptr: &ExpressionPtr<'ast>, t: &mut Transformer<'ast>) {
+    fn on_arrow_expression(node: &ArrowExpression<'ast>, ptr: &ExpressionNode<'ast>, t: &mut Transformer<'ast>) {
         let body = match node.body {
             ArrowBody::Block(block)     => block,
             ArrowBody::Expression(expr) => {

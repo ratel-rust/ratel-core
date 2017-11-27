@@ -1,9 +1,9 @@
 use visitor::{Visitor, Visitable, NoParent};
-use ast::{Statement, StatementPtr};
+use ast::{Statement, StatementNode};
 use ast::statement::*;
 
 
-impl<'ast> Visitable<'ast> for StatementPtr<'ast> {
+impl<'ast> Visitable<'ast> for StatementNode<'ast> {
     type Parent = NoParent;
 
     #[inline]
@@ -31,16 +31,30 @@ impl<'ast> Visitable<'ast> for StatementPtr<'ast> {
             // ForOf(ref for_of)            => visitor.on_for_of_statement(for_of, self, ctx),
             // Try(ref try)                 => visitor.on_try_statement(try, self, ctx),
             // Labeled(ref labeled)         => visitor.on_labeled_statement(labeled, self, ctx),
-            // Block(ref block)             => visitor.on_block_statement(block, self, ctx),
+            Block(ref block)             => {
+                block.visit(visitor, ctx);
+                visitor.on_block_statement(block, self, ctx);
+            },
             // Continue(ref cont)           => visitor.on_continue_statement(cont, self, ctx),
             // Switch(ref switch)           => visitor.on_switch_statement(switch, self, ctx),
-            // Function(ref function)       => {
-            //     visitor.on_function_statement(function, self, ctx);
-            // },
-            // Class(ref class)             => {
-            //     visitor.on_class_statement(class, self, ctx);
-            // }
+            Function(ref function)       => {
+                function.visit(visitor, ctx);
+                visitor.on_function_statement(function, self, ctx);
+            },
+            Class(ref class)             => {
+                class.visit(visitor, ctx);
+                visitor.on_class_statement(class, self, ctx);
+            }
             _ => unimplemented!()
         }
+    }
+}
+
+impl<'ast> Visitable<'ast> for BlockStatement<'ast> {
+    type Parent = StatementNode<'ast>;
+
+    #[inline]
+    fn visit<V: Visitor<'ast>>(&self, visitor: &V, ctx: &mut V::Context) {
+        self.body.visit(visitor, ctx);
     }
 }

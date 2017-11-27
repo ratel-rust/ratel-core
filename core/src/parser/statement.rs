@@ -1,8 +1,9 @@
+use toolshed::list::{ListBuilder, EmptyListBuilder};
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Ptr, List, ListBuilder, EmptyListBuilder, Declarator, DeclarationKind};
-use ast::{Statement, StatementPtr, Expression, ExpressionPtr, Class, Function, Pattern};
+use ast::{Node, NodeList, Declarator, DeclarationKind};
+use ast::{Statement, StatementNode, Expression, ExpressionNode, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
 use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
@@ -11,7 +12,7 @@ use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
 use ast::OperatorKind::*;
 
 
-type StatementHandler = for<'ast> fn(&mut Parser<'ast>) -> StatementPtr<'ast>;
+type StatementHandler = for<'ast> fn(&mut Parser<'ast>) -> StatementNode<'ast>;
 
 static STMT_HANDLERS: [StatementHandler; 108] = [
     ____, EMPT, ____, ____, PRN,  ____, ARR,  ____, BLCK, ____, ____, OP,
@@ -47,14 +48,14 @@ macro_rules! create_handlers {
     ($( const $name:ident = |$par:ident| $code:expr; )*) => {
         $(
             #[allow(non_snake_case)]
-            fn $name<'ast>($par: &mut Parser<'ast>) -> StatementPtr<'ast> {
+            fn $name<'ast>($par: &mut Parser<'ast>) -> StatementNode<'ast> {
                 $code
             }
         )*
     };
 }
 
-/// Shared expression handlers that produce StatementPtr<'ast>
+/// Shared expression handlers that produce StatementNode<'ast>
 use parser::expression::handlers::{
     PRN, ARR, OP, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
 };
@@ -87,7 +88,7 @@ create_handlers! {
 }
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
-    type Output = Ptr<'ast, Self>;
+    type Output = Node<'ast, Self>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -96,7 +97,7 @@ impl<'ast> Parse<'ast> for Statement<'ast> {
 }
 
 impl<'ast> Parse<'ast> for SwitchCase<'ast> {
-    type Output = Ptr<'ast, Self>;
+    type Output = Node<'ast, Self>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -144,7 +145,7 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn statement(&mut self) -> StatementPtr<'ast> {
+    pub fn statement(&mut self) -> StatementNode<'ast> {
         unsafe { (*(&STMT_HANDLERS as *const StatementHandler).offset(self.lexer.token as isize))(self) }
     }
 
@@ -160,7 +161,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn block_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn block_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
@@ -169,20 +170,20 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn expression_statement(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
+    pub fn expression_statement(&mut self, expression: ExpressionNode<'ast>) -> StatementNode<'ast> {
         let expression = self.nested_expression(expression, B0);
 
         self.wrap_expression(expression)
     }
 
     #[inline]
-    pub fn wrap_expression(&mut self, expression: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
+    pub fn wrap_expression(&mut self, expression: ExpressionNode<'ast>) -> StatementNode<'ast> {
         self.expect_semicolon();
         self.alloc_at_loc(expression.start, expression.end, expression)
     }
 
     #[inline]
-    pub fn labeled_or_expression_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn labeled_or_expression_statement(&mut self) -> StatementNode<'ast> {
         let label = self.lexer.token_as_str();
         let start = self.lexer.start_then_consume();
 
@@ -206,7 +207,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn function_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn function_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let function = Function::parse(self);
 
@@ -214,7 +215,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn class_statement(&mut self) -> StatementPtr<'ast> {
+    fn class_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let class = Class::parse(self);
 
@@ -222,7 +223,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> StatementPtr<'ast> {
+    pub fn variable_declaration_statement(&mut self, kind: DeclarationKind) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let declarators = self.variable_declarators();
         let end = self.lexer.end();
@@ -237,7 +238,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declarator(&mut self) -> Ptr<'ast, Declarator<'ast>> {
+    pub fn variable_declarator(&mut self) -> Node<'ast, Declarator<'ast>> {
         let id = Pattern::parse(self);
 
         let (init, end) = match self.lexer.token {
@@ -257,7 +258,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn variable_declarators(&mut self) -> List<'ast, Declarator<'ast>> {
+    pub fn variable_declarators(&mut self) -> NodeList<'ast, Declarator<'ast>> {
         let mut builder = ListBuilder::new(self.arena, self.variable_declarator());
 
         match self.lexer.token {
@@ -276,7 +277,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn return_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn return_statement(&mut self) -> StatementNode<'ast> {
         let (start, mut end) = self.lexer.loc();
         self.lexer.consume();
 
@@ -302,7 +303,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn break_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn break_statement(&mut self) -> StatementNode<'ast> {
         let (start, mut end) = self.lexer.loc();
         self.lexer.consume();
 
@@ -326,7 +327,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn continue_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn continue_statement(&mut self) -> StatementNode<'ast> {
         let (start, mut end) = self.lexer.loc();
         self.lexer.consume();
 
@@ -350,7 +351,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn throw_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn throw_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let value = self.expression(B0);
 
@@ -360,7 +361,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn try_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn try_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let block = self.block();
 
@@ -404,7 +405,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn if_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn if_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
         let test = self.expression(B0);
@@ -429,7 +430,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn while_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn while_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
         let test = self.expression(B0);
@@ -444,7 +445,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn do_statement(&mut self) -> StatementPtr<'ast> {
+    pub fn do_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let body = self.statement();
         expect!(self, While);
@@ -460,7 +461,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn for_init(&mut self, kind: DeclarationKind) -> Ptr<'ast, ForInit<'ast>> {
+    fn for_init(&mut self, kind: DeclarationKind) -> Node<'ast, ForInit<'ast>> {
         let start = self.lexer.start_then_consume();
         let declarators = self.variable_declarators();
         let end = self.lexer.end();
@@ -473,7 +474,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn for_statement(&mut self) -> StatementPtr<'ast> {
+    fn for_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
 
@@ -553,7 +554,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_in_statement_from_parts(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>, right: ExpressionPtr<'ast>) -> StatementPtr<'ast> {
+    fn for_in_statement_from_parts(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>, right: ExpressionNode<'ast>) -> StatementNode<'ast> {
         expect!(self, ParenClose);
 
         let body = self.statement();
@@ -565,7 +566,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_in_statement(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>) -> StatementPtr<'ast> {
+    fn for_in_statement(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>) -> StatementNode<'ast> {
         let right = self.expression(B0);
 
         expect!(self, ParenClose);
@@ -579,7 +580,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_of_statement(&mut self, start: u32, left: Ptr<'ast, ForInit<'ast>>) -> StatementPtr<'ast> {
+    fn for_of_statement(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>) -> StatementNode<'ast> {
         let right = self.expression(B0);
 
         expect!(self, ParenClose);
@@ -593,7 +594,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn switch_statement(&mut self) -> StatementPtr<'ast> {
+    fn switch_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
 
@@ -615,7 +616,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Literal, Function, Class, OperatorKind, BlockStatement};
+    use ast::{NodeList, Literal, Function, Class, OperatorKind, BlockStatement};
     use ast::expression::*;
 
     #[test]
@@ -1006,7 +1007,7 @@ mod test {
                     operand: mock.ptr("i")
                 })),
                 body: mock.ptr(BlockStatement {
-                    body: List::empty()
+                    body: NodeList::empty()
                 })
             }
         ]);
@@ -1026,7 +1027,7 @@ mod test {
                 test: None,
                 update: None,
                 body: mock.ptr(BlockStatement {
-                    body: List::empty()
+                    body: NodeList::empty()
                 })
             }
         ]);
@@ -1126,7 +1127,7 @@ mod test {
                     ])
                 })),
                 body: mock.ptr(BlockStatement {
-                    body: List::empty()
+                    body: NodeList::empty()
                 })
             }
         ]);
@@ -1143,7 +1144,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
-                params: List::empty(),
+                params: NodeList::empty(),
                 body: mock.empty_block(),
             }
         ]);
@@ -1212,7 +1213,7 @@ mod test {
                     },
                     SwitchCase {
                         test: Some(mock.ptr(Expression::Literal(Literal::String("\"1\"")))),
-                        consequent: List::empty()
+                        consequent: NodeList::empty()
                     },
                     SwitchCase {
                         test: None,

@@ -9,7 +9,7 @@ use lexer::token::Token::*;
 
 use std::str;
 use error::Error;
-use arena::Arena;
+use toolshed::Arena;
 
 macro_rules! expect_byte {
     ($lex:ident) => ({

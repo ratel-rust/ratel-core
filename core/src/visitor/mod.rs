@@ -1,30 +1,25 @@
-use ast::{Ptr, List, ExpressionList, StatementList, ExpressionPtr, Statement, StatementPtr};
-use ast::{OptionalName, MandatoryName, Function, Class, Literal, Pattern, BlockPtr, Block};
-use ast::{ClassMember};
+use ast::{Node, List, ExpressionList, StatementList, ExpressionNode};
+use ast::{Literal, Pattern};
 
 use ast::expression::*;
 use ast::statement::*;
 
 #[macro_use]
 mod build;
+mod function;
 mod expression;
 mod statement;
 
 
-//        _,    _   _    ,_
-//   .o888P     Y8o8Y     Y888o.
-//  d88888      88888      88888b
-// d888888b_  _d88888b_  _d888888b
-// 8888888888888888888888888888888
-// 8888888888888888888888888888888
-// YJGS8P"Y888P"Y888P"Y888P"Y8888P
-//  Y888   '8'   Y8P   '8'   888Y
-//   '8o          V          o8'
-//     `                     `
+// Like Batman!
 pub type NoParent = ();
 
 
 build! {
+    // meta
+    enter_scope                   => StatementList<'ast>;
+    leave_scope                   => StatementList<'ast>;
+
     // expressions
     on_this                       => ThisExpression;
     on_identifier                 => Identifier<'ast>;
@@ -46,18 +41,18 @@ build! {
     on_template_expression        => TemplateExpression<'ast>;
 
     // statements
-    on_expression_statement  => ExpressionPtr<'ast>;
-    // on_block_statement       => BlockStatement;
+    on_expression_statement  => ExpressionNode<'ast>;
+    on_block_statement       => BlockStatement<'ast>;
     // on_break_statement       => BreakStatement;
     // on_continue_statement    => ContinueStatement;
-    // on_class_statement       => ClassStatement;
+    on_class_statement       => ClassStatement<'ast>;
     // on_declaration_statement => DeclarationStatement;
     // on_do_statement          => DoStatement;
     // on_for_in_statement      => ForInStatement;
     // on_for_init              => ForInit;
     // on_for_of_statement      => ForOfStatement;
     // on_for_statement         => ForStatement;
-    // on_function_statement    => FunctionStatement;
+    on_function_statement    => FunctionStatement<'ast>;
     // on_if_statement          => IfStatement;
     // on_labeled_statement     => LabeledStatement;
     // on_return_statement      => ReturnStatement;
@@ -75,7 +70,7 @@ pub trait Visitable<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for Pattern<'ast> {
-    type Parent = Ptr<'ast, Self>;
+    type Parent = Node<'ast, Self>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -86,7 +81,7 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for Property<'ast> {
-    type Parent = Ptr<'ast, Self>;
+    type Parent = Node<'ast, Self>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -111,10 +106,10 @@ impl<'ast, T> Visitable<'ast> for Option<T> where
     }
 }
 
-// Requiring that `Parent = Ptr<'ast, T>` means that we avoid having
-// a default implementation for (Expression|Statement)(Ptr|List)
-impl<'ast, T> Visitable<'ast> for Ptr<'ast, T> where
-    T: Visitable<'ast, Parent = Ptr<'ast, T>>,
+// Requiring that `Parent = Node<'ast, T>` means that we avoid having
+// a default implementation for (Expression|Statement)(Node|List)
+impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
+    T: Visitable<'ast, Parent = Node<'ast, T>>,
 {
     type Parent = NoParent;
 
@@ -127,7 +122,7 @@ impl<'ast, T> Visitable<'ast> for Ptr<'ast, T> where
 }
 
 impl<'ast, T> Visitable<'ast> for List<'ast, T> where
-    T: Visitable<'ast, Parent = Ptr<'ast, T>>,
+    T: Visitable<'ast, Parent = Node<'ast, T>>,
 {
     type Parent = NoParent;
 
@@ -161,8 +156,10 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
         where V: Visitor<'ast>
     {
+        visitor.enter_scope(self, &(), ctx);
         for ptr in self.ptr_iter() {
             ptr.visit(visitor, ctx);
         }
+        visitor.leave_scope(self, &(), ctx);
     }
 }

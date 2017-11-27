@@ -1,11 +1,12 @@
+use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, Lookup, B0, B1, B15};
 use lexer::Token::*;
-use ast::{Ptr, List, ListBuilder, Expression, ExpressionPtr, ExpressionList};
-use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementPtr};
+use ast::{Node, NodeList, Expression, ExpressionNode, ExpressionList};
+use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
 use ast::expression::*;
 
 
-type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionPtr<'ast>;
+type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
 
 pub type Context = &'static [ExpressionHandler; 108];
 
@@ -68,7 +69,7 @@ macro_rules! create_handlers {
     ($( const $name:ident = |$par:ident| $code:expr; )* $( pub const $pname:ident = |$ppar:ident| $pcode:expr; )*) => {
         $(
             #[allow(non_snake_case)]
-            fn $name<'ast>($par: &mut Parser<'ast>) -> ExpressionPtr<'ast> {
+            fn $name<'ast>($par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
                 $code
             }
         )*
@@ -78,7 +79,7 @@ macro_rules! create_handlers {
 
             $(
                 #[allow(non_snake_case)]
-                pub fn $pname<'ast>($ppar: &mut Parser<'ast>) -> StatementPtr<'ast> {
+                pub fn $pname<'ast>($ppar: &mut Parser<'ast>) -> StatementNode<'ast> {
                     let expression = $pcode;
                     $ppar.expression_statement(expression)
                 }
@@ -87,7 +88,7 @@ macro_rules! create_handlers {
 
         $(
             #[allow(non_snake_case)]
-            fn $pname<'ast>($ppar: &mut Parser<'ast>) -> ExpressionPtr<'ast> {
+            fn $pname<'ast>($ppar: &mut Parser<'ast>) -> ExpressionNode<'ast> {
                 $pcode
             }
         )*
@@ -207,31 +208,31 @@ create_handlers! {
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    fn bound_expression(&mut self) -> ExpressionPtr<'ast> {
+    fn bound_expression(&mut self) -> ExpressionNode<'ast> {
         unsafe { (*(DEF_CONTEXT as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
     }
 
     #[inline]
-    fn context_bound_expression(&mut self, context: Context) -> ExpressionPtr<'ast> {
+    fn context_bound_expression(&mut self, context: Context) -> ExpressionNode<'ast> {
         unsafe { (*(context as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
     }
 
     #[inline]
-    pub fn expression(&mut self, lookup: Lookup) -> ExpressionPtr<'ast> {
+    pub fn expression(&mut self, lookup: Lookup) -> ExpressionNode<'ast> {
         let left = self.bound_expression();
 
         self.nested_expression(left, lookup)
     }
 
     #[inline]
-    pub fn expression_in_context(&mut self, context: Context, lookup: Lookup) -> ExpressionPtr<'ast> {
+    pub fn expression_in_context(&mut self, context: Context, lookup: Lookup) -> ExpressionNode<'ast> {
         let left = self.context_bound_expression(context);
 
         self.nested_expression(left, lookup)
     }
 
     #[inline]
-    pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ExpressionPtr<'ast> {
+    pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ExpressionNode<'ast> {
         let params = self.params_from_expressions(params);
 
         let body = match self.lexer.token {
@@ -248,7 +249,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn call_arguments(&mut self) -> ExpressionList<'ast> {
         if self.lexer.token == ParenClose {
-            return List::empty();
+            return NodeList::empty();
         }
 
         let expression = self.expression_in_context(CALL_CONTEXT, B1);
@@ -274,12 +275,12 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn paren_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn paren_expression(&mut self) -> ExpressionNode<'ast> {
         match self.lexer.token {
             ParenClose => {
                 self.lexer.consume();
                 expect!(self, OperatorFatArrow);
-                self.arrow_function_expression(List::empty())
+                self.arrow_function_expression(NodeList::empty())
             },
             _ => {
                 let expression = self.expression(B0);
@@ -292,7 +293,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionPtr<'ast> {
+    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionNode<'ast> {
         let operand = self.expression(B15);
 
         self.alloc_at_loc(0, 0, PrefixExpression {
@@ -302,7 +303,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn object_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn object_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let body = self.property_list();
         let end = self.lexer.end_then_consume();
@@ -313,9 +314,9 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn property_list(&mut self) -> List<'ast, Property<'ast>> {
+    pub fn property_list(&mut self) -> NodeList<'ast, Property<'ast>> {
         if self.lexer.token == BraceClose {
-            return List::empty();
+            return NodeList::empty();
         }
 
         let mut builder = ListBuilder::new(self.arena, self.property());
@@ -340,7 +341,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn property(&mut self) -> Ptr<'ast, Property<'ast>> {
+    pub fn property(&mut self) -> Node<'ast, Property<'ast>> {
         let start = self.lexer.start();
 
         let key = match self.lexer.token {
@@ -397,7 +398,7 @@ impl<'ast> Parser<'ast> {
                 })
             },
             ParenOpen => {
-                let value = Ptr::parse(self);
+                let value = Node::parse(self);
 
                 self.alloc_at_loc(start, value.end, Property::Method {
                     key,
@@ -409,7 +410,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn array_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn array_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let body = self.array_elements(|par| par.expression_in_context(ARRAY_CONTEXT, B1));
         let end = self.lexer.end_then_consume();
@@ -419,18 +420,18 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     /// Only in ArrayExpression
-    pub fn void_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn void_expression(&mut self) -> ExpressionNode<'ast> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Expression::Void)
     }
 
     #[inline]
-    pub fn array_elements<F, I>(&mut self, get: F) -> List<'ast, I> where
-        F: Fn(&mut Parser<'ast>) -> Ptr<'ast, I>,
+    pub fn array_elements<F, I>(&mut self, get: F) -> NodeList<'ast, I> where
+        F: Fn(&mut Parser<'ast>) -> Node<'ast, I>,
         I: 'ast + Copy,
     {
         let item = match self.lexer.token {
-            BracketClose => return List::empty(),
+            BracketClose => return NodeList::empty(),
             _            => get(self),
         };
 
@@ -453,7 +454,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn regular_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn regular_expression(&mut self) -> ExpressionNode<'ast> {
         let value = self.lexer.read_regular_expression();
 
         expect!(self, LiteralRegEx);
@@ -462,22 +463,22 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn template_string(&mut self, tag: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
+    pub fn template_string(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
         let start = tag.start;
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
         let end = self.lexer.end_then_consume();
-        let quasis = List::from(self.arena, quasi);
+        let quasis = NodeList::from(self.arena, quasi);
 
         self.alloc_at_loc(start, end, TemplateExpression {
             tag: Some(tag),
-            expressions: List::empty(),
+            expressions: NodeList::empty(),
             quasis,
         })
     }
 
     #[inline]
-    pub fn template_expression(&mut self, tag: Option<ExpressionPtr<'ast>>) -> ExpressionPtr<'ast> {
+    pub fn template_expression(&mut self, tag: Option<ExpressionNode<'ast>>) -> ExpressionNode<'ast> {
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
         let start = match tag {
@@ -529,7 +530,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn function_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn function_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let function = Function::parse(self);
 
@@ -537,7 +538,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn class_expression(&mut self) -> ExpressionPtr<'ast> {
+    pub fn class_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let class = Class::parse(self);
 
@@ -596,7 +597,7 @@ mod test {
 
         let expected = TemplateExpression {
             tag: Some(mock.ptr("foo")),
-            expressions: List::empty(),
+            expressions: NodeList::empty(),
             quasis: mock.list(["bar"]),
         };
 
@@ -719,7 +720,7 @@ mod test {
 
         let expected = CallExpression {
             callee: mock.ptr("foo"),
-            arguments: List::empty(),
+            arguments: NodeList::empty(),
         };
 
         assert_expr!(module, expected);
@@ -867,7 +868,7 @@ mod test {
 
         let expected = Function {
             name: None.into(),
-            params: List::empty(),
+            params: NodeList::empty(),
             body: mock.empty_block()
         };
 
@@ -882,7 +883,7 @@ mod test {
 
         let expected = Function {
             name: mock.name("foo"),
-            params: List::empty(),
+            params: NodeList::empty(),
             body: mock.empty_block()
         };
 
@@ -896,7 +897,7 @@ mod test {
         let mock = Mock::new();
 
         let expected = ArrowExpression {
-            params: List::empty(),
+            params: NodeList::empty(),
             body: ArrowBody::Expression(mock.ptr("bar")),
         };
         assert_expr!(module, expected);
@@ -1042,9 +1043,9 @@ mod test {
         let expected = SequenceExpression {
             body: mock.list([
                 Expression::Arrow(ArrowExpression {
-                    params: List::empty(),
+                    params: NodeList::empty(),
                     body: ArrowBody::Block(mock.ptr(BlockStatement {
-                        body: List::empty()
+                        body: NodeList::empty()
                     }))
                 }),
                 Expression::Identifier("foo"),

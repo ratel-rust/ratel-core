@@ -1,5 +1,6 @@
-use ast::{RawList, StatementList};
-use arena::Arena;
+use toolshed::list::RawList;
+use toolshed::Arena;
+use ast::StatementList;
 
 pub struct Module {
     body: RawList,

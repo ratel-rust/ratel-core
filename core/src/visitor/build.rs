@@ -18,7 +18,7 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
     pub trait StaticVisitor<'ast> {
         type Context;
 
-        // Construct methods
+        // Construct associated functions
         $(
             #[inline]
             fn $name(&$type, &parent!($type), &mut Self::Context) {}
@@ -83,25 +83,25 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         }
     }
 
-    impl<'ast, A, B, CTX> Visitor<'ast> for (A, B) where
-        A: Visitor<'ast, Context = CTX>,
-        B: Visitor<'ast, Context = CTX>,
+    impl<'ast, A, B, CTX> StaticVisitor<'ast> for (A, B) where
+        A: StaticVisitor<'ast, Context = CTX>,
+        B: StaticVisitor<'ast, Context = CTX>,
     {
         type Context = CTX;
 
-        // Construct methods
+        // Construct associated functions
         $(
             #[inline]
-            fn $name(&self, node: &$type, ptr: &parent!($type), ctx: &mut CTX) {
-                A::$name(&self.0, node, ptr, ctx);
-                B::$name(&self.1, node, ptr, ctx);
+            fn $name(node: &$type, ptr: &parent!($type), ctx: &mut CTX) {
+                A::$name(node, ptr, ctx);
+                B::$name(node, ptr, ctx);
             }
         )*
 
         #[inline]
-        fn register(&self, dv: &mut DynamicVisitor<'ast, Self::Context>) {
-            A::register(&self.0, dv);
-            B::register(&self.1, dv);
+        fn register(dv: &mut DynamicVisitor<'ast, Self::Context>) {
+            A::register(dv);
+            B::register(dv);
         }
     }
 )}

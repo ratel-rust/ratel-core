@@ -1,9 +1,9 @@
-use ast::{Ptr, List, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
-use ast::{IdentifierPtr, BlockPtr, ExpressionPtr, Statement, ExpressionList, Pattern};
+use ast::{Node, NodeList, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
+use ast::{IdentifierNode, BlockNode, ExpressionNode, Statement, ExpressionList, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PropertyKey<'ast> {
-    Computed(ExpressionPtr<'ast>),
+    Computed(ExpressionNode<'ast>),
     Literal(&'ast str),
     Binary(&'ast str),
 }
@@ -12,12 +12,12 @@ pub enum PropertyKey<'ast> {
 pub enum Property<'ast> {
     Shorthand(&'ast str),
     Literal {
-        key: Ptr<'ast, PropertyKey<'ast>>,
-        value: ExpressionPtr<'ast>,
+        key: Node<'ast, PropertyKey<'ast>>,
+        value: ExpressionNode<'ast>,
     },
     Method {
-        key: Ptr<'ast, PropertyKey<'ast>>,
-        value: Ptr<'ast, Function<'ast, EmptyName>>,
+        key: Node<'ast, PropertyKey<'ast>>,
+        value: Node<'ast, Function<'ast, EmptyName>>,
     },
 }
 
@@ -38,75 +38,75 @@ pub struct ArrayExpression<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MemberExpression<'ast> {
-    pub object: ExpressionPtr<'ast>,
-    pub property: IdentifierPtr<'ast>,
+    pub object: ExpressionNode<'ast>,
+    pub property: IdentifierNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComputedMemberExpression<'ast> {
-    pub object: ExpressionPtr<'ast>,
-    pub property: ExpressionPtr<'ast>,
+    pub object: ExpressionNode<'ast>,
+    pub property: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CallExpression<'ast> {
-    pub callee: ExpressionPtr<'ast>,
+    pub callee: ExpressionNode<'ast>,
     pub arguments: ExpressionList<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BinaryExpression<'ast> {
     pub operator: OperatorKind,
-    pub left: ExpressionPtr<'ast>,
-    pub right: ExpressionPtr<'ast>,
+    pub left: ExpressionNode<'ast>,
+    pub right: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PrefixExpression<'ast> {
     pub operator: OperatorKind,
-    pub operand: ExpressionPtr<'ast>,
+    pub operand: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PostfixExpression<'ast> {
     pub operator: OperatorKind,
-    pub operand: ExpressionPtr<'ast>,
+    pub operand: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ConditionalExpression<'ast> {
-    pub test: ExpressionPtr<'ast>,
-    pub consequent: ExpressionPtr<'ast>,
-    pub alternate: ExpressionPtr<'ast>,
+    pub test: ExpressionNode<'ast>,
+    pub consequent: ExpressionNode<'ast>,
+    pub alternate: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TemplateExpression<'ast> {
-    pub tag: Option<ExpressionPtr<'ast>>,
+    pub tag: Option<ExpressionNode<'ast>>,
     pub expressions: ExpressionList<'ast>,
-    pub quasis: List<'ast, &'ast str>,
+    pub quasis: NodeList<'ast, &'ast str>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SpreadExpression<'ast> {
-    pub argument: ExpressionPtr<'ast>
+    pub argument: ExpressionNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ArrowBody<'ast> {
-    Expression(ExpressionPtr<'ast>),
-    Block(BlockPtr<'ast, Statement<'ast>>)
+    Expression(ExpressionNode<'ast>),
+    Block(BlockNode<'ast, Statement<'ast>>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ArrowExpression<'ast> {
-    pub params: List<'ast, Pattern<'ast>>,
+    pub params: NodeList<'ast, Pattern<'ast>>,
     pub body: ArrowBody<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ObjectExpression<'ast> {
-    pub body: List<'ast, Property<'ast>>,
+    pub body: NodeList<'ast, Property<'ast>>,
 }
 
 pub type Identifier<'ast> = &'ast str;

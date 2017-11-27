@@ -1,10 +1,10 @@
-use visitor::{Visitor, Visitable, NoParent};
-use ast::{Ptr, Expression, ExpressionPtr, StatementPtr, Literal, ClassMember};
+use visitor::{Visitor, Visitable};
+use ast::{Expression, ExpressionNode, StatementNode, Literal};
 use ast::expression::*;
 
 
-impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
-    type Parent = StatementPtr<'ast>;
+impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
+    type Parent = StatementNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -77,9 +77,11 @@ impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
                 visitor.on_object_expression(object, self, ctx);
             },
             Function(ref function) => {
+                function.visit(visitor, ctx);
                 visitor.on_function_expression(function, self, ctx);
             },
             Class(ref class) => {
+                class.visit(visitor, ctx);
                 visitor.on_class_expression(class, self, ctx);
             }
         }
@@ -87,28 +89,28 @@ impl<'ast> Visitable<'ast> for ExpressionPtr<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ThisExpression {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
 }
 
 impl<'ast> Visitable<'ast> for Identifier<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
 }
 
 impl<'ast> Visitable<'ast> for Literal<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
 }
 
 impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -119,7 +121,7 @@ impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -130,7 +132,7 @@ impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -141,7 +143,7 @@ impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -153,7 +155,7 @@ impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for CallExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -165,7 +167,7 @@ impl<'ast> Visitable<'ast> for CallExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -177,7 +179,7 @@ impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -188,7 +190,7 @@ impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -199,7 +201,7 @@ impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -212,7 +214,7 @@ impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -224,7 +226,7 @@ impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -235,7 +237,7 @@ impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -249,7 +251,7 @@ impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
@@ -261,61 +263,12 @@ impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
 }
 
 impl<'ast> Visitable<'ast> for ObjectExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
+    type Parent = ExpressionNode<'ast>;
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
         where V: Visitor<'ast>
     {
         self.body.visit(visitor, ctx);
-    }
-}
-
-impl<'ast> Visitable<'ast> for FunctionExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
-
-    #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
-    {
-        self.params.visit(visitor, ctx);
-        self.body.body.visit(visitor, ctx);
-    }
-}
-
-impl<'ast> Visitable<'ast> for ClassMember<'ast> {
-    type Parent = Ptr<'ast, Self>;
-
-    #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
-    {
-        use self::ClassMember::*;
-
-        match *self {
-            Error => panic!("Invalid AST"),
-            Method {
-                ref key,
-                ref value,
-                ..
-            } => unimplemented!(),
-            Literal {
-                ref key,
-                ref value,
-                ..
-            } => unimplemented!(),
-        }
-    }
-}
-
-impl<'ast> Visitable<'ast> for ClassExpression<'ast> {
-    type Parent = ExpressionPtr<'ast>;
-
-    #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
-    {
-        self.extends.visit(visitor, ctx);
-        self.body.body.visit(visitor, ctx);
     }
 }

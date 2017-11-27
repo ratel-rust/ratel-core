@@ -1,7 +1,7 @@
 use error::Error;
 
-use ast::{Ptr, Loc, List, Statement, StatementPtr, Expression, ExpressionPtr, Pattern};
-use ast::{Name, Function, Class, ClassMember, Property, PropertyKey, MandatoryName, Block};
+use ast::{Node, Loc, NodeList, Statement, StatementNode, Expression, ExpressionNode, Pattern};
+use ast::{Name, ClassMember, Property, PropertyKey, MandatoryName, Block};
 use parser::Parser;
 
 pub trait Handle<'ast> {
@@ -18,9 +18,9 @@ impl<'ast> ToError for Statement<'ast> {
     }
 }
 
-impl<'ast> ToError for StatementPtr<'ast> {
+impl<'ast> ToError for StatementNode<'ast> {
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: Statement::Error
@@ -30,17 +30,7 @@ impl<'ast> ToError for StatementPtr<'ast> {
 
 impl<'ast, I> ToError for Block<'ast, I> {
     fn to_error() -> Self {
-        Block { body: List::empty() }
-    }
-}
-
-impl<'ast, I> ToError for Ptr<'ast, Block<'ast, I>> {
-    fn to_error() -> Self {
-        Ptr::new(&Loc {
-            start: 0,
-            end: 0,
-            item: Block { body: empty_list!() }
-        })
+        Block { body: NodeList::empty() }
     }
 }
 
@@ -50,9 +40,9 @@ impl<'ast> ToError for Expression<'ast> {
     }
 }
 
-impl<'ast> ToError for ExpressionPtr<'ast> {
+impl<'ast> ToError for ExpressionNode<'ast> {
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: Expression::Error
@@ -66,9 +56,9 @@ impl<'ast> ToError for MandatoryName<'ast> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Property<'ast>> {
+impl<'ast> ToError for Node<'ast, Property<'ast>> {
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: Property::Shorthand("")
@@ -76,41 +66,13 @@ impl<'ast> ToError for Ptr<'ast, Property<'ast>> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, ClassMember<'ast>> {
+impl<'ast> ToError for Node<'ast, ClassMember<'ast>> {
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: ClassMember::Error,
         })
-    }
-}
-
-impl<'ast, N: Name<'ast>> ToError for Function<'ast, N> {
-    fn to_error() -> Self {
-        Function {
-            name: N::empty(),
-            params: List::empty(),
-            body: Ptr::new(&Loc {
-                start: 0,
-                end: 0,
-                item: Block { body: empty_list!() }
-            }),
-        }
-    }
-}
-
-impl<'ast, N: Name<'ast>> ToError for Class<'ast, N> {
-    fn to_error() -> Self {
-        Class {
-            name: N::empty(),
-            extends: None,
-            body: Ptr::new(&Loc {
-                start: 0,
-                end: 0,
-                item: Block { body: empty_list!() }
-            }),
-        }
     }
 }
 
@@ -124,15 +86,15 @@ impl<'ast, T: 'ast + ToError> ToError for Loc<T> {
     }
 }
 
-impl<'ast, T: 'ast + Copy> ToError for List<'ast, T> {
+impl<'ast, T: 'ast + Copy> ToError for NodeList<'ast, T> {
     fn to_error() -> Self {
-        List::empty()
+        NodeList::empty()
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, &'ast str> {
+impl<'ast> ToError for Node<'ast, &'ast str> {
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: ""
@@ -148,10 +110,10 @@ impl<'ast> ToError for Pattern<'ast> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, Pattern<'ast>> {
+impl<'ast> ToError for Node<'ast, Pattern<'ast>> {
     #[inline]
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: Pattern::Void
@@ -159,10 +121,10 @@ impl<'ast> ToError for Ptr<'ast, Pattern<'ast>> {
     }
 }
 
-impl<'ast> ToError for Ptr<'ast, PropertyKey<'ast>> {
+impl<'ast> ToError for Node<'ast, PropertyKey<'ast>> {
     #[inline]
     fn to_error() -> Self {
-        Ptr::new(&Loc {
+        Node::new(&Loc {
             start: 0,
             end: 0,
             item: PropertyKey::Literal("")
