@@ -1,15 +1,15 @@
-use toolshed::list::RawList;
+use toolshed::list::UnsafeList;
 use toolshed::Arena;
 use ast::StatementList;
 
 pub struct Module {
-    body: RawList,
+    body: UnsafeList,
     arena: Arena,
 }
 
 impl Module {
     #[inline]
-    pub fn new(body: RawList, arena: Arena) -> Self {
+    pub fn new(body: UnsafeList, arena: Arena) -> Self {
         Module {
             body,
             arena,

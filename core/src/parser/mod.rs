@@ -226,7 +226,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 
         parser.parse();
 
-        (parser.body.into_raw(), parser.errors)
+        (parser.body.into_unsafe(), parser.errors)
     };
 
     match errors.len() {

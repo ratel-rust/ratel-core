@@ -53,7 +53,7 @@ impl<'ast, T: 'ast + Debug> Debug for Node<'ast, T> {
 }
 
 #[cfg(test)]
-mod test {
+mod node {
     use super::*;
 
     #[test]
