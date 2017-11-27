@@ -1,6 +1,6 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 use ast;
-use ast::{ExpressionPtr, Expression, Loc, OperatorKind};
+use ast::{ExpressionNode, Expression, Loc, OperatorKind};
 use serde_json;
 use astgen::function::ClassBody;
 use astgen::value::TemplateElement;
@@ -11,7 +11,7 @@ use astgen::SerializeInLoc;
 #[derive(Debug)]
 
 struct TaggedTemplateExpression<'ast> {
-    tag: ExpressionPtr<'ast>,
+    tag: ExpressionNode<'ast>,
     quasi: Loc<TemplateLiteral<'ast>>,
 }
 
@@ -167,7 +167,7 @@ impl<'ast> Serialize for Loc<Expression<'ast>> {
                             state.serialize_field("arguments", &arguments)?;
                         },
                         Value(_) => {
-                            let arguments: Vec<ExpressionPtr> = vec![];
+                            let arguments: Vec<ExpressionNode> = vec![];
                             state.serialize_field("callee", &operand)?;
                             state.serialize_field("arguments", &arguments)?;
                         },

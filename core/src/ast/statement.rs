@@ -1,113 +1,113 @@
-use ast::{Ptr, List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
-use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr, Pattern};
+use ast::{Node, NodeList, DeclarationKind, Function, Class, MandatoryName, IdentifierNode};
+use ast::{ExpressionNode, StatementNode, StatementList, Block, BlockNode, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Declarator<'ast> {
-    pub id: Ptr<'ast, Pattern<'ast>>,
-    pub init: Option<ExpressionPtr<'ast>>,
+    pub id: Node<'ast, Pattern<'ast>>,
+    pub init: Option<ExpressionNode<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct DeclarationStatement<'ast> {
     pub kind: DeclarationKind,
-    pub declarators: List<'ast, Declarator<'ast>>,
+    pub declarators: NodeList<'ast, Declarator<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ReturnStatement<'ast> {
-    pub value: Option<ExpressionPtr<'ast>>,
+    pub value: Option<ExpressionNode<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BreakStatement<'ast> {
-    pub label: Option<IdentifierPtr<'ast>>,
+    pub label: Option<IdentifierNode<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ContinueStatement<'ast> {
-    pub label: Option<IdentifierPtr<'ast>>
+    pub label: Option<IdentifierNode<'ast>>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ThrowStatement<'ast> {
-    pub value: ExpressionPtr<'ast>
+    pub value: ExpressionNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct IfStatement<'ast> {
-    pub test: ExpressionPtr<'ast>,
-    pub consequent: StatementPtr<'ast>,
-    pub alternate: Option<StatementPtr<'ast>>,
+    pub test: ExpressionNode<'ast>,
+    pub consequent: StatementNode<'ast>,
+    pub alternate: Option<StatementNode<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct WhileStatement<'ast> {
-    pub test: ExpressionPtr<'ast>,
-    pub body: StatementPtr<'ast>,
+    pub test: ExpressionNode<'ast>,
+    pub body: StatementNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct DoStatement<'ast> {
-    pub body: StatementPtr<'ast>,
-    pub test: ExpressionPtr<'ast>,
+    pub body: StatementNode<'ast>,
+    pub test: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ForInit<'ast> {
     Declaration(DeclarationStatement<'ast>),
-    Expression(ExpressionPtr<'ast>)
+    Expression(ExpressionNode<'ast>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForStatement<'ast> {
-    pub init: Option<Ptr<'ast, ForInit<'ast>>>,
-    pub test: Option<ExpressionPtr<'ast>>,
-    pub update: Option<ExpressionPtr<'ast>>,
-    pub body: StatementPtr<'ast>
+    pub init: Option<Node<'ast, ForInit<'ast>>>,
+    pub test: Option<ExpressionNode<'ast>>,
+    pub update: Option<ExpressionNode<'ast>>,
+    pub body: StatementNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForInStatement<'ast> {
-    pub left: Ptr<'ast, ForInit<'ast>>,
-    pub right: ExpressionPtr<'ast>,
-    pub body: StatementPtr<'ast>
+    pub left: Node<'ast, ForInit<'ast>>,
+    pub right: ExpressionNode<'ast>,
+    pub body: StatementNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ForOfStatement<'ast> {
-    pub left: Ptr<'ast, ForInit<'ast>>,
-    pub right: ExpressionPtr<'ast>,
-    pub body: StatementPtr<'ast>
+    pub left: Node<'ast, ForInit<'ast>>,
+    pub right: ExpressionNode<'ast>,
+    pub body: StatementNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CatchClause<'ast> {
-    pub param: Ptr<'ast, Pattern<'ast>>,
-    pub body: BlockPtr<'ast, Statement<'ast>>,
+    pub param: Node<'ast, Pattern<'ast>>,
+    pub body: BlockNode<'ast, Statement<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TryStatement<'ast> {
-    pub block: BlockPtr<'ast, Statement<'ast>>,
-    pub handler: Option<Ptr<'ast, CatchClause<'ast>>>,
-    pub finalizer: Option<BlockPtr<'ast, Statement<'ast>>>,
+    pub block: BlockNode<'ast, Statement<'ast>>,
+    pub handler: Option<Node<'ast, CatchClause<'ast>>>,
+    pub finalizer: Option<BlockNode<'ast, Statement<'ast>>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct LabeledStatement<'ast> {
     pub label: &'ast str,
-    pub body: StatementPtr<'ast>,
+    pub body: StatementNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SwitchStatement<'ast> {
-    pub discriminant: ExpressionPtr<'ast>,
-    pub cases: BlockPtr<'ast, SwitchCase<'ast>>,
+    pub discriminant: ExpressionNode<'ast>,
+    pub cases: BlockNode<'ast, SwitchCase<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SwitchCase<'ast> {
-    pub test: Option<ExpressionPtr<'ast>>,
+    pub test: Option<ExpressionNode<'ast>>,
     pub consequent: StatementList<'ast>,
 }
 
@@ -119,7 +119,7 @@ pub type ClassStatement<'ast> = Class<'ast, MandatoryName<'ast>>;
 pub enum Statement<'ast> {
     Error,
     Empty,
-    Expression(ExpressionPtr<'ast>),
+    Expression(ExpressionNode<'ast>),
     Declaration(DeclarationStatement<'ast>),
     Return(ReturnStatement<'ast>),
     Break(BreakStatement<'ast>),
@@ -151,7 +151,7 @@ macro_rules! impl_from {
 }
 
 impl_from! {
-    ExpressionPtr => Expression,
+    ExpressionNode => Expression,
     DeclarationStatement => Declaration,
     ReturnStatement => Return,
     BreakStatement => Break,
@@ -178,9 +178,9 @@ impl<'ast> From<DeclarationStatement<'ast>> for ForInit<'ast> {
     }
 }
 
-impl<'ast> From<ExpressionPtr<'ast>> for ForInit<'ast> {
+impl<'ast> From<ExpressionNode<'ast>> for ForInit<'ast> {
     #[inline]
-    fn from(val: ExpressionPtr<'ast>) -> Self {
+    fn from(val: ExpressionNode<'ast>) -> Self {
         ForInit::Expression(val)
     }
 }

@@ -1,5 +1,5 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{StatementList, Statement, Loc, Expression, ExpressionPtr};
+use ast::{StatementList, Statement, Loc, Expression, ExpressionNode};
 use ast::{Declarator, DeclaratorId};
 
 use astgen::function::ClassBody;
@@ -7,7 +7,7 @@ use astgen::SerializeInLoc;
 
 #[derive(Debug)]
 struct CatchClause<'ast> {
-    param: ExpressionPtr<'ast>,
+    param: ExpressionNode<'ast>,
     body: StatementList<'ast>,
 }
 

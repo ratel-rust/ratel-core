@@ -6,15 +6,16 @@ mod statement;
 mod function;
 mod nested;
 
+use toolshed::list::ListBuilder;
+use toolshed::Arena;
 use error::Error;
-use arena::Arena;
 use module::Module;
 
 use self::error::ToError;
 use self::nested::*;
 
-use ast::{Loc, Ptr, Statement, List, ListBuilder, Block, BlockPtr};
-use ast::{Expression, ExpressionPtr, ExpressionList, IdentifierPtr};
+use ast::{Loc, Node, Statement, NodeList, Block, BlockNode};
+use ast::{Expression, ExpressionNode, ExpressionList, IdentifierNode};
 use ast::{OperatorKind, Pattern};
 use ast::expression::BinaryExpression;
 use lexer::{Lexer, Asi};
@@ -36,7 +37,7 @@ pub struct Parser<'ast> {
     errors: Vec<Error>,
 
     /// AST under construction
-    body: List<'ast, Statement<'ast>>,
+    body: NodeList<'ast, Statement<'ast>>,
 }
 
 impl<'ast> Parser<'ast> {
@@ -45,7 +46,7 @@ impl<'ast> Parser<'ast> {
             arena,
             lexer: Lexer::new(arena, source),
             errors: Vec::new(),
-            body: List::empty(),
+            body: NodeList::empty(),
         }
     }
 
@@ -75,14 +76,14 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc<T>(&mut self, val: Loc<T>) -> Ptr<'ast, T> where
+    fn alloc<T>(&mut self, val: Loc<T>) -> Node<'ast, T> where
         T: Copy,
     {
-        Ptr::new(self.arena.alloc(val.into()))
+        Node::new(self.arena.alloc(val.into()))
     }
 
     #[inline]
-    fn alloc_in_loc<T, I>(&mut self, item: I) -> Ptr<'ast, T> where
+    fn alloc_in_loc<T, I>(&mut self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
@@ -91,7 +92,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Ptr<'ast, T> where
+    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
@@ -115,13 +116,16 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn block<I>(&mut self) -> BlockPtr<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
+    fn block<I>(&mut self) -> BlockNode<'ast, I> where
+        I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
-        let start = match self.lexer.token {
-            BraceOpen => self.lexer.start_then_consume(),
-            _         => return self.error(),
-        };
+        let start = self.lexer.start();
+
+        match self.lexer.token {
+            BraceOpen => self.lexer.consume(),
+            _         => self.error::<()>(),
+        }
+
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
 
@@ -130,8 +134,8 @@ impl<'ast> Parser<'ast> {
 
     /// Same as above, but assumes that the opening brace has already been checked
     #[inline]
-    fn unchecked_block<I>(&mut self) -> BlockPtr<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
+    fn unchecked_block<I>(&mut self) -> BlockNode<'ast, I> where
+        I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
         let start = self.lexer.start_then_consume();
         let block = self.raw_block();
@@ -142,16 +146,16 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     fn raw_block<I>(&mut self) -> Block<'ast, I> where
-        I: Parse<'ast, Output = Ptr<'ast, I>> + Copy
+        I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
         if self.lexer.token == BraceClose {
-            return Block { body: List::empty() };
+            return Block { body: NodeList::empty() };
         }
 
         let statement = I::parse(self);
         let mut builder = ListBuilder::new(self.arena, statement);
 
-        while self.lexer.token != BraceClose {
+        while self.lexer.token != BraceClose && self.lexer.token != EndOfProgram {
             builder.push(I::parse(self));
         }
 
@@ -159,7 +163,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn identifier(&mut self) -> IdentifierPtr<'ast> {
+    fn identifier(&mut self) -> IdentifierNode<'ast> {
         match self.lexer.token {
             Identifier => {
                 let ident = self.lexer.token_as_str();
@@ -172,7 +176,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_from_expression(&mut self, expression: ExpressionPtr<'ast>) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_from_expression(&mut self, expression: ExpressionNode<'ast>) -> Node<'ast, Pattern<'ast>> {
         let pattern = match expression.item {
             Expression::Binary(BinaryExpression {
                 operator: OperatorKind::Assign,
@@ -194,8 +198,8 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> List<'ast, Pattern<'ast>> {
-        let mut expressions = expressions.ptr_iter();
+    fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> NodeList<'ast, Pattern<'ast>> {
+        let mut expressions = expressions.iter();
 
         let mut builder = match expressions.next() {
             Some(&expression) => {
@@ -203,7 +207,7 @@ impl<'ast> Parser<'ast> {
 
                 ListBuilder::new(self.arena, param)
             },
-            None => return List::empty()
+            None => return NodeList::empty()
         };
 
         for &expression in expressions {
@@ -222,7 +226,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 
         parser.parse();
 
-        (parser.body.into_raw(), parser.errors)
+        (parser.body.into_unsafe(), parser.errors)
     };
 
     match errors.len() {
@@ -234,7 +238,7 @@ pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use ast::{Literal, ExpressionPtr, Block, BlockPtr, Name};
+    use ast::{Literal, ExpressionNode, Block, BlockNode, Name};
 
     pub struct Mock {
         arena: Arena
@@ -247,24 +251,24 @@ mod mock {
             }
         }
 
-        pub fn ptr<'a, T, I>(&'a self, val: I) -> Ptr<'a, T> where
+        pub fn ptr<'a, T, I>(&'a self, val: I) -> Node<'a, T> where
             T: 'a + Copy,
             I: Into<T>,
         {
-            Ptr::new(self.arena.alloc(Loc::new(0, 0, val.into())))
+            Node::new(self.arena.alloc(Loc::new(0, 0, val.into())))
         }
 
         pub fn name<'a, N>(&'a self, val: &'a str) -> N where
-            N: Name<'a> + From<Ptr<'a, &'a str>>,
+            N: Name<'a> + From<Node<'a, &'a str>>,
         {
-            N::from(Ptr::new(self.arena.alloc(Loc::new(0, 0, val))))
+            N::from(Node::new(self.arena.alloc(Loc::new(0, 0, val))))
         }
 
-        pub fn number<'a>(&'a self, number: &'static str) -> ExpressionPtr<'a> {
+        pub fn number<'a>(&'a self, number: &'static str) -> ExpressionNode<'a> {
             self.ptr(Literal::Number(number))
         }
 
-        pub fn block<'a, I, T, L>(&'a self, list: L) -> BlockPtr<'a, I> where
+        pub fn block<'a, I, T, L>(&'a self, list: L) -> BlockNode<'a, I> where
             I: Copy,
             T: Into<I> + Copy,
             L: AsRef<[T]>
@@ -272,16 +276,18 @@ mod mock {
             self.ptr(Block { body: self.list(list) })
         }
 
-        pub fn empty_block<'a, I: Copy>(&'a self) -> BlockPtr<'a, I> {
-            self.ptr(Block { body: List::empty() })
+        pub fn empty_block<'a, I: Copy>(&'a self) -> BlockNode<'a, I> {
+            self.ptr(Block { body: NodeList::empty() })
         }
 
-        pub fn list<'a, T, I, L>(&'a self, list: L) -> List<'a, T> where
+        pub fn list<'a, T, I, L>(&'a self, list: L) -> NodeList<'a, T> where
             T: 'a + Copy,
             L: AsRef<[I]>,
             I: Into<T> + Copy,
         {
-            List::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| Loc::new(0, 0, i.into())))
+            NodeList::from_iter(&self.arena, list.as_ref().iter().cloned().map(|i| {
+                Node::new(self.arena.alloc(Loc::new(0, 0, i.into())))
+            }))
         }
     }
 }
@@ -295,7 +301,7 @@ mod test {
     fn empty_parse() {
         let module = parse("").unwrap();
 
-        assert_eq!(module.body(), List::empty());
+        assert_eq!(module.body(), NodeList::empty());
     }
 
     #[test]

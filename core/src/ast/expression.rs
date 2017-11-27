@@ -1,9 +1,9 @@
-use ast::{Ptr, List, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
-use ast::{IdentifierPtr, BlockPtr, ExpressionPtr, Statement, ExpressionList, Pattern};
+use ast::{Node, NodeList, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
+use ast::{IdentifierNode, BlockNode, ExpressionNode, Statement, ExpressionList, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PropertyKey<'ast> {
-    Computed(ExpressionPtr<'ast>),
+    Computed(ExpressionNode<'ast>),
     Literal(&'ast str),
     Binary(&'ast str),
 }
@@ -12,14 +12,19 @@ pub enum PropertyKey<'ast> {
 pub enum Property<'ast> {
     Shorthand(&'ast str),
     Literal {
-        key: Ptr<'ast, PropertyKey<'ast>>,
-        value: ExpressionPtr<'ast>,
+        key: Node<'ast, PropertyKey<'ast>>,
+        value: ExpressionNode<'ast>,
     },
     Method {
-        key: Ptr<'ast, PropertyKey<'ast>>,
-        value: Ptr<'ast, Function<'ast, EmptyName>>,
+        key: Node<'ast, PropertyKey<'ast>>,
+        value: Node<'ast, Function<'ast, EmptyName>>,
     },
 }
+
+/// While not technically necessary, having a type
+/// helps with implementing the visitor pattern on AST.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ThisExpression;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SequenceExpression<'ast> {
@@ -33,77 +38,78 @@ pub struct ArrayExpression<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MemberExpression<'ast> {
-    pub object: ExpressionPtr<'ast>,
-    pub property: IdentifierPtr<'ast>,
+    pub object: ExpressionNode<'ast>,
+    pub property: IdentifierNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComputedMemberExpression<'ast> {
-    pub object: ExpressionPtr<'ast>,
-    pub property: ExpressionPtr<'ast>,
+    pub object: ExpressionNode<'ast>,
+    pub property: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CallExpression<'ast> {
-    pub callee: ExpressionPtr<'ast>,
+    pub callee: ExpressionNode<'ast>,
     pub arguments: ExpressionList<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BinaryExpression<'ast> {
     pub operator: OperatorKind,
-    pub left: ExpressionPtr<'ast>,
-    pub right: ExpressionPtr<'ast>,
+    pub left: ExpressionNode<'ast>,
+    pub right: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PrefixExpression<'ast> {
     pub operator: OperatorKind,
-    pub operand: ExpressionPtr<'ast>,
+    pub operand: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PostfixExpression<'ast> {
     pub operator: OperatorKind,
-    pub operand: ExpressionPtr<'ast>,
+    pub operand: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ConditionalExpression<'ast> {
-    pub test: ExpressionPtr<'ast>,
-    pub consequent: ExpressionPtr<'ast>,
-    pub alternate: ExpressionPtr<'ast>,
+    pub test: ExpressionNode<'ast>,
+    pub consequent: ExpressionNode<'ast>,
+    pub alternate: ExpressionNode<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TemplateExpression<'ast> {
-    pub tag: Option<ExpressionPtr<'ast>>,
+    pub tag: Option<ExpressionNode<'ast>>,
     pub expressions: ExpressionList<'ast>,
-    pub quasis: List<'ast, &'ast str>,
+    pub quasis: NodeList<'ast, &'ast str>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct SpreadExpression<'ast> {
-    pub argument: ExpressionPtr<'ast>
+    pub argument: ExpressionNode<'ast>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ArrowBody<'ast> {
-    Expression(ExpressionPtr<'ast>),
-    Block(BlockPtr<'ast, Statement<'ast>>)
+    Expression(ExpressionNode<'ast>),
+    Block(BlockNode<'ast, Statement<'ast>>)
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ArrowExpression<'ast> {
-    pub params: List<'ast, Pattern<'ast>>,
+    pub params: NodeList<'ast, Pattern<'ast>>,
     pub body: ArrowBody<'ast>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ObjectExpression<'ast> {
-    pub body: List<'ast, Property<'ast>>,
+    pub body: NodeList<'ast, Property<'ast>>,
 }
 
+pub type Identifier<'ast> = &'ast str;
 pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
 pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 
@@ -111,8 +117,8 @@ pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 pub enum Expression<'ast> {
     Error,
     Void,
-    This,
-    Identifier(&'ast str),
+    This(ThisExpression),
+    Identifier(Identifier<'ast>),
     Literal(Literal<'ast>),
     Sequence(SequenceExpression<'ast>),
     Array(ArrayExpression<'ast>),
@@ -132,40 +138,35 @@ pub enum Expression<'ast> {
 }
 
 macro_rules! impl_from {
-    ($( $type:ident => $variant:ident ),*) => ($(
-        impl<'ast> From<$type<'ast>> for Expression<'ast> {
+    ($( $type:ty => $variant:ident ),*) => ($(
+        impl<'ast> From<$type> for Expression<'ast> {
             #[inline]
-            fn from(val: $type<'ast>) -> Expression<'ast> {
+            fn from(val: $type) -> Expression<'ast> {
                 Expression::$variant(val)
             }
         }
     )*)
 }
 
-impl<'ast> From<&'ast str> for Expression<'ast> {
-    #[inline]
-    fn from(val: &'ast str) -> Expression<'ast> {
-        Expression::Identifier(val)
-    }
-}
-
 impl_from! {
-    Literal => Literal,
-    SequenceExpression => Sequence,
-    ArrayExpression => Array,
-    MemberExpression => Member,
-    ComputedMemberExpression => ComputedMember,
-    CallExpression => Call,
-    BinaryExpression => Binary,
-    PrefixExpression => Prefix,
-    PostfixExpression => Postfix,
-    ConditionalExpression => Conditional,
-    TemplateExpression => Template,
-    SpreadExpression => Spread,
-    ArrowExpression => Arrow,
-    ObjectExpression => Object,
-    FunctionExpression => Function,
-    ClassExpression => Class
+    ThisExpression => This,
+    Identifier<'ast> => Identifier,
+    Literal<'ast> => Literal,
+    SequenceExpression<'ast> => Sequence,
+    ArrayExpression<'ast> => Array,
+    MemberExpression<'ast> => Member,
+    ComputedMemberExpression<'ast> => ComputedMember,
+    CallExpression<'ast> => Call,
+    BinaryExpression<'ast> => Binary,
+    PrefixExpression<'ast> => Prefix,
+    PostfixExpression<'ast> => Postfix,
+    ConditionalExpression<'ast> => Conditional,
+    TemplateExpression<'ast> => Template,
+    SpreadExpression<'ast> => Spread,
+    ArrowExpression<'ast> => Arrow,
+    ObjectExpression<'ast> => Object,
+    FunctionExpression<'ast> => Function,
+    ClassExpression<'ast> => Class
 }
 
 impl<'ast> Expression<'ast> {

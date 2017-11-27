@@ -1,6 +1,7 @@
+use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
-use ast::{Ptr, List, ListBuilder, EmptyName, OptionalName, MandatoryName, Name};
+use ast::{Node, NodeList, EmptyName, OptionalName, MandatoryName, Name};
 use ast::{MethodKind, Pattern, Function, Class, ClassMember, PropertyKey};
 
 impl<'ast> Parse<'ast> for EmptyName {
@@ -45,7 +46,7 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
 }
 
 impl<'ast> Parse<'ast> for Pattern<'ast> {
-    type Output = Ptr<'ast, Self>;
+    type Output = Node<'ast, Self>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -75,8 +76,8 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
     }
 }
 
-impl<'ast, N> Parse<'ast> for Ptr<'ast, Function<'ast, N>> where
-    N: Name<'ast> + Parse<'ast, Output = N> + Copy,
+impl<'ast, N> Parse<'ast> for Node<'ast, Function<'ast, N>> where
+    N: Name<'ast> + Parse<'ast, Output = N>,
 {
     type Output = Self;
 
@@ -90,7 +91,7 @@ impl<'ast, N> Parse<'ast> for Ptr<'ast, Function<'ast, N>> where
 }
 
 impl<'ast> Parse<'ast> for ClassMember<'ast> {
-    type Output = Ptr<'ast, ClassMember<'ast>>;
+    type Output = Node<'ast, ClassMember<'ast>>;
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
@@ -150,7 +151,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
         let end;
         let member = match par.lexer.token {
             ParenOpen => {
-                let value = Ptr::parse(par);
+                let value = Node::parse(par);
 
                 end = value.end;
 
@@ -213,13 +214,13 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    fn pattern_void(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_void(&mut self) -> Node<'ast, Pattern<'ast>> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Pattern::Void)
     }
 
     #[inline]
-    fn pattern_identifier(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_identifier(&mut self) -> Node<'ast, Pattern<'ast>> {
         let ident = Pattern::Identifier(self.lexer.token_as_str());
         let ident = self.alloc_in_loc(ident);
 
@@ -229,7 +230,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_array(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_array(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let elements = self.array_elements(Parser::pattern_array_element);
         let end = self.lexer.end_then_consume();
@@ -240,7 +241,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_object(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_object(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let properties = self.property_list();
         let end = self.lexer.end_then_consume();
@@ -251,7 +252,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_assign(&mut self, left: Ptr<'ast, Pattern<'ast>>) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_assign(&mut self, left: Node<'ast, Pattern<'ast>>) -> Node<'ast, Pattern<'ast>> {
         match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
@@ -268,7 +269,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_array_element(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_array_element(&mut self) -> Node<'ast, Pattern<'ast>> {
         let left = match self.lexer.token {
             Identifier           => self.pattern_identifier(),
             BracketOpen          => self.pattern_array(),
@@ -281,7 +282,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn pattern_param(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn pattern_param(&mut self) -> Node<'ast, Pattern<'ast>> {
         let left = match self.lexer.token {
             Identifier           => self.pattern_identifier(),
             BracketOpen          => self.pattern_array(),
@@ -293,7 +294,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn rest_element(&mut self) -> Ptr<'ast, Pattern<'ast>> {
+    fn rest_element(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let argument = match self.lexer.token {
             Identifier => {
@@ -315,17 +316,16 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    fn params(&mut self) -> List<'ast, Pattern<'ast>> {
+    fn params(&mut self) -> NodeList<'ast, Pattern<'ast>> {
         expect!(self, ParenOpen);
 
-        if self.lexer.token == ParenClose {
-            self.lexer.consume();
-
-            return List::empty();
-        }
-
         let item = match self.lexer.token {
-            OperatorSpread => return List::from(self.arena, self.rest_element()),
+            ParenClose     => {
+                self.lexer.consume();
+
+                return NodeList::empty();
+            },
+            OperatorSpread => return NodeList::from(self.arena, self.rest_element()),
             _              => self.pattern_param()
         };
 
@@ -374,7 +374,7 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
-    use ast::{List, Literal, Expression, Function, Class};
+    use ast::{NodeList, Literal, Expression, Function, Class};
     use ast::{ClassMember, Pattern};
     use ast::statement::*;
 
@@ -387,7 +387,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
-                params: List::empty(),
+                params: NodeList::empty(),
                 body: mock.empty_block(),
             }
         ]);
@@ -424,7 +424,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
-                params: List::empty(),
+                params: NodeList::empty(),
                 body: mock.block([
                     mock.ptr("bar"),
                     mock.ptr("baz"),
@@ -683,7 +683,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
-                            params: List::empty(),
+                            params: NodeList::empty(),
                             body: mock.empty_block()
                         })
                     },
@@ -693,7 +693,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
-                            params: List::empty(),
+                            params: NodeList::empty(),
                             body: mock.empty_block()
                         })
                     },
@@ -703,7 +703,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
-                            params: List::empty(),
+                            params: NodeList::empty(),
                             body: mock.empty_block()
                         })
                     },
