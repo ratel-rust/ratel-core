@@ -1,5 +1,5 @@
 use transformer::{Transformer, Transformable};
-use ast::{Statement, StatementPtr, StatementList};
+use ast::{Statement, StatementNode, StatementList};
 
 impl<'ast> Transformable<'ast> for StatementList<'ast> {
     #[inline]
@@ -10,7 +10,7 @@ impl<'ast> Transformable<'ast> for StatementList<'ast> {
     }
 }
 
-impl<'ast> Transformable<'ast> for StatementPtr<'ast> {
+impl<'ast> Transformable<'ast> for StatementNode<'ast> {
     fn transform(&self, t: &Transformer) {
         use self::Statement::*;
 

@@ -7,7 +7,7 @@ mod value;
 
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 use serde_json;
-use ast::{StatementList, Ptr, Loc, List};
+use ast::{StatementList, Node, Loc, List};
 use module::Module;
 
 struct Program<'ast> {
@@ -59,7 +59,7 @@ impl<'ast, T: 'ast> Serialize for List<'ast, T>
     }
 }
 
-impl<'ast, T: Serialize> Serialize for Ptr<'ast, T> {
+impl<'ast, T: Serialize> Serialize for Node<'ast, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {

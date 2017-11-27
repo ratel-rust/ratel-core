@@ -1,40 +1,57 @@
-pub mod expression;
+use toolshed::Arena;
+use toolshed::list::ListBuilder;
+use ast::{Loc, Node, NodeList};
 
-mod scope;
-// mod settings;
-// mod statement;
-// mod expression;
+pub mod es2015;
+pub mod es2016;
 
-use arena::Arena;
-// use module::Module;
-use ast::{Ptr, Loc};
+// mod scope;
 
-pub use self::scope::Scope;
+// use self::scope::Scope;
 
 pub struct Transformer<'ast> {
-    arena: &'ast Arena,
-    _scope: Scope<'ast>,
+    pub arena: &'ast Arena,
+    // _scope: Scope<'ast>,
 }
 
 impl<'ast> Transformer<'ast> {
     #[inline]
-    pub fn alloc<T, I>(&self, item: I) -> Ptr<'ast, T> where
+    pub fn alloc<T, I>(&self, item: I) -> Node<'ast, T> where
         T: Copy + 'ast,
         I: Into<T>,
     {
-        Ptr::new(self.arena.alloc(Loc::new(0, 0, item.into())))
+        Node::new(self.arena.alloc(Loc::new(0, 0, item.into())))
     }
 
     #[inline]
-    pub fn alloc_as_loc<T, I, L>(&self, loc: Ptr<'ast, L>, item: I) -> Ptr<'ast, T> where
+    pub fn alloc_as_loc<T, I, L>(&self, loc: Node<'ast, L>, item: I) -> Node<'ast, T> where
         T: Copy + 'ast,
         I: Into<T>,
     {
-        Ptr::new(self.arena.alloc(Loc::new(loc.start, loc.end, item.into())))
+        Node::new(self.arena.alloc(Loc::new(loc.start, loc.end, item.into())))
     }
 
     #[inline]
-    pub fn swap<T, I>(&self, ptr: &Ptr<'ast, T>, item: I) where
+    pub fn list<T, I>(&mut self, source: I) -> NodeList<'ast, T> where
+        T: 'ast + Copy,
+        I: AsRef<[Node<'ast, T>]>
+    {
+        let mut iter = source.as_ref().into_iter();
+
+        let mut builder = match iter.next() {
+            Some(item) => ListBuilder::new(self.arena, *item),
+            None       => return NodeList::empty(),
+        };
+
+        for item in iter {
+            builder.push(*item);
+        }
+
+        builder.into_list()
+    }
+
+    #[inline]
+    pub fn swap<T, I>(&self, ptr: &Node<'ast, T>, item: I) where
         T: Copy + 'ast,
         I: Into<T>,
     {

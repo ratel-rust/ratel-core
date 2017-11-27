@@ -1,8 +1,7 @@
 extern crate serde;
+extern crate toolshed;
 
-#[macro_use]
 pub mod ast;
-pub mod arena;
 pub mod module;
 pub mod error;
 pub mod lexer;

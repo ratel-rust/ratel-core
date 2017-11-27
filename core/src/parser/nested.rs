@@ -1,12 +1,13 @@
+use toolshed::list::ListBuilder;
 use parser::Parser;
 use lexer::Token::*;
-use ast::{List, ListBuilder, OperatorKind, Expression, ExpressionPtr};
+use ast::{NodeList, OperatorKind, Expression, ExpressionNode};
 use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression, CallExpression, BinaryExpression};
 use ast::expression::{PostfixExpression, ConditionalExpression};
 use ast::OperatorKind::*;
 
 
-type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionPtr<'ast>) -> ExpressionPtr<'ast>>;
+type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>) -> ExpressionNode<'ast>>;
 pub type Lookup = &'static [NestedHandler; 108];
 
 /// All potential tokens, including Comma for sequence expressions
@@ -288,7 +289,7 @@ const ARRW: NestedHandler = Some(|par, left| {
 
     let params = match left.item {
         Expression::Sequence(SequenceExpression { body }) => body,
-        _ => List::from(par.arena, left)
+        _ => NodeList::from(par.arena, left)
     };
 
     return par.arrow_function_expression(params);
@@ -341,7 +342,7 @@ const TPLE: NestedHandler = Some(|par, left| {
 macro_rules! binary {
     ($name:ident, $bp:expr => $op:ident) => {
         const $name: NestedHandler = {
-            fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionPtr<'ast>) -> ExpressionPtr<'ast> {
+            fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
                 par.lexer.consume();
 
                 let right = par.expression($bp);
@@ -399,7 +400,7 @@ binary!(EXPN , B15 => Exponent);
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn nested_expression(&mut self, mut left: ExpressionPtr<'ast>, lookup: Lookup) -> ExpressionPtr<'ast> {
+    pub fn nested_expression(&mut self, mut left: ExpressionNode<'ast>, lookup: Lookup) -> ExpressionNode<'ast> {
         loop {
             left = match lookup[self.lexer.token as usize] {
                 Some(handler) => handler(self, left),

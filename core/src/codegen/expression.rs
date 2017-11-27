@@ -1,5 +1,5 @@
 use codegen::{ToCode, Generator};
-use ast::{Loc, Expression, Literal, OperatorKind, Property, PropertyKey, Pattern};
+use ast::{Expression, Literal, OperatorKind, Property, PropertyKey, Pattern};
 use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
 use ast::expression::{ObjectExpression, TemplateExpression, CallExpression, BinaryExpression};
 use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression};
@@ -14,7 +14,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
         match *self {
             Error                        => panic!("Module contains errors"),
             Void                         => {},
-            This                         => gen.write_bytes(b"this"),
+            This(_)                      => gen.write_bytes(b"this"),
             Identifier(ref ident)        => gen.write(ident),
             Literal(ref value)           => gen.write(value),
             Sequence(ref sequence)       => gen.write(sequence),
@@ -232,15 +232,15 @@ impl<'ast, G: Generator> ToCode<G> for TemplateExpression<'ast> {
         gen.write_byte(b'`');
 
         match self.quasis.only_element() {
-            Some(ref quasi) => gen.write(quasi),
+            Some(quasi) => gen.write(quasi),
             None => {
                 let mut quasis = self.quasis.iter();
 
-                if let Some(ref quasi) = quasis.next() {
+                if let Some(quasi) = quasis.next() {
                     gen.write(quasi);
                 }
 
-                for (ref quasi, ref expression) in quasis.zip(&self.expressions) {
+                for (quasi, expression) in quasis.zip(&self.expressions) {
                     gen.write_bytes(b"${");
                     gen.write_pretty(b' ');
                     gen.write(expression);
@@ -276,8 +276,8 @@ impl<'ast, G: Generator> ToCode<G> for ArrowBody<'ast> {
 impl<'ast, G: Generator> ToCode<G> for ArrowExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        match self.params.only_element() {
-            Some(&Loc { item: Pattern::Identifier(ref ident), .. }) => gen.write(ident),
+        match self.params.only_element().map(|el| &el.item) {
+            Some(&Pattern::Identifier(ref ident)) => gen.write(ident),
             _ => {
                 gen.write_byte(b'(');
                 gen.write_list(&self.params);
@@ -301,7 +301,7 @@ impl<'ast, G: Generator> ToCode<G> for ObjectExpression<'ast> {
                 gen.write_byte(b'{');
                 gen.indent();
                 gen.new_line();
-                gen.write(&property);
+                gen.write(property);
             },
             None => {
                 gen.write_bytes(b"{}");
