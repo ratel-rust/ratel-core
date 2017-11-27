@@ -1,4 +1,4 @@
-use ast::{List, ExpressionNode, Function, Name, OptionalName, Block};
+use ast::{NodeList, ExpressionNode, Function, Name, OptionalName, Block};
 use ast::expression::{ArrowExpression, ArrowBody};
 use ast::statement::ReturnStatement;
 use transformer::Transformer;
@@ -18,7 +18,7 @@ impl<'ast> StaticVisitor<'ast> for TransformArrow {
                 });
 
                 t.alloc_as_loc(ret, Block {
-                    body: List::from(t.arena, ret)
+                    body: NodeList::from(t.arena, ret)
                 })
             }
         };

@@ -1,5 +1,6 @@
 use toolshed::Arena;
-use ast::{Node, Loc, List, ListBuilder};
+use toolshed::list::ListBuilder;
+use ast::{Loc, Node, NodeList};
 
 pub mod es2015;
 pub mod es2016;
@@ -31,7 +32,7 @@ impl<'ast> Transformer<'ast> {
     }
 
     #[inline]
-    pub fn list<T, I>(&mut self, source: I) -> List<'ast, T> where
+    pub fn list<T, I>(&mut self, source: I) -> NodeList<'ast, T> where
         T: 'ast + Copy,
         I: AsRef<[Node<'ast, T>]>
     {
@@ -39,7 +40,7 @@ impl<'ast> Transformer<'ast> {
 
         let mut builder = match iter.next() {
             Some(item) => ListBuilder::new(self.arena, *item),
-            None       => return List::empty(),
+            None       => return NodeList::empty(),
         };
 
         for item in iter {

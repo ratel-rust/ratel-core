@@ -1,4 +1,4 @@
-use ast::{Node, List, ExpressionList, StatementList, ExpressionNode};
+use ast::{Node, NodeList, ExpressionList, StatementList, ExpressionNode};
 use ast::{Literal, Pattern};
 
 use ast::expression::*;
@@ -121,7 +121,7 @@ impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
     }
 }
 
-impl<'ast, T> Visitable<'ast> for List<'ast, T> where
+impl<'ast, T> Visitable<'ast> for NodeList<'ast, T> where
     T: Visitable<'ast, Parent = Node<'ast, T>>,
 {
     type Parent = NoParent;
@@ -143,8 +143,8 @@ impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
         where V: Visitor<'ast>
     {
-        for ptr in self.ptr_iter() {
-            ptr.visit(visitor, ctx);
+        for node in self.iter() {
+            node.visit(visitor, ctx);
         }
     }
 }
@@ -157,8 +157,8 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
         where V: Visitor<'ast>
     {
         visitor.enter_scope(self, &(), ctx);
-        for ptr in self.ptr_iter() {
-            ptr.visit(visitor, ctx);
+        for node in self.iter() {
+            node.visit(visitor, ctx);
         }
         visitor.leave_scope(self, &(), ctx);
     }
