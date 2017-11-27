@@ -1,4 +1,3 @@
-use astgen::generate_ast;
 /// Parses the given input string into an AST and compares it
 /// with the given JSON input.
 

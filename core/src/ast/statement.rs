@@ -1,3 +1,4 @@
+use serde::ser::{Serialize, Serializer, SerializeStruct};
 use ast::{Ptr, List, DeclarationKind, Function, Class, MandatoryName, IdentifierPtr};
 use ast::{ExpressionPtr, StatementPtr, StatementList, Block, BlockPtr, Pattern};
 

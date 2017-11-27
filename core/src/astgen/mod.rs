@@ -7,11 +7,12 @@ mod value;
 
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 use serde_json;
-use ast::{StatementList, Ptr, Loc, List};
+use ast::{Statement, Ptr, Loc, List};
 use module::Module;
 
+#[derive(Debug)]
 struct Program<'ast> {
-    body: StatementList<'ast>,
+    body: List<'ast, Statement<'ast>>
 }
 
 pub trait SerializeInLoc {
@@ -39,6 +40,14 @@ impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     }
 }
 
+impl<'ast, T: Serialize> Serialize for Ptr<'ast, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        T::serialize(&**self, serializer)
+    }
+}
+
 impl<'ast> SerializeInLoc for Program<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
         where S: Serializer
@@ -50,7 +59,7 @@ impl<'ast> SerializeInLoc for Program<'ast> {
 }
 
 impl<'ast, T: 'ast> Serialize for List<'ast, T>
-    where T: Serialize
+    where T: SerializeInLoc
     {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
@@ -59,24 +68,17 @@ impl<'ast, T: 'ast> Serialize for List<'ast, T>
     }
 }
 
-impl<'ast, T: Serialize> Serialize for Ptr<'ast, T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
-    {
-        T::serialize(&**self, serializer)
-    }
-}
-
 pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
-    let body = module.body();
-    json!(Loc::new(0, 0, Program { body }))
+    let program = Program {
+        body: module.body()
+    };
+    json!(Loc::new(0, 0, program))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use parser::{parse};
-    use astgen::generate_ast;
 
     #[test]
     fn test_generate_ast() {
