@@ -6,19 +6,20 @@ mod function;
 mod value;
 
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use serde_json;
-use ast::{Statement, Ptr, Loc, List};
+use ast::{Loc, Node, NodeList, Statement, StatementList};
 use module::Module;
 
 #[derive(Debug)]
 struct Program<'ast> {
-    body: List<'ast, Statement<'ast>>
+    body: StatementList<'ast>,
 }
 
 pub trait SerializeInLoc {
     #[inline]
     fn in_loc<S, F>(&self, serializer: S, name: &'static str, length: usize, build: F) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer, F: FnOnce(&mut S::SerializeStruct) -> Result<(), S::Error>
+    where
+        S: Serializer,
+        F: FnOnce(&mut S::SerializeStruct) -> Result<(), S::Error>
     {
         let mut state = serializer.serialize_struct(name, length + 3)?;
         state.serialize_field("type", name)?;
@@ -26,12 +27,13 @@ pub trait SerializeInLoc {
     }
 
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer;
+    where S: Serializer;
 }
 
 impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
         let mut state = self.item.serialize(serializer)?;
         state.serialize_field("start", &self.start)?;
@@ -40,17 +42,19 @@ impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     }
 }
 
-impl<'ast, T: Serialize> Serialize for Ptr<'ast, T> {
+impl<'ast, T: SerializeInLoc> Serialize for Node<'ast, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
-        T::serialize(&**self, serializer)
+        Loc::<T>::serialize(&*self, serializer)
     }
 }
 
 impl<'ast> SerializeInLoc for Program<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
         self.in_loc(serializer, "Program", 1, |state| {
             state.serialize_field("body", &self.body)
@@ -58,16 +62,10 @@ impl<'ast> SerializeInLoc for Program<'ast> {
     }
 }
 
-impl<'ast, T: 'ast> Serialize for List<'ast, T>
-    where T: SerializeInLoc
-    {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
-    {
-        serializer.collect_seq(self.iter())
-    }
-}
+#[cfg(test)]
+use serde_json;
 
+#[cfg(test)]
 pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
     let program = Program {
         body: module.body()

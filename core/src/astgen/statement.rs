@@ -6,7 +6,8 @@ use ast::expression::Expression::Identifier;
 
 impl<'ast> SerializeInLoc for DeclarationStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "VariableDeclaration", 2, |state| {
             state.serialize_field("kind", &self.kind)?;
@@ -17,7 +18,8 @@ impl<'ast> SerializeInLoc for DeclarationStatement<'ast> {
 
 impl<'ast> SerializeInLoc for Declarator<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "VariableDeclarator", 2, |state| {
             state.serialize_field("id", &*self.id)?;
@@ -33,7 +35,8 @@ impl<'ast> SerializeInLoc for Declarator<'ast> {
 
 impl<'ast> Serialize for DeclarationKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where S: Serializer
+        where
+        S: Serializer,
     {
         use self::DeclarationKind::*;
         match *self {
@@ -46,7 +49,8 @@ impl<'ast> Serialize for DeclarationKind {
 
 impl<'ast> Serialize for ForInit<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         use self::ForInit::*;
 
@@ -62,7 +66,8 @@ impl<'ast> Serialize for ForInit<'ast> {
 
 impl<'ast> SerializeInLoc for TryStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "TryStatement", 3, |state| {
             state.serialize_field("block", &*self.block)?;
@@ -82,9 +87,11 @@ impl<'ast> SerializeInLoc for TryStatement<'ast> {
         })
     }
 }
+
 impl<'ast> SerializeInLoc for CatchClause<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "CatchClause", 2, |state| {
             state.serialize_field("param", &*self.param)?;
@@ -93,9 +100,33 @@ impl<'ast> SerializeInLoc for CatchClause<'ast> {
     }
 }
 
+impl<'ast> SerializeInLoc for BlockStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "BlockStatement", 1, |state| {
+            state.serialize_field("body", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ForInit<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            ForInit::Declaration(ref declaration) => declaration.serialize(serializer),
+            ForInit::Expression(ref expression) => expression.item.serialize(serializer),
+        }
+    }
+}
+
 impl<'ast> SerializeInLoc for ForStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ForStatement", 4, |state| {
             // FIXME
@@ -125,7 +156,8 @@ impl<'ast> SerializeInLoc for ForStatement<'ast> {
 
 impl<'ast> SerializeInLoc for ForInStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ForInStatement", 3, |state| {
             state.serialize_field("left", &self.left)?;
@@ -137,7 +169,8 @@ impl<'ast> SerializeInLoc for ForInStatement<'ast> {
 
 impl<'ast> SerializeInLoc for ForOfStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ForOfStatement", 3, |state| {
             state.serialize_field("left", &self.left)?;
@@ -148,7 +181,8 @@ impl<'ast> SerializeInLoc for ForOfStatement<'ast> {
 }
 impl<'ast> SerializeInLoc for IfStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "IfStatement", 3, |state| {
             state.serialize_field("test", &*self.test)?;
@@ -166,7 +200,8 @@ impl<'ast> SerializeInLoc for IfStatement<'ast> {
 
 impl<'ast> SerializeInLoc for Statement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
       use self::Statement::*;
 

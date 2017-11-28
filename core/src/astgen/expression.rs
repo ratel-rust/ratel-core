@@ -37,19 +37,10 @@ fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
     }
 }
 
-impl<'ast, T: SerializeInLoc> SerializeInLoc for Block<'ast, T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
-    {
-        self.in_loc(serializer, "BlockStatement", 1, |state| {
-            state.serialize_field("body", &self.body)
-        })
-    }
-}
-
 impl<'ast> SerializeInLoc for SpreadExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         unimplemented!()
     }
@@ -57,7 +48,8 @@ impl<'ast> SerializeInLoc for SpreadExpression<'ast> {
 
 impl<'ast> SerializeInLoc for MemberExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         unimplemented!()
     }
@@ -65,7 +57,8 @@ impl<'ast> SerializeInLoc for MemberExpression<'ast> {
 
 impl<'ast> SerializeInLoc for ComputedMemberExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         unimplemented!()
     }
@@ -73,7 +66,8 @@ impl<'ast> SerializeInLoc for ComputedMemberExpression<'ast> {
 
 impl<'ast> SerializeInLoc for CallExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "CallExpression", 2, |state| {
             state.serialize_field("callee", &*self.callee)?;
@@ -84,7 +78,8 @@ impl<'ast> SerializeInLoc for CallExpression<'ast> {
 
 impl<'ast> SerializeInLoc for ConditionalExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ConditionalExpression", 3, |state| {
             state.serialize_field("test", &*self.test)?;
@@ -96,7 +91,8 @@ impl<'ast> SerializeInLoc for ConditionalExpression<'ast> {
 
 impl<'ast> Serialize for Loc<ArrowBody<'ast>> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         use self::ArrowBody::*;
         match self.item {
@@ -108,7 +104,8 @@ impl<'ast> Serialize for Loc<ArrowBody<'ast>> {
 
 impl<'ast> SerializeInLoc for ArrowExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ArrowFunctionExpression", 2, |state| {
             state.serialize_field("params", &self.params)?;
@@ -119,7 +116,8 @@ impl<'ast> SerializeInLoc for ArrowExpression<'ast> {
 
 impl<'ast> SerializeInLoc for SequenceExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "SequenceExpression", 1, |state| {
             state.serialize_field("expressions", &self.body)
@@ -129,7 +127,8 @@ impl<'ast> SerializeInLoc for SequenceExpression<'ast> {
 
 impl<'ast> SerializeInLoc for PrefixExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         let prefix = true;
         let expr_type = expression_type(self.operator, prefix);
@@ -164,7 +163,8 @@ impl<'ast> SerializeInLoc for PrefixExpression<'ast> {
 
 impl<'ast> SerializeInLoc for PostfixExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         let prefix = false;
         let expr_type = expression_type(self.operator, prefix);
@@ -178,7 +178,8 @@ impl<'ast> SerializeInLoc for PostfixExpression<'ast> {
 
 impl<'ast> SerializeInLoc for ObjectExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ObjectExpression", 1, |state| {
             state.serialize_field("properties", &self.body)
@@ -188,7 +189,8 @@ impl<'ast> SerializeInLoc for ObjectExpression<'ast> {
 
 impl<'ast> Serialize for OperatorKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         serializer.serialize_some(&self.as_str())
     }
@@ -196,7 +198,8 @@ impl<'ast> Serialize for OperatorKind {
 
 impl<'ast> SerializeInLoc for ArrayExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "ArrayExpression", 1, |state| {
             state.serialize_field("elements", &self.body)
@@ -206,7 +209,8 @@ impl<'ast> SerializeInLoc for ArrayExpression<'ast> {
 
 impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "BinaryExpression", 3, |state| {
             state.serialize_field("operator", &self.operator)?;
@@ -218,7 +222,8 @@ impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
 
 impl<'ast> SerializeInLoc for Expression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         use self::Expression::*;
 
@@ -226,7 +231,7 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
 
             Error { .. } => panic!("Module contains errors"),
             Void => unimplemented!(),
-            This => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
+            This(_) => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
             Identifier(ident) => {
                 self.in_loc(serializer, "Identifier", 1, |state| {
                     state.serialize_field("name", &ident)

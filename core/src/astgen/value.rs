@@ -57,17 +57,14 @@ impl<'ast> SerializeInLoc for TemplateExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
             where S: Serializer
     {
-        let mut quasis = self.quasis.ptr_iter().map(|q| {
+        let mut quasis = self.quasis.iter().map(|q| {
             let element = TemplateElement { tail: false, value: q.item };
             Loc::new(q.start, q.end, element)
         }).collect::<Vec<_>>();
 
-        // FIXME: Sets `tail` to `true` on the last TemplateElement.
-        let mut last = quasis.pop().unwrap();
-        last.item.tail = true;
-        quasis.push(last);
+        quasis.last_mut().map(|last| last.item.tail = true);
 
-        let expressions = self.expressions.iter().map(|q| *q).collect::<Vec<_>>();
+        let expressions = self.expressions.iter().map(|q| **q).collect::<Vec<_>>();
         // FIXME
         if let Some(tag) = self.tag {
             // FIXME

@@ -1,4 +1,4 @@
-use ast::{Loc, TypePtr, TypeList};
+use ast::{Loc, TypeNode, TypeList};
 
 static TYPE_ANY: &Loc<Type<'static>> = &Loc {
     start: 0,

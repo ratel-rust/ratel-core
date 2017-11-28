@@ -2,6 +2,7 @@
 
 extern crate test;
 extern crate ratel;
+extern crate toolshed;
 
 use test::Bencher;
 
@@ -102,7 +103,7 @@ fn parse_to_ast(b: &mut Bencher) {
 
 #[bench]
 fn tokenize(b: &mut Bencher) {
-    let arena = ratel::arena::Arena::new();
+    let arena = toolshed::Arena::new();
     let ptr = arena.alloc_str_zero_end(SOURCE);
     b.bytes = SOURCE.len() as u64;
 
@@ -130,14 +131,14 @@ fn tokenize(b: &mut Bencher) {
 //     });
 // }
 
-// #[bench]
-// fn codegen_from_ast(b: &mut Bencher) {
-//     let module = ratel::parser::parse(SOURCE).expect("Must parse");
-//     let output = ratel::codegen::codegen(&module, true);
+#[bench]
+fn codegen_from_ast(b: &mut Bencher) {
+    let module = ratel::parser::parse(SOURCE).expect("Must parse");
+    let output = ratel::codegen::codegen(&module, true);
 
-//     b.bytes = output.len() as u64;
+    b.bytes = output.len() as u64;
 
-//     b.iter(|| {
-//         ratel::codegen::codegen(&module, true)
-//     });
-// }
+    b.iter(|| {
+        ratel::codegen::codegen(&module, true)
+    });
+}
