@@ -70,7 +70,7 @@ impl<'ast> SerializeInLoc for TemplateExpression<'ast> {
             // FIXME
             let expr = Loc::new(0, 0, TemplateLiteral { quasis, expressions });
             self.in_loc(serializer, "TaggedTemplateExpression", 2, |state| {
-                state.serialize_field("tag", &*tag)?;
+                state.serialize_field("tag", &tag)?;
                 state.serialize_field("quasi", &expr)
             })
         } else {
@@ -478,11 +478,8 @@ mod test {
                         "tag": {
                             "type": "Identifier",
                             "name": "foo",
-                            // FIXME
-                            "start": 3,
-                            "end": 5
-                            // "start": 0,
-                            // "end": 3
+                            "start": 0,
+                            "end": 3
                         },
                         "quasi": {
                             "type": "TemplateLiteral",
@@ -503,7 +500,7 @@ mod test {
                             "start": 0,
                             "end": 0
                         },
-                        "start": 3,
+                        "start": 0,
                         "end": 5
                     },
                     "start": 0,

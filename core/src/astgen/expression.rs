@@ -70,7 +70,7 @@ impl<'ast> SerializeInLoc for CallExpression<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "CallExpression", 2, |state| {
-            state.serialize_field("callee", &*self.callee)?;
+            state.serialize_field("callee", &self.callee)?;
             state.serialize_field("arguments", &self.arguments)
         })
     }
@@ -82,9 +82,9 @@ impl<'ast> SerializeInLoc for ConditionalExpression<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "ConditionalExpression", 3, |state| {
-            state.serialize_field("test", &*self.test)?;
-            state.serialize_field("consequent", &*self.consequent)?;
-            state.serialize_field("alternate", &*self.alternate)
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)?;
+            state.serialize_field("alternate", &self.alternate)
         })
     }
 }
@@ -96,8 +96,8 @@ impl<'ast> Serialize for Loc<ArrowBody<'ast>> {
     {
         use self::ArrowBody::*;
         match self.item {
-            Expression(expression) => serializer.serialize_some(&*expression),
-            Block(expression) => serializer.serialize_some(&*expression),
+            Expression(ref expression) => serializer.serialize_some(expression),
+            Block(ref expression) => serializer.serialize_some(expression),
         }
     }
 }
@@ -136,16 +136,17 @@ impl<'ast> SerializeInLoc for PrefixExpression<'ast> {
         if let OperatorKind::New = self.operator {
             use self::Expression::*;
             match self.operand.item {
-                Call(CallExpression { callee, arguments }) => {
+                Call(CallExpression { ref callee, ref arguments }) => {
                     self.in_loc(serializer, expr_type, 2, |state| {
-                        state.serialize_field("callee", &*callee)?;
-                        state.serialize_field("arguments", &arguments)
+                        state.serialize_field("callee", callee)?;
+                        state.serialize_field("arguments", arguments)
                     })
                 },
                 Literal(_) => {
                     self.in_loc(serializer, expr_type, 2, |state| {
-                        let arguments: Vec<Loc<Expression>> = vec![];
-                        state.serialize_field("callee", &*self.operand)?;
+                        // 0 byte array, will be optimized away
+                        let arguments: [(); 0] = [];
+                        state.serialize_field("callee", &self.operand)?;
                         state.serialize_field("arguments", &arguments)
                     })
                 },
@@ -154,7 +155,7 @@ impl<'ast> SerializeInLoc for PrefixExpression<'ast> {
         } else {
             self.in_loc(serializer, expr_type, 3, |state| {
                 state.serialize_field("operator", &self.operator)?;
-                state.serialize_field("argument", &*self.operand)?;
+                state.serialize_field("argument", &self.operand)?;
                 state.serialize_field("prefix", &prefix)
             })
         }
@@ -170,7 +171,7 @@ impl<'ast> SerializeInLoc for PostfixExpression<'ast> {
         let expr_type = expression_type(self.operator, prefix);
         self.in_loc(serializer, expr_type, 3, |state| {
             state.serialize_field("operator", &self.operator)?;
-            state.serialize_field("argument", &*self.operand)?;
+            state.serialize_field("argument", &self.operand)?;
             state.serialize_field("prefix", &prefix)
         })
     }
@@ -214,8 +215,8 @@ impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
     {
         self.in_loc(serializer, "BinaryExpression", 3, |state| {
             state.serialize_field("operator", &self.operator)?;
-            state.serialize_field("left", &*self.left)?;
-            state.serialize_field("right", &*self.right)
+            state.serialize_field("left", &self.left)?;
+            state.serialize_field("right", &self.right)
         })
     }
 }
@@ -228,13 +229,12 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-
             Error { .. } => panic!("Module contains errors"),
             Void => unimplemented!(),
             This(_) => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
-            Identifier(ident) => {
+            Identifier(ref ident) => {
                 self.in_loc(serializer, "Identifier", 1, |state| {
-                    state.serialize_field("name", &ident)
+                    state.serialize_field("name", ident)
                 })
             },
             Literal(value) => value.serialize(serializer),
@@ -297,12 +297,11 @@ mod test {
                     "expression": {
                         "type": "Identifier",
                         "name": "foo",
-                        // FIXME
-                        "start": 3,
-                        "end": 4
+                        "start": 0,
+                        "end": 3
                     },
                     "start": 0,
-                    "end": 4,
+                    "end": 3,
                 }
               ],
               "start": 0,
@@ -433,21 +432,17 @@ mod test {
                         "left": {
                             "type": "Identifier",
                             "name": "a",
-                            // FIXME
-                            "start": 2,
-                            "end": 3
+                            "start": 0,
+                            "end": 1
                         },
                         "right": {
                             "type": "Literal",
                             "value": "0",
-                            // FIXME
                             "start": 4,
                             "end": 5
                         },
-                        "start": 2,
-                        // FIXME
+                        "start": 0,
                         "end": 5
-                        // "end": 11
                     },
                     "start": 0,
                     // FIXME
@@ -618,9 +613,8 @@ mod test {
                         "test": {
                             "type": "Identifier",
                             "name": "a",
-                            // FIXME
-                            "start": 2,
-                            "end": 3
+                            "start": 0,
+                            "end": 1
                         },
                         "consequent": {
                             "type": "Literal",
@@ -635,10 +629,10 @@ mod test {
                             "end": 16
                         },
                         "start": 0,
-                        "end": 0
+                        "end": 16
                     },
                     "start": 0,
-                    "end": 0
+                    "end": 16
                 }
               ],
               "start": 0,

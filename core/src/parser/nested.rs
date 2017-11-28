@@ -277,7 +277,7 @@ const COND: NestedHandler = Some(|par, left| {
     expect!(par, Colon);
     let alternate = par.expression(B4);
 
-    par.alloc_at_loc(0, 0, ConditionalExpression {
+    par.alloc_at_loc(left.start, alternate.end, ConditionalExpression {
         test: left,
         consequent: consequent,
         alternate: alternate,

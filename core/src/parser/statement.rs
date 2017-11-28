@@ -185,7 +185,9 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn labeled_or_expression_statement(&mut self) -> StatementNode<'ast> {
         let label = self.lexer.token_as_str();
-        let start = self.lexer.start_then_consume();
+        let (start, end) = self.lexer.loc();
+
+        self.lexer.consume();
 
         if self.lexer.token == Colon {
             self.lexer.consume();
@@ -198,7 +200,7 @@ impl<'ast> Parser<'ast> {
             });
         }
 
-        let expression = self.alloc_in_loc(label);
+        let expression = self.alloc_at_loc(start, end, label);
         let expression = self.nested_expression(expression, B0);
 
         self.expect_semicolon();

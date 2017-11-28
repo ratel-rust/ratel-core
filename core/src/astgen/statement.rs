@@ -22,13 +22,8 @@ impl<'ast> SerializeInLoc for Declarator<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "VariableDeclarator", 2, |state| {
-            state.serialize_field("id", &*self.id)?;
-            // FIXME
-            if let Some(value) = self.init {
-                state.serialize_field("init", &*value)
-            } else {
-                state.serialize_field("init", &())
-            }
+            state.serialize_field("id", &self.id)?;
+            state.serialize_field("init", &self.init)
         })
     }
 }
@@ -70,20 +65,9 @@ impl<'ast> SerializeInLoc for TryStatement<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "TryStatement", 3, |state| {
-            state.serialize_field("block", &*self.block)?;
-            // FIXME
-            if let Some(value) = self.handler {
-                state.serialize_field("handler", &*value)?;
-            } else {
-                state.serialize_field("handler", &())?;
-            }
-
-            // FIXME
-            if let Some(value) = self.finalizer {
-                state.serialize_field("finalizer", &*value)
-            } else {
-                state.serialize_field("finalizer", &())
-            }
+            state.serialize_field("block", &self.block)?;
+            state.serialize_field("handler", &self.handler)?;
+            state.serialize_field("finalizer", &self.finalizer)
         })
     }
 }
@@ -94,8 +78,8 @@ impl<'ast> SerializeInLoc for CatchClause<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "CatchClause", 2, |state| {
-            state.serialize_field("param", &*self.param)?;
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("param", &self.param)?;
+            state.serialize_field("body", &self.body)
         })
     }
 }
@@ -129,27 +113,10 @@ impl<'ast> SerializeInLoc for ForStatement<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "ForStatement", 4, |state| {
-            // FIXME
-            if let Some(value) = self.init {
-                state.serialize_field("init", &value)?;
-            } else {
-                state.serialize_field("init", &())?;
-            }
-
-            // FIXME
-            if let Some(value) = self.test {
-                state.serialize_field("test", &*value)?;
-            } else {
-                state.serialize_field("test", &())?;
-            }
-
-            // FIXME
-            if let Some(value) = self.update {
-                state.serialize_field("update", &*value)?;
-            } else {
-                state.serialize_field("update", &())?;
-            }
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("init", &self.init)?;
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("update", &self.update)?;
+            state.serialize_field("body", &self.body)
         })
     }
 }
@@ -161,8 +128,8 @@ impl<'ast> SerializeInLoc for ForInStatement<'ast> {
     {
         self.in_loc(serializer, "ForInStatement", 3, |state| {
             state.serialize_field("left", &self.left)?;
-            state.serialize_field("right", &*self.right)?;
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("right", &self.right)?;
+            state.serialize_field("body", &self.body)
         })
     }
 }
@@ -174,8 +141,8 @@ impl<'ast> SerializeInLoc for ForOfStatement<'ast> {
     {
         self.in_loc(serializer, "ForOfStatement", 3, |state| {
             state.serialize_field("left", &self.left)?;
-            state.serialize_field("right", &*self.right)?;
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("right", &self.right)?;
+            state.serialize_field("body", &self.body)
         })
     }
 }
@@ -185,14 +152,9 @@ impl<'ast> SerializeInLoc for IfStatement<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "IfStatement", 3, |state| {
-            state.serialize_field("test", &*self.test)?;
-            state.serialize_field("consequent", &*self.consequent)?;
-            // FIXME
-            if let Some(value) = self.alternate {
-                state.serialize_field("alternate", &*value)
-            } else {
-                state.serialize_field("alternate", &())
-            }
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)?;
+            state.serialize_field("alternate", &self.alternate)
         })
     }
 }
@@ -208,59 +170,43 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
       match *self {
         Error { .. } => panic!("Module contains errors"),
         Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
-        Expression(expression) => {
+        Expression(ref expression) => {
             self.in_loc(serializer, "ExpressionStatement", 1, |state| {
-                state.serialize_field("expression", &*expression)
+                state.serialize_field("expression", expression)
             })
         },
         Declaration(declaration) => declaration.serialize(serializer),
-        Return(ReturnStatement { value }) => {
+        Return(ReturnStatement { ref value }) => {
             self.in_loc(serializer, "ReturnStatement", 1, |state| {
-                // FIXME
-                if let Some(value) = value {
-                    state.serialize_field("argument", &*value)
-                } else {
-                    state.serialize_field("argument", &())
-                }
+                state.serialize_field("argument", value)
             })
         },
-        Break(BreakStatement { label }) => {
+        Break(BreakStatement { ref label }) => {
             self.in_loc(serializer, "BreakStatement", 1, |state| {
-                // FIXME
-                if let Some(value) = label {
-                    state.serialize_field("label", &*value)
-                } else {
-                    state.serialize_field("label", &())
-                }
+                state.serialize_field("label", label)
             })
         },
-        Continue(ContinueStatement { label }) => {
+        Continue(ContinueStatement { ref label }) => {
             self.in_loc(serializer, "ContinueStatement", 1, |state| {
-                // FIXME
-                if let Some(value) = label {
-                    // FIXME
-                    state.serialize_field("label", &Loc::new(value.start, value.end, Identifier(value.item)))
-                } else {
-                    state.serialize_field("label", &())
-                }
+                state.serialize_field("label", label)
             })
         },
-        Throw(ThrowStatement { value  }) => {
+        Throw(ThrowStatement { ref value }) => {
             self.in_loc(serializer, "ThrowStatement", 1, |state| {
-                state.serialize_field("argument", &*value)
+                state.serialize_field("argument", value)
             })
         },
         If(statement) => statement.serialize(serializer),
-        While(WhileStatement { test, body}) => {
+        While(WhileStatement { ref test, ref body }) => {
             self.in_loc(serializer, "WhileStatement", 2, |state| {
-                state.serialize_field("test", &*test)?;
-                state.serialize_field("body", &*body)
+                state.serialize_field("test", test)?;
+                state.serialize_field("body", body)
             })
         },
-        Do(DoStatement { body, test }) => {
+        Do(DoStatement { ref body, ref test }) => {
             self.in_loc(serializer, "DoWhileStatement", 2, |state| {
-                state.serialize_field("body", &*body)?;
-                state.serialize_field("test", &*test)
+                state.serialize_field("body", body)?;
+                state.serialize_field("test", test)
             })
         },
         For(statement) => statement.serialize(serializer),
@@ -307,11 +253,11 @@ mod test {
                     "expression": {
                         "type": "Identifier",
                         "name": "foo",
-                        "start": 3,
-                        "end": 4
+                        "start": 0,
+                        "end": 3
                     },
                     "start": 0,
-                    "end": 4,
+                    "end": 3,
                 }
               ],
               "start": 0,

@@ -1,6 +1,6 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 use astgen::SerializeInLoc;
-use ast::{Loc, Function, MandatoryName, OptionalName, EmptyName, ClassMember, Block};
+use ast::{Loc, Function, Class, Name, MandatoryName, OptionalName, EmptyName, ClassMember, Block};
 use ast::expression::ClassExpression;
 use ast::MethodKind;
 
@@ -33,8 +33,9 @@ impl<'ast> SerializeInLoc for ClassMember<'ast> {
                     state.serialize_field("kind", &kind)?;
                     state.serialize_field("static", &is_static)?;
                     state.serialize_field("computed", &false)?;
+                    // FIXME
                     state.serialize_field("key", &Loc::new(0, 0, key))?;
-                    state.serialize_field("value", &*value)
+                    state.serialize_field("value", &value)
                 })
             },
             Literal { is_static, key, value } => {
@@ -56,6 +57,24 @@ impl<'ast> SerializeInLoc for Block<'ast, ClassMember<'ast>> {
     }
 }
 
+pub trait NameType<'ast>: Name<'ast> {
+    const IN_CLASS: &'static str = "ClassExpression";
+    const IN_FUNCTION: &'static str = "FunctionExpression";
+}
+
+impl<'ast> NameType<'ast> for EmptyName {}
+
+impl<'ast> Serialize for EmptyName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_none()
+    }
+}
+
+impl<'ast> NameType<'ast> for OptionalName<'ast> {}
+
 impl<'ast> Serialize for OptionalName<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -65,67 +84,48 @@ impl<'ast> Serialize for OptionalName<'ast> {
     }
 }
 
+impl<'ast> NameType<'ast> for MandatoryName<'ast> {
+    const IN_CLASS: &'static str = "ClassDeclaration";
+    const IN_FUNCTION: &'static str = "FunctionDeclaration";
+}
+
 impl<'ast> Serialize for MandatoryName<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        (*self.0).serialize(serializer)
+        (self.0).serialize(serializer)
     }
 }
 
-impl<'ast> SerializeInLoc for ClassExpression<'ast> {
+impl<'ast, N> SerializeInLoc for Class<'ast, N>
+where
+    N: Serialize + NameType<'ast>,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
         S: Serializer,
     {
-        self.in_loc(serializer, "ClassExpression", 3, |state| {
+        self.in_loc(serializer, N::IN_CLASS, 3, |state| {
             state.serialize_field("id", &self.name)?;
-            if let Some(value) = self.extends {
-                state.serialize_field("superClass", &*value)?;
-            } else {
-                state.serialize_field("superClass", &())?
-            }
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("superClass", &self.extends)?;
+            state.serialize_field("body", &self.body)
         })
     }
 }
 
-impl<'ast> SerializeInLoc for Function<'ast, MandatoryName<'ast>> {
+impl<'ast, N> SerializeInLoc for Function<'ast, N>
+where
+    N: Serialize + NameType<'ast>,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
         S: Serializer,
     {
-        self.in_loc(serializer, "FunctionDeclaration", 3, |state| {
+        self.in_loc(serializer, N::IN_FUNCTION, 3, |state| {
             state.serialize_field("id", &self.name)?;
             state.serialize_field("params", &self.params)?;
-            state.serialize_field("body", &*self.body)
-        })
-    }
-}
-
-impl<'ast> SerializeInLoc for Function<'ast, OptionalName<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-    where
-        S: Serializer,
-    {
-        self.in_loc(serializer, "FunctionExpression", 3, |state| {
-            state.serialize_field("id", &self.name)?;
-            state.serialize_field("params", &self.params)?;
-            state.serialize_field("body", &*self.body)
-        })
-    }
-}
-
-impl<'ast> SerializeInLoc for Function<'ast, EmptyName> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-    where
-        S: Serializer,
-    {
-        self.in_loc(serializer, "FunctionExpression", 3, |state| {
-            state.serialize_field("id", &())?;
-            state.serialize_field("params", &self.params)?;
-            state.serialize_field("body", &*self.body)
+            state.serialize_field("body", &self.body)
         })
     }
 }
