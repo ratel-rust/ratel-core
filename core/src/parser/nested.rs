@@ -2,8 +2,7 @@ use toolshed::list::ListBuilder;
 use parser::Parser;
 use lexer::Token::*;
 use ast::{NodeList, OperatorKind, Expression, ExpressionNode};
-use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression, CallExpression, BinaryExpression};
-use ast::expression::{PostfixExpression, ConditionalExpression};
+use ast::expression::*;
 use ast::OperatorKind::*;
 
 
@@ -332,11 +331,16 @@ const CMEM: NestedHandler = Some(|par, left| {
 });
 
 const TPLS: NestedHandler = Some(|par, left| {
-    par.template_string(left)
+    let quasi = par.template_string();
+
+    par.alloc_at_loc(left.start, quasi.end, TaggedTemplateExpression {
+        tag: left,
+        quasi,
+    })
 });
 
 const TPLE: NestedHandler = Some(|par, left| {
-    par.template_expression(Some(left))
+    par.tagged_template_expression(left)
 });
 
 macro_rules! binary {

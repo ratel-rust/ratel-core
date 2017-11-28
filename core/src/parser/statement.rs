@@ -61,7 +61,11 @@ use parser::expression::handlers::{
 };
 
 create_handlers! {
-    const ____ = |par| return par.error();
+    const ____ = |par| {
+        let loc = par.lexer.start();
+        par.error::<()>();
+        par.alloc_at_loc(loc, loc, Statement::Empty)
+    };
     const EMPT = |par| {
         let stmt = par.alloc_in_loc(Statement::Empty);
         par.lexer.consume();
@@ -396,7 +400,11 @@ impl<'ast> Parser<'ast> {
 
                 (None, Some(block), block.end)
             },
-            _ => return self.error()
+            _ => {
+                self.error::<()>();
+
+                (None, None, block.end)
+            }
         };
 
         self.alloc_at_loc(start, end, TryStatement {

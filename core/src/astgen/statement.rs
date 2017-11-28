@@ -168,7 +168,6 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
       use self::Statement::*;
 
       match *self {
-        Error { .. } => panic!("Module contains errors"),
         Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
         Expression(ref expression) => {
             self.in_loc(serializer, "ExpressionStatement", 1, |state| {

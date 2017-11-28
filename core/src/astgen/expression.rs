@@ -229,7 +229,6 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Error { .. } => panic!("Module contains errors"),
             Void => unimplemented!(),
             This(_) => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
             Identifier(ref ident) => {
@@ -237,22 +236,23 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
                     state.serialize_field("name", ident)
                 })
             },
-            Literal(value) => value.serialize(serializer),
-            Array(value) => value.serialize(serializer),
-            Sequence(expression) => expression.serialize(serializer),
-            Binary(expression) => expression.serialize(serializer),
-            Prefix(expression) => expression.serialize(serializer),
-            Postfix(expression) => expression.serialize(serializer),
-            Object(expression) => expression.serialize(serializer),
-            Template(expression) => expression.serialize(serializer),
-            Spread(expression) => expression.serialize(serializer),
-            Member(expression) => expression.serialize(serializer),
-            ComputedMember(expression) => expression.serialize(serializer),
-            Call(expression) => expression.serialize(serializer),
-            Conditional(expression) => expression.serialize(serializer),
-            Arrow(expression) => expression.serialize(serializer),
-            Function(expression) => expression.serialize(serializer),
-            Class(expression) => expression.serialize(serializer),
+            Literal(ref value)             => value.serialize(serializer),
+            Array(ref value)               => value.serialize(serializer),
+            Sequence(ref expression)       => expression.serialize(serializer),
+            Binary(ref expression)         => expression.serialize(serializer),
+            Prefix(ref expression)         => expression.serialize(serializer),
+            Postfix(ref expression)        => expression.serialize(serializer),
+            Object(ref expression)         => expression.serialize(serializer),
+            Template(ref expression)       => expression.serialize(serializer),
+            TaggedTemplate(ref expression) => expression.serialize(serializer),
+            Spread(ref expression)         => expression.serialize(serializer),
+            Member(ref expression)         => expression.serialize(serializer),
+            ComputedMember(ref expression) => expression.serialize(serializer),
+            Call(ref expression)           => expression.serialize(serializer),
+            Conditional(ref expression)    => expression.serialize(serializer),
+            Arrow(ref expression)          => expression.serialize(serializer),
+            Function(ref expression)       => expression.serialize(serializer),
+            Class(ref expression)          => expression.serialize(serializer),
         }
     }
 }

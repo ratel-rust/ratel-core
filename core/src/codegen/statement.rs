@@ -12,7 +12,6 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
         use ast::Statement::*;
 
         match *self {
-            Error => panic!("Module contains errors"),
             Empty => {},
             Expression(ref expression) => {
                 if expression.is_allowed_as_bare_statement() {

@@ -13,7 +13,6 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
         use self::Statement::*;
 
         match self.item {
-            Error => panic!("Module contains errors"),
             Empty => {},
             Expression(ref expression)   => {
                 expression.visit(visitor, ctx);

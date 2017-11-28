@@ -117,7 +117,6 @@ pub type ClassStatement<'ast> = Class<'ast, MandatoryName<'ast>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Statement<'ast> {
-    Error,
     Empty,
     Expression(ExpressionNode<'ast>),
     Declaration(DeclarationStatement<'ast>),
