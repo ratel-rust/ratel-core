@@ -51,14 +51,32 @@ impl<'ast, T: SerializeInLoc> Serialize for Node<'ast, T> {
     }
 }
 
-impl<'ast> SerializeInLoc for Program<'ast> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+impl<'ast> Serialize for Program<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer
     {
-        self.in_loc(serializer, "Program", 1, |state| {
-            state.serialize_field("body", &self.body)
-        })
+        let mut start = 0;
+        let mut end = 0;
+        let mut iter = self.body.iter().peekable();
+
+        if let Some(node) = iter.next() {
+            start = node.start;
+            end = node.end;
+            while let Some(node) = iter.next() {
+                if iter.peek().is_none() {
+                    end = node.end;
+                }
+            }
+        }
+
+        let name = "Program";
+        let mut state = serializer.serialize_struct(name, 4)?;
+        state.serialize_field("type", &name)?;
+        state.serialize_field("body", &self.body)?;
+        state.serialize_field("start", &start)?;
+        state.serialize_field("end", &end)?;
+        state.end()
     }
 }
 
@@ -67,10 +85,9 @@ use serde_json;
 
 #[cfg(test)]
 pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
-    let program = Program {
+    json!(Program {
         body: module.body()
-    };
-    json!(Loc::new(0, 0, program))
+    })
 }
 
 #[cfg(test)]
@@ -95,7 +112,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 4,
         });
     }
 }

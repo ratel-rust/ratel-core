@@ -238,7 +238,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 1,
         });
     }
 
@@ -260,7 +260,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 3,
         });
     }
 
@@ -291,7 +291,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 5,
         });
 
         expect_parse!("let a", {
@@ -319,7 +319,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 5,
         });
 
         expect_parse!("const a", {
@@ -347,7 +347,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 7,
         });
 
         expect_parse!("const a = 2", {
@@ -380,7 +380,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 11,
         });
 
         expect_parse!("const [a] = [2]", {
@@ -428,7 +428,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 15,
         });
     }
 
@@ -445,7 +445,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 6,
         });
 
         expect_parse!("return foo;", {
@@ -465,7 +465,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 10,
         });
     }
 
@@ -482,7 +482,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 5,
         });
 
         expect_parse!("break foo;", {
@@ -501,7 +501,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 9,
         });
     }
 
@@ -518,7 +518,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 8
         });
 
         expect_parse!("continue foo;", {
@@ -537,7 +537,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 12,
         });
     }
 
@@ -559,7 +559,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 9,
         });
     }
 
@@ -588,7 +588,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 12,
         });
 
         expect_parse!("if (true) {} else {}", {
@@ -619,7 +619,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 20,
         });
     }
 
@@ -647,7 +647,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 16,
         });
     }
 
@@ -675,7 +675,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 19,
         });
     }
 
@@ -701,7 +701,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 11,
         });
 
         expect_parse!("for (i; i < 10; i++) {}", {
@@ -757,7 +757,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 23,
         });
 
         expect_parse!("for (key in {}) {}", {
@@ -788,7 +788,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
 
         expect_parse!("for (key of {}) {}", {
@@ -819,7 +819,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
     }
 
@@ -859,7 +859,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 19,
         });
     }
 
@@ -888,7 +888,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 3,
         });
     }
 
@@ -917,7 +917,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
 
         expect_parse!("function foo (a, value = true) {}", {
@@ -967,7 +967,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 33,
         });
     }
 }

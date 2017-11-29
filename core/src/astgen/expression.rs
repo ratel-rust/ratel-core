@@ -283,7 +283,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 4,
         });
     }
 
@@ -305,7 +305,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 3,
         });
     }
 
@@ -327,7 +327,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 5,
         });
     }
 
@@ -376,7 +376,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 21,
         });
     }
 
@@ -451,7 +451,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 5,
         });
 
         expect_parse!("new Foo();", {
@@ -636,7 +636,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 16,
         });
     }
 

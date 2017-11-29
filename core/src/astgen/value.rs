@@ -231,7 +231,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 9,
         });
     }
 
@@ -253,7 +253,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 4,
         });
     }
 
@@ -275,7 +275,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 4,
         });
     }
 
@@ -297,7 +297,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 5,
         });
     }
 
@@ -322,7 +322,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 1,
         });
 
         expect_parse!("0x0", {
@@ -343,7 +343,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 3,
         });
 
         expect_parse!("0b0", {
@@ -364,7 +364,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 3,
         });
     }
 
@@ -388,7 +388,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 5,
         });
     }
 
@@ -449,7 +449,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 2,
         });
 
         expect_parse!("foo``", {
@@ -491,7 +491,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 5,
         });
 
         expect_parse!("``", {
@@ -522,7 +522,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 2,
         });
 
         expect_parse!("`foo${bar}baz`", {
@@ -571,7 +571,7 @@ mod test {
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 14,
         });
     }
 }
