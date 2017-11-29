@@ -1,4 +1,3 @@
-#![allow(improper_ctypes)]
 #[macro_use]
 extern crate neon;
 extern crate ratel;
@@ -14,6 +13,13 @@ use neon::js::error::{JsError, Kind};
 use ratel::{parser, codegen, error, transformer};
 use error::{Error, ParseError};
 use ratel::{module, ast};
+use ratel::astgen::*;
+
+fn generate_ast(module: &module::Module) -> serde_json::Value {
+    json!(Program {
+        body: module.body()
+    })
+}
 
 fn ast(call: Call) -> JsResult<JsString> {
     let scope = call.scope;
@@ -33,7 +39,7 @@ fn ast(call: Call) -> JsResult<JsString> {
         Ok(module) => module,
     };
 
-    let result = ratel::astgen::generate_ast(&module);
+    let result = generate_ast(&module);
     let result = match minify.value () {
         true => serde_json::to_string_pretty(&result),
         false => serde_json::to_string(&result)
@@ -74,7 +80,7 @@ fn transform(call: Call) -> JsResult<JsString> {
         },
         Ok(module) => module,
     };
-    transformer::transform(&mut module, transformer::Settings::target_es5());
+    // transformer::transform(&mut module, transformer::Settings::target_es5());
     let out = codegen::codegen(&module, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())

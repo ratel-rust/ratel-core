@@ -10,8 +10,8 @@ use ast::{Loc, Node, NodeList, Statement, StatementList};
 use module::Module;
 
 #[derive(Debug)]
-struct Program<'ast> {
-    body: StatementList<'ast>,
+pub struct Program<'ast> {
+    pub body: StatementList<'ast>,
 }
 
 pub trait SerializeInLoc {
