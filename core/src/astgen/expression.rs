@@ -51,7 +51,12 @@ impl<'ast> SerializeInLoc for MemberExpression<'ast> {
     where
         S: Serializer,
     {
-        unimplemented!()
+        self.in_loc(serializer, "MemberExpression", 4, |state| {
+                state.serialize_field("type", &"MemberExpression")?;
+                state.serialize_field("object", &self.object)?;
+                state.serialize_field("property", &self.property)?;
+                state.serialize_field("computed", &false)
+        })
     }
 }
 

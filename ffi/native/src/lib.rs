@@ -30,7 +30,7 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
 #[inline]
 fn generate_ast(module: &Module, minify: bool) -> Result<String, serde_json::Error> {
     let program = Program {
-        body: module.body()
+        body: &module.body()
     };
     if minify {
         serde_json::to_string(&program)

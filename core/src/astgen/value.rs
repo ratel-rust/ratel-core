@@ -9,6 +9,7 @@ pub struct RegExLiteral<'ast> {
     pub flags: &'ast str
 }
 
+#[inline]
 pub fn parse_regex<'ast> (value: &'ast str) -> RegExLiteral<'ast> {
     let mut end = value.len() - 1;
     for index in (0..value.len()).rev() {
@@ -95,8 +96,11 @@ impl<'ast> SerializeInLoc for Property<'ast> {
             where S: Serializer
     {
         use self::Property::*;
-
-        match self {
+        match *self {
+            Shorthand(red) => {
+                let state = Expression::Identifier(red).serialize(serializer);
+                state
+            },
             _ => unimplemented!()
         }
     }

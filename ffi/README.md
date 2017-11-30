@@ -5,3 +5,9 @@
 ```
 npm test
 ```
+
+## Benches:
+
+```
+npm run benches
+```

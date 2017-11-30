@@ -11,7 +11,7 @@ use module::Module;
 
 #[derive(Debug)]
 pub struct Program<'ast> {
-    pub body: StatementList<'ast>,
+    pub body: &'ast StatementList<'ast>,
 }
 
 pub trait SerializeInLoc {
@@ -85,9 +85,9 @@ use serde_json;
 
 #[cfg(test)]
 pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
-    json!(Program {
-        body: module.body()
-    })
+    serde_json::to_value(Program {
+        body: &module.body()
+    }).unwrap()
 }
 
 #[cfg(test)]
@@ -96,7 +96,16 @@ mod test {
     use parser::{parse};
 
     #[test]
-    fn test_generate_ast() {
+    fn test_generate_ast_empty() {
+        expect_parse!("", {
+            "type": "Program",
+            "body": [],
+            "start": 0,
+            "end": 0,
+        });
+    }
+    #[test]
+    fn test_generate_ast_expression() {
         expect_parse!("this;", {
             "type": "Program",
             "body": [
