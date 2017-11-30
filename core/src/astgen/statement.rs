@@ -1,8 +1,20 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{Statement, Loc, Declarator, DeclarationKind};
+use ast::{Statement, Loc, Declarator, DeclarationKind, Block};
 use astgen::SerializeInLoc;
 use ast::statement::*;
 use ast::expression::Expression::Identifier;
+
+
+// TODO: DRY with BlockStatement
+impl<'ast> Serialize for Loc<Block<'ast, SwitchCase<'ast>>> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+            self.body.serialize(serializer)
+
+    }
+}
 
 impl<'ast> SerializeInLoc for DeclarationStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
@@ -11,7 +23,7 @@ impl<'ast> SerializeInLoc for DeclarationStatement<'ast> {
     {
         self.in_loc(serializer, "VariableDeclaration", 2, |state| {
             state.serialize_field("kind", &self.kind)?;
-            state.serialize_field("declarators", &self.declarators)
+            state.serialize_field("declarations", &self.declarators)
         })
     }
 }
@@ -95,6 +107,41 @@ impl<'ast> SerializeInLoc for BlockStatement<'ast> {
     }
 }
 
+impl<'ast> SerializeInLoc for LabeledStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "LabeledStatement", 2, |state| {
+            state.serialize_field("label", &self.label)?;
+            state.serialize_field("body", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for SwitchStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "SwitchStatement", 2, |state| {
+            state.serialize_field("discriminant", &self.discriminant)?;
+            state.serialize_field("cases", &*self.cases)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for SwitchCase<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "SwitchCase", 2, |state| {
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)
+        })
+    }
+}
 impl<'ast> SerializeInLoc for ForInit<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
@@ -213,10 +260,10 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
         ForOf(statement) => statement.serialize(serializer),
         Try(statement) => statement.serialize(serializer),
         Block(statement) => statement.serialize(serializer),
-        Labeled(_statement) => unimplemented!("Not implemented"),
+        Labeled(statement) => statement.serialize(serializer),
         Function(statement) => statement.serialize(serializer),
-        Class(_statement) => unimplemented!("Not implemented"),
-        Switch(_statement) => unimplemented!("Not implemented"),
+        Class(statement) => statement.serialize(serializer),
+        Switch(statement) => statement.serialize(serializer),
       }
     }
 }
@@ -272,7 +319,7 @@ mod test {
                 {
                     "type": "VariableDeclaration",
                     "kind": "var",
-                    "declarators": [
+                    "declarations": [
                         {
                             "type": "VariableDeclarator",
                             "id": {
@@ -300,7 +347,7 @@ mod test {
                 {
                     "type": "VariableDeclaration",
                     "kind": "let",
-                    "declarators": [
+                    "declarations": [
                         {
                             "type": "VariableDeclarator",
                             "id": {
@@ -328,7 +375,7 @@ mod test {
                 {
                     "type": "VariableDeclaration",
                     "kind": "const",
-                    "declarators": [
+                    "declarations": [
                         {
                             "type": "VariableDeclarator",
                             "id": {
@@ -356,7 +403,7 @@ mod test {
                 {
                     "type": "VariableDeclaration",
                     "kind": "const",
-                    "declarators": [
+                    "declarations": [
                         {
                             "type": "VariableDeclarator",
                             "id": {
@@ -389,7 +436,7 @@ mod test {
                 {
                     "type": "VariableDeclaration",
                     "kind": "const",
-                    "declarators": [
+                    "declarations": [
                         {
                             "type": "VariableDeclarator",
                             "id": {

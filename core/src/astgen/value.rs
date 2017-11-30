@@ -97,11 +97,35 @@ impl<'ast> SerializeInLoc for Property<'ast> {
     {
         use self::Property::*;
         match *self {
-            Shorthand(red) => {
-                let state = Expression::Identifier(red).serialize(serializer);
+            Shorthand(value) => {
+                let state = Expression::Identifier(value).serialize(serializer);
                 state
             },
-            _ => unimplemented!()
+            Literal { key, value } => {
+                println!("serialize Literal key {:?}", key);
+                println!("serialize Literal value {:?}", value);
+
+                let computed = if let PropertyKey::Computed(_) = key.item { true } else { false };
+
+                self.in_loc(serializer, "Property", 6, |state| {
+                    state.serialize_field("key", &*key)?;
+                    state.serialize_field("method", &false)?;
+                    state.serialize_field("shorthand", &false)?;
+                    state.serialize_field("computed", &computed)?;
+                    state.serialize_field("value", &value)?;
+                    state.serialize_field("kind", &"init")
+                })
+            },
+            Method { key, value } => {
+                self.in_loc(serializer, "Property", 6, |state| {
+                    state.serialize_field("key", &*key)?;
+                    state.serialize_field("method", &true)?;
+                    state.serialize_field("shorthand", &false)?;
+                    state.serialize_field("computed", &false)?;
+                    state.serialize_field("value", &value)?;
+                    state.serialize_field("kind", &"init")
+                })
+            }
         }
     }
 }
@@ -178,7 +202,12 @@ impl<'ast> SerializeInLoc for Pattern<'ast> {
                     state.serialize_field("left", &*left)?;
                     state.serialize_field("right", &*right)
                 })
-            }
+            },
+            RestElement { argument } => {
+                self.in_loc(serializer, "RestElement", 1, |state| {
+                    state.serialize_field("argument", &argument)
+                })
+            },
             _ => unimplemented!()
         }
     }
