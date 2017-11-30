@@ -7,7 +7,7 @@
   "license": "MIT",
   "dependencies": {
     "neon": "^2.0.0",
-    "neon-cli": "^0.1.20"
+    "neon-cli": "^0.1.22"
   },
   "devDependencies": {
     "mocha": "^4.0.1"

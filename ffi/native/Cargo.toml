@@ -11,13 +11,13 @@ crate-type = ["dylib"]
 path = "src/lib.rs"
 
 [build-dependencies]
-neon-build = "0.1.20"
+neon-build = "0.1.22"
 
 [dependencies.ratel]
 path = "../../core"
 
 [dependencies]
-neon = "0.1.20"
+neon = "0.1.22"
 serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_derive = "1.0"
