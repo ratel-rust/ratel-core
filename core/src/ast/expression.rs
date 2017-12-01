@@ -81,10 +81,15 @@ pub struct ConditionalExpression<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct TemplateExpression<'ast> {
-    pub tag: Option<ExpressionNode<'ast>>,
+pub struct TemplateLiteral<'ast> {
     pub expressions: ExpressionList<'ast>,
     pub quasis: NodeList<'ast, &'ast str>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct TaggedTemplateExpression<'ast> {
+    pub tag: ExpressionNode<'ast>,
+    pub quasi: Node<'ast, TemplateLiteral<'ast>>
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -115,7 +120,6 @@ pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Expression<'ast> {
-    Error,
     Void,
     This(ThisExpression),
     Identifier(Identifier<'ast>),
@@ -129,7 +133,8 @@ pub enum Expression<'ast> {
     Prefix(PrefixExpression<'ast>),
     Postfix(PostfixExpression<'ast>),
     Conditional(ConditionalExpression<'ast>),
-    Template(TemplateExpression<'ast>),
+    Template(TemplateLiteral<'ast>),
+    TaggedTemplate(TaggedTemplateExpression<'ast>),
     Spread(SpreadExpression<'ast>),
     Arrow(ArrowExpression<'ast>),
     Object(ObjectExpression<'ast>),
@@ -161,7 +166,8 @@ impl_from! {
     PrefixExpression<'ast> => Prefix,
     PostfixExpression<'ast> => Postfix,
     ConditionalExpression<'ast> => Conditional,
-    TemplateExpression<'ast> => Template,
+    TemplateLiteral<'ast> => Template,
+    TaggedTemplateExpression<'ast> => TaggedTemplate,
     SpreadExpression<'ast> => Spread,
     ArrowExpression<'ast> => Arrow,
     ObjectExpression<'ast> => Object,

@@ -13,7 +13,6 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
         use self::Expression::*;
 
         match self.item {
-            Error => panic!("Module contains errors"),
             Void => {},
             This(ref this) => {
                 visitor.on_this(this, self, ctx);
@@ -62,7 +61,11 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
             },
             Template(ref template) => {
                 template.visit(visitor, ctx);
-                visitor.on_template_expression(template, self, ctx);
+                visitor.on_template_literal(template, self, ctx);
+            },
+            TaggedTemplate(ref tagged) => {
+                tagged.visit(visitor, ctx);
+                visitor.on_tagged_template_expression(tagged, self, ctx);
             },
             Spread(ref spread) => {
                 spread.visit(visitor, ctx);
@@ -213,7 +216,18 @@ impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
     }
 }
 
-impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
+impl<'ast> Visitable<'ast> for TemplateLiteral<'ast> {
+    type Parent = ExpressionNode<'ast>;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+        where V: Visitor<'ast>
+    {
+        self.expressions.visit(visitor, ctx);
+    }
+}
+
+impl<'ast> Visitable<'ast> for TaggedTemplateExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
@@ -221,7 +235,7 @@ impl<'ast> Visitable<'ast> for TemplateExpression<'ast> {
         where V: Visitor<'ast>
     {
         self.tag.visit(visitor, ctx);
-        self.expressions.visit(visitor, ctx);
+        self.quasi.visit(visitor, ctx);
     }
 }
 

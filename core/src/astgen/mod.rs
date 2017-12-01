@@ -6,18 +6,20 @@ mod function;
 mod value;
 
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use serde_json;
-use ast::{StatementList, Node, Loc, List};
+use ast::{Loc, Node, NodeList, Statement, StatementList};
 use module::Module;
 
-struct Program<'ast> {
-    body: StatementList<'ast>,
+#[derive(Debug)]
+pub struct Program<'ast> {
+    pub body: &'ast StatementList<'ast>,
 }
 
 pub trait SerializeInLoc {
     #[inline]
     fn in_loc<S, F>(&self, serializer: S, name: &'static str, length: usize, build: F) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer, F: FnOnce(&mut S::SerializeStruct) -> Result<(), S::Error>
+    where
+        S: Serializer,
+        F: FnOnce(&mut S::SerializeStruct) -> Result<(), S::Error>
     {
         let mut state = serializer.serialize_struct(name, length + 3)?;
         state.serialize_field("type", name)?;
@@ -25,12 +27,13 @@ pub trait SerializeInLoc {
     }
 
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer;
+    where S: Serializer;
 }
 
 impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
         let mut state = self.item.serialize(serializer)?;
         state.serialize_field("start", &self.start)?;
@@ -39,47 +42,70 @@ impl<'ast, T: SerializeInLoc> Serialize for Loc<T> {
     }
 }
 
-impl<'ast> SerializeInLoc for Program<'ast> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
-    {
-        self.in_loc(serializer, "Program", 1, |state| {
-            state.serialize_field("body", &self.body)
-        })
-    }
-}
-
-impl<'ast, T: 'ast> Serialize for List<'ast, T>
-    where T: Serialize
-    {
+impl<'ast, T: SerializeInLoc> Serialize for Node<'ast, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
-        serializer.collect_seq(self.iter())
+        Loc::<T>::serialize(&*self, serializer)
     }
 }
 
-impl<'ast, T: Serialize> Serialize for Node<'ast, T> {
+impl<'ast> Serialize for Program<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer
     {
-        T::serialize(&**self, serializer)
+        let mut start = 0;
+        let mut end = 0;
+        let mut iter = self.body.iter().peekable();
+
+        if let Some(node) = iter.next() {
+            start = node.start;
+            end = node.end;
+            while let Some(node) = iter.next() {
+                if iter.peek().is_none() {
+                    end = node.end;
+                }
+            }
+        }
+
+        let name = "Program";
+        let mut state = serializer.serialize_struct(name, 4)?;
+        state.serialize_field("type", &name)?;
+        state.serialize_field("body", &self.body)?;
+        state.serialize_field("start", &start)?;
+        state.serialize_field("end", &end)?;
+        state.end()
     }
 }
 
+#[cfg(test)]
+use serde_json;
+
+#[cfg(test)]
 pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
-    let body = module.body();
-    json!(Loc::new(0, 0, Program { body }))
+    serde_json::to_value(Program {
+        body: &module.body()
+    }).unwrap()
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use parser::{parse};
-    use astgen::generate_ast;
 
     #[test]
-    fn test_generate_ast() {
+    fn test_generate_ast_empty() {
+        expect_parse!("", {
+            "type": "Program",
+            "body": [],
+            "start": 0,
+            "end": 0,
+        });
+    }
+    #[test]
+    fn test_generate_ast_expression() {
         expect_parse!("this;", {
             "type": "Program",
             "body": [
@@ -95,7 +121,7 @@ mod test {
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 4,
         });
     }
 }

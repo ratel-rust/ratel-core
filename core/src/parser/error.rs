@@ -12,41 +12,9 @@ pub trait ToError {
     fn to_error() -> Self;
 }
 
-impl<'ast> ToError for Statement<'ast> {
-    fn to_error() -> Self {
-        Statement::Error
-    }
-}
-
-impl<'ast> ToError for StatementNode<'ast> {
-    fn to_error() -> Self {
-        Node::new(&Loc {
-            start: 0,
-            end: 0,
-            item: Statement::Error
-        })
-    }
-}
-
 impl<'ast, I> ToError for Block<'ast, I> {
     fn to_error() -> Self {
         Block { body: NodeList::empty() }
-    }
-}
-
-impl<'ast> ToError for Expression<'ast> {
-    fn to_error() -> Self {
-        Expression::Error
-    }
-}
-
-impl<'ast> ToError for ExpressionNode<'ast> {
-    fn to_error() -> Self {
-        Node::new(&Loc {
-            start: 0,
-            end: 0,
-            item: Expression::Error
-        })
     }
 }
 

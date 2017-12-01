@@ -1,24 +1,105 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{StatementList, Statement, Loc, Expression, ExpressionNode};
-use ast::{Declarator, DeclaratorId};
-
-use astgen::function::ClassBody;
+use ast::{Statement, Loc, Declarator, DeclarationKind, Block};
 use astgen::SerializeInLoc;
+use ast::statement::*;
+use ast::expression::Expression::Identifier;
 
-#[derive(Debug)]
-struct CatchClause<'ast> {
-    param: ExpressionNode<'ast>,
-    body: StatementList<'ast>,
+
+// TODO: DRY with BlockStatement
+impl<'ast> Serialize for Loc<Block<'ast, SwitchCase<'ast>>> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+            self.body.serialize(serializer)
+
+    }
 }
 
-#[derive(Debug)]
-pub struct BlockStatement<'ast> {
-    pub body: StatementList<'ast>
+impl<'ast> SerializeInLoc for DeclarationStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "VariableDeclaration", 2, |state| {
+            state.serialize_field("kind", &self.kind)?;
+            state.serialize_field("declarations", &self.declarators)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for Declarator<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "VariableDeclarator", 2, |state| {
+            state.serialize_field("id", &self.id)?;
+            state.serialize_field("init", &self.init)
+        })
+    }
+}
+
+impl<'ast> Serialize for DeclarationKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+        S: Serializer,
+    {
+        use self::DeclarationKind::*;
+        match *self {
+            Const => serializer.serialize_str("const"),
+            Let => serializer.serialize_str("let"),
+            Var => serializer.serialize_str("var"),
+        }
+    }
+}
+
+impl<'ast> Serialize for ForInit<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use self::ForInit::*;
+
+        match *self {
+            Declaration(declaration) => {
+                let state = declaration.serialize(serializer)?;
+                state.end()
+            },
+            Expression(expression) => expression.serialize(serializer),
+        }
+    }
+}
+
+impl<'ast> SerializeInLoc for TryStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "TryStatement", 3, |state| {
+            state.serialize_field("block", &self.block)?;
+            state.serialize_field("handler", &self.handler)?;
+            state.serialize_field("finalizer", &self.finalizer)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for CatchClause<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "CatchClause", 2, |state| {
+            state.serialize_field("param", &self.param)?;
+            state.serialize_field("body", &self.body)
+        })
+    }
 }
 
 impl<'ast> SerializeInLoc for BlockStatement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         self.in_loc(serializer, "BlockStatement", 1, |state| {
             state.serialize_field("body", &self.body)
@@ -26,241 +107,174 @@ impl<'ast> SerializeInLoc for BlockStatement<'ast> {
     }
 }
 
-impl<'ast> Serialize for Loc<CatchClause<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+impl<'ast> SerializeInLoc for LabeledStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
     {
-        let mut state = serializer.serialize_struct("CatchClause", 5)?;
-        state.serialize_field("type", &"CatchClause")?;
-        state.serialize_field("param", &self.param)?;
-        let body = Loc::new(self.start, self.end, BlockStatement { body: self.body });
-        state.serialize_field("body", &body)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        self.in_loc(serializer, "LabeledStatement", 2, |state| {
+            state.serialize_field("label", &self.label)?;
+            state.serialize_field("body", &self.body)
+        })
     }
 }
 
-impl<'ast> Serialize for Loc<Declarator<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+impl<'ast> SerializeInLoc for SwitchStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
     {
-
-        let mut state = serializer.serialize_struct("VariableDeclarator", 4)?;
-        state.serialize_field("type", &"VariableDeclarator")?;
-        state.serialize_field("id", &Loc::new(self.start, self.end, self.name))?;
-        state.serialize_field("init", &self.value)?;
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+        self.in_loc(serializer, "SwitchStatement", 2, |state| {
+            state.serialize_field("discriminant", &self.discriminant)?;
+            state.serialize_field("cases", &*self.cases)
+        })
     }
 }
 
-impl<'ast> Serialize for Loc<DeclaratorId<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+impl<'ast> SerializeInLoc for SwitchCase<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
     {
-        match self.item {
-            DeclaratorId::Identifier(ident) => {
-                let value = &Loc::new(self.start, self.end, Expression::Identifier(ident));
-                serializer.serialize_some(value)
-            },
-            DeclaratorId::Pattern(expr) => {
-                match expr.item {
-                    Expression::Array { body } => {
-                        let mut state = serializer.serialize_struct("ArrayPattern", 4)?;
-                        state.serialize_field("type", &"ArrayPattern")?;
-                        state.serialize_field("elements", &body)?;
-                        state.serialize_field("self", &self.start)?;
-                        state.serialize_field("end", &self.end)?;
-                        return state.end();
-                    },
-                    _ => {
-                        panic!("Unimplemented: ParameterKey::Pattern(expr)");
-                    }
-                }
-            }
+        self.in_loc(serializer, "SwitchCase", 2, |state| {
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)
+        })
+    }
+}
+impl<'ast> SerializeInLoc for ForInit<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            ForInit::Declaration(ref declaration) => declaration.serialize(serializer),
+            ForInit::Expression(ref expression) => expression.item.serialize(serializer),
         }
     }
 }
 
-impl<'ast> Serialize for Loc<Statement<'ast>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+impl<'ast> SerializeInLoc for ForStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ForStatement", 4, |state| {
+            state.serialize_field("init", &self.init)?;
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("update", &self.update)?;
+            state.serialize_field("body", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ForInStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ForInStatement", 3, |state| {
+            state.serialize_field("left", &self.left)?;
+            state.serialize_field("right", &self.right)?;
+            state.serialize_field("body", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ForOfStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ForOfStatement", 3, |state| {
+            state.serialize_field("left", &self.left)?;
+            state.serialize_field("right", &self.right)?;
+            state.serialize_field("body", &self.body)
+        })
+    }
+}
+impl<'ast> SerializeInLoc for IfStatement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "IfStatement", 3, |state| {
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)?;
+            state.serialize_field("alternate", &self.alternate)
+        })
+    }
+}
+
+
+impl<'ast> SerializeInLoc for Statement<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
     {
       use self::Statement::*;
 
-      let mut state = match self.item {
-        Error { .. } => panic!("Module contains errors"),
-        Empty => {
-            let mut state = serializer.serialize_struct("EmptyStatement", 3)?;
-            state.serialize_field("type", &"EmptyStatement")?;
-            state
+      match *self {
+        Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
+        Expression(ref expression) => {
+            self.in_loc(serializer, "ExpressionStatement", 1, |state| {
+                state.serialize_field("expression", expression)
+            })
         },
-        Expression { expression } => {
-            let mut state = serializer.serialize_struct("ExpressionStatement", 4)?;
-            state.serialize_field("type", &"ExpressionStatement")?;
-            state.serialize_field("expression", &expression)?;
-            state
+        Declaration(declaration) => declaration.serialize(serializer),
+        Return(ReturnStatement { ref value }) => {
+            self.in_loc(serializer, "ReturnStatement", 1, |state| {
+                state.serialize_field("argument", value)
+            })
         },
-        Declaration { kind, declarators } => {
-            let mut state = serializer.serialize_struct("VariableDeclaration", 5)?;
-            state.serialize_field("type", &"VariableDeclaration")?;
-            state.serialize_field("kind", &kind)?;
-            state.serialize_field("declarations", &declarators)?;
-            state
+        Break(BreakStatement { ref label }) => {
+            self.in_loc(serializer, "BreakStatement", 1, |state| {
+                state.serialize_field("label", label)
+            })
         },
-        Return { value } => {
-            let mut state = serializer.serialize_struct("ReturnStatement", 4)?;
-            state.serialize_field("type", &"ReturnStatement")?;
-            state.serialize_field("argument", &value)?;
-            state
+        Continue(ContinueStatement { ref label }) => {
+            self.in_loc(serializer, "ContinueStatement", 1, |state| {
+                state.serialize_field("label", label)
+            })
         },
-        Break { label } => {
-            let mut state = serializer.serialize_struct("BreakStatement", 4)?;
-            state.serialize_field("type", &"BreakStatement")?;
-            state.serialize_field("label", &label)?;
-            state
+        Throw(ThrowStatement { ref value }) => {
+            self.in_loc(serializer, "ThrowStatement", 1, |state| {
+                state.serialize_field("argument", value)
+            })
         },
-        Throw { value } => {
-            let mut state = serializer.serialize_struct("ThrowStatement", 4)?;
-            state.serialize_field("type", &"ThrowStatement")?;
-            state.serialize_field("argument", &value)?;
-            state
+        If(statement) => statement.serialize(serializer),
+        While(WhileStatement { ref test, ref body }) => {
+            self.in_loc(serializer, "WhileStatement", 2, |state| {
+                state.serialize_field("test", test)?;
+                state.serialize_field("body", body)
+            })
         },
-        If { test, consequent, alternate } => {
-            let mut state = serializer.serialize_struct("IfStatement", 6)?;
-            state.serialize_field("type", &"IfStatement")?;
-            state.serialize_field("test", &test)?;
-            state.serialize_field("consequent", &consequent)?;
-            state.serialize_field("alternate", &alternate)?;
-            state
+        Do(DoStatement { ref body, ref test }) => {
+            self.in_loc(serializer, "DoWhileStatement", 2, |state| {
+                state.serialize_field("body", body)?;
+                state.serialize_field("test", test)
+            })
         },
-        While { test, body } => {
-            let mut state = serializer.serialize_struct("WhileStatement", 5)?;
-            state.serialize_field("type", &"WhileStatement")?;
-            state.serialize_field("test", &test)?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        Do { body, test } => {
-            let mut state = serializer.serialize_struct("DoWhileStatement", 5)?;
-            state.serialize_field("type", &"DoWhileStatement")?;
-            state.serialize_field("body", &body)?;
-            state.serialize_field("test", &test)?;
-            state
-        },
-        For { init, test, update, body } => {
-            let mut state = serializer.serialize_struct("ForStatement", 7)?;
-            state.serialize_field("type", &"ForStatement")?;
-            state.serialize_field("init", &init)?;
-            state.serialize_field("test", &test)?;
-            state.serialize_field("update", &update)?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        ForIn { left, right, body } => {
-            let mut state = serializer.serialize_struct("ForInStatement", 6)?;
-            state.serialize_field("type", &"ForInStatement")?;
-            state.serialize_field("left", &left)?;
-            state.serialize_field("right", &right)?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        ForOf { left, right, body } => {
-            let mut state = serializer.serialize_struct("ForOfStatement", 6)?;
-            state.serialize_field("type", &"ForOfStatement")?;
-            state.serialize_field("left", &left)?;
-            state.serialize_field("right", &right)?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        Try { body, error, handler } => {
-            let mut state = serializer.serialize_struct("TryStatement", 5)?;
-            state.serialize_field("type", &"TryStatement")?;
-            state.serialize_field("block", &Loc::new(self.start, self.end, BlockStatement { body: body }))?;
-            let handler = Loc::new(self.start, self.end, CatchClause {
-                param: error,
-                body: handler
-            });
-
-            state.serialize_field("handler", &handler)?;
-            state
-        },
-        Block { body } => {
-            let mut state = serializer.serialize_struct("BlockStatement", 4)?;
-            state.serialize_field("type", &"BlockStatement")?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        Labeled { label, body } => {
-            let mut state = serializer.serialize_struct("LabeledStatement", 5)?;
-            state.serialize_field("type", &"LabeledStatement")?;
-            state.serialize_field("label", &label)?;
-            state.serialize_field("body", &body)?;
-            state
-        },
-        Function { function } => {
-            let mut state = serializer.serialize_struct("FunctionDeclaration", 6)?;
-            state.serialize_field("type", &"FunctionDeclaration")?;
-            state.serialize_field("id", &function.name)?;
-            state.serialize_field("params", &function.params)?;
-
-            match function.body.only_element() {
-                Some(&Loc { item: Block { .. } , .. }) => {
-                    state.serialize_field("body", &function.body)?;
-                },
-                _ => {
-                    let body = BlockStatement { body: function.body };
-                    state.serialize_field("body", &Loc::new(self.start, self.end, body))?;
-                }
-            };
-            state
-        },
-        Class { class } => {
-            let mut state = serializer.serialize_struct("ClassDeclaration", 6)?;
-            state.serialize_field("type", &"ClassDeclaration")?;
-            state.serialize_field("id", &class.name)?;
-            state.serialize_field("superClass", &class.extends)?;
-            state.serialize_field("body", &Loc::new(self.start, self.end, ClassBody { body: class.body }))?;
-            state
-        },
-        Continue { label } => {
-            let mut state = serializer.serialize_struct("ContinueStatement", 4)?;
-            state.serialize_field("type", &"ContinueStatement")?;
-            state.serialize_field("label", &label)?;
-            state
-        },
-        Switch { discriminant, cases } => {
-            let mut state = serializer.serialize_struct("SwitchStatement", 5)?;
-            state.serialize_field("type", &"SwitchStatement")?;
-            state.serialize_field("discriminant", &discriminant)?;
-            state.serialize_field("cases", &cases)?;
-            state
-        },
-        SwitchCase { test, consequent } => {
-            let mut state = serializer.serialize_struct("SwitchCase", 5)?;
-            state.serialize_field("type", &"SwitchCase")?;
-            state.serialize_field("test", &test)?;
-            state.serialize_field("consequent", &consequent)?;
-            state
-        }
-      };
-
-      state.serialize_field("start", &self.start)?;
-      state.serialize_field("end", &self.end)?;
-      state.end()
+        For(statement) => statement.serialize(serializer),
+        ForIn(statement) => statement.serialize(serializer),
+        ForOf(statement) => statement.serialize(serializer),
+        Try(statement) => statement.serialize(serializer),
+        Block(statement) => statement.serialize(serializer),
+        Labeled(statement) => statement.serialize(serializer),
+        Function(statement) => statement.serialize(serializer),
+        Class(statement) => statement.serialize(serializer),
+        Switch(statement) => statement.serialize(serializer),
+      }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use parser::{parse};
     use astgen::generate_ast;
 
     #[test]
-    fn test_empty_statement() {
+    fn test_statement_empty() {
         expect_parse!(";", {
             "type": "Program",
             "body": [
@@ -269,36 +283,36 @@ mod test {
                     "start": 0,
                     "end": 1,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 1,
         });
     }
 
     #[test]
-    fn test_expression_statement() {
-        expect_parse!("true;", {
+    fn test_statement_expression_statement() {
+        expect_parse!("foo;", {
             "type": "Program",
             "body": [
                 {
                     "type": "ExpressionStatement",
                     "expression": {
-                        "type": "Literal",
-                        "value": true,
+                        "type": "Identifier",
+                        "name": "foo",
                         "start": 0,
-                        "end": 4,
+                        "end": 3
                     },
                     "start": 0,
-                    "end": 4,
+                    "end": 3,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 3,
         });
     }
 
     #[test]
-    fn test_declaration_statement() {
+    fn test_declaration_statement () {
         expect_parse!("var a", {
             "type": "Program",
             "body": [
@@ -311,105 +325,293 @@ mod test {
                             "id": {
                                 "type": "Identifier",
                                 "name": "a",
-                                "start": 0,
-                                "end": 0,
+                                "start": 4,
+                                "end": 5
                             },
                             "init": null,
-                            "start": 0,
-                            "end": 0,
+                            "start": 4,
+                            "end": 5,
                         }
                     ],
                     "start": 0,
-                    "end": 0,
+                    "end": 5,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 5,
+        });
+
+        expect_parse!("let a", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "let",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 4,
+                                "end": 5
+                            },
+                            "init": null,
+                            "start": 4,
+                            "end": 5,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 5,
+                }
+              ],
+              "start": 0,
+              "end": 5,
+        });
+
+        expect_parse!("const a", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7
+                            },
+                            "init": null,
+                            "start": 6,
+                            "end": 7,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 7,
+                }
+              ],
+              "start": 0,
+              "end": 7,
+        });
+
+        expect_parse!("const a = 2", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7
+                            },
+                            "init": {
+                                "type": "Literal",
+                                "value": "2",
+                                "start": 10,
+                                "end": 11
+                            },
+                            "start": 6,
+                            "end": 11,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 11,
+                }
+              ],
+              "start": 0,
+              "end": 11,
+        });
+
+        expect_parse!("const [a] = [2]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "ArrayPattern",
+                                "elements": [
+                                    {
+                                        "type": "Identifier",
+                                        "name": "a",
+                                        "start": 7,
+                                        "end": 8
+                                    }
+                                ],
+                                "start": 6,
+                                "end": 9
+                            },
+                            "init": {
+                                "type": "ArrayExpression",
+                                "elements": [
+                                    {
+                                        "type": "Literal",
+                                        "value": "2",
+                                        "start": 13,
+                                        "end": 14
+                                    }
+                                ],
+                                "start": 12,
+                                "end": 15
+
+                            },
+                            "start": 6,
+                            "end": 15,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 15,
+                }
+              ],
+              "start": 0,
+              "end": 15,
         });
     }
 
     #[test]
-    fn test_return_statement() {
-        expect_parse!("return null", {
+    fn test_statement_return_statement() {
+        expect_parse!("return;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ReturnStatement",
+                    "argument": null,
+                    "start": 0,
+                    "end": 6,
+                }
+              ],
+              "start": 0,
+              "end": 6,
+        });
+
+        expect_parse!("return foo;", {
             "type": "Program",
             "body": [
                 {
                     "type": "ReturnStatement",
                     "argument": {
-                        "type": "Literal",
-                        "value": "null",
+                        "type": "Identifier",
+                        "name": "foo",
+                        // FIXME
                         "start": 7,
-                        "end": 11,
+                        "end": 10
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 10,
                 }
-            ],
-            "start": 0,
-            "end": 0,
-        });
-        expect_parse!("return true", {
-            "type": "Program",
-            "body": [
-                {
-                    "type": "ReturnStatement",
-                    "argument": {
-                        "type": "Literal",
-                        "value": true,
-                        "start": 7,
-                        "end": 11,
-                    },
-                    "start": 0,
-                    "end": 0,
-                }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 10,
         });
     }
 
     #[test]
-    fn test_break_statement() {
-        expect_parse!("break", {
+    fn test_statement_break_statement() {
+        expect_parse!("break;", {
             "type": "Program",
             "body": [
                 {
                     "type": "BreakStatement",
                     "label": null,
                     "start": 0,
-                    "end": 0,
+                    "end": 5,
                 }
-            ],
-            "start": 0,
-            "end": 0,
-        }
-        );
+              ],
+              "start": 0,
+              "end": 5,
+        });
+
+        expect_parse!("break foo;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "BreakStatement",
+                    "label": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 6,
+                        "end": 9
+                    },
+                    "start": 0,
+                    "end": 9,
+                }
+              ],
+              "start": 0,
+              "end": 9,
+        });
     }
 
     #[test]
-    fn test_throw_statement() {
-        expect_parse!("throw a", {
+    fn test_statement_continue_statement() {
+        expect_parse!("continue;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ContinueStatement",
+                    "label": null,
+                    "start": 0,
+                    "end": 8,
+                }
+              ],
+              "start": 0,
+              "end": 8
+        });
+
+        expect_parse!("continue foo;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ContinueStatement",
+                    "label": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12
+                    },
+                    "start": 0,
+                    "end": 12,
+                }
+              ],
+              "start": 0,
+              "end": 12,
+        });
+    }
+
+    #[test]
+    fn test_statement_throw_statement() {
+        expect_parse!("throw foo;", {
             "type": "Program",
             "body": [
                 {
                     "type": "ThrowStatement",
                     "argument": {
                         "type": "Identifier",
-                        "name": "a",
+                        "name": "foo",
                         "start": 6,
-                        "end": 7,
+                        "end": 9
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 9,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 9,
         });
     }
 
     #[test]
-    fn test_if_statement() {
+    fn test_statement_if_statement() {
         expect_parse!("if (true) {}", {
             "type": "Program",
             "body": [
@@ -419,27 +621,24 @@ mod test {
                         "type": "Literal",
                         "value": true,
                         "start": 4,
-                        "end": 8,
+                        "end": 8
                     },
                     "consequent": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 10,
+                        "end": 12
                     },
                     "alternate": null,
                     "start": 0,
-                    "end": 0,
+                    "end": 12,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 12,
         });
-    }
 
-    #[test]
-    fn test_if_else_statement() {
-        expect_parse!("if (true) {} else { false }", {
+        expect_parse!("if (true) {} else {}", {
             "type": "Program",
             "body": [
                 {
@@ -448,44 +647,31 @@ mod test {
                         "type": "Literal",
                         "value": true,
                         "start": 4,
-                        "end": 8,
+                        "end": 8
                     },
                     "consequent": {
                         "type": "BlockStatement",
-                        "body": [
-                        ],
-                        "start": 0,
-                        "end": 0,
+                        "body": [],
+                        "start": 10,
+                        "end": 12
                     },
                     "alternate": {
                         "type": "BlockStatement",
-                        "body": [
-                            {
-                                "type": "ExpressionStatement",
-                                "expression": {
-                                    "type": "Literal",
-                                    "value": false,
-                                    "start": 20,
-                                    "end": 25,
-                                },
-                                "start": 20,
-                                "end": 25,
-                            }
-                        ],
-                        "start": 0,
-                        "end": 0,
+                        "body": [],
+                        "start": 18,
+                        "end": 20
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 20,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 20,
         });
     }
 
     #[test]
-    fn test_while_statement() {
+    fn test_while_statement () {
         expect_parse!("while (false) {}", {
             "type": "Program",
             "body": [
@@ -495,95 +681,74 @@ mod test {
                         "type": "Literal",
                         "value": false,
                         "start": 7,
-                        "end": 12,
+                        "end": 12
                     },
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 14,
+                        "end": 16
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 16,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 16,
         });
     }
 
     #[test]
-    fn test_do_statement() {
-        expect_parse!("do { true; } while (false)", {
+    fn test_do_statement () {
+        expect_parse!("do {} while (false)", {
             "type": "Program",
             "body": [
                 {
                     "type": "DoWhileStatement",
                     "body": {
                         "type": "BlockStatement",
-                        "body": [
-                            {
-                                "type": "ExpressionStatement",
-                                "expression": {
-                                    "type": "Literal",
-                                    "value": true,
-                                    "start": 5,
-                                    "end": 9,
-                                },
-                                "start":5,
-                                "end": 9,
-                            },
-                        ],
-                        "start": 0,
-                        "end": 0,
+                        "body": [],
+                        "start": 3,
+                        "end": 5
                     },
                     "test": {
                         "type": "Literal",
                         "value": false,
-                        "start": 20,
-                        "end": 25,
+                        "start": 13,
+                        "end": 18
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 19,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 19,
         });
     }
 
+
     #[test]
-    fn test_for_statement() {
-        expect_parse!("for (i;;) {}", {
+    fn test_for_statement () {
+        expect_parse!("for (;;) {}", {
             "type": "Program",
             "body": [
                 {
                     "type": "ForStatement",
-                    "init": {
-                        "type": "ExpressionStatement",
-                        "expression": {
-                            "type": "Identifier",
-                            "name": "i",
-                            "start": 5,
-                            "end": 6,
-                        },
-                        "start": 0,
-                        "end": 0,
-                    },
+                    "init": null,
                     "test": null,
                     "update": null,
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 9,
+                        "end": 11
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 11,
                 }
-            ],
-            "start": 0,
-            "end": 0,
+              ],
+              "start": 0,
+              "end": 11,
         });
 
         expect_parse!("for (i; i < 10; i++) {}", {
@@ -592,15 +757,10 @@ mod test {
                 {
                     "type": "ForStatement",
                     "init": {
-                        "type": "ExpressionStatement",
-                        "expression": {
-                            "type": "Identifier",
-                            "name": "i",
-                            "start": 5,
-                            "end": 6,
-                        },
-                        "start": 0,
-                        "end": 0,
+                        "type": "Identifier",
+                        "name": "i",
+                        "start": 5,
+                        "end": 6,
                     },
                     "test": {
                         "type": "BinaryExpression",
@@ -636,87 +796,77 @@ mod test {
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 21,
+                        "end": 23,
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 23,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 23,
         });
 
-        expect_parse!("for (key in {}) {} ", {
+        expect_parse!("for (key in {}) {}", {
             "type": "Program",
             "body": [
                 {
                     "type": "ForInStatement",
                     "left": {
-                        "type": "ExpressionStatement",
-                        "expression": {
-                            "type": "Identifier",
-                            "name": "key",
-                            "start": 5,
-                            "end": 8,
-                        },
-                        "start": 0,
-                        "end": 0,
+                        "type": "Identifier",
+                        "name": "key",
+                        "start": 5,
+                        "end": 8,
                     },
                     "right": {
                         "type": "ObjectExpression",
                         "properties": [],
-                        "start": 14,
-                        "end": 15,
+                        "start": 12,
+                        "end": 14,
                     },
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 16,
+                        "end": 18,
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 18,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
 
-        expect_parse!("for (key of {}) {} ", {
+        expect_parse!("for (key of {}) {}", {
             "type": "Program",
             "body": [
                 {
                     "type": "ForOfStatement",
                     "left": {
-                        "type": "ExpressionStatement",
-                        "expression": {
-                            "type": "Identifier",
-                            "name": "key",
-                            "start": 5,
-                            "end": 8,
-                        },
-                        "start": 0,
-                        "end": 0,
+                        "type": "Identifier",
+                        "name": "key",
+                        "start": 5,
+                        "end": 8,
                     },
                     "right": {
                         "type": "ObjectExpression",
                         "properties": [],
-                        "start": 14,
-                        "end": 15,
+                        "start": 12,
+                        "end": 14,
                     },
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 16,
+                        "end": 18,
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 18,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
     }
 
@@ -730,32 +880,33 @@ mod test {
                     "block": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 4,
+                        "end": 6,
                     },
                     "handler": {
                         "type": "CatchClause",
                         "param": {
                             "type": "Identifier",
                             "name": "e",
-                            "start": 15,
-                            "end": 16,
+                            "start": 14,
+                            "end": 15,
                         },
                         "body": {
                             "type": "BlockStatement",
                             "body": [],
-                            "start": 0,
-                            "end": 0,
+                            "start": 17,
+                            "end": 19,
                         },
-                        "start": 0,
-                        "end": 0,
+                        "start": 7,
+                        "end": 19,
                     },
+                    "finalizer": null,
                     "start": 0,
-                    "end": 0,
+                    "end": 19,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 19,
         });
     }
 
@@ -780,16 +931,13 @@ mod test {
                         }
                     ],
                     "start": 0,
-                    "end": 0,
+                    "end": 3,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 3,
         });
     }
-
-    #[test]
-    fn test_labeled_statement() {}
 
     #[test]
     fn test_function_statement() {
@@ -808,15 +956,15 @@ mod test {
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 16,
+                        "end": 18,
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 18,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 18,
         });
 
         expect_parse!("function foo (a, value = true) {}", {
@@ -834,16 +982,16 @@ mod test {
                         {
                             "type": "Identifier",
                             "name": "a",
-                            "start": 15,
-                            "end": 16
+                            "start": 14,
+                            "end": 15
                         },
                         {
                             "type": "AssignmentPattern",
                             "left": {
                                 "type": "Identifier",
                                 "name": "value",
-                                "start": 0,
-                                "end": 0
+                                "start": 17,
+                                "end": 22
                             },
                             "right": {
                                 "type": "Literal",
@@ -851,32 +999,22 @@ mod test {
                                 "start": 25,
                                 "end": 29,
                             },
-                            "start": 29,
-                            "end": 30
+                            "start": 17,
+                            "end": 29
                         }
                     ],
                     "body": {
                         "type": "BlockStatement",
                         "body": [],
-                        "start": 0,
-                        "end": 0,
+                        "start": 31,
+                        "end": 33,
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 33,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 33,
         });
     }
-
-    #[test]
-    fn test_class_statement() {}
-
-    #[test]
-    fn test_continue_statement() {}
-
-    #[test]
-    fn test_switch_statement() {}
-
 }

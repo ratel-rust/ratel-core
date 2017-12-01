@@ -7,6 +7,5 @@ pub enum Literal<'ast> {
     Number(&'ast str),
     Binary(&'ast str),
     String(&'ast str),
-    Template(&'ast str),
     RegEx(&'ast str),
 }

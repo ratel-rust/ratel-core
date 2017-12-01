@@ -96,7 +96,11 @@ macro_rules! create_handlers {
 }
 
 create_handlers! {
-    const ____ = |par| return par.error();
+    const ____ = |par| {
+        let loc = par.lexer.start();
+        par.error::<()>();
+        par.alloc_at_loc(loc, loc, Expression::Void)
+    };
 
     const VOID = |par| par.void_expression();
 
@@ -197,13 +201,17 @@ create_handlers! {
 
     pub const TPLS = |par| {
         let quasi = par.lexer.quasi;
-        let expr = par.alloc_in_loc(Literal::Template(quasi));
+        let quasi = par.alloc_in_loc(quasi);
 
         par.lexer.consume();
-        expr
+
+        par.alloc_at_loc(quasi.start, quasi.end, TemplateLiteral {
+            expressions: NodeList::empty(),
+            quasis: NodeList::from(par.arena, quasi)
+        })
     };
 
-    pub const TPLE = |par| par.template_expression(None);
+    pub const TPLE = |par| par.template_expression();
 }
 
 impl<'ast> Parser<'ast> {
@@ -463,37 +471,37 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn template_string(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
-        let start = tag.start;
+    pub fn template_string<T>(&mut self) -> Node<'ast, T>
+    where
+        T: Copy + From<TemplateLiteral<'ast>>,
+    {
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
-        let end = self.lexer.end_then_consume();
-        let quasis = NodeList::from(self.arena, quasi);
 
-        self.alloc_at_loc(start, end, TemplateExpression {
-            tag: Some(tag),
+        self.lexer.consume();
+
+        self.alloc_at_loc(quasi.start, quasi.end, TemplateLiteral {
             expressions: NodeList::empty(),
-            quasis,
+            quasis: NodeList::from(self.arena, quasi)
         })
     }
 
     #[inline]
-    pub fn template_expression(&mut self, tag: Option<ExpressionNode<'ast>>) -> ExpressionNode<'ast> {
+    pub fn template_literal<T>(&mut self) -> Node<'ast, T>
+    where
+        T: Copy + From<TemplateLiteral<'ast>>,
+    {
         let quasi = self.lexer.quasi;
         let quasi = self.alloc_in_loc(quasi);
-        let start = match tag {
-            Some(ref expr) => expr.start,
-            _              => self.lexer.start()
-        };
-        let end;
 
-        self.lexer.consume();
+        let start = self.lexer.start_then_consume();
+        let end;
 
         let expression = self.expression(B0);
 
         match self.lexer.token {
             BraceClose => self.lexer.read_template_kind(),
-            _          => return self.error()
+            _          => self.error(),
         }
 
         let mut quasis = ListBuilder::new(self.arena, quasi);
@@ -509,7 +517,11 @@ impl<'ast> Parser<'ast> {
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),
-                        _          => return self.error()
+                        _          => {
+                            end = self.lexer.end();
+                            self.error::<()>();
+                            break;
+                        }
                     }
                 },
                 TemplateClosed => {
@@ -518,14 +530,32 @@ impl<'ast> Parser<'ast> {
                     end = self.lexer.end_then_consume();
                     break;
                 },
-                _ => return self.error()
+                _ => {
+                    end = self.lexer.end();
+                    self.error::<()>();
+                    break;
+                }
             }
         }
 
-        self.alloc_at_loc(start, end, TemplateExpression {
-            tag,
+        self.alloc_at_loc(start, end, TemplateLiteral {
             expressions: expressions.into_list(),
             quasis: quasis.into_list(),
+        })
+    }
+
+    #[inline]
+    pub fn template_expression(&mut self) -> ExpressionNode<'ast> {
+        self.template_literal()
+    }
+
+    #[inline]
+    pub fn tagged_template_expression(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
+        let quasi = self.template_literal();
+
+        self.alloc_at_loc(tag.start, quasi.end, TaggedTemplateExpression {
+            tag,
+            quasi,
         })
     }
 
@@ -583,8 +613,12 @@ mod test {
     fn template_expression() {
         let src = "`foobar`;";
         let module = parse(src).unwrap();
+        let mock = Mock::new();
 
-        let expected = Literal::Template("foobar");
+        let expected = TemplateLiteral {
+            expressions: NodeList::empty(),
+            quasis: mock.list(["foobar"]),
+        };
 
         assert_expr!(module, expected);
     }
@@ -595,10 +629,12 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpression {
-            tag: Some(mock.ptr("foo")),
-            expressions: NodeList::empty(),
-            quasis: mock.list(["bar"]),
+        let expected = TaggedTemplateExpression {
+            tag: mock.ptr("foo"),
+            quasi: mock.ptr(TemplateLiteral {
+                expressions: NodeList::empty(),
+                quasis: mock.list(["bar"]),
+            })
         };
 
         assert_expr!(module, expected);
@@ -610,8 +646,7 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpression {
-            tag: None,
+        let expected = TemplateLiteral {
             expressions: mock.list([
                 Literal::Number("10"),
                 Literal::Number("20"),
@@ -628,12 +663,14 @@ mod test {
         let module = parse(src).unwrap();
         let mock = Mock::new();
 
-        let expected = TemplateExpression {
-            tag: Some(mock.ptr("foo")),
-            expressions: mock.list([
-                Literal::Number("42"),
-            ]),
-            quasis: mock.list(["bar", "baz"]),
+        let expected = TaggedTemplateExpression {
+            tag: mock.ptr("foo"),
+            quasi: mock.ptr(TemplateLiteral {
+                expressions: mock.list([
+                    Literal::Number("42"),
+                ]),
+                quasis: mock.list(["bar", "baz"]),
+            })
         };
 
         assert_expr!(module, expected);

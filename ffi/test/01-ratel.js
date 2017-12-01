@@ -42,13 +42,12 @@ describe('Ratel ffi', () => {
     it('parses', () => {
       const result = Ratel.parse('2');
       assert.equal(typeof result, 'string');
-      const expected = `[Loc { start: 0, end: 1, item: Expression { expression: Loc { start: 0, end: 1, item: Value(Number("2")) } } }]`;
+      const expected = `[Loc { start: 0, end: 1, item: Expression(Loc { start: 0, end: 1, item: Literal(Number("2")) }) }]`;
       assert.equal(result, expected);
     });
   });
 
   describe('ast', () => {
-
     it('returns an AST', () => {
       const result = Ratel.ast('this;', false);
       const json = JSON.parse(result);
@@ -57,17 +56,17 @@ describe('Ratel ffi', () => {
           "body": [
               {
                   "type": "ExpressionStatement",
-                  "end": 4,
                   "expression": {
                       "type": "ThisExpression",
+                      "start": 0,
                       "end": 4,
-                      "start": 0
                   },
-                  "start": 0
+                  "start": 0,
+                  "end": 4
               }
             ],
-            "end": 0,
-            "start": 0
+            "start": 0,
+            "end": 4
       });
     });
   });

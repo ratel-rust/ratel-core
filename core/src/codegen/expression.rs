@@ -1,9 +1,6 @@
 use codegen::{ToCode, Generator};
 use ast::{Expression, Literal, OperatorKind, Property, PropertyKey, Pattern};
-use ast::expression::{PrefixExpression, ArrowExpression, ArrowBody, ArrayExpression};
-use ast::expression::{ObjectExpression, TemplateExpression, CallExpression, BinaryExpression};
-use ast::expression::{SequenceExpression, MemberExpression, ComputedMemberExpression};
-use ast::expression::{PostfixExpression, ConditionalExpression, SpreadExpression};
+use ast::expression::*;
 
 
 impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
@@ -12,7 +9,6 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
         use ast::Expression::*;
 
         match *self {
-            Error                        => panic!("Module contains errors"),
             Void                         => {},
             This(_)                      => gen.write_bytes(b"this"),
             Identifier(ref ident)        => gen.write(ident),
@@ -27,6 +23,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Postfix(ref postfix)         => gen.write(postfix),
             Conditional(ref conditional) => gen.write(conditional),
             Template(ref template)       => gen.write(template),
+            TaggedTemplate(ref tagged)   => gen.write(tagged),
             Spread(ref spread)           => gen.write(spread),
             Arrow(ref arrow)             => gen.write(arrow),
             Object(ref object)           => gen.write(object),
@@ -50,11 +47,6 @@ impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
             Number(ref val)   |
             String(ref val)   |
             RegEx(ref val)    => gen.write(val),
-            Template(ref val) => {
-                gen.write_byte(b'`');
-                gen.write(val);
-                gen.write_byte(b'`');
-            }
         }
     }
 }
@@ -225,10 +217,9 @@ impl<'ast, G: Generator> ToCode<G> for ConditionalExpression<'ast> {
     }
 }
 
-impl<'ast, G: Generator> ToCode<G> for TemplateExpression<'ast> {
+impl<'ast, G: Generator> ToCode<G> for TemplateLiteral<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write(&self.tag);
         gen.write_byte(b'`');
 
         match self.quasis.only_element() {
@@ -252,6 +243,14 @@ impl<'ast, G: Generator> ToCode<G> for TemplateExpression<'ast> {
         }
 
         gen.write_byte(b'`');
+    }
+}
+
+impl<'ast, G: Generator> ToCode<G> for TaggedTemplateExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write(&self.tag);
+        gen.write(&self.quasi);
     }
 }
 

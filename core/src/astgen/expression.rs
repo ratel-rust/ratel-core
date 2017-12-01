@@ -1,31 +1,7 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast;
-use ast::{ExpressionNode, Expression, Loc, OperatorKind};
-use serde_json;
-use astgen::function::ClassBody;
-use astgen::value::TemplateElement;
-use astgen::value::TemplateLiteral;
-use astgen::statement::BlockStatement;
+use ast::{Block, Expression, Loc, OperatorKind};
+use ast::expression::*;
 use astgen::SerializeInLoc;
-
-#[derive(Debug)]
-
-struct TaggedTemplateExpression<'ast> {
-    tag: ExpressionNode<'ast>,
-    quasi: Loc<TemplateLiteral<'ast>>,
-}
-
-impl<'ast> SerializeInLoc for TaggedTemplateExpression<'ast> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-        where S: Serializer
-    {
-
-        self.in_loc(serializer, "TaggedTemplateExpression", 2, |state| {
-            state.serialize_field("tag", &self.tag)?;
-            state.serialize_field("quasi", &self.quasi)
-        })
-    }
-}
 
 #[inline]
 fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
@@ -56,231 +32,1362 @@ fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
         Addition            |
         LogicalNot          |
         BitwiseNot          => if prefix { "UnaryExpression" } else { "BinaryExpression" },
+        New                 => "NewExpression",
         _                   => "BinaryExpression"
     }
 }
 
-impl<'ast> Serialize for Loc<Expression<'ast>> {
+impl<'ast> SerializeInLoc for SpreadExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "SpreadElement", 1, |state| {
+            state.serialize_field("argument", &self.argument)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for MemberExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "MemberExpression", 3, |state| {
+                state.serialize_field("object", &self.object)?;
+                state.serialize_field("property", &self.property)?;
+                state.serialize_field("computed", &false)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ComputedMemberExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "MemberExpression", 3, |state| {
+                state.serialize_field("object", &self.object)?;
+                state.serialize_field("property", &self.property)?;
+                state.serialize_field("computed", &true)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for CallExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "CallExpression", 2, |state| {
+            state.serialize_field("callee", &self.callee)?;
+            state.serialize_field("arguments", &self.arguments)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ConditionalExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ConditionalExpression", 3, |state| {
+            state.serialize_field("test", &self.test)?;
+            state.serialize_field("consequent", &self.consequent)?;
+            state.serialize_field("alternate", &self.alternate)
+        })
+    }
+}
+
+impl<'ast> Serialize for Loc<ArrowBody<'ast>> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
+    {
+        use self::ArrowBody::*;
+        match self.item {
+            Expression(ref expression) => serializer.serialize_some(expression),
+            Block(ref expression) => serializer.serialize_some(expression),
+        }
+    }
+}
+
+impl<'ast> SerializeInLoc for ArrowExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ArrowFunctionExpression", 2, |state| {
+            state.serialize_field("params", &self.params)?;
+            state.serialize_field("body", &Loc::new(0, 0, self.body))
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for SequenceExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "SequenceExpression", 1, |state| {
+            state.serialize_field("expressions", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for PrefixExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        let prefix = true;
+        let expr_type = expression_type(self.operator, prefix);
+
+        if let OperatorKind::New = self.operator {
+            use self::Expression::*;
+            match self.operand.item {
+                Call(CallExpression { ref callee, ref arguments }) => {
+                    self.in_loc(serializer, expr_type, 2, |state| {
+                        state.serialize_field("callee", callee)?;
+                        state.serialize_field("arguments", arguments)
+                    })
+                },
+                Literal(_) => {
+                    self.in_loc(serializer, expr_type, 2, |state| {
+                        // 0 byte array, will be optimized away
+                        let arguments: [(); 0] = [];
+                        state.serialize_field("callee", &self.operand)?;
+                        state.serialize_field("arguments", &arguments)
+                    })
+                },
+                _ => unimplemented!()
+            }
+        } else {
+            self.in_loc(serializer, expr_type, 3, |state| {
+                state.serialize_field("operator", &self.operator)?;
+                state.serialize_field("argument", &self.operand)?;
+                state.serialize_field("prefix", &prefix)
+            })
+        }
+    }
+}
+
+impl<'ast> SerializeInLoc for PostfixExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        let prefix = false;
+        let expr_type = expression_type(self.operator, prefix);
+        self.in_loc(serializer, expr_type, 3, |state| {
+            state.serialize_field("operator", &self.operator)?;
+            state.serialize_field("argument", &self.operand)?;
+            state.serialize_field("prefix", &prefix)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for ObjectExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ObjectExpression", 1, |state| {
+            state.serialize_field("properties", &self.body)
+        })
+    }
+}
+
+impl<'ast> Serialize for OperatorKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_some(&self.as_str())
+    }
+}
+
+impl<'ast> SerializeInLoc for ArrayExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ArrayExpression", 1, |state| {
+            state.serialize_field("elements", &self.body)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "BinaryExpression", 3, |state| {
+            state.serialize_field("operator", &self.operator)?;
+            state.serialize_field("left", &self.left)?;
+            state.serialize_field("right", &self.right)
+        })
+    }
+}
+
+impl<'ast> SerializeInLoc for Expression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
     {
         use self::Expression::*;
 
-        let mut state = match self.item {
-
-            Error { .. } => panic!("Module contains errors"),
-
-            Void => {
-                return serializer.serialize_none()
+        match *self {
+            Void => unimplemented!(),
+            This(_) => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
+            Identifier(ref ident) => {
+                self.in_loc(serializer, "Identifier", 1, |state| {
+                    state.serialize_field("name", ident)
+                })
             },
+            Literal(ref value)             => value.serialize(serializer),
+            Array(ref value)               => value.serialize(serializer),
+            Sequence(ref expression)       => expression.serialize(serializer),
+            Binary(ref expression)         => expression.serialize(serializer),
+            Prefix(ref expression)         => expression.serialize(serializer),
+            Postfix(ref expression)        => expression.serialize(serializer),
+            Object(ref expression)         => expression.serialize(serializer),
+            Template(ref expression)       => expression.serialize(serializer),
+            TaggedTemplate(ref expression) => expression.serialize(serializer),
+            Spread(ref expression)         => expression.serialize(serializer),
+            Member(ref expression)         => expression.serialize(serializer),
+            ComputedMember(ref expression) => expression.serialize(serializer),
+            Call(ref expression)           => expression.serialize(serializer),
+            Conditional(ref expression)    => expression.serialize(serializer),
+            Arrow(ref expression)          => expression.serialize(serializer),
+            Function(ref expression)       => expression.serialize(serializer),
+            Class(ref expression)          => expression.serialize(serializer),
+        }
+    }
+}
 
-            This => {
-                let mut state = serializer.serialize_struct("ThisExpression", 3)?;
-                state.serialize_field("type", &"ThisExpression")?;
-                state
-            },
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parser::{parse};
+    use astgen::generate_ast;
 
-            Identifier(ident) => {
-                let mut state = serializer.serialize_struct("Identifier", 4)?;
-                state.serialize_field("type", &"Identifier")?;
-                state.serialize_field("name", &ident)?;
-                state
-            },
-
-            Value(value) => {
-                use self::ast::Value::*;
-
-                if let Template(_) = value {
-                    return serializer.serialize_some(&value)
-                }
-
-                let mut state = serializer.serialize_struct("Literal", 4)?;
-                state.serialize_field("type", &"Literal")?;
-
-                if let RegEx(_) = value {
-                    state.serialize_field("regex", &value)?;
-                } else {
-                    state.serialize_field("value", &value)?;
-                }
-
-                state
-            },
-
-            Sequence { body } => {
-                let mut state = serializer.serialize_struct("SequenceExpression", 4)?;
-                state.serialize_field("type", &"SequenceExpression")?;
-                state.serialize_field("expressions", &body)?;
-                state
-            },
-
-            Array { body } => {
-                let mut state = serializer.serialize_struct("ArrayExpression", 4)?;
-                state.serialize_field("type", &"ArrayExpression")?;
-                state.serialize_field("elements", &body)?;
-                state
-            },
-
-            Member { object, property } => {
-                let mut state = serializer.serialize_struct("MemberExpression", 6)?;
-                state.serialize_field("type", &"MemberExpression")?;
-                state.serialize_field("object", &object)?;
-                state.serialize_field("property", &Loc::new(property.start, property.end, Expression::Identifier(property.item)))?;
-                state.serialize_field("computed", &false)?;
-                state
-            },
-
-            ComputedMember { object, property } => {
-                let mut state = serializer.serialize_struct("MemberExpression", 6)?;
-                state.serialize_field("type", &"MemberExpression")?;
-                state.serialize_field("object", &object)?;
-                state.serialize_field("property", &property)?;
-                state.serialize_field("computed", &true)?;
-                state
-            },
-
-            Call { callee, arguments } => {
-                let mut state = serializer.serialize_struct("CallExpression", 5)?;
-                state.serialize_field("type", &"CallExpression")?;
-                state.serialize_field("callee", &callee)?;
-                state.serialize_field("arguments", &arguments)?;
-                state
-            },
-
-            Binary { operator, left, right } => {
-                let expr_type = expression_type(operator, false);
-                let mut state = serializer.serialize_struct(expr_type, 6)?;
-                state.serialize_field("type", &expr_type)?;
-                state.serialize_field("operator", &operator.as_str())?;
-                state.serialize_field("left", &left)?;
-                state.serialize_field("right", &right)?;
-                state
-            },
-
-            Prefix { operator, operand } => {
-                if let OperatorKind::New = operator {
-                    let mut state = serializer.serialize_struct("NewExpression", 5)?;
-                    state.serialize_field("type", &"NewExpression")?;
-
-                    match operand.item {
-                        Call { callee, arguments } => {
-                            state.serialize_field("callee", &callee)?;
-                            state.serialize_field("arguments", &arguments)?;
-                        },
-                        Value(_) => {
-                            let arguments: Vec<ExpressionNode> = vec![];
-                            state.serialize_field("callee", &operand)?;
-                            state.serialize_field("arguments", &arguments)?;
-                        },
-                        _ => {
-                        // FIXME
-                            panic!("Unexpected token");
-                        }
-                    };
-
-                    state
-
-                } else {
-                    let expr_type = expression_type(operator, true);
-                    let mut state = serializer.serialize_struct(expr_type, 5)?;
-                    state.serialize_field("type", &expr_type)?;
-                    state.serialize_field("operator", &operator.as_str())?;
-                    state.serialize_field("argument", &operand)?;
-                    state.serialize_field("prefix", &true)?;
-                    state
-                }
-            },
-
-            Postfix { operator, operand }=> {
-                let expr_type = expression_type(operator, false);
-                let mut state = serializer.serialize_struct(expr_type, 5)?;
-                state.serialize_field("type", &expr_type)?;
-                state.serialize_field("operator", &operator.as_str())?;
-                state.serialize_field("argument", &operand)?;
-                state.serialize_field("prefix", &false)?;
-                state
-            },
-
-            Conditional { test, consequent, alternate } => {
-                let mut state = serializer.serialize_struct("ConditionalExpression", 6)?;
-                state.serialize_field("type", &"ConditionalExpression")?;
-                state.serialize_field("test", &test)?;
-                state.serialize_field("alternate", &alternate)?;
-                state.serialize_field("consequent", &consequent)?;
-                state
-            },
-
-            Template { tag, expressions, quasis } => {
-                let mut quasis = quasis.ptr_iter().map(|q| {
-                    let element = TemplateElement { tail: false, value: q.item };
-                    Loc::new(q.start, q.end, element)
-                }).collect::<Vec<_>>();
-
-                // FIXME: Sets `tail` to `true` on the last TemplateElement.
-                let mut last = quasis.pop().unwrap();
-                last.item.tail = true;
-                quasis.push(last);
-
-                let expressions = expressions.iter().map(|q| *q).collect::<Vec<_>>();
-
-                let expr = Loc::new(self.start, self.end, TemplateLiteral { quasis, expressions });
-
-                if let Some(tag) = tag {
-                    let expr = TaggedTemplateExpression {
-                        tag,
-                        quasi: expr
-                    };
-                    return serializer.serialize_some(&Loc::new(self.start, self.end, expr))
-                }
-                return serializer.serialize_some(&expr)
-
-            },
-
-            Arrow { params, body } => {
-                let mut state = serializer.serialize_struct("ArrowFunctionExpression", 6)?;
-                state.serialize_field("type", &"ArrowFunctionExpression")?;
-                state.serialize_field("id", &())?;
-                state.serialize_field("params", &params)?;
-                state.serialize_field("body", &body)?;
-                state
-            },
-
-            Object { body } => {
-                let mut state = serializer.serialize_struct("ObjectExpression", 4)?;
-                state.serialize_field("type", &"ObjectExpression")?;
-                state.serialize_field("properties", &body)?;
-                state
-            },
-
-            Function { function } => {
-                let mut state = serializer.serialize_struct("FunctionExpression", 6)?;
-                state.serialize_field("type", &"FunctionExpression")?;
-                state.serialize_field("id", &function.name)?;
-                state.serialize_field("params", &function.params)?;
-
-                match function.body.only_element() {
-                    Some(&Loc { item: ast::Statement::Block { .. } , .. }) => {
-                        state.serialize_field("body", &function.body)?;
+    #[test]
+    fn test_this_expression() {
+        expect_parse!("this;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ThisExpression",
+                        "start": 0,
+                        "end": 4
                     },
-                    _ => {
-                        state.serialize_field("body", &Loc::new(self.start, self.end, BlockStatement { body: function.body }))?;
-                    }
-                };
+                    "start": 0,
+                    "end": 4,
+                }
+              ],
+              "start": 0,
+              "end": 4,
+        });
+    }
 
-                state
-            },
+    #[test]
+    fn test_identifier_expression() {
+        expect_parse!("foo;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 0,
+                        "end": 3
+                    },
+                    "start": 0,
+                    "end": 3,
+                }
+              ],
+              "start": 0,
+              "end": 3,
+        });
+    }
 
-            Class { class } => {
-                let mut state = serializer.serialize_struct("ClassExpression", 6)?;
-                state.serialize_field("type", &"ClassExpression")?;
-                state.serialize_field("id", &class.name)?;
-                state.serialize_field("superClass", &class.extends)?;
-                state.serialize_field("body", &Loc::new(self.start, self.end, ClassBody { body: class.body }))?;
-                state
-            },
-        };
+    #[test]
+    fn test_literal_expression() {
+        expect_parse!("'foo';", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "StringLiteral",
+                        "value": "'foo'",
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5,
+                }
+              ],
+              "start": 0,
+              "end": 5,
+        });
+    }
 
-        state.serialize_field("start", &self.start)?;
-        state.serialize_field("end", &self.end)?;
-        state.end()
+    #[test]
+    fn test_array_expression() {
+        expect_parse!("[true, 0, 'foo', bar];", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrayExpression",
+                        "elements": [
+                            {
+                                "type": "Literal",
+                                "value": true,
+                                "start": 1,
+                                "end": 5
+                            },
+                            {
+                                "type": "Literal",
+                                // FIXME
+                                "value": "0",
+                                "start": 7,
+                                "end": 8
+                            },
+                            {
+                                // FIXME
+                                "type": "StringLiteral",
+                                "value": "'foo'",
+                                "start": 10,
+                                "end": 15
+                            },
+                            {
+                                "type": "Identifier",
+                                "name": "bar",
+                                "start": 17,
+                                "end": 20
+                            },
+                        ],
+                        "start": 0,
+                        "end": 21
+                    },
+                    "start": 0,
+                    "end": 21,
+                }
+              ],
+              "start": 0,
+              "end": 21,
+        });
+    }
+
+    #[test]
+    fn test_sequence_expression() {
+        expect_parse!("true, false;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "SequenceExpression",
+                        "expressions": [
+                            {
+                                "type": "Literal",
+                                "value": true,
+                                "start": 0,
+                                "end": 4
+                            },
+                            {
+                                "type": "Literal",
+                                "value": false,
+                                "start": 6,
+                                "end": 11
+                            },
+                        ],
+                        "start": 0,
+                        // FIXME
+                        "end": 0
+                        // "end": 11
+                    },
+                    "start": 0,
+                    // FIXME
+                    "end": 0
+                    // "end": 11,
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+    }
+
+    #[test]
+    fn test_binary_expression() {
+        expect_parse!("a > 0;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "BinaryExpression",
+                        "operator": ">",
+                        "left": {
+                            "type": "Identifier",
+                            "name": "a",
+                            "start": 0,
+                            "end": 1
+                        },
+                        "right": {
+                            "type": "Literal",
+                            "value": "0",
+                            "start": 4,
+                            "end": 5
+                        },
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    // FIXME
+                    "end": 5
+                    // "end": 11,
+                }
+              ],
+              "start": 0,
+              "end": 5,
+        });
+
+        expect_parse!("new Foo();", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "NewExpression",
+                        "callee": {
+                            "type": "Identifier",
+                            "name": "Foo",
+                            "start": 4,
+                            "end": 7
+                        },
+                        "arguments": [],
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+
+        expect_parse!("new Foo(0, true);", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "NewExpression",
+                        "callee": {
+                            "type": "Identifier",
+                            "name": "Foo",
+                            "start": 4,
+                            "end": 7
+                        },
+                        "arguments": [
+                            {
+                                "type": "Literal",
+                                "value": "0",
+                                "start": 8,
+                                "end": 9
+                            },
+                            {
+                                "type": "Literal",
+                                "value": true,
+                                "start": 11,
+                                "end": 15
+                            },
+                        ],
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+
+        expect_parse!("new 'foo';", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "NewExpression",
+                        "callee": {
+                            "type": "StringLiteral",
+                            "value": "'foo'",
+                            "start": 4,
+                            "end": 9
+                        },
+                        "arguments": [],
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+    }
+
+    #[test]
+    fn test_prefix_expression () {
+        expect_parse!("++i", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "UpdateExpression",
+                        "operator": "++",
+                        "argument": {
+                            "type": "Identifier",
+                            "name": "i",
+                            "start": 2,
+                            "end": 3
+                        },
+                        "prefix": true,
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+
+        expect_parse!("+0", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "UnaryExpression",
+                        "operator": "+",
+                        "argument": {
+                            "type": "Literal",
+                            "value": "0",
+                            "start": 1,
+                            "end": 2
+                        },
+                        "prefix": true,
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+    }
+
+    #[test]
+    fn test_postfix_expression () {}
+
+    #[test]
+    fn test_object_expression () {
+        expect_parse!("const a = {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7
+                            },
+                            "init": {
+                                "type": "ObjectExpression",
+                                "properties": [],
+                                "start": 10,
+                                "end": 12
+                            },
+                            "start": 6,
+                            "end": 12
+                        }
+                    ],
+                    "start": 0,
+                    "end": 12,
+                }
+            ],
+            "start": 0,
+            "end": 12,
+        });
+
+        expect_parse!("const a = { foo: 'bar' }", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7,
+                            },
+                            "init": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "foo",
+                                            "start": 12,
+                                            "end": 15
+                                        },
+                                        "method": false,
+                                        "shorthand": false,
+                                        "computed": false,
+                                        "value": {
+                                            // FIXME
+                                            "type": "StringLiteral",
+                                            "value": "\'bar\'",
+                                            "start": 17,
+                                            "end": 22
+                                        },
+                                        "kind": "init",
+                                        "start": 12,
+                                        "end": 22,
+                                    }
+                                ],
+                                "start": 10,
+                                "end": 24,
+                            },
+                            "start": 6,
+                            "end": 24,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 24,
+                }
+            ],
+            "start": 0,
+            "end": 24
+        });
+
+        expect_parse!("const a = { [foo]: 'bar' }", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7,
+                            },
+                            "init": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "foo",
+                                            "start": 13,
+                                            "end": 16
+                                        },
+                                        "method": false,
+                                        "shorthand": false,
+                                        "computed": true,
+                                        "value": {
+                                            // FIXME
+                                            "type": "StringLiteral",
+                                            "value": "\'bar\'",
+                                            "start": 19,
+                                            "end": 24
+                                        },
+                                        "kind": "init",
+                                        "start": 12,
+                                        "end": 24,
+                                    }
+                                ],
+                                "start": 10,
+                                "end": 26,
+                            },
+                            "start": 6,
+                            "end": 26,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 26,
+                }
+            ],
+            "start": 0,
+            "end": 26
+        });
+
+        expect_parse!("const a = { get (a) {} }", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "VariableDeclaration",
+                    "kind": "const",
+                    "declarations": [
+                        {
+                            "type": "VariableDeclarator",
+                            "id": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 6,
+                                "end": 7,
+                            },
+                            "init": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "get",
+                                            "start": 12,
+                                            "end": 15
+                                        },
+                                        "method": true,
+                                        "shorthand": false,
+                                        "computed": false,
+                                        "value": {
+                                            "type": "FunctionExpression",
+                                            "id": null,
+                                            "params": [
+                                                {
+                                                    "type": "Identifier",
+                                                    "name": "a",
+                                                    "start": 17,
+                                                    "end": 18
+                                                }
+                                            ],
+                                            "body": {
+                                                "type": "BlockStatement",
+                                                "body": [],
+                                                "start": 20,
+                                                "end": 22
+                                            },
+                                            "start": 16,
+                                            "end": 22
+                                        },
+                                        "kind": "init",
+                                        "start": 12,
+                                        "end": 22,
+                                    }
+                                ],
+                                "start": 10,
+                                "end": 24,
+                            },
+                            "start": 6,
+                            "end": 24,
+                        }
+                    ],
+                    "start": 0,
+                    "end": 24,
+                }
+            ],
+            "start": 0,
+            "end": 24
+        });
+    }
+
+    #[test]
+    fn test_member_expression () {
+        expect_parse!("foo.bar", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "MemberExpression",
+                        "object": {
+                            "type": "Identifier",
+                            "name": "foo",
+                            "start": 0,
+                            "end": 3
+                        },
+                        "property": {
+                            "type": "Identifier",
+                            "name": "bar",
+                            // FIXME
+                            "start": 7,
+                            "end": 7
+                        },
+                        "computed": false,
+                        "start": 0,
+                        "end": 7
+                    },
+                    "start": 0,
+                    "end": 7
+                }
+            ],
+            "start": 0,
+            "end": 7
+        });
+    }
+
+    #[test]
+    fn test_computed_member_expression () {
+        expect_parse!("foo[bar]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "MemberExpression",
+                        "object": {
+                            "type": "Identifier",
+                            "name": "foo",
+                            "start": 0,
+                            "end": 3
+                        },
+                        "property": {
+                            "type": "Identifier",
+                            "name": "bar",
+                            "start": 4,
+                            "end": 7
+                        },
+                        "computed": true,
+                        // FIXME
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+            ],
+            "start": 0,
+            "end": 0
+        });
+    }
+
+    #[test]
+    fn test_spread_expression () {
+        expect_parse!("function foo (a, ...opts) {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12,
+                    },
+                    "params": [
+                        {
+                            "type": "Identifier",
+                            "name": "a",
+                            "start": 14,
+                            "end": 15,
+                        },
+                        {
+                            "type": "RestElement",
+                            "argument": {
+                                "type": "Identifier",
+                                "name": "opts",
+                                "start": 20,
+                                "end": 24,
+                            },
+                            "start": 17,
+                            "end": 24,
+                        }
+                    ],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 26,
+                        "end": 28,
+                    },
+                    "start": 0,
+                    "end": 28,
+                }
+            ],
+            "start": 0,
+            "end": 28
+        });
+
+        expect_parse!("[head, ...iter, tail]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrayExpression",
+                        "elements": [
+                            {
+                                "type": "Identifier",
+                                "name": "head",
+                                "start": 1,
+                                "end": 5,
+                            },
+                            {
+                                "type": "SpreadElement",
+                                "argument": {
+                                    "type": "Identifier",
+                                    "name": "iter",
+                                    "start": 10,
+                                    "end": 14
+                                },
+                                "start": 7,
+                                "end": 14,
+                            },
+                            {
+                                "type": "Identifier",
+                                "name": "tail",
+                                "start": 16,
+                                "end": 20
+                            }
+                        ],
+                        "start": 0,
+                        "end": 21,
+                    },
+                    "start": 0,
+                    "end": 21,
+                }
+            ],
+            "start": 0,
+            "end": 21
+        });
+    }
+
+    #[test]
+    fn test_call_expression () {
+        expect_parse!("foo()", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "CallExpression",
+                        "callee": {
+                            "type": "Identifier",
+                            "name": "foo",
+                            "start": 0,
+                            "end": 3
+                        },
+                        "arguments": [],
+                        "start": 3, // FIXME?
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5
+                }
+              ],
+              "start": 0,
+              "end": 5,
+        });
+    }
+
+    #[test]
+    fn test_condititional_expression () {
+        expect_parse!("a ? true : false", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ConditionalExpression",
+                        "test": {
+                            "type": "Identifier",
+                            "name": "a",
+                            "start": 0,
+                            "end": 1
+                        },
+                        "consequent": {
+                            "type": "Literal",
+                            "value": true,
+                            "start": 4,
+                            "end": 8
+                        },
+                        "alternate": {
+                            "type": "Literal",
+                            "value": false,
+                            "start": 11,
+                            "end": 16
+                        },
+                        "start": 0,
+                        "end": 16
+                    },
+                    "start": 0,
+                    "end": 16
+                }
+              ],
+              "start": 0,
+              "end": 16,
+        });
+    }
+
+    #[test]
+    fn test_arrow_function_expression () {
+        expect_parse!("(b) => b", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrowFunctionExpression",
+                        "params": [
+                            {
+                                "type": "Identifier",
+                                "name": "b",
+                                "start": 1,
+                                "end": 2
+                            }
+                        ],
+                        "body": {
+                            "type": "Identifier",
+                            "name": "b",
+                            "start": 7,
+                            "end": 8
+                        },
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+        expect_parse!("(b) => {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrowFunctionExpression",
+                        "params": [
+                            {
+                                "type": "Identifier",
+                                "name": "b",
+                                "start": 1,
+                                "end": 2
+                            }
+                        ],
+                        "body": {
+                            "type": "BlockStatement",
+                            "body": [],
+                            "start": 7,
+                            "end": 9
+                        },
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+        expect_parse!("() => {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrowFunctionExpression",
+                        "params": [],
+                        "body": {
+                            "type": "BlockStatement",
+                            "body": [],
+                            "start": 6,
+                            "end": 8
+                        },
+                        "start": 0,
+                        "end": 0
+                    },
+                    "start": 0,
+                    "end": 0
+                }
+              ],
+              "start": 0,
+              "end": 0,
+        });
+    }
+
+    #[test]
+    fn test_function_expression () {
+        expect_parse!("function foo () {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12
+                    },
+                    "params": [],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 16,
+                        "end": 18
+                    },
+                    "start": 0,
+                    "end": 18
+                }
+            ],
+            "start": 0,
+            "end": 18
+        });
+
+        expect_parse!("function foo (a, b = 2) {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 9,
+                        "end": 12
+                    },
+                    "params": [
+                        {
+                            "type": "Identifier",
+                            "name": "a",
+                            "start": 14,
+                            "end": 15
+                        },
+                        {
+                            "type": "AssignmentPattern",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "b",
+                                "start": 17,
+                                "end": 18
+                            },
+                            "right": {
+                                "type": "Literal",
+                                "value": "2",
+                                "start": 21,
+                                "end": 22
+                            },
+                            "start": 17,
+                            "end": 22
+                        }
+                    ],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 24,
+                        "end": 26
+                    },
+                    "start": 0,
+                    "end": 26
+                }
+            ],
+            "start": 0,
+            "end": 26
+        });
+    }
+
+    #[test]
+    fn test_class_expression() {
+        expect_parse!("class Foo {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ClassDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "Foo",
+                        "start": 6,
+                        "end": 9,
+                    },
+                    "superClass": null,
+                    "body": {
+                        "type": "ClassBody",
+                        "body": [],
+                        "start": 10,
+                        "end": 12
+                    },
+                    "start": 0,
+                    "end": 12,
+                }
+            ],
+            "start": 0,
+            "end": 12
+        });
+
+        expect_parse!("class Foo extends Bar {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ClassDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "Foo",
+                        "start": 6,
+                        "end": 9,
+                    },
+                    "superClass": {
+                        "type": "Identifier",
+                        "name": "Bar",
+                        "start": 18,
+                        "end": 21,
+                    },
+                    "body": {
+                        "type": "ClassBody",
+                        "body": [],
+                        "start": 22,
+                        "end": 24
+                    },
+                    "start": 0,
+                    "end": 24,
+                }
+            ],
+            "start": 0,
+            "end": 24
+        });
+
+        expect_parse!(r"class Foo { bar() {} }", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ClassDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "Foo",
+                        "start": 6,
+                        "end": 9,
+                    },
+                    "superClass": null,
+                    "body": {
+                        "type": "ClassBody",
+                        "body": [
+                        {
+                            "type": "MethodDefinition",
+                            "kind": "method",
+                            "static": false,
+                            "computed": false,
+                            "key": {
+                                "type": "Identifier",
+                                "name": "bar",
+                                // FIXME
+                                "start": 0,
+                                "end": 0,
+                            },
+                            "value": {
+                                "type": "FunctionExpression",
+                                "id": null,
+                                "params": [],
+                                "body": {
+                                    "type": "BlockStatement",
+                                    "body": [],
+                                    "start": 18,
+                                    "end": 20
+                                },
+                                "start": 15,
+                                "end": 20,
+                            },
+                            "start": 12,
+                            "end": 20,
+                        }
+                        ],
+                        "start": 10,
+                        "end": 22
+                    },
+                    "start": 0,
+                    "end": 22,
+                }
+            ],
+            "start": 0,
+            "end": 22
+        });
+
+        expect_parse!("class Foo { static bar() {} }", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ClassDeclaration",
+                    "id": {
+                        "type": "Identifier",
+                        "name": "Foo",
+                        "start": 6,
+                        "end": 9,
+                    },
+                    "superClass": null,
+                    "body": {
+                        "type": "ClassBody",
+                        "body": [
+                        {
+                            "type": "MethodDefinition",
+                            "kind": "method",
+                            "static": true,
+                            "computed": false,
+                            "key": {
+                                "type": "Identifier",
+                                "name": "bar",
+                                // FIXME
+                                "start": 0,
+                                "end": 0,
+                            },
+                            "value": {
+                                "type": "FunctionExpression",
+                                "id": null,
+                                "params": [],
+                                "body": {
+                                    "type": "BlockStatement",
+                                    "body": [],
+                                    "start": 25,
+                                    "end": 27
+                                },
+                                "start": 22,
+                                "end": 27,
+                            },
+                            "start": 12,
+                            "end": 27,
+                        }
+                        ],
+                        "start": 10,
+                        "end": 29
+                    },
+                    "start": 0,
+                    "end": 29,
+                }
+            ],
+            "start": 0,
+            "end": 29
+        });
     }
 }

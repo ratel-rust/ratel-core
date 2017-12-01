@@ -38,7 +38,8 @@ build! {
     on_prefix_expression          => PrefixExpression<'ast>;
     on_sequence_expression        => SequenceExpression<'ast>;
     on_spread_expression          => SpreadExpression<'ast>;
-    on_template_expression        => TemplateExpression<'ast>;
+    on_template_literal           => TemplateLiteral<'ast>;
+    on_tagged_template_expression => TaggedTemplateExpression<'ast>;
 
     // statements
     on_expression_statement  => ExpressionNode<'ast>;
