@@ -2,38 +2,56 @@ use ast::{Function, Class, ClassMember, Name, EmptyName, OptionalName, Mandatory
 use ast::{Node, ExpressionNode, StatementNode};
 use visitor::{Visitable, Visitor, NoParent};
 
-pub trait ChildMarker<'ast>: Name<'ast> {
-    type Parent: 'ast;
-}
-
-impl<'ast> ChildMarker<'ast> for EmptyName {
+impl<'ast> Visitable<'ast> for EmptyName {
     type Parent = NoParent;
+
+    #[inline]
+    fn traverse<V>(&self, _: &V, _: &mut V::Context)
+    where
+        V: Visitor<'ast>,
+    {}
 }
 
-impl<'ast> ChildMarker<'ast> for OptionalName<'ast> {
+impl<'ast> Visitable<'ast> for OptionalName<'ast> {
     type Parent = ExpressionNode<'ast>;
+
+    #[inline]
+    fn traverse<V>(&self, _: &V, _: &mut V::Context)
+    where
+        V: Visitor<'ast>,
+    {}
 }
 
-impl<'ast> ChildMarker<'ast> for MandatoryName<'ast> {
+impl<'ast> Visitable<'ast> for MandatoryName<'ast> {
     type Parent = StatementNode<'ast>;
+
+    #[inline]
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    where
+        V: Visitor<'ast>,
+    {
+        visitor.on_variable_declare(&(self.0).item, ctx);
+    }
 }
 
 impl<'ast, N> Visitable<'ast> for Function<'ast, N>
 where
-    N: ChildMarker<'ast> + 'ast,
+    N: Visitable<'ast> + Name<'ast>,
 {
     type Parent = N::Parent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
-        visitor.on_enter_block(ctx);
-        self.params.visit(visitor, ctx);
+        self.name.traverse(visitor, ctx);
+
         // Call visit on the StatementList instead of BlockNode since we
         // need to make sure that function parameters end up inside the block
-        self.body.body.visit(visitor, ctx);
+        visitor.on_enter_block(ctx);
+        self.params.traverse(visitor, ctx);
+        self.body.body.traverse(visitor, ctx);
         visitor.on_leave_block(ctx);
     }
 }
@@ -42,7 +60,7 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -55,16 +73,16 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
                 ref value,
                 ..
             } => {
-                key.visit(visitor, ctx);
-                value.visit(visitor, ctx);
+                key.traverse(visitor, ctx);
+                value.traverse(visitor, ctx);
             },
             Literal {
                 ref key,
                 ref value,
                 ..
             } => {
-                key.visit(visitor, ctx);
-                value.visit(visitor, ctx);
+                key.traverse(visitor, ctx);
+                value.traverse(visitor, ctx);
             },
         }
     }
@@ -72,16 +90,17 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
 
 impl<'ast, N> Visitable<'ast> for Class<'ast, N>
 where
-    N: ChildMarker<'ast> + 'ast,
+    N: Visitable<'ast> + Name<'ast>,
 {
     type Parent = N::Parent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
-        self.extends.visit(visitor, ctx);
-        self.body.body.visit(visitor, ctx);
+        self.name.traverse(visitor, ctx);
+        self.extends.traverse(visitor, ctx);
+        self.body.body.traverse(visitor, ctx);
     }
 }

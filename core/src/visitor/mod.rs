@@ -77,19 +77,19 @@ build! {
 pub trait Visitable<'ast>: 'ast {
     type Parent;
 
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context) where V: Visitor<'ast>;
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context) where V: Visitor<'ast>;
 }
 
 impl<'ast> Visitable<'ast> for Module<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         let body = self.body();
-        body.visit(visitor, ctx);
+        body.traverse(visitor, ctx);
     }
 }
 
@@ -97,7 +97,7 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -107,24 +107,24 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
             Pattern::ObjectPattern {
                 ref properties,
             } => {
-                properties.visit(visitor, ctx);
+                properties.traverse(visitor, ctx);
             },
             Pattern::ArrayPattern {
                 ref elements,
             } => {
-                elements.visit(visitor, ctx);
+                elements.traverse(visitor, ctx);
             },
             Pattern::RestElement {
                 ref argument,
             } => {
-                argument.visit(visitor, ctx);
+                argument.traverse(visitor, ctx);
             },
             Pattern::AssignmentPattern {
                 ref left,
                 ref right,
             } => {
-                left.visit(visitor, ctx);
-                right.visit(visitor, ctx);
+                left.traverse(visitor, ctx);
+                right.traverse(visitor, ctx);
             }
         }
     }
@@ -134,12 +134,12 @@ impl<'ast> Visitable<'ast> for PropertyKey<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         match *self {
-            PropertyKey::Computed(ref expression) => expression.visit(visitor, ctx),
+            PropertyKey::Computed(ref expression) => expression.traverse(visitor, ctx),
             PropertyKey::Literal(_) | PropertyKey::Binary(_) => {},
         }
     }
@@ -149,7 +149,7 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -159,15 +159,15 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
                 ref key,
                 ref value,
             } => {
-                key.visit(visitor, ctx);
-                value.visit(visitor, ctx);
+                key.traverse(visitor, ctx);
+                value.traverse(visitor, ctx);
             },
             Property::Method {
                 ref key,
                 ref value,
             } => {
-                key.visit(visitor, ctx);
-                value.visit(visitor, ctx);
+                key.traverse(visitor, ctx);
+                value.traverse(visitor, ctx);
             }
         }
     }
@@ -179,12 +179,12 @@ impl<'ast, T> Visitable<'ast> for Option<T> where
     type Parent = T::Parent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         if let Some(ref visitable) = *self {
-            visitable.visit(visitor, ctx);
+            visitable.traverse(visitor, ctx);
         }
     }
 }
@@ -197,11 +197,11 @@ impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
     type Parent = NoParent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
-        self.item.visit(visitor, ctx);
+        self.item.traverse(visitor, ctx);
     }
 }
 
@@ -211,12 +211,12 @@ impl<'ast, T> Visitable<'ast> for NodeList<'ast, T> where
     type Parent = NoParent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         for item in self {
-            item.visit(visitor, ctx);
+            item.traverse(visitor, ctx);
         }
     }
 }
@@ -225,12 +225,12 @@ impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         for node in self.iter() {
-            node.visit(visitor, ctx);
+            node.traverse(visitor, ctx);
         }
     }
 }
@@ -239,13 +239,13 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         visitor.on_statement_list(*self, ctx);
         for node in self.iter() {
-            node.visit(visitor, ctx);
+            node.traverse(visitor, ctx);
         }
     }
 }
@@ -254,22 +254,21 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
 mod test {
     use super::*;
     use parser::parse;
-    use std::collections::HashMap;
 
     struct TestContext<'ast> {
-        entered: usize,
-        left: usize,
-        used_vars: HashMap<&'ast str, usize>,
-        declared_vars: HashMap<&'ast str, usize>,
+        depth: i32,
+        max_depth: i32,
+        used_vars: Vec<(&'ast str, i32)>,
+        declared_vars: Vec<(&'ast str, i32)>,
     }
 
     impl<'ast> TestContext<'ast> {
         fn new() -> Self {
             TestContext {
-                entered: 0,
-                left: 0,
-                used_vars: HashMap::new(),
-                declared_vars: HashMap::new(),
+                depth: 0,
+                max_depth: 0,
+                used_vars: Vec::new(),
+                declared_vars: Vec::new(),
             }
         }
     }
@@ -280,19 +279,20 @@ mod test {
         type Context = TestContext<'ast>;
 
         fn on_enter_block(ctx: &mut TestContext<'ast>) {
-            ctx.entered += 1;
+            ctx.depth += 1;
+            ctx.max_depth = ctx.max_depth.max(ctx.depth);
         }
 
         fn on_leave_block(ctx: &mut TestContext<'ast>) {
-            ctx.left += 1;
+            ctx.depth -= 1;
         }
 
         fn on_variable_use(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
-            ctx.used_vars.insert(*ident, ctx.entered - ctx.left);
+            ctx.used_vars.push((*ident, ctx.depth));
         }
 
         fn on_variable_declare(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
-            ctx.declared_vars.insert(*ident, ctx.entered - ctx.left);
+            ctx.declared_vars.push((*ident, ctx.depth));
         }
 
         fn register(_dv: &mut DynamicVisitor<'ast, TestContext<'ast>>) {
@@ -301,14 +301,152 @@ mod test {
     }
 
     #[test]
-    fn keeps_tracks_of_blocks() {
+    fn keeps_track_of_blocks() {
         let module = parse("{{{}}}").unwrap();
 
         let mut ctx = TestContext::new();
 
-        module.visit(&ScopeTest, &mut ctx);
+        module.traverse(&ScopeTest, &mut ctx);
 
-        assert_eq!(ctx.entered, 3);
-        assert_eq!(ctx.left, 3);
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 3);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[]);
+    }
+
+    #[test]
+    fn keeps_track_of_declarations() {
+        let module = parse("let foo; const bar = 42, doge;").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 0);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[("foo", 0), ("bar", 0), ("doge", 0)]);
+    }
+
+    #[test]
+    fn keeps_track_of_declarations_at_the_correct_depth() {
+        let module = parse("let foo; { let foo; { let foo; }}").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 2);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[("foo", 0), ("foo", 1), ("foo", 2)]);
+    }
+
+    #[test]
+    fn keeps_track_of_uses() {
+        let module = parse("doge = to + the + moon").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 0);
+        assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 0), ("the", 0), ("moon", 0)]);
+        assert_eq!(ctx.declared_vars, &[]);
+    }
+
+    #[test]
+    fn keeps_track_of_uses_at_the_correct_depth() {
+        let module = parse("doge; { to; { the; { moon; }}}").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 3);
+        assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 1), ("the", 2), ("moon", 3)]);
+        assert_eq!(ctx.declared_vars, &[]);
+    }
+
+    #[test]
+    fn function_and_class_are_declarations() {
+        let module = parse("function foo() {} class Bar {}").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 1);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[("foo", 0), ("Bar", 0)]);
+    }
+
+    #[test]
+    fn function_and_class_expressions_are_not_declarations() {
+        let module = parse("(function foo() {}); (class Bar {});").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 1);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[]);
+    }
+
+    #[test]
+    fn empty_class_has_no_scope() {
+        let module = parse("class Doge {}").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 0);
+        assert_eq!(ctx.used_vars, &[]);
+        assert_eq!(ctx.declared_vars, &[("Doge", 0)]);
+    }
+
+    #[test]
+    fn functions_and_object_methods_are_scopes() {
+        let module = parse(r"
+            function doge() {
+                foo;
+
+                return {
+                    baz() {
+                        bar;
+                    }
+                };
+            }
+        ").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 2);
+        assert_eq!(ctx.used_vars, &[("foo", 1), ("bar", 2)]);
+        assert_eq!(ctx.declared_vars, &[("doge", 0)]);
+    }
+
+    #[test]
+    fn object_property_shorthand_is_a_use() {
+        let module = parse("const doge = { to, the, moon };").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.traverse(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.depth, 0);
+        assert_eq!(ctx.max_depth, 0);
+        assert_eq!(ctx.used_vars, &[("to", 0), ("the", 0), ("moon", 0)]);
+        assert_eq!(ctx.declared_vars, &[("doge", 0)]);
     }
 }
