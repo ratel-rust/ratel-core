@@ -12,4 +12,13 @@ matrix:
 os:
   - linux
 
-script: cd core && cargo build --verbose && cargo test --verbose
+before_install:
+  - source $HOME/.nvm/nvm.sh
+  - nvm install 8
+  - nvm use 8
+
+script:
+  - |
+      cd ratel && cargo test --verbose &&
+      cd ../ratel-visitor && cargo test --verbose &&
+      cd ../ffi && npm i && npm test

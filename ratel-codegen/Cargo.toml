@@ -1,0 +1,20 @@
+[package]
+name = "ratel-codegen"
+version = "0.8.0"
+authors = ["Maciej Hirsz <maciej.hirsz@gmail.com>"]
+license = "MIT/Apache-2.0"
+description = "JavaScript transpiler in Rust"
+repository = "https://github.com/ratel-rust/ratel-core"
+documentation = "https://github.com/ratel-rust/ratel-core"
+
+[dependencies]
+ratel = { path = "../ratel", version = "0.8.0" }
+
+[dev-dependencies]
+pretty_assertions = "0.4"
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true

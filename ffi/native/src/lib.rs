@@ -1,13 +1,14 @@
 #[macro_use]
 extern crate neon;
 extern crate ratel;
+extern crate ratel_codegen;
 extern crate serde;
 extern crate serde_json;
 
 use neon::vm::{Call, JsResult};
 use neon::js::{JsString, JsBoolean};
 use neon::js::error::{JsError, Kind};
-use ratel::{parser, codegen, error, transformer};
+use ratel::{parser, error};
 use error::{Error, ParseError};
 use ratel::module::Module;
 
@@ -76,7 +77,7 @@ fn transform(call: Call) -> JsResult<JsString> {
         Ok(module) => module,
     };
     // transformer::transform(&mut module, transformer::Settings::target_es5());
-    let out = codegen::codegen(&module, minify.value());
+    let out = ratel_codegen::codegen(&module, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())
 }
