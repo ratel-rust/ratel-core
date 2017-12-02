@@ -218,7 +218,7 @@ impl<'ast> Parser<'ast> {
     }
 }
 
-pub fn parse(source: &str) -> Result<Module, Vec<Error>> {
+pub fn parse<'src, 'ast>(source: &'src str) -> Result<Module<'ast>, Vec<Error>> {
     let arena = Arena::new();
 
     let (body, errors) = {
@@ -299,14 +299,11 @@ mod test {
 
     #[test]
     fn empty_parse() {
-        let module = parse("").unwrap();
-
-        assert_eq!(module.body(), NodeList::empty());
+        assert_eq!(parse("").unwrap().body(), NodeList::empty());
     }
 
     #[test]
     fn empty_statements() {
-        let module = parse(";;;").unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -315,6 +312,6 @@ mod test {
             Statement::Empty
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(";;;").unwrap().body(), expected);
     }
 }

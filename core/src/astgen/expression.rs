@@ -1,5 +1,5 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{Block, Expression, Loc, OperatorKind};
+use ast::{Expression, Loc, OperatorKind};
 use ast::expression::*;
 use astgen::SerializeInLoc;
 
@@ -269,10 +269,6 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use parser::{parse};
-    use astgen::generate_ast;
-
     #[test]
     fn test_this_expression() {
         expect_parse!("this;", {

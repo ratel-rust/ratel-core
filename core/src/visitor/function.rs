@@ -20,7 +20,7 @@ impl<'ast> ChildMarker<'ast> for MandatoryName<'ast> {
 
 impl<'ast, N> Visitable<'ast> for Function<'ast, N>
 where
-    N: ChildMarker<'ast>
+    N: ChildMarker<'ast> + 'ast,
 {
     type Parent = N::Parent;
 
@@ -29,8 +29,10 @@ where
     where
         V: Visitor<'ast>,
     {
-        visitor.on_enter_block(self.body.body, ctx);
+        visitor.on_enter_block(ctx);
         self.params.visit(visitor, ctx);
+        // Call visit on the StatementList instead of BlockNode since we
+        // need to make sure that function parameters end up inside the block
         self.body.body.visit(visitor, ctx);
         visitor.on_leave_block(ctx);
     }
@@ -70,7 +72,7 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
 
 impl<'ast, N> Visitable<'ast> for Class<'ast, N>
 where
-    N: ChildMarker<'ast>
+    N: ChildMarker<'ast> + 'ast,
 {
     type Parent = N::Parent;
 

@@ -381,7 +381,6 @@ mod test {
     #[test]
     fn function_empty() {
         let src = "function foo() {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -392,13 +391,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_params() {
         let src = "function foo(bar, baz) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -412,13 +410,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_body() {
         let src = "function foo() { bar; baz; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -432,13 +429,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_with_default_params() {
         let src = "function foo (a = 0, b = 1, c = 2) { return 2 }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -465,13 +461,12 @@ mod test {
                 ])
             }
         ]);
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_with_non_trailing_default_params() {
         let src = "function foo (a, b, c = 2, d) { return 2 }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -493,13 +488,12 @@ mod test {
                 ])
             }
         ]);
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_with_rest_element() {
         let src = "function foo(...rest) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -513,13 +507,12 @@ mod test {
                 body: mock.empty_block()
             }
         ]);
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_with_tailing_rest_element() {
         let src = "function foo(a, b = 10, ...rest) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -538,7 +531,7 @@ mod test {
                 body: mock.empty_block()
             }
         ]);
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -549,7 +542,6 @@ mod test {
     #[test]
     fn class_empty() {
         let src = "class Foo {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -560,13 +552,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn child_class_empty() {
         let src = "class Foo extends Bar {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -577,7 +568,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -591,7 +582,6 @@ mod test {
         }
 
         "#;
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -618,7 +608,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -640,7 +630,6 @@ mod test {
         }
 
         "#;
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -711,7 +700,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -726,7 +715,6 @@ mod test {
         }
 
         "#;
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -758,14 +746,13 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
 
     #[test]
     fn class_extends_null() {
         let src = "class Foo extends null {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -776,7 +763,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -789,7 +776,6 @@ mod test {
         }
 
         "#;
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -825,6 +811,6 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 }

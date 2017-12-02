@@ -147,19 +147,12 @@ fn codegen_from_ast(b: &mut Bencher) {
 
 #[bench]
 fn serialize_to_json(b: &mut Bencher) {
-    use ratel::astgen::Program;
-
     let module = ratel::parser::parse(SOURCE).expect("Must parse");
-
-    let program = Program {
-        body: &module.body()
-    };
-
-    let output = serde_json::to_string(&program).unwrap();
+    let output = serde_json::to_string(&module).unwrap();
 
     b.bytes = output.len() as u64;
 
     b.iter(|| {
-        serde_json::to_string(&program).unwrap()
+        serde_json::to_string(&module).unwrap()
     })
 }

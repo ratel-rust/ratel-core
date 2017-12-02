@@ -231,8 +231,6 @@ impl<'ast> SerializeInLoc for TemplateElement<'ast> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use parser::{parse};
-    use astgen::generate_ast;
 
     #[test]
     fn test_parse_regex() {

@@ -6,13 +6,8 @@ mod function;
 mod value;
 
 use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{Loc, Node, NodeList, Statement, StatementList};
+use ast::{Loc, Node};
 use module::Module;
-
-#[derive(Debug)]
-pub struct Program<'ast> {
-    pub body: &'ast StatementList<'ast>,
-}
 
 pub trait SerializeInLoc {
     #[inline]
@@ -51,29 +46,30 @@ impl<'ast, T: SerializeInLoc> Serialize for Node<'ast, T> {
     }
 }
 
-impl<'ast> Serialize for Program<'ast> {
+impl<'ast> Serialize for Module<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer
     {
+        let body = self.body();
+
         let mut start = 0;
         let mut end = 0;
-        let mut iter = self.body.iter().peekable();
+        let mut iter = body.iter();
 
         if let Some(node) = iter.next() {
             start = node.start;
             end = node.end;
-            while let Some(node) = iter.next() {
-                if iter.peek().is_none() {
-                    end = node.end;
-                }
-            }
+        }
+
+        if let Some(node) = iter.last() {
+            end = node.end;
         }
 
         let name = "Program";
         let mut state = serializer.serialize_struct(name, 4)?;
         state.serialize_field("type", &name)?;
-        state.serialize_field("body", &self.body)?;
+        state.serialize_field("body", &body)?;
         state.serialize_field("start", &start)?;
         state.serialize_field("end", &end)?;
         state.end()
@@ -81,20 +77,7 @@ impl<'ast> Serialize for Program<'ast> {
 }
 
 #[cfg(test)]
-use serde_json;
-
-#[cfg(test)]
-pub fn generate_ast<'ast>(module: &Module) -> serde_json::Value {
-    serde_json::to_value(Program {
-        body: &module.body()
-    }).unwrap()
-}
-
-#[cfg(test)]
 mod test {
-    use super::*;
-    use parser::{parse};
-
     #[test]
     fn test_generate_ast_empty() {
         expect_parse!("", {

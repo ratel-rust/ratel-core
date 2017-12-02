@@ -587,32 +587,25 @@ mod test {
 
     #[test]
     fn ident_expression() {
-        let module = parse("foobar;").unwrap();
-
         let expected = Expression::Identifier("foobar");
 
-        assert_expr!(module, expected);
+        assert_expr!("foobar;", expected);
     }
 
     #[test]
     fn value_expression() {
-        let module_a = parse(r#""foobar";"#).unwrap();
-        let module_b = parse("100;").unwrap();
-        let module_c = parse("true;").unwrap();
-
         let expected_a = Literal::String(r#""foobar""#);
         let expected_b = Literal::Number("100");
         let expected_c = Literal::True;
 
-        assert_expr!(module_a, expected_a);
-        assert_expr!(module_b, expected_b);
-        assert_expr!(module_c, expected_c);
+        assert_expr!(r#""foobar";"#, expected_a);
+        assert_expr!("100;", expected_b);
+        assert_expr!("true;", expected_c);
     }
 
     #[test]
     fn template_expression() {
         let src = "`foobar`;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = TemplateLiteral {
@@ -620,13 +613,12 @@ mod test {
             quasis: mock.list(["foobar"]),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn tagged_template_expression() {
         let src = "foo`bar`;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = TaggedTemplateExpression {
@@ -637,13 +629,12 @@ mod test {
             })
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn complex_template_expression() {
         let src = "`foo${ 10 }bar${ 20 }baz`;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = TemplateLiteral {
@@ -654,13 +645,12 @@ mod test {
             quasis: mock.list(["foo", "bar", "baz" ]),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn tagged_complex_template_expression() {
         let src = "foo`bar${ 42 }baz`;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = TaggedTemplateExpression {
@@ -673,26 +663,24 @@ mod test {
             })
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn sequence_expression() {
         let src = "foo, bar, baz;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = SequenceExpression {
             body: mock.list(["foo", "bar", "baz"]),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn binary_expression() {
         let src = "foo + bar;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = BinaryExpression {
@@ -701,13 +689,12 @@ mod test {
             right: mock.ptr("bar"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn parenthesized_binary_expression() {
         let src = "(2 + 2);";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = BinaryExpression {
@@ -716,14 +703,13 @@ mod test {
             right: mock.number("2"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn conditional_expression() {
         let src = "true ? foo : bar";
 
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ConditionalExpression {
@@ -732,13 +718,12 @@ mod test {
             alternate: mock.ptr("bar"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn postfix_expression() {
         let src = "baz++;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = PostfixExpression {
@@ -746,13 +731,12 @@ mod test {
             operand: mock.ptr("baz"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn call_expression() {
         let src = "foo();";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = CallExpression {
@@ -760,13 +744,12 @@ mod test {
             arguments: NodeList::empty(),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn member_expression() {
         let src = "foo.bar";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = MemberExpression {
@@ -774,13 +757,12 @@ mod test {
             property: mock.ptr("bar"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn keyword_member_expression() {
         let src = "foo.function";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = MemberExpression {
@@ -788,13 +770,12 @@ mod test {
             property: mock.ptr("function"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn computed_member_expression() {
         let src = "foo[10]";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ComputedMemberExpression {
@@ -802,23 +783,21 @@ mod test {
             property: mock.number("10"),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn regular_expression() {
         let src = r#"/^[A-Z]+\/[\d]+/g"#;
-        let module = parse(src).unwrap();
 
         let expected = Literal::RegEx("/^[A-Z]+\\/[\\d]+/g");
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn array_expression() {
         let src = "[0, 1, 2]";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrayExpression {
@@ -829,13 +808,12 @@ mod test {
             ])
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn sparse_array_expression() {
         let src = "[,,foo,bar,,]";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrayExpression {
@@ -849,13 +827,12 @@ mod test {
             ])
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn spread_expression_in_array() {
         let src = "[a, b, ...c]";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrayExpression {
@@ -868,13 +845,12 @@ mod test {
             ])
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn spread_expression_in_call() {
         let src = "foo(a, b, ...c)";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = CallExpression {
@@ -888,7 +864,7 @@ mod test {
             ])
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
 
@@ -900,7 +876,6 @@ mod test {
     #[test]
     fn function_expression() {
         let src = "(function () {})";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Function {
@@ -909,13 +884,12 @@ mod test {
             body: mock.empty_block()
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn named_function_expression() {
         let src = "(function foo () {})";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Function {
@@ -924,26 +898,24 @@ mod test {
             body: mock.empty_block()
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn arrow_function_expression() {
         let src = "() => bar";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrowExpression {
             params: NodeList::empty(),
             body: ArrowBody::Expression(mock.ptr("bar")),
         };
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn arrow_function_shorthand() {
         let src = "n => n * n";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrowExpression {
@@ -958,13 +930,12 @@ mod test {
             }))
 
         };
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn arrow_function_with_params() {
         let src = "(a, b, c) => bar";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrowExpression {
@@ -975,7 +946,7 @@ mod test {
             ]),
             body: ArrowBody::Expression(mock.ptr("bar"))
         };
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
@@ -986,7 +957,6 @@ mod test {
     #[test]
     fn arrow_function_with_default_params() {
         let src = "(a, b, c = 2) => bar";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = ArrowExpression {
@@ -1000,13 +970,12 @@ mod test {
             ]),
             body: ArrowBody::Expression(mock.ptr("bar"))
         };
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn class_expression() {
         let src = "(class {})";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Class {
@@ -1015,13 +984,12 @@ mod test {
             body: mock.empty_block()
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn named_class_expression() {
         let src = "(class Foo {})";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Class {
@@ -1030,13 +998,12 @@ mod test {
             body: mock.empty_block()
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn named_child_class_expression() {
         let src = "(class Foo extends Bar {})";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = Class {
@@ -1045,13 +1012,12 @@ mod test {
             body: mock.empty_block()
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn regression_operator_precedence() {
         let src = "true === true && false === false";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = BinaryExpression {
@@ -1068,13 +1034,12 @@ mod test {
             }),
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 
     #[test]
     fn arrow_function_in_sequence() {
         let src = "(() => {}, foo)";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = SequenceExpression {
@@ -1089,6 +1054,6 @@ mod test {
             ])
         };
 
-        assert_expr!(module, expected);
+        assert_expr!(src, expected);
     }
 }

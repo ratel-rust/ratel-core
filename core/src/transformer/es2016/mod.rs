@@ -23,8 +23,8 @@ impl<'ast> StaticVisitor<'ast> for PresetES2016 {
         match node.operator {
             OperatorKind::Exponent => {
                 let callee = t.alloc(MemberExpression {
-                    object: Node::new(MATH),
-                    property: Node::new(POW),
+                    object: Node::from_static(MATH),
+                    property: Node::from_static(POW),
                 });
                 let arguments = t.list([node.left, node.right]);
 
@@ -36,8 +36,8 @@ impl<'ast> StaticVisitor<'ast> for PresetES2016 {
 
             OperatorKind::ExponentAssign => {
                 let callee = t.alloc(MemberExpression {
-                    object: Node::new(MATH),
-                    property: Node::new(POW),
+                    object: Node::from_static(MATH),
+                    property: Node::from_static(POW),
                 });
                 let arguments = t.list([node.left, node.right]);
                 let right = t.alloc(CallExpression {

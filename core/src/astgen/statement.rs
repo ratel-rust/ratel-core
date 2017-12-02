@@ -269,9 +269,6 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
 
 #[cfg(test)]
 mod test {
-    use parser::{parse};
-    use astgen::generate_ast;
-
     #[test]
     fn test_statement_empty() {
         expect_parse!(";", {

@@ -20,11 +20,13 @@ pub struct ReturnStatement<'ast> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BreakStatement<'ast> {
+    // TODO: This should be a `LabelNode`, with `Label` being a newtype for &str.
     pub label: Option<IdentifierNode<'ast>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ContinueStatement<'ast> {
+    // TODO: This should be a `LabelNode`, with `Label` being a newtype for &str.
     pub label: Option<IdentifierNode<'ast>>
 }
 

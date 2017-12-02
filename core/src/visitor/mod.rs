@@ -4,6 +4,8 @@ use ast::{ExpressionList, StatementList, ExpressionNode, StatementNode};
 use ast::expression::*;
 use ast::statement::*;
 
+use module::Module;
+
 #[macro_use]
 mod build;
 mod function;
@@ -15,11 +17,20 @@ mod statement;
 pub type NoParent = ();
 
 build! {
-    // scope control
-    fn on_enter_block(body: StatementList<'ast>);
-    fn on_variable_use(ident: &Identifier<'ast>);
-    fn on_variable_declare(ident: &Identifier<'ast>);
+    // Enters a new statement list (program body, block body, switch case, etc.)
+    fn on_statement_list(body: StatementList<'ast>);
+
+    // Entered a new block scope
+    fn on_enter_block();
+
+    // Leave the block scope
     fn on_leave_block();
+
+    // A variable has been used within the current block scope
+    fn on_variable_use(ident: &Identifier<'ast>);
+
+    // A variable has been declared within the current block scope
+    fn on_variable_declare(ident: &Identifier<'ast>);
 
     // expressions
     fn on_this_expression(node: &ExpressionNode<'ast>);
@@ -63,10 +74,23 @@ build! {
     fn on_class_statement(item: &ClassStatement<'ast>, node: &StatementNode<'ast>);
 }
 
-pub trait Visitable<'ast> {
+pub trait Visitable<'ast>: 'ast {
     type Parent;
 
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context) where V: Visitor<'ast>;
+}
+
+impl<'ast> Visitable<'ast> for Module<'ast> {
+    type Parent = NoParent;
+
+    #[inline]
+    fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
+    where
+        V: Visitor<'ast>,
+    {
+        let body = self.body();
+        body.visit(visitor, ctx);
+    }
 }
 
 impl<'ast> Visitable<'ast> for Pattern<'ast> {
@@ -177,7 +201,7 @@ impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
     where
         V: Visitor<'ast>,
     {
-        (**self).visit(visitor, ctx);
+        self.item.visit(visitor, ctx);
     }
 }
 
@@ -219,10 +243,72 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
     where
         V: Visitor<'ast>,
     {
-        visitor.on_enter_block(*self, ctx);
+        visitor.on_statement_list(*self, ctx);
         for node in self.iter() {
             node.visit(visitor, ctx);
         }
-        visitor.on_leave_block(ctx);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parser::parse;
+    use std::collections::HashMap;
+
+    struct TestContext<'ast> {
+        entered: usize,
+        left: usize,
+        used_vars: HashMap<&'ast str, usize>,
+        declared_vars: HashMap<&'ast str, usize>,
+    }
+
+    impl<'ast> TestContext<'ast> {
+        fn new() -> Self {
+            TestContext {
+                entered: 0,
+                left: 0,
+                used_vars: HashMap::new(),
+                declared_vars: HashMap::new(),
+            }
+        }
+    }
+
+    struct ScopeTest;
+
+    impl<'ast> StaticVisitor<'ast> for ScopeTest {
+        type Context = TestContext<'ast>;
+
+        fn on_enter_block(ctx: &mut TestContext<'ast>) {
+            ctx.entered += 1;
+        }
+
+        fn on_leave_block(ctx: &mut TestContext<'ast>) {
+            ctx.left += 1;
+        }
+
+        fn on_variable_use(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
+            ctx.used_vars.insert(*ident, ctx.entered - ctx.left);
+        }
+
+        fn on_variable_declare(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
+            ctx.declared_vars.insert(*ident, ctx.entered - ctx.left);
+        }
+
+        fn register(_dv: &mut DynamicVisitor<'ast, TestContext<'ast>>) {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn keeps_tracks_of_blocks() {
+        let module = parse("{{{}}}").unwrap();
+
+        let mut ctx = TestContext::new();
+
+        module.visit(&ScopeTest, &mut ctx);
+
+        assert_eq!(ctx.entered, 3);
+        assert_eq!(ctx.left, 3);
     }
 }

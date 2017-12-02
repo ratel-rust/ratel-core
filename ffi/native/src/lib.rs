@@ -10,7 +10,6 @@ use neon::js::error::{JsError, Kind};
 use ratel::{parser, codegen, error, transformer};
 use error::{Error, ParseError};
 use ratel::module::Module;
-use ratel::astgen::*;
 
 #[inline]
 fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec<String> {
@@ -29,13 +28,10 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
 
 #[inline]
 fn generate_ast(module: &Module, minify: bool) -> Result<String, serde_json::Error> {
-    let program = Program {
-        body: &module.body()
-    };
     if minify {
-        serde_json::to_string(&program)
+        serde_json::to_string(&module)
     } else {
-        serde_json::to_string_pretty(&program)
+        serde_json::to_string_pretty(&module)
     }
 }
 
@@ -72,7 +68,7 @@ fn transform(call: Call) -> JsResult<JsString> {
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
     let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
-    let mut module = match parser::parse(&source.value()) {
+    let module = match parser::parse(&source.value()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)

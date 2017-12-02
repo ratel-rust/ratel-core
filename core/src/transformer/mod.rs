@@ -17,7 +17,7 @@ pub struct Transformer<'ast> {
 impl<'ast> Transformer<'ast> {
     #[inline]
     pub fn alloc<T, I>(&self, item: I) -> Node<'ast, T> where
-        T: Copy + 'ast,
+        T: Copy,
         I: Into<T>,
     {
         Node::new(self.arena.alloc(Loc::new(0, 0, item.into())))

@@ -632,7 +632,6 @@ mod test {
     #[test]
     fn block_statement() {
         let src = "{ true }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -643,13 +642,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn labeled_block_statement() {
         let src = "foobar: { true }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -663,13 +661,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn if_statement() {
         let src = "if (true) foo;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -680,13 +677,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn if_else_statement() {
         let src = "if (true) foo; else { bar; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -701,13 +697,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn while_statement() {
         let src = "while (true) foo;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -717,13 +712,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn while_statement_block() {
         let src = "while (true) { foo; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -737,13 +731,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn do_statement() {
         let src = "do foo; while (true)";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -753,13 +746,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn break_statement() {
         let src = "break;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -768,13 +760,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn break_statement_label() {
         let src = "break foo;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -783,13 +774,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn throw_statement() {
         let src = "throw '3'";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -798,13 +788,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn try_statement() {
         let src = "try {} catch (err) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -818,13 +807,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn try_statement_finally() {
         let src = "try { foo; } finally { bar; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -839,13 +827,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn try_statement_full() {
         let src = "try { foo; } catch (err) { bar; } finally { qux; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -865,7 +852,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -876,7 +863,6 @@ mod test {
     #[test]
     fn variable_declaration_statement() {
         let src = "var x, y, z = 42;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -899,13 +885,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement_destructuring_array() {
         let src = "let [x, y] = [1, 2];";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -930,13 +915,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement_destructuring_array_sparse() {
         let src = "let [, foo] = bar;";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -956,13 +940,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn variable_declaration_statement_destructuring_object() {
         let src = "const { x, y } = { a, b };";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -987,13 +970,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn for_statement() {
         let src = "for (let i = 0; i < 10; i++) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1022,13 +1004,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn empty_for_statement() {
         let src = "for (;;) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1042,14 +1023,13 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
 
     #[test]
     fn for_statement_continue() {
         let src = "for (let i = 0, j = 10; i < 10; i++, j--) { continue; }";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1094,14 +1074,13 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
 
     #[test]
     fn for_statement_sequences() {
         let src = "for (let i = 0, j = 10; i < 10; i++, j--) {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1142,13 +1121,12 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
     fn function_statement() {
         let src = "function foo() {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1159,7 +1137,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -1170,7 +1148,6 @@ mod test {
     #[test]
     fn class_statement() {
         let src = "class Foo {}";
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1181,7 +1158,7 @@ mod test {
             }
         ]);
 
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 
     #[test]
@@ -1203,7 +1180,6 @@ mod test {
                 return false;
         }
         "#;
-        let module = parse(src).unwrap();
         let mock = Mock::new();
 
         let expected = mock.list([
@@ -1235,6 +1211,6 @@ mod test {
                 ])
             }
         ]);
-        assert_eq!(module.body(), expected);
+        assert_eq!(parse(src).unwrap().body(), expected);
     }
 }
