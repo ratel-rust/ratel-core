@@ -1192,7 +1192,6 @@ mod test {
 
     #[test]
     fn switch_statement() {
-        let mock = Mock::new();
         let src = r#"
         switch (times) {
             case 3:
@@ -1204,6 +1203,8 @@ mod test {
                 return false;
         }
         "#;
+        let module = parse(src).unwrap();
+        let mock = Mock::new();
 
         let expected = mock.list([
             SwitchStatement {
@@ -1234,8 +1235,6 @@ mod test {
                 ])
             }
         ]);
-
-        let module = parse(src).unwrap();
         assert_eq!(module.body(), expected);
     }
 }

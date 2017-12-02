@@ -27,10 +27,12 @@ where
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
-        V: Visitor<'ast>
+        V: Visitor<'ast>,
     {
+        visitor.on_enter_function_block(self.params, self.body.body, ctx);
         self.params.visit(visitor, ctx);
         self.body.body.visit(visitor, ctx);
+        visitor.on_leave_block(ctx);
     }
 }
 
@@ -40,7 +42,7 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
-        V: Visitor<'ast>
+        V: Visitor<'ast>,
     {
         use self::ClassMember::*;
 
@@ -50,12 +52,18 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
                 ref key,
                 ref value,
                 ..
-            } => unimplemented!(),
+            } => {
+                key.visit(visitor, ctx);
+                value.visit(visitor, ctx);
+            },
             Literal {
                 ref key,
                 ref value,
                 ..
-            } => unimplemented!(),
+            } => {
+                key.visit(visitor, ctx);
+                value.visit(visitor, ctx);
+            },
         }
     }
 }
@@ -69,7 +77,7 @@ where
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
     where
-        V: Visitor<'ast>
+        V: Visitor<'ast>,
     {
         self.extends.visit(visitor, ctx);
         self.body.body.visit(visitor, ctx);

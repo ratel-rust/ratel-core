@@ -8,20 +8,21 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         use self::Expression::*;
 
         match self.item {
             Void => {},
             This(ref this) => {
-                visitor.on_this(this, self, ctx);
+                visitor.on_this_expression(self, ctx);
             },
             Identifier(ref ident) => {
-                visitor.on_identifier(ident, self, ctx);
+                visitor.on_identifier_expression(ident, self, ctx);
             },
             Literal(ref literal) => {
-                visitor.on_literal(literal, self, ctx);
+                visitor.on_literal_expression(literal, self, ctx);
             },
             Sequence(ref sequence) => {
                 sequence.visit(visitor, ctx);
@@ -102,7 +103,9 @@ impl<'ast> Visitable<'ast> for Identifier<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn visit<V: Visitor<'ast>>(&self, _: &V, _: &mut V::Context) {}
+    fn visit<V: Visitor<'ast>>(&self, visitor: &V, ctx: &mut V::Context) {
+        visitor.on_identifier_use(self, ctx);
+    }
 }
 
 impl<'ast> Visitable<'ast> for Literal<'ast> {
@@ -117,7 +120,8 @@ impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.body.visit(visitor, ctx);
     }
@@ -128,7 +132,8 @@ impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.body.visit(visitor, ctx);
     }
@@ -139,7 +144,8 @@ impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.object.visit(visitor, ctx);
     }
@@ -150,7 +156,8 @@ impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.object.visit(visitor, ctx);
         self.property.visit(visitor, ctx);
@@ -162,7 +169,8 @@ impl<'ast> Visitable<'ast> for CallExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.callee.visit(visitor, ctx);
         self.arguments.visit(visitor, ctx);
@@ -174,7 +182,8 @@ impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.left.visit(visitor, ctx);
         self.right.visit(visitor, ctx);
@@ -186,7 +195,8 @@ impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.operand.visit(visitor, ctx);
     }
@@ -197,7 +207,8 @@ impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.operand.visit(visitor, ctx);
     }
@@ -208,7 +219,8 @@ impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.test.visit(visitor, ctx);
         self.consequent.visit(visitor, ctx);
@@ -221,7 +233,8 @@ impl<'ast> Visitable<'ast> for TemplateLiteral<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.expressions.visit(visitor, ctx);
     }
@@ -232,7 +245,8 @@ impl<'ast> Visitable<'ast> for TaggedTemplateExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.tag.visit(visitor, ctx);
         self.quasi.visit(visitor, ctx);
@@ -244,7 +258,8 @@ impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.argument.visit(visitor, ctx);
     }
@@ -255,7 +270,8 @@ impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         match *self {
             ArrowBody::Expression(ref expression) => expression.visit(visitor, ctx),
@@ -269,7 +285,8 @@ impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.params.visit(visitor, ctx);
         self.body.visit(visitor, ctx);
@@ -281,7 +298,8 @@ impl<'ast> Visitable<'ast> for ObjectExpression<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         self.body.visit(visitor, ctx);
     }

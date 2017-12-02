@@ -8,7 +8,8 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
 
     #[inline]
     fn visit<V>(&self, visitor: &V, ctx: &mut V::Context)
-        where V: Visitor<'ast>
+    where
+        V: Visitor<'ast>,
     {
         use self::Statement::*;
 
@@ -54,6 +55,8 @@ impl<'ast> Visitable<'ast> for BlockStatement<'ast> {
 
     #[inline]
     fn visit<V: Visitor<'ast>>(&self, visitor: &V, ctx: &mut V::Context) {
+        visitor.on_enter_block(self.body, ctx);
         self.body.visit(visitor, ctx);
+        visitor.on_leave_block(ctx);
     }
 }

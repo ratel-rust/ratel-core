@@ -1,7 +1,11 @@
 #[macro_export]
-macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
+macro_rules! build { (
+    $(
+        fn $name:ident( $( $arg:ident : $type:ty ),* );
+    )*
+) => (
     /// Helper macro for extracting Visitable::Parent type for any T: Visitable
-    macro_rules! parent { ($t:ty) => (<$t as Visitable<'ast>>::Parent) }
+    // macro_rules! parent { ($t:ty) => (<$t as Visitable<'ast>>::Parent) }
 
     pub trait Visitor<'ast> {
         type Context;
@@ -9,7 +13,7 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         // Construct methods
         $(
             #[inline]
-            fn $name(&self, &$type, &parent!($type), &mut Self::Context) {}
+            fn $name(&self, $( $type, )* &mut Self::Context) {}
         )*
 
         fn register(&self, &mut DynamicVisitor<'ast, Self::Context>);
@@ -21,7 +25,7 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         // Construct associated functions
         $(
             #[inline]
-            fn $name(&$type, &parent!($type), &mut Self::Context) {}
+            fn $name($( $type, )* &mut Self::Context) {}
         )*
 
         fn register(&mut DynamicVisitor<'ast, Self::Context>);
@@ -35,8 +39,8 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         // Construct methods
         $(
             #[inline]
-            fn $name(&self, node: &$type, ptr: &parent!($type), ctx: &mut Self::Context) {
-                SV::$name(node, ptr, ctx);
+            fn $name(&self, $( $arg: $type, )* ctx: &mut Self::Context) {
+                SV::$name($( $arg, )* ctx);
             }
         )*
 
@@ -49,7 +53,7 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
     pub struct DynamicVisitor<'ast, CTX> {
         // Construct vectors for handlers
         $(
-            pub $name: Vec<fn(&$type, &parent!($type), &mut CTX)>,
+            pub $name: Vec<fn($( $type, )* &mut CTX)>,
         )*
     }
 
@@ -69,9 +73,9 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         // Construct methods
         $(
             #[inline]
-            fn $name(&self, node: &$type, ptr: &parent!($type), ctx: &mut Self::Context) {
+            fn $name(&self, $( $arg: $type, )* ctx: &mut Self::Context) {
                 for handler in &self.$name {
-                    handler(node, ptr, ctx);
+                    handler($( $arg, )* ctx);
                 }
             }
         )*
@@ -92,9 +96,9 @@ macro_rules! build { ( $($name:ident => $type:ty;)* ) => (
         // Construct associated functions
         $(
             #[inline]
-            fn $name(node: &$type, ptr: &parent!($type), ctx: &mut CTX) {
-                A::$name(node, ptr, ctx);
-                B::$name(node, ptr, ctx);
+            fn $name($( $arg: $type, )* ctx: &mut CTX) {
+                A::$name($( $arg, )* ctx);
+                B::$name($( $arg, )* ctx);
             }
         )*
 

@@ -1,5 +1,5 @@
-use ast::{Node, Loc, NodeList, IdentifierNode, ExpressionNode};
-use ast::{BlockNode, Statement, Pattern, PropertyKey};
+use ast::{Node, Loc, IdentifierNode, ExpressionNode};
+use ast::{BlockNode, Statement, PatternList, PropertyKey};
 
 pub trait Name<'ast>: Copy {
     fn empty() -> Self;
@@ -65,7 +65,7 @@ impl<'ast> From<Option<IdentifierNode<'ast>>> for OptionalName<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
-    pub params: NodeList<'ast, Pattern<'ast>>,
+    pub params: PatternList<'ast>,
     pub body: BlockNode<'ast, Statement<'ast>>,
 }
 

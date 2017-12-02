@@ -3,7 +3,7 @@ use toolshed::list::ListBuilder;
 use ast::{Loc, Node, NodeList};
 
 pub mod es2015;
-pub mod es2016;
+// pub mod es2016;
 
 // mod scope;
 

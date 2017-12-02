@@ -50,6 +50,7 @@ pub enum Pattern<'ast> {
 // Handful of useful aliases
 pub type NodeList<'ast, T> = List<'ast, Node<'ast, T>>;
 pub type BlockNode<'ast, T> = Node<'ast, Block<'ast, T>>;
+pub type PatternList<'ast> = NodeList<'ast, Pattern<'ast>>;
 pub type PropertyNode<'ast> = Node<'ast, Property<'ast>>;
 pub type ExpressionNode<'ast> = Node<'ast, Expression<'ast>>;
 pub type ExpressionList<'ast> = NodeList<'ast, Expression<'ast>>;

@@ -1,6 +1,6 @@
 use error::Error;
 
-use ast::{Node, Loc, NodeList, Statement, StatementNode, Expression, ExpressionNode, Pattern};
+use ast::{Node, Loc, NodeList, Pattern};
 use ast::{Name, ClassMember, Property, PropertyKey, MandatoryName, Block};
 use parser::Parser;
 
