@@ -1,5 +1,5 @@
 use visitor::{Visitor, Visitable};
-use ast::{Expression, ExpressionNode, StatementNode, Literal};
+use ast::{Identifier, Expression, ExpressionNode, StatementNode, Literal};
 use ast::expression::*;
 
 
@@ -15,7 +15,7 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
 
         match self.item {
             Void => {},
-            This(ref this) => {
+            This(_) => {
                 visitor.on_this_expression(self, ctx);
             },
             Identifier(ref ident) => {
@@ -104,7 +104,7 @@ impl<'ast> Visitable<'ast> for Identifier<'ast> {
 
     #[inline]
     fn visit<V: Visitor<'ast>>(&self, visitor: &V, ctx: &mut V::Context) {
-        visitor.on_identifier_use(self, ctx);
+        visitor.on_variable_use(self, ctx);
     }
 }
 

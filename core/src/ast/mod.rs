@@ -31,7 +31,7 @@ pub struct Block<'ast, T: 'ast> {
 pub enum Pattern<'ast> {
     /// Only used inside ArrayPattern
     Void,
-    Identifier(&'ast str),
+    Identifier(Identifier<'ast>),
     ObjectPattern {
         properties: NodeList<'ast, Property<'ast>>
     },
@@ -48,6 +48,7 @@ pub enum Pattern<'ast> {
 }
 
 // Handful of useful aliases
+pub type Identifier<'ast> = &'ast str;
 pub type NodeList<'ast, T> = List<'ast, Node<'ast, T>>;
 pub type BlockNode<'ast, T> = Node<'ast, Block<'ast, T>>;
 pub type PatternList<'ast> = NodeList<'ast, Pattern<'ast>>;

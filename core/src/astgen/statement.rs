@@ -2,7 +2,6 @@ use serde::ser::{Serialize, Serializer, SerializeStruct};
 use ast::{Statement, Loc, Declarator, DeclarationKind, Block};
 use astgen::SerializeInLoc;
 use ast::statement::*;
-use ast::expression::Expression::Identifier;
 
 
 // TODO: DRY with BlockStatement

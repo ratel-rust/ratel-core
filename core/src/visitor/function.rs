@@ -29,7 +29,7 @@ where
     where
         V: Visitor<'ast>,
     {
-        visitor.on_enter_function_block(self.params, self.body.body, ctx);
+        visitor.on_enter_block(self.body.body, ctx);
         self.params.visit(visitor, ctx);
         self.body.body.visit(visitor, ctx);
         visitor.on_leave_block(ctx);

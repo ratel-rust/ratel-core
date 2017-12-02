@@ -1,5 +1,5 @@
-use ast::{Node, NodeList, ExpressionList, StatementList, ExpressionNode, StatementNode};
-use ast::{Literal, Pattern, PatternList};
+use ast::{Node, NodeList, Identifier, Literal, Pattern};
+use ast::{ExpressionList, StatementList, ExpressionNode, StatementNode};
 
 use ast::expression::*;
 use ast::statement::*;
@@ -17,52 +17,48 @@ pub type NoParent = ();
 build! {
     // scope control
     fn on_enter_block(body: StatementList<'ast>);
-    fn on_enter_function_block(params: PatternList<'ast>, body: StatementList<'ast>);
+    fn on_variable_use(ident: &Identifier<'ast>);
+    fn on_variable_declare(ident: &Identifier<'ast>);
     fn on_leave_block();
-
-    // whenever an identifier is used, in expressions but also f.e. in object shorthands.
-    fn on_identifier_use(ident: &Identifier<'ast>);
 
     // expressions
     fn on_this_expression(node: &ExpressionNode<'ast>);
     fn on_identifier_expression(item: &Identifier<'ast>, node: &ExpressionNode<'ast>);
     fn on_literal_expression(item: &Literal<'ast>, node: &ExpressionNode<'ast>);
-    fn on_array_expression(item: &ArrayExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_arrow_expression(item: &ArrowExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_binary_expression(item: &BinaryExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_call_expression(item: &CallExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_computed_member_expression(item: &ComputedMemberExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_conditional_expression(item: &ConditionalExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_member_expression(item: &MemberExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_object_expression(item: &ObjectExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_postfix_expression(item: &PostfixExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_prefix_expression(item: &PrefixExpression<'ast>, node: &ExpressionNode<'ast>);
     fn on_sequence_expression(item: &SequenceExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_spread_expression(item: &SpreadExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_array_expression(item: &ArrayExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_member_expression(item: &MemberExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_computed_member_expression(item: &ComputedMemberExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_call_expression(item: &CallExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_binary_expression(item: &BinaryExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_prefix_expression(item: &PrefixExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_postfix_expression(item: &PostfixExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_conditional_expression(item: &ConditionalExpression<'ast>, node: &ExpressionNode<'ast>);
     fn on_template_literal(item: &TemplateLiteral<'ast>, node: &ExpressionNode<'ast>);
     fn on_tagged_template_expression(item: &TaggedTemplateExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_spread_expression(item: &SpreadExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_arrow_expression(item: &ArrowExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_object_expression(item: &ObjectExpression<'ast>, node: &ExpressionNode<'ast>);
     fn on_function_expression(item: &FunctionExpression<'ast>, node: &ExpressionNode<'ast>);
     fn on_class_expression(item: &ClassExpression<'ast>, node: &ExpressionNode<'ast>);
 
     // statements
     fn on_expression_statement(item: &ExpressionNode<'ast>, node: &StatementNode<'ast>);
+    fn on_declaration_statement(item: &DeclarationStatement, node: &StatementNode<'ast>);
+    fn on_return_statement(item: &ReturnStatement, node: &StatementNode<'ast>);
+    fn on_break_statement(item: &BreakStatement, node: &StatementNode<'ast>);
+    fn on_continue_statement(item: &ContinueStatement, node: &StatementNode<'ast>);
+    fn on_throw_statement(item: &ThrowStatement, node: &StatementNode<'ast>);
+    fn on_if_statement(item: &IfStatement, node: &StatementNode<'ast>);
+    fn on_while_statement(item: &WhileStatement, node: &StatementNode<'ast>);
+    fn on_do_statement(item: &DoStatement, node: &StatementNode<'ast>);
+    fn on_for_statement(item: &ForStatement, node: &StatementNode<'ast>);
+    fn on_for_in_statement(item: &ForInStatement, node: &StatementNode<'ast>);
+    fn on_for_of_statement(item: &ForOfStatement, node: &StatementNode<'ast>);
+    fn on_try_statement(item: &TryStatement, node: &StatementNode<'ast>);
     fn on_block_statement(item: &BlockStatement<'ast>, node: &StatementNode<'ast>);
-    // fn on_break_statement(item: &BreakStatement, node: &StatementNode<'ast>);
-    // fn on_continue_statement(item: &ContinueStatement, node: &StatementNode<'ast>);
-    // fn on_declaration_statement(item: &DeclarationStatement, node: &StatementNode<'ast>);
-    // fn on_do_statement(item: &DoStatement, node: &StatementNode<'ast>);
-    // fn on_for_in_statement(item: &ForInStatement, node: &StatementNode<'ast>);
-    // fn on_for_init(item: &ForInit, node: &StatementNode<'ast>);
-    // fn on_for_of_statement(item: &ForOfStatement, node: &StatementNode<'ast>);
-    // fn on_for_statement(item: &ForStatement, node: &StatementNode<'ast>);
-    // fn on_if_statement(item: &IfStatement, node: &StatementNode<'ast>);
-    // fn on_labeled_statement(item: &LabeledStatement, node: &StatementNode<'ast>);
-    // fn on_return_statement(item: &ReturnStatement, node: &StatementNode<'ast>);
-    // fn on_switch_case(item: &SwitchCase, node: &StatementNode<'ast>);
-    // fn on_switch_statement(item: &SwitchStatement, node: &StatementNode<'ast>);
-    // fn on_throw_statement(item: &ThrowStatement, node: &StatementNode<'ast>);
-    // fn on_try_statement(item: &TryStatement, node: &StatementNode<'ast>);
-    // fn on_while_statement(item: &WhileStatement, node: &StatementNode<'ast>);
+    fn on_labeled_statement(item: &LabeledStatement, node: &StatementNode<'ast>);
+    fn on_switch_statement(item: &SwitchStatement, node: &StatementNode<'ast>);
     fn on_function_statement(item: &FunctionStatement<'ast>, node: &StatementNode<'ast>);
     fn on_class_statement(item: &ClassStatement<'ast>, node: &StatementNode<'ast>);
 }
@@ -81,7 +77,32 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
     where
         V: Visitor<'ast>,
     {
-        unimplemented!();
+        match *self {
+            Pattern::Void => {},
+            Pattern::Identifier(ref ident) => visitor.on_variable_declare(ident, ctx),
+            Pattern::ObjectPattern {
+                ref properties,
+            } => {
+                properties.visit(visitor, ctx);
+            },
+            Pattern::ArrayPattern {
+                ref elements,
+            } => {
+                elements.visit(visitor, ctx);
+            },
+            Pattern::RestElement {
+                ref argument,
+            } => {
+                argument.visit(visitor, ctx);
+            },
+            Pattern::AssignmentPattern {
+                ref left,
+                ref right,
+            } => {
+                left.visit(visitor, ctx);
+                right.visit(visitor, ctx);
+            }
+        }
     }
 }
 
@@ -109,7 +130,7 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
         V: Visitor<'ast>,
     {
         match *self {
-            Property::Shorthand(ref ident) => visitor.on_identifier_use(ident, ctx),
+            Property::Shorthand(ref ident) => visitor.on_variable_use(ident, ctx),
             Property::Literal {
                 ref key,
                 ref value,

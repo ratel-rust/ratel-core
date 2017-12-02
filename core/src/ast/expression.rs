@@ -1,5 +1,5 @@
 use ast::{Node, NodeList, Literal, OperatorKind, Function, Class, EmptyName, OptionalName};
-use ast::{IdentifierNode, BlockNode, ExpressionNode, Statement, ExpressionList, Pattern};
+use ast::{Identifier, IdentifierNode, BlockNode, ExpressionNode, Statement, ExpressionList, Pattern};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PropertyKey<'ast> {
@@ -114,7 +114,6 @@ pub struct ObjectExpression<'ast> {
     pub body: NodeList<'ast, Property<'ast>>,
 }
 
-pub type Identifier<'ast> = &'ast str;
 pub type FunctionExpression<'ast> = Function<'ast, OptionalName<'ast>>;
 pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 
