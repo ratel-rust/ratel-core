@@ -43,5 +43,6 @@ echo "############"
 echo ""
 
 cd ffi
+npm i || exit
 npm test || exit
 cd ..

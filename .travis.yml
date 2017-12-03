@@ -19,6 +19,5 @@ before_install:
   - source $HOME/.nvm/nvm.sh
   - nvm install 8
   - nvm use 8
-  - npm install --global neon-cli
 
 script: ./test.sh
