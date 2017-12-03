@@ -106,7 +106,7 @@ impl<'ast> Visitable<'ast> for Identifier<'ast> {
 
     #[inline]
     fn traverse<V: Visitor<'ast>>(&self, visitor: &V, ctx: &mut V::Context) {
-        visitor.on_variable_use(self, ctx);
+        visitor.on_reference_use(self, ctx);
     }
 }
 

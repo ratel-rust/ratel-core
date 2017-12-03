@@ -3,6 +3,7 @@ use toolshed::Arena;
 use ast::StatementList;
 use std::marker::PhantomData;
 
+/// A JavaScript module parsed to an AST.
 pub struct Module<'ast> {
     body: UnsafeList,
     arena: Arena,
@@ -11,7 +12,7 @@ pub struct Module<'ast> {
 
 impl<'ast> Module<'ast> {
     #[inline]
-    pub fn new(body: UnsafeList, arena: Arena) -> Self {
+    pub(crate) fn new(body: UnsafeList, arena: Arena) -> Self {
         Module {
             body,
             arena,
@@ -19,11 +20,13 @@ impl<'ast> Module<'ast> {
         }
     }
 
+    /// Get the body of the module as a list of statements.
     #[inline]
     pub fn body(&self) -> StatementList<'ast> {
         unsafe { self.body.into_list() }
     }
 
+    /// Get a reference to the `Arena` on which the AST is allocated.
     #[inline]
     pub fn arena(&'ast self) -> &'ast Arena {
         &self.arena

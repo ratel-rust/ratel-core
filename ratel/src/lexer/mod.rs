@@ -38,19 +38,23 @@ macro_rules! unwind_loop {
     })
 }
 
-/// Describes the state of Automatic Semicolon Insertion
-///
-/// * `ExplicitSemicolon` - a `Semicolon` token has been issued.
-/// * `ImplicitSemicolon` - issued a token that permits semicolon insertion.
-/// * `NoSemicolon`       - issued a token that does not permit semicolon insertion.
+/// Contextual check describing which Automatic Semicolon Insertion rules can be applied.
 #[derive(Clone, Copy)]
 pub enum Asi {
+    /// Current token is a semicolon. Parser should consume it and finalize the statement.
     ExplicitSemicolon,
+
+    /// Current token is not a semicolon, but previous token is either followed by a
+    /// line termination, or allows semicolon insertion itself. Parser should finalize the
+    /// statement without consuming the current token.
     ImplicitSemicolon,
+
+    /// Current token is not a semicolon, and no semicolon insertion rules were triggered.
+    /// Parser should continue parsing the statement or error.
     NoSemicolon,
 }
 
-type ByteHandler = Option<for<'src> fn(&mut Lexer<'src>)>;
+type ByteHandler = Option<for<'arena> fn(&mut Lexer<'arena>)>;
 
 /// Lookup table mapping any incoming byte to a handler function defined below.
 static BYTE_HANDLERS: [ByteHandler; 256] = [
@@ -593,7 +597,8 @@ const TPL: ByteHandler = Some(|lex| {
     lex.read_template_kind();
 });
 
-pub struct Lexer<'src> {
+pub struct Lexer<'arena> {
+    /// Current `Token` from the source.
     pub token: Token,
 
     /// Flags whether or not a new line was read before the token
@@ -610,16 +615,25 @@ pub struct Lexer<'src> {
 
     accessor_start: usize,
 
-    pub quasi: &'src str,
+    pub quasi: &'arena str,
 }
 
 
-impl<'src> Lexer<'src> {
+impl<'arena> Lexer<'arena> {
+    /// Create a new `Lexer` from source using an existing arena.
     #[inline]
-    pub fn new(arena: &'src Arena, source: &str) -> Self {
+    pub fn new(arena: &'arena Arena, source: &str) -> Self {
         unsafe { Lexer::from_ptr(arena.alloc_str_zero_end(source)) }
     }
 
+    /// Create a new `Lexer` from a raw pointer to byte string.
+    ///
+    /// **The source must be null terminated!**
+    /// Passing a pointer that is not null terminated is undefined behavior!
+    ///
+    /// **The source must be valid UTF8!**
+    /// Passing a pointer to data that is not valid UTF8 will lead
+    /// to bugs or undefined behavior.
     #[inline]
     pub unsafe fn from_ptr(ptr: *const u8) -> Self {
         let mut lexer = Lexer {
@@ -637,6 +651,7 @@ impl<'src> Lexer<'src> {
         lexer
     }
 
+    /// Advances the lexer, produces a new `Token` and stores it on `self.token`.
     #[inline]
     pub fn consume(&mut self) {
         self.asi = Asi::NoSemicolon;
@@ -659,14 +674,17 @@ impl<'src> Lexer<'src> {
         })
     }
 
+    /// Create an `&str` slice from source spanning current token.
     #[inline]
-    pub fn token_as_str(&self) -> &'src str {
+    pub fn token_as_str(&self) -> &'arena str {
         let start = self.token_start;
         self.slice_from(start)
     }
 
+    /// Specialized version of `token_as_str` that crates an `&str`
+    /// slice for the identifier following an accessor (`.`).
     #[inline]
-    pub fn accessor_as_str(&self) -> &'src str {
+    pub fn accessor_as_str(&self) -> &'arena str {
         let start = self.accessor_start;
         self.slice_from(start)
     }
@@ -676,21 +694,25 @@ impl<'src> Lexer<'src> {
         unsafe { *(&BYTE_HANDLERS as *const ByteHandler).offset(byte as isize) }
     }
 
+    /// Get the start and end positions of the current token.
     #[inline]
     pub fn loc(&self) -> (u32, u32) {
         (self.start(), self.end())
     }
 
+    /// Get the start position of the current token.
     #[inline]
     pub fn start(&self) -> u32 {
         self.token_start as u32
     }
 
+    /// Get the end position of the current token.
     #[inline]
     pub fn end(&self) -> u32 {
         self.index as u32
     }
 
+    /// Get the start position of the current token, then advance the lexer.
     #[inline]
     pub fn start_then_consume(&mut self) -> u32 {
         let start = self.start();
@@ -698,6 +720,7 @@ impl<'src> Lexer<'src> {
         start
     }
 
+    /// Get the end position of the current token, then advance the lexer.
     #[inline]
     pub fn end_then_consume(&mut self) -> u32 {
         let end = self.end();
@@ -756,7 +779,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    /// Check if Automatic Semicolon Insertion rules can be applied
+    /// Get a definition of which ASI rules can be applied.
     #[inline]
     pub fn asi(&self) -> Asi {
         self.asi
@@ -873,7 +896,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn read_label(&mut self) -> &'src str {
+    fn read_label(&mut self) -> &'arena str {
         let start = self.token_start;
 
         unwind_loop!({
@@ -886,13 +909,13 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn slice_from(&self, start: usize) -> &'src str {
+    fn slice_from(&self, start: usize) -> &'arena str {
         let end = self.index;
         self.slice_source(start, end)
     }
 
     #[inline]
-    fn slice_source(&self, start: usize, end: usize) -> &'src str {
+    fn slice_source(&self, start: usize, end: usize) -> &'arena str {
         use std::str::from_utf8_unchecked;
         use std::slice::from_raw_parts;
 
@@ -963,7 +986,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    pub fn read_regular_expression(&mut self) -> &'src str {
+    pub fn read_regular_expression(&mut self) -> &'arena str {
         let start = self.index - 1;
         let mut in_class = false;
         loop {

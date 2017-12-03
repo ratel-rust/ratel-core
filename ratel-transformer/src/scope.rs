@@ -1,5 +1,4 @@
-use std::collections::hash_map::{HashMap, Entry};
-use arena::Arena;
+use toolshed::{Arena, BloomMap, List};
 
 #[derive(PartialEq)]
 enum ScopeKind {

@@ -218,6 +218,7 @@ impl<'ast> Parser<'ast> {
     }
 }
 
+/// Parse the JavaScript source `&str` and produce an Abstract Syntax Tree `Module`.
 pub fn parse<'src, 'ast>(source: &'src str) -> Result<Module<'ast>, Vec<Error>> {
     let arena = Arena::new();
 

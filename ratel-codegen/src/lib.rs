@@ -4,7 +4,7 @@ extern crate pretty_assertions;
 extern crate ratel;
 
 use ratel::ast::{Node, Loc, Block, Pattern};
-use ratel::module::Module;
+use ratel::Module;
 
 mod expression;
 mod statement;
@@ -331,7 +331,7 @@ fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
 
 #[cfg(test)]
 fn assert_min(source: &str, expected: &str) {
-    use ratel::parser::parse;
+    use ratel::parse;
 
     let module = parse(source).unwrap();
 
@@ -340,7 +340,7 @@ fn assert_min(source: &str, expected: &str) {
 
 #[cfg(test)]
 fn assert_pretty(source: &str, expected: &str) {
-    use ratel::parser::parse;
+    use ratel::parse;
 
     let module = parse(source).unwrap();
 

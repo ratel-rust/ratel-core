@@ -15,8 +15,12 @@ extern crate serde_json;
 extern crate pretty_assertions;
 
 pub mod ast;
-pub mod module;
 pub mod error;
 pub mod lexer;
-pub mod parser;
-pub mod astgen;
+
+mod module;
+mod parser;
+mod astgen;
+
+pub use parser::parse;
+pub use module::Module;

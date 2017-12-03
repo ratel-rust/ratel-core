@@ -3,13 +3,12 @@
 extern crate pretty_assertions;
 extern crate ratel;
 
-
 use ratel::ast::{Node, NodeList, Identifier, Literal, Pattern};
 use ratel::ast::{ExpressionList, StatementList, ExpressionNode, StatementNode};
 use ratel::ast::expression::*;
 use ratel::ast::statement::*;
 
-use ratel::module::Module;
+use ratel::Module;
 
 #[macro_use]
 mod build;
@@ -17,6 +16,11 @@ mod function;
 mod expression;
 mod statement;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScopeKind {
+    Function,
+    Block,
+}
 
 // Like Batman!
 pub type NoParent = ();
@@ -25,17 +29,17 @@ build! {
     // Enters a new statement list (program body, block body, switch case, etc.)
     fn on_statement_list(body: StatementList<'ast>);
 
-    // Entered a new block scope
-    fn on_enter_block();
+    // Entered a new scope
+    fn on_enter_scope(kind: ScopeKind);
 
-    // Leave the block scope
-    fn on_leave_block();
+    // Leave the current scope
+    fn on_leave_scope();
 
-    // A variable has been used within the current block scope
-    fn on_variable_use(ident: &Identifier<'ast>);
+    // A reference has been used within the current scope
+    fn on_reference_use(ident: &Identifier<'ast>);
 
-    // A variable has been declared within the current block scope
-    fn on_variable_declare(ident: &Identifier<'ast>);
+    // A reference has been declared within the current scope
+    fn on_reference_declaration(ident: &Identifier<'ast>);
 
     // expressions
     fn on_this_expression(node: &ExpressionNode<'ast>);
@@ -108,7 +112,7 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
     {
         match *self {
             Pattern::Void => {},
-            Pattern::Identifier(ref ident) => visitor.on_variable_declare(ident, ctx),
+            Pattern::Identifier(ref ident) => visitor.on_reference_declaration(ident, ctx),
             Pattern::ObjectPattern {
                 ref properties,
             } => {
@@ -159,7 +163,7 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
         V: Visitor<'ast>,
     {
         match *self {
-            Property::Shorthand(ref ident) => visitor.on_variable_use(ident, ctx),
+            Property::Shorthand(ref ident) => visitor.on_reference_use(ident, ctx),
             Property::Literal {
                 ref key,
                 ref value,
@@ -258,11 +262,13 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ratel::parser::parse;
+    use ratel::parse;
+    use ScopeKind::*;
 
     struct TestContext<'ast> {
         depth: i32,
         max_depth: i32,
+        scopes: Vec<ScopeKind>,
         used_vars: Vec<(&'ast str, i32)>,
         declared_vars: Vec<(&'ast str, i32)>,
     }
@@ -272,6 +278,7 @@ mod test {
             TestContext {
                 depth: 0,
                 max_depth: 0,
+                scopes: Vec::new(),
                 used_vars: Vec::new(),
                 declared_vars: Vec::new(),
             }
@@ -283,20 +290,21 @@ mod test {
     impl<'ast> StaticVisitor<'ast> for ScopeTest {
         type Context = TestContext<'ast>;
 
-        fn on_enter_block(ctx: &mut TestContext<'ast>) {
+        fn on_enter_scope(kind: ScopeKind, ctx: &mut TestContext<'ast>) {
+            ctx.scopes.push(kind);
             ctx.depth += 1;
             ctx.max_depth = ctx.max_depth.max(ctx.depth);
         }
 
-        fn on_leave_block(ctx: &mut TestContext<'ast>) {
+        fn on_leave_scope(ctx: &mut TestContext<'ast>) {
             ctx.depth -= 1;
         }
 
-        fn on_variable_use(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
+        fn on_reference_use(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
             ctx.used_vars.push((*ident, ctx.depth));
         }
 
-        fn on_variable_declare(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
+        fn on_reference_declaration(ident: &Identifier<'ast>, ctx: &mut TestContext<'ast>) {
             ctx.declared_vars.push((*ident, ctx.depth));
         }
 
@@ -312,6 +320,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Block, Block, Block]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 3);
         assert_eq!(ctx.used_vars, &[]);
@@ -325,6 +334,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 0);
         assert_eq!(ctx.used_vars, &[]);
@@ -338,6 +348,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Block, Block]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 2);
         assert_eq!(ctx.used_vars, &[]);
@@ -351,6 +362,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 0);
         assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 0), ("the", 0), ("moon", 0)]);
@@ -364,6 +376,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Block, Block, Block]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 3);
         assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 1), ("the", 2), ("moon", 3)]);
@@ -377,6 +390,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Function]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 1);
         assert_eq!(ctx.used_vars, &[]);
@@ -390,6 +404,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Function]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 1);
         assert_eq!(ctx.used_vars, &[]);
@@ -403,6 +418,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 0);
         assert_eq!(ctx.used_vars, &[]);
@@ -427,6 +443,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Function, Function]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 2);
         assert_eq!(ctx.used_vars, &[("foo", 1), ("bar", 2)]);
@@ -440,6 +457,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 0);
         assert_eq!(ctx.used_vars, &[("to", 0), ("the", 0), ("moon", 0)]);
@@ -453,6 +471,7 @@ mod test {
 
         module.traverse(&ScopeTest, &mut ctx);
 
+        assert_eq!(ctx.scopes, &[Function]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 1);
         assert_eq!(ctx.used_vars, &[]);

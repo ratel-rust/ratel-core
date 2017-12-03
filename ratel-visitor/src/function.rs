@@ -1,7 +1,7 @@
 use ratel::ast::{Function, Class, ClassMember, Name, EmptyName, OptionalName, MandatoryName};
 use ratel::ast::{Node, ExpressionNode, StatementNode};
 
-use {Visitable, Visitor, NoParent};
+use {Visitable, Visitor, ScopeKind, NoParent};
 
 
 impl<'ast> Visitable<'ast> for EmptyName {
@@ -32,7 +32,7 @@ impl<'ast> Visitable<'ast> for MandatoryName<'ast> {
     where
         V: Visitor<'ast>,
     {
-        visitor.on_variable_declare(&(self.0).item, ctx);
+        visitor.on_reference_declaration(&(self.0).item, ctx);
     }
 }
 
@@ -51,10 +51,10 @@ where
 
         // Call visit on the StatementList instead of BlockNode since we
         // need to make sure that function parameters end up inside the block
-        visitor.on_enter_block(ctx);
+        visitor.on_enter_scope(ScopeKind::Function, ctx);
         self.params.traverse(visitor, ctx);
         self.body.body.traverse(visitor, ctx);
-        visitor.on_leave_block(ctx);
+        visitor.on_leave_scope(ctx);
     }
 }
 

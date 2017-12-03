@@ -1,7 +1,7 @@
 use ratel::ast::{Node, Statement, StatementNode};
 use ratel::ast::statement::*;
 
-use {Visitor, Visitable, NoParent};
+use {Visitor, Visitable, ScopeKind, NoParent};
 
 
 impl<'ast> Visitable<'ast> for StatementNode<'ast> {
@@ -100,9 +100,9 @@ impl<'ast> Visitable<'ast> for BlockStatement<'ast> {
     where
         V: Visitor<'ast>,
     {
-        visitor.on_enter_block(ctx);
+        visitor.on_enter_scope(ScopeKind::Block, ctx);
         self.body.traverse(visitor, ctx);
-        visitor.on_leave_block(ctx);
+        visitor.on_leave_scope(ctx);
     }
 }
 
@@ -349,8 +349,8 @@ impl<'ast> Visitable<'ast> for SwitchStatement<'ast> {
         V: Visitor<'ast>,
     {
         self.discriminant.traverse(visitor, ctx);
-        visitor.on_enter_block(ctx);
+        visitor.on_enter_scope(ScopeKind::Block, ctx);
         self.cases.body.traverse(visitor, ctx);
-        visitor.on_leave_block(ctx);
+        visitor.on_leave_scope(ctx);
     }
 }

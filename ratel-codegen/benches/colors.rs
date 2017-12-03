@@ -93,7 +93,7 @@ module.exports = {
 
 #[bench]
 fn codegen_from_ast(b: &mut Bencher) {
-    let module = ratel::parser::parse(SOURCE).expect("Must parse");
+    let module = ratel::parse(SOURCE).expect("Must parse");
     let output = ratel_codegen::codegen(&module, true);
 
     b.bytes = output.len() as u64;
