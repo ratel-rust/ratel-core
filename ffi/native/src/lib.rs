@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate neon;
 extern crate ratel;
+extern crate ratel_codegen;
 extern crate serde;
 extern crate serde_json;
 
 use neon::vm::{Call, JsResult};
 use neon::js::{JsString, JsBoolean};
 use neon::js::error::{JsError, Kind};
-use ratel::{parser, codegen, error, transformer};
-use error::{Error, ParseError};
-use ratel::module::Module;
+use ratel::Module;
+use ratel::error::{Error, ParseError};
 
 #[inline]
 fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec<String> {
@@ -45,7 +45,7 @@ fn ast(call: Call) -> JsResult<JsString> {
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
     let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
-    let module = match parser::parse(&source.value()) {
+    let module = match ratel::parse(&source.value()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
@@ -68,7 +68,7 @@ fn transform(call: Call) -> JsResult<JsString> {
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
     let minify = call.arguments.require(scope, 1)?.check::<JsBoolean>()?;
 
-    let module = match parser::parse(&source.value()) {
+    let module = match ratel::parse(&source.value()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
@@ -76,7 +76,7 @@ fn transform(call: Call) -> JsResult<JsString> {
         Ok(module) => module,
     };
     // transformer::transform(&mut module, transformer::Settings::target_es5());
-    let out = codegen::codegen(&module, minify.value());
+    let out = ratel_codegen::codegen(&module, minify.value());
 
     Ok(JsString::new(scope, &out).unwrap())
 }
@@ -90,7 +90,7 @@ fn parse(call: Call) -> JsResult<JsString> {
 
     let source = call.arguments.require(scope, 0)?.check::<JsString>()?;
 
-    let module = match parser::parse(&source.value()) {
+    let module = match ratel::parse(&source.value()) {
         Err(errors) => {
             let str = format_errors(errors, source).join("\n");
             return JsError::throw(Kind::SyntaxError, &str)
