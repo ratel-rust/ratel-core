@@ -14,11 +14,11 @@ pub mod es2015;
 
 pub mod scope;
 
-// use self::scope::Scope;
+use self::scope::Scope;
 
 pub struct Transformer<'ast> {
     pub arena: &'ast Arena,
-    // _scope: Scope<'ast>,
+    pub scope: &'ast Scope<'ast>,
 }
 
 impl<'ast> Transformer<'ast> {

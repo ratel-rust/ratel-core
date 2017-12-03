@@ -2,10 +2,9 @@
 
 extern crate test;
 extern crate ratel;
-extern crate ratel_visitor;
 extern crate ratel_transformer;
 
-use test::Bencher;
+use test::{Bencher, black_box};
 
 static SOURCE: &'static str = r#"
 
@@ -94,8 +93,7 @@ module.exports = {
 
 #[bench]
 fn scope_analysis(b: &mut Bencher) {
-    use ratel_visitor::Visitable;
-    use ratel_transformer::scope::{ScopeAnalizer, ScopeContext};
+    use ratel_transformer::scope::analyze;
 
     let module = ratel::parse(SOURCE).expect("Must parse");
     let arena = module.arena();
@@ -104,10 +102,6 @@ fn scope_analysis(b: &mut Bencher) {
     b.iter(|| {
         unsafe { arena.reset_to(offset) };
 
-        let mut ctx = ScopeContext::new(arena);
-
-        module.traverse(&ScopeAnalizer, &mut ctx);
-
-        ctx.stack.shift().unwrap();
+        black_box(analyze(&module));
     });
 }
