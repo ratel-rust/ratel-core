@@ -12,9 +12,3 @@ ratel = { path = "../ratel", version = "0.8.0" }
 
 [dev-dependencies]
 pretty_assertions = "0.4"
-
-[profile.release]
-lto = true
-
-[profile.bench]
-lto = true

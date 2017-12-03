@@ -15,9 +15,3 @@ toolshed = { version = "0.3", features = ["impl_serialize"] }
 [dev-dependencies]
 pretty_assertions = "0.4"
 serde_json = { version = "1.0", features = ["preserve_order"] }
-
-[profile.release]
-lto = true
-
-[profile.bench]
-lto = true
