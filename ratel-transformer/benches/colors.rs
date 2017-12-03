@@ -2,8 +2,8 @@
 
 extern crate test;
 extern crate ratel;
-extern crate toolshed;
-extern crate serde_json;
+extern crate ratel_visitor;
+extern crate ratel_transformer;
 
 use test::Bencher;
 
@@ -93,38 +93,21 @@ module.exports = {
 "#;
 
 #[bench]
-fn parse_to_ast(b: &mut Bencher) {
-    b.bytes = SOURCE.len() as u64;
+fn scope_analysis(b: &mut Bencher) {
+    use ratel_visitor::Visitable;
+    use ratel_transformer::scope::{ScopeAnalizer, ScopeContext};
 
-    b.iter(|| {
-        let _module = ratel::parse(SOURCE).expect("Must parse");
-    });
-}
-
-
-#[bench]
-fn tokenize(b: &mut Bencher) {
-    let arena = toolshed::Arena::new();
-    let ptr = arena.alloc_str_with_nul(SOURCE);
-    b.bytes = SOURCE.len() as u64;
-
-    b.iter(|| {
-        let mut lexer = unsafe { ratel::lexer::Lexer::from_ptr(ptr) };
-
-        while lexer.token != ratel::lexer::Token::EndOfProgram {
-            lexer.consume()
-        }
-    });
-}
-
-#[bench]
-fn serialize_to_json(b: &mut Bencher) {
     let module = ratel::parse(SOURCE).expect("Must parse");
-    let output = serde_json::to_string(&module).unwrap();
-
-    b.bytes = output.len() as u64;
+    let arena = module.arena();
+    let offset = unsafe { arena.offset() };
 
     b.iter(|| {
-        serde_json::to_string(&module).unwrap()
-    })
+        unsafe { arena.reset_to(offset) };
+
+        let mut ctx = ScopeContext::new(arena);
+
+        module.traverse(&ScopeAnalizer, &mut ctx);
+
+        ctx.stack.shift().unwrap();
+    });
 }

@@ -1,205 +1,134 @@
-use toolshed::{Arena, BloomMap, List};
+use ratel::ast::Identifier;
+use ratel_visitor::{StaticVisitor, DynamicVisitor, ScopeKind};
+use toolshed::{Arena, CopyCell};
+use toolshed::list::{List, GrowableList};
+use toolshed::map::BloomMap;
 
-#[derive(PartialEq)]
-enum ScopeKind {
-    Block,
-    Function,
-}
+pub type ReferenceData = ();
 
-struct ScopeFrame<'ast> {
-    kind: ScopeKind,
-    vars: HashMap<&'ast str, &'ast str>,
-}
-
+#[derive(Clone, Copy, Debug)]
 pub struct Scope<'ast> {
-    arena: &'ast Arena,
-    frame: usize,
-    frames: Vec<ScopeFrame<'ast>>,
+    /// Kind of the scope.
+    kind: ScopeKind,
+
+    /// Whether or not the `super` keyword was used
+    used_super: CopyCell<bool>,
+
+    /// Whether or not the `this` keyword was used
+    used_this: CopyCell<bool>,
+
+    /// All references used in this scope
+    used_refs: BloomMap<'ast, &'ast str, ReferenceData>,
+
+    /// All references declared in this scope
+    declared_refs: BloomMap<'ast, &'ast str, ReferenceData>,
+
+    children: GrowableList<'ast, &'ast Scope<'ast>>,
 }
 
 impl<'ast> Scope<'ast> {
-    pub fn new(arena: &'ast Arena) -> Self {
-        let mut frames = Vec::with_capacity(8);
-
-        frames.push(ScopeFrame {
-            kind: ScopeKind::Function,
-            vars: HashMap::new()
-        });
-
+    #[inline]
+    fn new(kind: ScopeKind) -> Self {
         Scope {
-            arena,
-            frame: 0,
-            frames
-        }
-    }
-
-    fn push(&mut self, kind: ScopeKind) {
-        self.frame += 1;
-
-        if let Some(frame) = self.frames.get_mut(self.frame) {
-            frame.kind = kind;
-            return;
-        }
-
-        self.frames.push(ScopeFrame {
             kind,
-            vars: HashMap::new()
-        });
-    }
-
-    pub fn block_frame(&mut self) {
-        self.push(ScopeKind::Block)
-    }
-
-    pub fn function_frame(&mut self) {
-        self.push(ScopeKind::Function)
-    }
-
-    pub fn pop(&mut self) {
-        self.frames[self.frame].vars.clear();
-        self.frame -= 1;
-    }
-
-    pub fn has_in_block(&self, var: &str) -> bool {
-        self.frames[self.frame].vars.contains_key(var)
-    }
-
-    pub fn has_in_function(&self, var: &str) -> bool {
-        for frame in self.frames[..self.frame + 1].iter().rev() {
-            if frame.vars.contains_key(var) {
-                return true;
-            }
-
-            if frame.kind == ScopeKind::Function {
-                return false;
-            }
+            used_super: CopyCell::new(false),
+            used_this: CopyCell::new(false),
+            used_refs: BloomMap::new(),
+            declared_refs: BloomMap::new(),
+            children: GrowableList::new(),
         }
-
-        unreachable!("Last ScopeFrame must be of Function kind")
     }
+}
 
-    pub fn set_in_block(&mut self, var: &'ast str) {
-        self.frames[self.frame].vars.insert(var, var);
-    }
+pub struct ScopeContext<'ast> {
+    arena: &'ast Arena,
+    current: CopyCell<&'ast Scope<'ast>>,
+    pub stack: List<'ast, Scope<'ast>>,
+}
 
-    pub fn set_in_function(&mut self, var: &'ast str) {
-        let frame = self.frames[..self.frame + 1]
-                        .iter_mut()
-                        .rev()
-                        .skip_while(|frame| frame.kind != ScopeKind::Function)
-                        .next()
-                        .expect("Must have a Function kind scope");
+impl<'ast> ScopeContext<'ast> {
+    pub fn new(arena: &'ast Arena) -> Self {
+        let stack = List::empty();
+        let current = CopyCell::new(stack.prepend(arena, Scope::new(ScopeKind::Function)));
 
-        frame.vars.insert(var, var);
-    }
-
-    pub fn set_unique_in_block(&mut self, var: &'ast str) -> &'ast str {
-        let frame = &mut self.frames[self.frame];
-
-        Scope::set_unique_in_frame(&self.arena, frame, var)
-    }
-
-    pub fn set_unique_in_function(&mut self, var: &'ast str) -> &'ast str {
-        let frame = self.frames[..self.frame + 1]
-                        .iter_mut()
-                        .rev()
-                        .skip_while(|frame| frame.kind != ScopeKind::Function)
-                        .next()
-                        .expect("Must have a Function kind scope");
-
-        Scope::set_unique_in_frame(&self.arena, frame, var)
-    }
-
-    fn set_unique_in_frame(arena: &'ast Arena, frame: &mut ScopeFrame<'ast>, var: &'ast str) -> &'ast str {
-        if let Entry::Vacant(vacant) = frame.vars.entry(var) {
-            vacant.insert(var);
-            return var;
+        ScopeContext {
+            arena,
+            current,
+            stack,
         }
+    }
+}
 
-        let mut attempt = 1;
+pub struct ScopeAnalizer;
 
-        loop {
-            let altered = format!("{}${}", var, attempt);
+impl<'ast> StaticVisitor<'ast> for ScopeAnalizer {
+    type Context = ScopeContext<'ast>;
 
-            if !frame.vars.contains_key(altered.as_str()) {
-                let var = arena.alloc_string(altered);
-                frame.vars.insert(var, var);
-                return var;
-            }
+    #[inline]
+    fn on_enter_scope(kind: ScopeKind, ctx: &mut Self::Context) {
+        ctx.current.set(ctx.stack.prepend(ctx.arena, Scope::new(kind)));
+    }
 
-            attempt += 1;
-        }
+    #[inline]
+    fn on_leave_scope(ctx: &mut Self::Context) {
+        let popped = ctx.stack.shift().unwrap();
+
+        ctx.current.set(ctx.stack.first_element().unwrap());
+        ctx.current.get().children.push(ctx.arena, popped);
+    }
+
+    #[inline]
+    fn on_reference_use(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
+        ctx.current.get().used_refs.insert(ctx.arena, *ident, ());
+    }
+
+    #[inline]
+    fn on_reference_declaration(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
+        ctx.current.get().declared_refs.insert(ctx.arena, *ident, ());
+    }
+
+    #[inline]
+    fn register(dv: &mut DynamicVisitor<'ast, Self::Context>) {
+        dv.on_enter_scope.push(Self::on_enter_scope);
+        dv.on_leave_scope.push(Self::on_leave_scope);
+        dv.on_reference_use.push(Self::on_reference_use);
+        dv.on_reference_declaration.push(Self::on_reference_declaration);
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use ratel::parse;
+    use ratel_visitor::Visitable;
 
     #[test]
-    fn scope() {
-        let arena = Arena::new();
-        let mut scope = Scope::new(&arena);
+    fn scope_analysis() {
+        let module = parse("function foo(bar) { doge; { moon; } return 10; }").unwrap();
 
-        scope.set_in_block("foo");
-        scope.set_in_function("bar");
+        let mut ctx = ScopeContext::new(module.arena());
 
-        scope.function_frame();
+        module.traverse(&ScopeAnalizer, &mut ctx);
 
-        scope.set_in_block("fooz");
+        let root = ctx.stack.shift().unwrap();
 
-        scope.block_frame();
+        assert_eq!(ctx.stack.is_empty(), true);
 
-        scope.set_in_block("baz");
-        scope.set_in_function("qux");
+        assert_eq!(root.kind, ScopeKind::Function);
+        assert_eq!(root.used_refs.is_empty(), true);
+        assert_eq!(root.declared_refs.contains_key("foo"), true);
 
-        assert_eq!(scope.has_in_function("fooz"), true);
-        assert_eq!(scope.has_in_function("baz"), true);
-        assert_eq!(scope.has_in_function("qux"), true);
+        let foo = root.children.as_list().only_element().unwrap();
 
-        assert_eq!(scope.has_in_block("baz"), true);
-        assert_eq!(scope.has_in_block("qux"), false);
-        assert_eq!(scope.has_in_block("fooz"), false);
+        assert_eq!(foo.kind, ScopeKind::Function);
+        assert_eq!(foo.used_refs.contains_key("doge"), true);
+        assert_eq!(foo.declared_refs.contains_key("bar"), true);
 
-        assert_eq!(scope.has_in_function("foo"), false);
-        assert_eq!(scope.has_in_function("bar"), false);
+        let moon = foo.children.as_list().only_element().unwrap();
 
-        scope.pop();
-
-        assert_eq!(scope.has_in_block("baz"), false);
-
-        assert_eq!(scope.has_in_block("qux"), true);
-        assert_eq!(scope.has_in_block("fooz"), true);
-        assert_eq!(scope.has_in_function("qux"), true);
-        assert_eq!(scope.has_in_function("fooz"), true);
-
-        scope.pop();
-
-        assert_eq!(scope.has_in_block("foo"), true);
-        assert_eq!(scope.has_in_block("bar"), true);
-        assert_eq!(scope.has_in_function("foo"), true);
-        assert_eq!(scope.has_in_function("bar"), true);
-    }
-
-    #[test]
-    fn set_unique_in_block() {
-        let arena = Arena::new();
-        let mut scope = Scope::new(&arena);
-
-        assert_eq!(scope.set_unique_in_block("foo"), "foo");
-        assert_eq!(scope.set_unique_in_block("foo"), "foo$1");
-        assert_eq!(scope.set_unique_in_block("foo"), "foo$2");
-        assert_eq!(scope.set_unique_in_block("foo"), "foo$3");
-
-        assert_eq!(scope.set_unique_in_block("bar"), "bar");
-        assert_eq!(scope.set_unique_in_block("bar"), "bar$1");
-        assert_eq!(scope.set_unique_in_block("bar"), "bar$2");
-        assert_eq!(scope.set_unique_in_block("bar"), "bar$3");
-
-        assert_eq!(scope.has_in_block("foo"), true);
-        assert_eq!(scope.has_in_block("foo$1"), true);
-        assert_eq!(scope.has_in_block("foo$2"), true);
-        assert_eq!(scope.has_in_block("foo$3"), true);
-        assert_eq!(scope.has_in_block("foo$4"), false);
+        assert_eq!(moon.kind, ScopeKind::Block);
+        assert_eq!(moon.used_refs.contains_key("moon"), true);
+        assert_eq!(moon.declared_refs.is_empty(), true);
+        assert_eq!(moon.children.as_list().is_empty(), true);
     }
 }

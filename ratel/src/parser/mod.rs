@@ -106,13 +106,13 @@ impl<'ast> Parser<'ast> {
         }
 
         let statement = self.statement();
-        let mut builder = ListBuilder::new(self.arena, statement);
+        let builder = ListBuilder::new(self.arena, statement);
 
         while self.lexer.token != EndOfProgram {
-            builder.push(self.statement());
+            builder.push(self.arena, self.statement());
         }
 
-        self.body = builder.into_list()
+        self.body = builder.as_list()
     }
 
     #[inline]
@@ -153,13 +153,13 @@ impl<'ast> Parser<'ast> {
         }
 
         let statement = I::parse(self);
-        let mut builder = ListBuilder::new(self.arena, statement);
+        let builder = ListBuilder::new(self.arena, statement);
 
         while self.lexer.token != BraceClose && self.lexer.token != EndOfProgram {
-            builder.push(I::parse(self));
+            builder.push(self.arena, I::parse(self));
         }
 
-        Block { body: builder.into_list() }
+        Block { body: builder.as_list() }
     }
 
     #[inline]
@@ -201,7 +201,7 @@ impl<'ast> Parser<'ast> {
     fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> NodeList<'ast, Pattern<'ast>> {
         let mut expressions = expressions.iter();
 
-        let mut builder = match expressions.next() {
+        let builder = match expressions.next() {
             Some(&expression) => {
                 let param = self.pattern_from_expression(expression);
 
@@ -211,10 +211,10 @@ impl<'ast> Parser<'ast> {
         };
 
         for &expression in expressions {
-            builder.push(self.pattern_from_expression(expression));
+            builder.push(self.arena, self.pattern_from_expression(expression));
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 }
 

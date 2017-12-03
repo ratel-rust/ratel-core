@@ -329,7 +329,7 @@ impl<'ast> Parser<'ast> {
             _              => self.pattern_param()
         };
 
-        let mut builder = ListBuilder::new(self.arena, item);
+        let builder = ListBuilder::new(self.arena, item);
 
         loop {
             match self.lexer.token {
@@ -355,17 +355,17 @@ impl<'ast> Parser<'ast> {
                     break;
                 },
                 OperatorSpread => {
-                    builder.push(self.rest_element());
+                    builder.push(self.arena, self.rest_element());
 
                     break;
                 },
                 _ => {
-                    builder.push(self.pattern_param());
+                    builder.push(self.arena, self.pattern_param());
                 }
             }
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 }
 

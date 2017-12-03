@@ -236,16 +236,16 @@ const ____: NestedHandler = None;
 const SEQ: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let mut builder = ListBuilder::new(par.arena, left);
-    builder.push(par.expression(B1));
+    let builder = ListBuilder::new(par.arena, left);
+    builder.push(par.arena, par.expression(B1));
 
     while let Comma = par.lexer.token {
         par.lexer.consume();
-        builder.push(par.expression(B1));
+        builder.push(par.arena, par.expression(B1));
     }
 
     par.alloc_at_loc(0, 0, SequenceExpression {
-        body: builder.into_list()
+        body: builder.as_list()
     })
 });
 

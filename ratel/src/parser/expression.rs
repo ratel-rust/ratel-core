@@ -261,7 +261,7 @@ impl<'ast> Parser<'ast> {
         }
 
         let expression = self.expression_in_context(CALL_CONTEXT, B1);
-        let mut builder = ListBuilder::new(self.arena, expression);
+        let builder = ListBuilder::new(self.arena, expression);
 
         loop {
             let expression = match self.lexer.token {
@@ -276,10 +276,10 @@ impl<'ast> Parser<'ast> {
                 }
             };
 
-            builder.push(expression);
+            builder.push(self.arena, expression);
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 
     #[inline]
@@ -327,7 +327,7 @@ impl<'ast> Parser<'ast> {
             return NodeList::empty();
         }
 
-        let mut builder = ListBuilder::new(self.arena, self.property());
+        let builder = ListBuilder::new(self.arena, self.property());
 
         loop {
             match self.lexer.token {
@@ -341,11 +341,11 @@ impl<'ast> Parser<'ast> {
 
             match self.lexer.token {
                 BraceClose => break,
-                _          => builder.push(self.property()),
+                _          => builder.push(self.arena, self.property()),
             }
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 
     #[inline]
@@ -443,7 +443,7 @@ impl<'ast> Parser<'ast> {
             _            => get(self),
         };
 
-        let mut builder = ListBuilder::new(self.arena, item);
+        let builder = ListBuilder::new(self.arena, item);
 
         loop {
             match self.lexer.token {
@@ -455,10 +455,10 @@ impl<'ast> Parser<'ast> {
                 }
             }
 
-            builder.push(get(self))
+            builder.push(self.arena, get(self))
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 
     #[inline]
@@ -504,16 +504,16 @@ impl<'ast> Parser<'ast> {
             _          => self.error(),
         }
 
-        let mut quasis = ListBuilder::new(self.arena, quasi);
-        let mut expressions = ListBuilder::new(self.arena, expression);
+        let quasis = ListBuilder::new(self.arena, quasi);
+        let expressions = ListBuilder::new(self.arena, expression);
 
         loop {
             match self.lexer.token {
                 TemplateOpen => {
                     let quasi = self.lexer.quasi;
-                    quasis.push(self.alloc_in_loc(quasi));
+                    quasis.push(self.arena, self.alloc_in_loc(quasi));
                     self.lexer.consume();
-                    expressions.push(self.expression(B0));
+                    expressions.push(self.arena, self.expression(B0));
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),
@@ -526,7 +526,7 @@ impl<'ast> Parser<'ast> {
                 },
                 TemplateClosed => {
                     let quasi = self.lexer.quasi;
-                    quasis.push(self.alloc_in_loc(quasi));
+                    quasis.push(self.arena, self.alloc_in_loc(quasi));
                     end = self.lexer.end_then_consume();
                     break;
                 },
@@ -539,8 +539,8 @@ impl<'ast> Parser<'ast> {
         }
 
         self.alloc_at_loc(start, end, TemplateLiteral {
-            expressions: expressions.into_list(),
-            quasis: quasis.into_list(),
+            expressions: expressions.as_list(),
+            quasis: quasis.as_list(),
         })
     }
 

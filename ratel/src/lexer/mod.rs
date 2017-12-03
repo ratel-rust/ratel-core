@@ -623,7 +623,7 @@ impl<'arena> Lexer<'arena> {
     /// Create a new `Lexer` from source using an existing arena.
     #[inline]
     pub fn new(arena: &'arena Arena, source: &str) -> Self {
-        unsafe { Lexer::from_ptr(arena.alloc_str_zero_end(source)) }
+        unsafe { Lexer::from_ptr(arena.alloc_str_with_nul(source)) }
     }
 
     /// Create a new `Lexer` from a raw pointer to byte string.

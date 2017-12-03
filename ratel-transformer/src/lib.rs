@@ -12,7 +12,7 @@ use ratel::ast::{Loc, Node, NodeList};
 pub mod es2015;
 // pub mod es2016;
 
-// mod scope;
+pub mod scope;
 
 // use self::scope::Scope;
 
@@ -45,16 +45,16 @@ impl<'ast> Transformer<'ast> {
     {
         let mut iter = source.as_ref().into_iter();
 
-        let mut builder = match iter.next() {
+        let builder = match iter.next() {
             Some(item) => ListBuilder::new(self.arena, *item),
             None       => return NodeList::empty(),
         };
 
         for item in iter {
-            builder.push(*item);
+            builder.push(self.arena, *item);
         }
 
-        builder.into_list()
+        builder.as_list()
     }
 
     #[inline]

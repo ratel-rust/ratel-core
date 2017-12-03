@@ -1,4 +1,4 @@
-use toolshed::list::{ListBuilder, EmptyListBuilder};
+use toolshed::list::{ListBuilder, GrowableList};
 use parser::{Parser, Parse, B0, B1};
 use lexer::Token::*;
 use lexer::Asi;
@@ -127,7 +127,7 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
         let mut end = par.lexer.end();
         expect!(par, Colon);
 
-        let mut builder = EmptyListBuilder::new(par.arena);
+        let builder = GrowableList::new();
 
         loop {
             match par.lexer.token {
@@ -135,14 +135,14 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
                 _ => {
                     let statement = par.statement();
                     end = statement.end;
-                    builder.push(statement);
+                    builder.push(par.arena, statement);
                 }
             }
         }
 
         par.alloc_at_loc(start, end, SwitchCase {
             test,
-            consequent: builder.into_list()
+            consequent: builder.as_list()
         })
     }
 }
@@ -265,19 +265,19 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn variable_declarators(&mut self) -> NodeList<'ast, Declarator<'ast>> {
-        let mut builder = ListBuilder::new(self.arena, self.variable_declarator());
+        let builder = ListBuilder::new(self.arena, self.variable_declarator());
 
         match self.lexer.token {
             Comma => self.lexer.consume(),
-            _     => return builder.into_list(),
+            _     => return builder.as_list(),
         }
 
         loop {
-            builder.push(self.variable_declarator());
+            builder.push(self.arena, self.variable_declarator());
 
             match self.lexer.token {
                 Comma => self.lexer.consume(),
-                _     => return builder.into_list(),
+                _     => return builder.as_list(),
             }
         }
     }
