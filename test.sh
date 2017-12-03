@@ -3,7 +3,7 @@ echo "##############"
 echo ""
 
 cd ratel
-cargo test
+cargo test || exit
 cd ..
 
 echo ""
@@ -13,7 +13,7 @@ echo "######################"
 echo ""
 
 cd ratel-codegen
-cargo test
+cargo test || exit
 cd ..
 
 echo ""
@@ -23,7 +23,7 @@ echo "######################"
 echo ""
 
 cd ratel-visitor
-cargo test
+cargo test || exit
 cd ..
 
 echo ""
@@ -33,7 +33,7 @@ echo "##########################"
 echo ""
 
 cd ratel-transformer
-cargo test
+cargo test || exit
 cd ..
 
 echo ""
@@ -43,5 +43,5 @@ echo "############"
 echo ""
 
 cd ffi
-npm test
+npm test || exit
 cd ..

@@ -24,7 +24,7 @@
   },
   "scripts": {
     "install": "neon build",
-    "test": "neon build && mocha",
+    "test": "neon build && ./node_modules/.bin/mocha",
     "benches": "bench-runner"
   }
 }
