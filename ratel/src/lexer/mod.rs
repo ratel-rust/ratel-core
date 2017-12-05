@@ -896,16 +896,10 @@ impl<'arena> Lexer<'arena> {
     }
 
     #[inline]
-    fn read_label(&mut self) -> &'arena str {
-        let start = self.token_start;
-
-        unwind_loop!({
-            if util::legal_in_label(self.read_byte()) {
-                self.bump();
-            } else {
-                return self.slice_from(start)
-            }
-        })
+    fn read_label(&mut self) {
+        while util::legal_in_label(self.read_byte()) {
+            self.bump();
+        }
     }
 
     #[inline]
