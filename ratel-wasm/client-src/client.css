@@ -1,0 +1,129 @@
+@font-face {
+  font-family: 'Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  src: url(iconfont/MaterialIcons-Regular.eot); /* For IE6-8 */
+  src: local('Material Icons'),
+    local('MaterialIcons-Regular'),
+    url(iconfont/MaterialIcons-Regular.woff2) format('woff2'),
+    url(iconfont/MaterialIcons-Regular.woff) format('woff'),
+    url(iconfont/MaterialIcons-Regular.ttf) format('truetype');
+}
+
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;  /* Preferred icon size */
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+
+  /* Support for all WebKit browsers. */
+  -webkit-font-smoothing: antialiased;
+  /* Support for Safari and Chrome. */
+  text-rendering: optimizeLegibility;
+
+  /* Support for Firefox. */
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Support for IE. */
+  font-feature-settings: 'liga';
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+.mdl-grid {
+  height: 100%;
+}
+
+.mdl-card {
+  width: 100%;
+}
+
+.mdl-card__supporting-text {
+  display: flex;
+  flex-grow: 1;
+  padding: 0;
+  width: auto;
+}
+
+.mdl-card__actions {
+  padding: 1em;
+}
+
+.mdl-textfield {
+  display: flex;
+  flex-grow: 1;
+  width: 100%;
+  padding: 0;
+}
+
+.mdl-textfield__label {
+  left: 0;
+  top: 0;
+}
+
+.ratel__source {
+  display: flex;
+}
+
+.ratel__output {
+  display: flex;
+  background-color: #eee;
+  color: #222;
+}
+
+.ratel__output .mdl-card {
+  background: none;
+}
+
+.ratel__fab {
+  position: fixed;
+  right: 1.5em;
+  bottom: 1.5em;
+  z-index: 20;
+}
+
+#source_input {
+  display: flex;
+  flex-grow: 1;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1em;
+  white-space: pre;
+  width: 100%;
+  padding: 1em;
+}
+
+#ast_output {
+  display: flex;
+  flex-grow: 1;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1em;
+  white-space: pre;
+  width: 100%;
+  padding: 1em;
+}
+
+#run_output {
+  display: none;
+}
+
+#copy_output {
+  display: none;
+}
+
+.ratel__source__minify {
+  float: right;
+}

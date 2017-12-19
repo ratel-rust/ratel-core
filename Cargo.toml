@@ -4,6 +4,7 @@ members = [
     "ratel-codegen",
     "ratel-visitor",
     "ratel-transformer",
+    "ratel-wasm",
 ]
 exclude = [ "ffi" ]
 

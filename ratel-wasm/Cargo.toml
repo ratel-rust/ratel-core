@@ -1,0 +1,9 @@
+[package]
+name = "ratel-wasm"
+version = "0.0.1"
+authors = ["Matthias Thoemmes <thoemmes@gmail.com>"]
+
+[dependencies]
+serde_json = "1.0"
+ratel = { path = "../ratel", version = "0.8.0" }
+ratel-codegen = { path = "../ratel-codegen", version = "0.8.0" }

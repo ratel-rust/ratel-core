@@ -1,0 +1,89 @@
+<html>
+<head>
+	<title>ratel-wasm</title>
+	<link rel="stylesheet" href="material.indigo-blue.min.css">
+	<link rel="stylesheet" href="client.css">
+	<link rel="shortcut icon" href="favicon.ico">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<script defer src="material.min.js"></script>
+</head>
+<body class="ratel">
+	<div class="mdl-grid mdl-grid--no-spacing">
+		<div class="mdl-cell mdl-cell--6-col ratel__source">
+			<div class="mdl-card mdl-shadow--4dp">
+				<div class="mdl-card__supporting-text">
+					<div class="mdl-textfield mdl-js-textfield">
+<textarea class="mdl-textfield__input" type="text" rows= "3" id="source_input">
+/**
+ * Returns the nth Fibonacci number.
+ * @method f
+ * @param  {number} n
+ * @return {number}
+ */
+function f (n) {
+  var a = 0;
+  var b = 1;
+  var c = 0;
+  while (n >= 0) {
+    c = a;
+    a = a + b;
+    b = c;
+    n--;
+  }
+  return b;
+};
+Array.apply(null, Array(10)).map(function (_, i) {
+  return f(i);
+});
+</textarea>
+						<label class="mdl-textfield__label" for="source_input">Source code...</label>
+					</div>
+				</div>
+				<div class="mdl-card__actions mdl-card--border">
+					<span class="ratel__source__minify">
+						<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="checkbox_0">
+							<input type="checkbox" id="checkbox_0" class="mdl-checkbox__input">
+							<span class="mdl-checkbox__label">minify output</span>
+						</label>
+					</span>
+					<div>
+						<label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="output_0">
+							<input type="radio" id="output_0" class="mdl-radio__button" name="outputs" value="0">
+							<span class="mdl-radio__label">ES5</span>
+						</label>
+						<label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="output_1">
+							<input type="radio" id="output_1" class="mdl-radio__button" name="outputs" value="1">
+							<span class="mdl-radio__label">AST</span>
+						</label>
+						<label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="output_2">
+							<input type="radio" id="output_2" class="mdl-radio__button" name="outputs" value="2">
+							<span class="mdl-radio__label">ESTree</span>
+						</label>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="mdl-cell mdl-cell--6-col ratel__output">
+			<div class="ratel__fab">
+				<button class="mdl-button mdl-js-button mdl-button--fab mdl-button--accent mdl-js-ripple-effect" id="run_output">
+					<i class="material-icons">play_arrow</i>
+				</button>
+				<button class="btn mdl-button mdl-js-button mdl-button--fab mdl-button--accent mdl-js-ripple-effect" id="copy_output" data-clipboard-target="#ast_output" disabled>
+					<i class="material-icons">content_copy</i>
+				</button>
+			</div>
+			<div class="mdl-card">
+				<div class="mdl-card__supporting-text">
+					<div class="mdl-textfield mdl-js-textfield">
+						<textarea class="mdl-textfield__input" type="text" rows= "3" id="ast_output" readonly></textarea>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="ratel-wasm.js"></script>
+	<script src="clipboard.min.js"></script>
+	<script src="client.js"></script>
+</body>
+</html>

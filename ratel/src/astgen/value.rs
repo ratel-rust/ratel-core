@@ -102,9 +102,6 @@ impl<'ast> SerializeInLoc for Property<'ast> {
                 state
             },
             Literal { key, value } => {
-                println!("serialize Literal key {:?}", key);
-                println!("serialize Literal value {:?}", value);
-
                 let computed = if let PropertyKey::Computed(_) = key.item { true } else { false };
 
                 self.in_loc(serializer, "Property", 6, |state| {
