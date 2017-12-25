@@ -153,8 +153,9 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
     {
         use self::Literal::*;
 
+        // FIXME: StringLiteral vs. Literal
         let literal_type = match *self {
-            String(_) => "StringLiteral",
+            String(_) => "Literal",
             _         => "Literal"
         };
 
@@ -165,12 +166,10 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                 True      => state.serialize_field("value", &true),
                 False     => state.serialize_field("value", &false),
                 // FIXME
-                Number(number)    => {
-                    state.serialize_field("value", number)
-                },
-                Binary(number)    => {
-                    state.serialize_field("value", number)
-                },
+                Number(number)    => state.serialize_field("value", number),
+                // FIXME
+                Binary(number)    => state.serialize_field("value", number),
+                // FIXME
                 String(value)     => state.serialize_field("value", value),
                 RegEx(value)  => state.serialize_field("regex", &parse_regex(value)),
             }
@@ -339,9 +338,8 @@ mod test {
                     "type": "ExpressionStatement",
                     "expression": {
                         "type": "Literal",
-                        "value": "0",
                         // FIXME
-                        // "value": 0,
+                        "value": "0",
                         "start": 0,
                         "end": 1
                     },
@@ -404,10 +402,9 @@ mod test {
                 {
                     "type": "ExpressionStatement",
                     "expression": {
-                        "type": "StringLiteral",
+                        "type": "Literal",
                         // FIXME
                         "value": "\'foo\'",
-                        // "value": "foo",
                         "start": 0,
                         "end": 5
                     },
@@ -469,7 +466,6 @@ mod test {
                         ],
                         "expressions": [],
                         "start": 0,
-                        // FIXME
                         "end": 2
                     },
                     "start": 0,

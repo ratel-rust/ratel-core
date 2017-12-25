@@ -320,7 +320,7 @@ mod test {
                 {
                     "type": "ExpressionStatement",
                     "expression": {
-                        "type": "StringLiteral",
+                        "type": "Literal",
                         "value": "'foo'",
                         "start": 0,
                         "end": 5
@@ -359,7 +359,7 @@ mod test {
                             },
                             {
                                 // FIXME
-                                "type": "StringLiteral",
+                                "type": "Literal",
                                 "value": "'foo'",
                                 "start": 10,
                                 "end": 15
@@ -528,7 +528,7 @@ mod test {
                     "expression": {
                         "type": "NewExpression",
                         "callee": {
-                            "type": "StringLiteral",
+                            "type": "Literal",
                             "value": "'foo'",
                             "start": 4,
                             "end": 9
@@ -670,7 +670,7 @@ mod test {
                                         "computed": false,
                                         "value": {
                                             // FIXME
-                                            "type": "StringLiteral",
+                                            "type": "Literal",
                                             "value": "\'bar\'",
                                             "start": 17,
                                             "end": 22
@@ -726,7 +726,7 @@ mod test {
                                         "computed": true,
                                         "value": {
                                             // FIXME
-                                            "type": "StringLiteral",
+                                            "type": "Literal",
                                             "value": "\'bar\'",
                                             "start": 19,
                                             "end": 24
