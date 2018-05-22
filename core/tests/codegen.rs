@@ -31,6 +31,14 @@ fn dont_touch_var_in_global_scope() {
 }
 
 #[test]
+fn test_operator(){
+    assert_compile!("'key' in obj", "'key' in obj;");
+    assert_compile!("a instanceof Error", "a instanceof Error;");
+    assert_compile!("typeof a === 'string'", "typeof a==='string';");
+    assert_compile!("new Error('Ooops')", "new Error('Ooops');");
+}
+
+#[test]
 fn keyword_prefix_operators() {
     assert_compile!("delete a;", "delete a;");
     assert_compile!("new a;", "new a;");
