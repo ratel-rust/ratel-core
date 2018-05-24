@@ -217,6 +217,7 @@ impl OperatorKind {
             Typeof     |
             Void       |
             Delete     |
+            In         |
             Instanceof => true,
 
             _          => false,
