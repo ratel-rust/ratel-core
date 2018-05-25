@@ -186,11 +186,10 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
         self.in_loc(serializer, literal_type, 1, |state| {
             match *self {
                 Undefined => {
-                    state.serialize_field("value", &"undefined")?;
                     state.serialize_field("raw", &"undefined")
                 },
                 Null => {
-                    state.serialize_field("value", &"null")?;
+                    state.serialize_field("value", &())?;
                     state.serialize_field("raw", &"null")
                 },
                 True => {
@@ -209,16 +208,18 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                         if is_hexdecimal || is_octal {
                             let value = unsafe { number.slice_unchecked(2, number.len()) };
                             let radix = if is_hexdecimal { 16 } else { 8 };
-                            return state.serialize_field(
+                            state.serialize_field(
                                 "value",
                                 &i32::from_str_radix(value, radix).expect("Invalid number"),
-                            )
+                            )?;
+                            return state.serialize_field("raw", &number)
                         }
                     }
 
                     if is_float(number) {
-                        let number: f64 = number.parse().expect("Invalid number");
-                        return state.serialize_field("value", &number)
+                        let value: f64 = number.parse().expect("Invalid number");
+                        state.serialize_field("value", &value)?;
+                        return state.serialize_field("raw", &number)
                     }
 
                     let value: i64 = number.parse().expect("Invalid number");
@@ -292,6 +293,7 @@ impl<'ast> SerializeInLoc for TemplateElement<'ast> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json;
 
     #[test]
     fn test_parse_regex() {
@@ -328,7 +330,7 @@ mod test {
                     "type": "ExpressionStatement",
                     "expression": {
                         "type": "Literal",
-                        "value": "undefined",
+                        "raw": "undefined",
                         "start": 0,
                         "end": 9
                     },
@@ -350,7 +352,8 @@ mod test {
                     "type": "ExpressionStatement",
                     "expression": {
                         "type": "Literal",
-                        "value": "null",
+                        "value": serde_json::Value::Null,
+                        "raw": "null",
                         "start": 0,
                         "end": 4
                     },
@@ -373,6 +376,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": true,
+                        "raw": "true",
                         "start": 0,
                         "end": 4
                     },
@@ -395,6 +399,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": false,
+                        "raw": "false",
                         "start": 0,
                         "end": 5
                     },
@@ -417,6 +422,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 0,
+                        "raw": "0",
                         "start": 0,
                         "end": 1
                     },
@@ -436,6 +442,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 255,
+                        "raw": "255",
                         "start": 0,
                         "end": 3
                     },
@@ -455,6 +462,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 0.234,
+                        "raw": "0.234",
                         "start": 0,
                         "end": 5
                     },
@@ -474,6 +482,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 255,
+                        "raw": "0xff",
                         "start": 0,
                         "end": 4
                     },
@@ -493,6 +502,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 15,
+                        "raw": "0b1111",
                         "start": 0,
                         "end": 6
                     },
@@ -512,6 +522,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": 585,
+                        "raw": "0o1111",
                         "start": 0,
                         "end": 6
                     },
@@ -534,6 +545,7 @@ mod test {
                     "expression": {
                         "type": "Literal",
                         "value": "foo",
+                        "raw": "'foo'",
                         "start": 0,
                         "end": 5
                     },
@@ -559,6 +571,7 @@ mod test {
                             "pattern": r#"^\b\w+"#,
                             "flags": "m"
                         },
+                        "raw": "/^\\b\\w+/m",
                         "start": 0,
                         // FIXME
                         "end": 0

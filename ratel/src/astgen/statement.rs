@@ -408,6 +408,7 @@ mod test {
                             "init": {
                                 "type": "Literal",
                                 "value": 2,
+                                "raw": "2",
                                 "start": 10,
                                 "end": 11
                             },
@@ -451,6 +452,7 @@ mod test {
                                     {
                                         "type": "Literal",
                                         "value": 2,
+                                        "raw": "2",
                                         "start": 13,
                                         "end": 14
                                     }
@@ -613,6 +615,7 @@ mod test {
                     "test": {
                         "type": "Literal",
                         "value": true,
+                        "raw": "true",
                         "start": 4,
                         "end": 8
                     },
@@ -639,6 +642,7 @@ mod test {
                     "test": {
                         "type": "Literal",
                         "value": true,
+                        "raw": "true",
                         "start": 4,
                         "end": 8
                     },
@@ -673,6 +677,7 @@ mod test {
                     "test": {
                         "type": "Literal",
                         "value": false,
+                        "raw": "false",
                         "start": 7,
                         "end": 12
                     },
@@ -707,6 +712,7 @@ mod test {
                     "test": {
                         "type": "Literal",
                         "value": false,
+                        "raw": "false",
                         "start": 13,
                         "end": 18
                     },
@@ -766,6 +772,7 @@ mod test {
                         "right": {
                             "type": "Literal",
                             "value": 10,
+                            "raw": "10",
                             "start": 12,
                             "end": 14,
                         },
@@ -915,6 +922,7 @@ mod test {
                             "expression": {
                                 "type": "Literal",
                                 "value": 2,
+                                "raw": "2",
                                 "start": 1,
                                 "end": 2
                             },
@@ -988,6 +996,7 @@ mod test {
                             "right": {
                                 "type": "Literal",
                                 "value": true,
+                                "raw": "true",
                                 "start": 25,
                                 "end": 29,
                             },
