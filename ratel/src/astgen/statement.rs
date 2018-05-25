@@ -1,8 +1,7 @@
-use serde::ser::{Serialize, Serializer, SerializeStruct};
-use ast::{Statement, Loc, Declarator, DeclarationKind, Block};
-use astgen::SerializeInLoc;
 use ast::statement::*;
-
+use ast::{Block, DeclarationKind, Declarator, Loc, Statement};
+use astgen::SerializeInLoc;
+use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 // TODO: DRY with BlockStatement
 impl<'ast> Serialize for Loc<Block<'ast, SwitchCase<'ast>>> {
@@ -10,8 +9,7 @@ impl<'ast> Serialize for Loc<Block<'ast, SwitchCase<'ast>>> {
     where
         S: Serializer,
     {
-            self.body.serialize(serializer)
-
+        self.body.serialize(serializer)
     }
 }
 
@@ -41,7 +39,7 @@ impl<'ast> SerializeInLoc for Declarator<'ast> {
 
 impl<'ast> Serialize for DeclarationKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
+    where
         S: Serializer,
     {
         use self::DeclarationKind::*;
@@ -64,7 +62,7 @@ impl<'ast> Serialize for ForInit<'ast> {
             Declaration(declaration) => {
                 let state = declaration.serialize(serializer)?;
                 state.end()
-            },
+            }
             Expression(expression) => expression.serialize(serializer),
         }
     }
@@ -205,65 +203,64 @@ impl<'ast> SerializeInLoc for IfStatement<'ast> {
     }
 }
 
-
 impl<'ast> SerializeInLoc for Statement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
         S: Serializer,
     {
-      use self::Statement::*;
+        use self::Statement::*;
 
-      match *self {
-        Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
-        Expression(ref expression) => {
-            self.in_loc(serializer, "ExpressionStatement", 1, |state| {
-                state.serialize_field("expression", expression)
-            })
-        },
-        Declaration(declaration) => declaration.serialize(serializer),
-        Return(ReturnStatement { ref value }) => {
-            self.in_loc(serializer, "ReturnStatement", 1, |state| {
-                state.serialize_field("argument", value)
-            })
-        },
-        Break(BreakStatement { ref label }) => {
-            self.in_loc(serializer, "BreakStatement", 1, |state| {
-                state.serialize_field("label", label)
-            })
-        },
-        Continue(ContinueStatement { ref label }) => {
-            self.in_loc(serializer, "ContinueStatement", 1, |state| {
-                state.serialize_field("label", label)
-            })
-        },
-        Throw(ThrowStatement { ref value }) => {
-            self.in_loc(serializer, "ThrowStatement", 1, |state| {
-                state.serialize_field("argument", value)
-            })
-        },
-        If(statement) => statement.serialize(serializer),
-        While(WhileStatement { ref test, ref body }) => {
-            self.in_loc(serializer, "WhileStatement", 2, |state| {
-                state.serialize_field("test", test)?;
-                state.serialize_field("body", body)
-            })
-        },
-        Do(DoStatement { ref body, ref test }) => {
-            self.in_loc(serializer, "DoWhileStatement", 2, |state| {
-                state.serialize_field("body", body)?;
-                state.serialize_field("test", test)
-            })
-        },
-        For(statement) => statement.serialize(serializer),
-        ForIn(statement) => statement.serialize(serializer),
-        ForOf(statement) => statement.serialize(serializer),
-        Try(statement) => statement.serialize(serializer),
-        Block(statement) => statement.serialize(serializer),
-        Labeled(statement) => statement.serialize(serializer),
-        Function(statement) => statement.serialize(serializer),
-        Class(statement) => statement.serialize(serializer),
-        Switch(statement) => statement.serialize(serializer),
-      }
+        match *self {
+            Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
+            Expression(ref expression) => {
+                self.in_loc(serializer, "ExpressionStatement", 1, |state| {
+                    state.serialize_field("expression", expression)
+                })
+            }
+            Declaration(declaration) => declaration.serialize(serializer),
+            Return(ReturnStatement { ref value }) => {
+                self.in_loc(serializer, "ReturnStatement", 1, |state| {
+                    state.serialize_field("argument", value)
+                })
+            }
+            Break(BreakStatement { ref label }) => {
+                self.in_loc(serializer, "BreakStatement", 1, |state| {
+                    state.serialize_field("label", label)
+                })
+            }
+            Continue(ContinueStatement { ref label }) => {
+                self.in_loc(serializer, "ContinueStatement", 1, |state| {
+                    state.serialize_field("label", label)
+                })
+            }
+            Throw(ThrowStatement { ref value }) => {
+                self.in_loc(serializer, "ThrowStatement", 1, |state| {
+                    state.serialize_field("argument", value)
+                })
+            }
+            If(statement) => statement.serialize(serializer),
+            While(WhileStatement { ref test, ref body }) => {
+                self.in_loc(serializer, "WhileStatement", 2, |state| {
+                    state.serialize_field("test", test)?;
+                    state.serialize_field("body", body)
+                })
+            }
+            Do(DoStatement { ref body, ref test }) => {
+                self.in_loc(serializer, "DoWhileStatement", 2, |state| {
+                    state.serialize_field("body", body)?;
+                    state.serialize_field("test", test)
+                })
+            }
+            For(statement) => statement.serialize(serializer),
+            ForIn(statement) => statement.serialize(serializer),
+            ForOf(statement) => statement.serialize(serializer),
+            Try(statement) => statement.serialize(serializer),
+            Block(statement) => statement.serialize(serializer),
+            Labeled(statement) => statement.serialize(serializer),
+            Function(statement) => statement.serialize(serializer),
+            Class(statement) => statement.serialize(serializer),
+            Switch(statement) => statement.serialize(serializer),
+        }
     }
 }
 
@@ -308,7 +305,7 @@ mod test {
     }
 
     #[test]
-    fn test_declaration_statement () {
+    fn test_declaration_statement() {
         expect_parse!("var a", {
             "type": "Program",
             "body": [
@@ -410,7 +407,7 @@ mod test {
                             },
                             "init": {
                                 "type": "Literal",
-                                "value": "2",
+                                "value": 2,
                                 "start": 10,
                                 "end": 11
                             },
@@ -453,7 +450,7 @@ mod test {
                                 "elements": [
                                     {
                                         "type": "Literal",
-                                        "value": "2",
+                                        "value": 2,
                                         "start": 13,
                                         "end": 14
                                     }
@@ -667,7 +664,7 @@ mod test {
     }
 
     #[test]
-    fn test_while_statement () {
+    fn test_while_statement() {
         expect_parse!("while (false) {}", {
             "type": "Program",
             "body": [
@@ -695,7 +692,7 @@ mod test {
     }
 
     #[test]
-    fn test_do_statement () {
+    fn test_do_statement() {
         expect_parse!("do {} while (false)", {
             "type": "Program",
             "body": [
@@ -722,9 +719,8 @@ mod test {
         });
     }
 
-
     #[test]
-    fn test_for_statement () {
+    fn test_for_statement() {
         expect_parse!("for (;;) {}", {
             "type": "Program",
             "body": [
@@ -769,7 +765,7 @@ mod test {
                         },
                         "right": {
                             "type": "Literal",
-                            "value": "10",
+                            "value": 10,
                             "start": 12,
                             "end": 14,
                         },
@@ -918,7 +914,7 @@ mod test {
                             "type": "ExpressionStatement",
                             "expression": {
                                 "type": "Literal",
-                                "value": "2",
+                                "value": 2,
                                 "start": 1,
                                 "end": 2
                             },

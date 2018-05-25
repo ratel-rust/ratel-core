@@ -321,7 +321,7 @@ mod test {
                     "type": "ExpressionStatement",
                     "expression": {
                         "type": "Literal",
-                        "value": "'foo'",
+                        "value": "foo",
                         "start": 0,
                         "end": 5
                     },
@@ -352,15 +352,13 @@ mod test {
                             },
                             {
                                 "type": "Literal",
-                                // FIXME
-                                "value": "0",
+                                "value": 0,
                                 "start": 7,
                                 "end": 8
                             },
                             {
-                                // FIXME
                                 "type": "Literal",
-                                "value": "'foo'",
+                                "value": "foo",
                                 "start": 10,
                                 "end": 15
                             },
@@ -440,7 +438,7 @@ mod test {
                         },
                         "right": {
                             "type": "Literal",
-                            "value": "0",
+                            "value": 0,
                             "start": 4,
                             "end": 5
                         },
@@ -498,7 +496,7 @@ mod test {
                         "arguments": [
                             {
                                 "type": "Literal",
-                                "value": "0",
+                                "value": 0,
                                 "start": 8,
                                 "end": 9
                             },
@@ -529,7 +527,7 @@ mod test {
                         "type": "NewExpression",
                         "callee": {
                             "type": "Literal",
-                            "value": "'foo'",
+                            "value": "foo",
                             "start": 4,
                             "end": 9
                         },
@@ -584,7 +582,7 @@ mod test {
                         "operator": "+",
                         "argument": {
                             "type": "Literal",
-                            "value": "0",
+                            "value": 0,
                             "start": 1,
                             "end": 2
                         },
@@ -669,9 +667,8 @@ mod test {
                                         "shorthand": false,
                                         "computed": false,
                                         "value": {
-                                            // FIXME
                                             "type": "Literal",
-                                            "value": "\'bar\'",
+                                            "value": "bar",
                                             "start": 17,
                                             "end": 22
                                         },
@@ -725,9 +722,8 @@ mod test {
                                         "shorthand": false,
                                         "computed": true,
                                         "value": {
-                                            // FIXME
                                             "type": "Literal",
-                                            "value": "\'bar\'",
+                                            "value": "bar",
                                             "start": 19,
                                             "end": 24
                                         },
@@ -1194,7 +1190,7 @@ mod test {
                             },
                             "right": {
                                 "type": "Literal",
-                                "value": "2",
+                                "value": 2,
                                 "start": 21,
                                 "end": 22
                             },
