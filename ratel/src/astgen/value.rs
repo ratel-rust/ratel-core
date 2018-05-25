@@ -183,45 +183,66 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
             _ => "Literal",
         };
 
-        self.in_loc(serializer, literal_type, 1, |state| match *self {
-            Undefined => state.serialize_field("value", &"undefined"),
-            Null => state.serialize_field("value", &"null"),
-            True => state.serialize_field("value", &true),
-            False => state.serialize_field("value", &false),
-            Number(number) => {
-                if number.len() > 2 {
-                    let prefix = &number[0..2];
-                    let is_hexdecimal = prefix == "0x" || prefix == "0X";
-                    let is_octal = prefix == "0o" || prefix == "0O";
-                    if is_hexdecimal || is_octal {
-                        let value = unsafe { number.slice_unchecked(2, number.len()) };
-                        let radix = if is_hexdecimal { 16 } else { 8 };
-                        return state.serialize_field(
-                            "value",
-                            &i32::from_str_radix(value, radix).expect("Invalid number"),
-                        )
+        self.in_loc(serializer, literal_type, 1, |state| {
+            match *self {
+                Undefined => {
+                    state.serialize_field("value", &"undefined")?;
+                    state.serialize_field("raw", &"undefined")
+                },
+                Null => {
+                    state.serialize_field("value", &"null")?;
+                    state.serialize_field("raw", &"null")
+                },
+                True => {
+                    state.serialize_field("value", &true)?;
+                    state.serialize_field("raw", &"true")
+                },
+                False => {
+                    state.serialize_field("value", &false)?;
+                    state.serialize_field("raw", &"false")
+                },
+                Number(number) => {
+                    if number.len() > 2 {
+                        let prefix = &number[0..2];
+                        let is_hexdecimal = prefix == "0x" || prefix == "0X";
+                        let is_octal = prefix == "0o" || prefix == "0O";
+                        if is_hexdecimal || is_octal {
+                            let value = unsafe { number.slice_unchecked(2, number.len()) };
+                            let radix = if is_hexdecimal { 16 } else { 8 };
+                            return state.serialize_field(
+                                "value",
+                                &i32::from_str_radix(value, radix).expect("Invalid number"),
+                            )
+                        }
                     }
-                }
 
-                if is_float(number) {
-                    let number: f64 = number.parse().expect("Invalid number");
-                    return state.serialize_field("value", &number)
-                }
+                    if is_float(number) {
+                        let number: f64 = number.parse().expect("Invalid number");
+                        return state.serialize_field("value", &number)
+                    }
 
-                let number: i64 = number.parse().expect("Invalid number");
-                state.serialize_field("value", &number)
+                    let value: i64 = number.parse().expect("Invalid number");
+                    state.serialize_field("value", &value)?;
+                    state.serialize_field("raw", &number)
+                }
+                Binary(number) => {
+                    let value = unsafe { number.slice_unchecked(2, number.len()) };
+                    state.serialize_field(
+                        "value",
+                        &i32::from_str_radix(value, 2).expect("Invalid number"),
+                    )?;
+                    state.serialize_field("raw", &number)
+                }
+                String(value) => {
+                    let parsed_value = unsafe { value.slice_unchecked(1, value.len() - 1) };
+                    state.serialize_field("value", &parsed_value)?;
+                    state.serialize_field("raw", &value)
+                },
+                RegEx(value) => {
+                    state.serialize_field("regex", &parse_regex(value))?;
+                    state.serialize_field("raw", &value)
+                },
             }
-            Binary(number) => {
-                let value = unsafe { number.slice_unchecked(2, number.len()) };
-                state.serialize_field(
-                    "value",
-                    &i32::from_str_radix(value, 2).expect("Invalid number"),
-                )
-            }
-            String(value) => state.serialize_field("value", unsafe {
-                value.slice_unchecked(1, value.len() - 1)
-            }),
-            RegEx(value) => state.serialize_field("regex", &parse_regex(value)),
         })
     }
 }

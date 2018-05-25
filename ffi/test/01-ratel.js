@@ -1,3 +1,5 @@
+const acorn = require('acorn');
+
 describe('Ratel ffi', () => {
   it('is an object, has transform and parse methods', () => {
     assert.equal(typeof Ratel, 'object');
@@ -68,6 +70,15 @@ describe('Ratel ffi', () => {
             "start": 0,
             "end": 4
       });
+    });
+
+    it('generates AST comparable with acorn', () => {
+      const source = `const foo = 2; let bar=4; foo**bar === 16`;
+      const ast = Ratel.ast(source, true);
+      const tree = JSON.parse(ast);
+      const acornAST = acorn.parse(source);
+      delete acornAST['sourceType'];
+      assert.deepEqual(tree, acornAST);
     });
   });
 });
