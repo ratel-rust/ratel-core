@@ -256,7 +256,11 @@ impl<'ast> SerializeInLoc for Pattern<'ast> {
         use self::Pattern::*;
 
         match *self {
+            Void => unreachable!(),
             Identifier(a) => Expression::Identifier(a).serialize(serializer),
+            ObjectPattern { properties } => self.in_loc(serializer, "ObjectPattern", 1, |state| {
+                state.serialize_field("keys", &properties)
+            }),
             ArrayPattern { elements } => self.in_loc(serializer, "ArrayPattern", 1, |state| {
                 state.serialize_field("elements", &elements)
             }),
@@ -269,7 +273,6 @@ impl<'ast> SerializeInLoc for Pattern<'ast> {
             RestElement { argument } => self.in_loc(serializer, "RestElement", 1, |state| {
                 state.serialize_field("argument", &argument)
             }),
-            _ => unimplemented!(),
         }
     }
 }
