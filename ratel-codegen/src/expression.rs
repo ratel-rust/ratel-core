@@ -310,8 +310,8 @@ impl<'ast, G: Generator> ToCode<G> for ObjectExpression<'ast> {
         }
 
         for property in properties {
-            gen.new_line();
             gen.write_byte(b',');
+            gen.new_line();
             gen.write(property);
         }
         gen.dedent();
@@ -489,5 +489,7 @@ mod test {
         assert_min("({ foo: 10, bar: 20 });", "({foo:10,bar:20});");
         assert_min("({ foo: 10, bar() {} });", "({foo:10,bar(){}});");
         assert_min("({ foo(bar, baz) {} });", "({foo(bar,baz){}});");
+        let expected = "({\n    foo: true,\n    bar: false\n});";
+        assert_pretty("({ foo: true, bar: false })", expected);
     }
 }
