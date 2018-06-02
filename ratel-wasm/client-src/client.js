@@ -11,7 +11,7 @@
   var output = null;
   var minify = false;
 
-  Module.addOnInit(bindUpdate(function () {
+  Module.onRuntimeInitialized = bindUpdate(function (a) {
     generateAST = Module.cwrap('generate_ast', 'string', ['string', 'number']);
     generateASTEstree = Module.cwrap('generate_ast_estree', 'string', ['string', 'number']);
     transform = Module.cwrap('transform', 'string', ['string', 'number']);
@@ -22,7 +22,7 @@
     }
 
     bindEvents();
-  }));
+  });
 
   function bindListener (id, fn) {
     var el = document.getElementById(id);
