@@ -168,7 +168,10 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
             gen.write_pretty(b' ');
         }
 
-        gen.write_expression(&self.right, bp);
+        // `2 / 2 * 2` and `2 / (2 * 2)` are different expressions,
+        // hence the need for parenthesis in a right-balanced tree
+        // even if binding power of operators is exactly the same.
+        gen.write_expression(&self.right, bp + 1);
     }
 }
 
@@ -488,5 +491,8 @@ mod test {
         assert_min("(1 + 2) * 3;", "(1+2)*3;");
         assert_min("(denominator / divider * 100).toFixed(2);", "(denominator/divider*100).toFixed(2);");
         assert_min("(1 + 1)[0];", "(1+1)[0];");
+        assert_min("2 * 2 / 2;", "2*2/2;");
+        assert_min("2 * (2 / 2);", "2*(2/2);");
+        assert_min("(2 * 2) / 2;", "2*2/2;");
     }
 }

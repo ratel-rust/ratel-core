@@ -1,5 +1,5 @@
 use toolshed::list::ListBuilder;
-use parser::{Parser, Parse, BindingPower, B0, B1, B15};
+use parser::{Parser, Parse, BindingPower, ANY, B0, B15};
 use lexer::Token::*;
 use ast::{Node, NodeList, Expression, ExpressionNode, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
@@ -120,7 +120,7 @@ create_handlers! {
 
     const SPRD = |par| {
         let start = par.lexer.start_then_consume();
-        let argument = par.expression::<B1>();
+        let argument = par.expression::<B0>();
 
         par.alloc_at_loc(start, argument.end, SpreadExpression { argument })
     };
@@ -251,7 +251,7 @@ impl<'ast> Parser<'ast> {
 
         let body = match self.lexer.token {
             BraceOpen => ArrowBody::Block(self.unchecked_block()),
-            _         => ArrowBody::Expression(self.expression::<B1>()),
+            _         => ArrowBody::Expression(self.expression::<B0>()),
         };
 
         self.alloc_at_loc(0, 0, ArrowExpression {
@@ -266,7 +266,7 @@ impl<'ast> Parser<'ast> {
             return NodeList::empty();
         }
 
-        let expression = self.expression_in_context::<B1>(CALL_CONTEXT);
+        let expression = self.expression_in_context::<B0>(CALL_CONTEXT);
         let builder = ListBuilder::new(self.arena, expression);
 
         loop {
@@ -274,7 +274,7 @@ impl<'ast> Parser<'ast> {
                 ParenClose => break,
                 Comma      => {
                     self.lexer.consume();
-                    self.expression_in_context::<B1>(CALL_CONTEXT)
+                    self.expression_in_context::<B0>(CALL_CONTEXT)
                 }
                 _ => {
                     self.error::<()>();
@@ -297,7 +297,7 @@ impl<'ast> Parser<'ast> {
                 self.arrow_function_expression(NodeList::empty())
             },
             _ => {
-                let expression = self.expression::<B0>();
+                let expression = self.expression::<ANY>();
 
                 expect!(self, ParenClose);
 
@@ -390,7 +390,7 @@ impl<'ast> Parser<'ast> {
             },
             BracketOpen => {
                 let start = self.lexer.start_then_consume();
-                let expression = self.expression::<B0>();
+                let expression = self.expression::<ANY>();
                 let end = self.lexer.end();
 
                 expect!(self, BracketClose);
@@ -404,7 +404,7 @@ impl<'ast> Parser<'ast> {
             Colon => {
                 self.lexer.consume();
 
-                let value = self.expression::<B1>();
+                let value = self.expression::<B0>();
 
                 self.alloc_at_loc(start, value.end, Property::Literal {
                     key,
@@ -426,7 +426,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn array_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
-        let body = self.array_elements(|par| par.expression_in_context::<B1>(ARRAY_CONTEXT));
+        let body = self.array_elements(|par| par.expression_in_context::<B0>(ARRAY_CONTEXT));
         let end = self.lexer.end_then_consume();
 
         self.alloc_at_loc(start, end, ArrayExpression { body })
@@ -503,7 +503,7 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start_then_consume();
         let end;
 
-        let expression = self.expression::<B0>();
+        let expression = self.expression::<ANY>();
 
         match self.lexer.token {
             BraceClose => self.lexer.read_template_kind(),
@@ -519,7 +519,7 @@ impl<'ast> Parser<'ast> {
                     let quasi = self.lexer.quasi;
                     quasis.push(self.arena, self.alloc_in_loc(quasi));
                     self.lexer.consume();
-                    expressions.push(self.arena, self.expression::<B0>());
+                    expressions.push(self.arena, self.expression::<ANY>());
 
                     match self.lexer.token {
                         BraceClose => self.lexer.read_template_kind(),

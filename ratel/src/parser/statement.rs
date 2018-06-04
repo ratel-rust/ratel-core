@@ -1,5 +1,5 @@
 use toolshed::list::{ListBuilder, GrowableList};
-use parser::{Parser, Parse, B0, B1};
+use parser::{Parser, Parse, ANY, B0};
 use lexer::Token::*;
 use lexer::Asi;
 use ast::{Node, NodeList, Declarator, DeclarationKind};
@@ -110,7 +110,7 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
             Case => {
                 par.lexer.consume();
 
-                Some(par.expression::<B0>())
+                Some(par.expression::<ANY>())
             },
             Default => {
                 par.lexer.consume();
@@ -175,7 +175,7 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn expression_statement(&mut self, expression: ExpressionNode<'ast>) -> StatementNode<'ast> {
-        let expression = self.nested_expression::<B0>(expression);
+        let expression = self.nested_expression::<ANY>(expression);
 
         self.wrap_expression(expression)
     }
@@ -205,7 +205,7 @@ impl<'ast> Parser<'ast> {
         }
 
         let expression = self.alloc_at_loc(start, end, label);
-        let expression = self.nested_expression::<B0>(expression);
+        let expression = self.nested_expression::<ANY>(expression);
 
         self.expect_semicolon();
 
@@ -250,7 +250,7 @@ impl<'ast> Parser<'ast> {
         let (init, end) = match self.lexer.token {
             OperatorAssign => {
                 self.lexer.consume();
-                let init = self.expression::<B1>();
+                let init = self.expression::<B0>();
 
                 (Some(init), init.end)
             },
@@ -289,7 +289,7 @@ impl<'ast> Parser<'ast> {
 
         let value = match self.asi() {
             Asi::NoSemicolon => {
-                let expression = self.expression::<B0>();
+                let expression = self.expression::<ANY>();
                 end = expression.end;
 
                 self.expect_semicolon();
@@ -359,7 +359,7 @@ impl<'ast> Parser<'ast> {
     #[inline]
     pub fn throw_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
-        let value = self.expression::<B0>();
+        let value = self.expression::<ANY>();
 
         self.expect_semicolon();
 
@@ -418,7 +418,7 @@ impl<'ast> Parser<'ast> {
     pub fn if_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
-        let test = self.expression::<B0>();
+        let test = self.expression::<ANY>();
         expect!(self, ParenClose);
 
         let consequent = self.statement();
@@ -443,7 +443,7 @@ impl<'ast> Parser<'ast> {
     pub fn while_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
-        let test = self.expression::<B0>();
+        let test = self.expression::<ANY>();
         expect!(self, ParenClose);
 
         let body = self.statement();
@@ -460,7 +460,7 @@ impl<'ast> Parser<'ast> {
         let body = self.statement();
         expect!(self, While);
         expect!(self, ParenOpen);
-        let test = self.expression::<B0>();
+        let test = self.expression::<ANY>();
         let end = self.lexer.end();
         expect!(self, ParenClose);
 
@@ -497,7 +497,7 @@ impl<'ast> Parser<'ast> {
             DeclarationLet   => Some(self.for_init(DeclarationKind::Let)),
             DeclarationConst => Some(self.for_init(DeclarationKind::Const)),
             _ => {
-                let init = self.expression::<B0>();
+                let init = self.expression::<ANY>();
 
                 if let Expression::Binary(BinaryExpression {
                     operator: In,
@@ -534,7 +534,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _ => {
-                let test = self.expression::<B0>();
+                let test = self.expression::<ANY>();
                 expect!(self, Semicolon);
 
                 Some(test)
@@ -547,7 +547,7 @@ impl<'ast> Parser<'ast> {
                 None
             },
             _         => {
-                let update = self.expression::<B0>();
+                let update = self.expression::<ANY>();
                 expect!(self, ParenClose);
 
                 Some(update)
@@ -577,7 +577,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_in_statement(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>) -> StatementNode<'ast> {
-        let right = self.expression::<B0>();
+        let right = self.expression::<ANY>();
 
         expect!(self, ParenClose);
 
@@ -591,7 +591,7 @@ impl<'ast> Parser<'ast> {
     }
 
     fn for_of_statement(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>) -> StatementNode<'ast> {
-        let right = self.expression::<B0>();
+        let right = self.expression::<ANY>();
 
         expect!(self, ParenClose);
 
@@ -608,7 +608,7 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
 
-        let discriminant = self.expression::<B0>();
+        let discriminant = self.expression::<ANY>();
 
         expect!(self, ParenClose);
 
