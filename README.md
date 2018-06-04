@@ -8,6 +8,8 @@
 
 **Ratel** is a high performance JavaScript to JavaScript compiler with a Rust core. It's goal is to take newest versions of JavaScript as input, and produce output that's compatible with older versions of the language.
 
+[**Online REPL with Wasm**](http://maciej.codes/ratel-wasm/), courtesy of [cmtt](https://github.com/cmtt).
+
 This repo is split in two separate folders:
 
 - `core` contains the main Rust codebase that does all the heavy lifting.
