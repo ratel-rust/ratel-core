@@ -213,7 +213,23 @@ impl<'ast> SerializeInLoc for ArrayExpression<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "ArrayExpression", 1, |state| {
-            state.serialize_field("elements", &self.body)
+
+            let mut elems = self.body.iter()
+                                     .map(|loc| if loc.item != Expression::Void { Some(loc) } else { None } )
+                                     .collect::<Vec<_>>();
+            loop {
+                let should_pop = match elems.last() {
+                    Some(&None) => true,
+                    Some(&Some(_)) => break,
+                    None => break,
+                };
+
+                if should_pop {
+                    elems.pop();
+                }
+            }
+
+            state.serialize_field("elements", &elems)
         })
     }
 }
@@ -239,7 +255,7 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Void => unimplemented!(),
+            Void => unreachable!(),
             This(_) => self.in_loc(serializer, "ThisExpression", 0, |_| Ok(())),
             Identifier(ref ident) => {
                 self.in_loc(serializer, "Identifier", 1, |state| {
@@ -269,6 +285,91 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
 
 #[cfg(test)]
 mod test {
+    #[test]
+    fn test_void_expression() {
+        expect_parse!("[1,]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrayExpression",
+                        "elements": [
+                            {
+                                "type": "Literal",
+                                "value": 1,
+                                "raw": "1",
+                                "start": 1,
+                                "end": 2
+                            },
+                        ],
+                        "start": 0,
+                        "end": 4
+                    },
+                    "start": 0,
+                    "end": 4
+                }
+            ],
+            "start": 0,
+            "end": 4
+        });
+
+        expect_parse!("[1,,]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrayExpression",
+                        "elements": [
+                            {
+                                "type": "Literal",
+                                "value": 1,
+                                "raw": "1",
+                                "start": 1,
+                                "end": 2
+                            },
+                        ],
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5
+                }
+            ],
+            "start": 0,
+            "end": 5
+        });
+
+        expect_parse!("[,1,]", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrayExpression",
+                        "elements": [
+                            null,
+                            {
+                                "type": "Literal",
+                                "value": 1,
+                                "raw": "1",
+                                "start": 2,
+                                "end": 3
+                            },
+                        ],
+                        "start": 0,
+                        "end": 5
+                    },
+                    "start": 0,
+                    "end": 5
+                }
+            ],
+            "start": 0,
+            "end": 5
+        });
+    }
+    
     #[test]
     fn test_this_expression() {
         expect_parse!("this;", {
