@@ -576,15 +576,14 @@ mod test {
                         },
                         "raw": "/^\\b\\w+/m",
                         "start": 0,
-                        // FIXME
-                        "end": 0
+                        "end": 9
                     },
                     "start": 0,
-                    "end": 0,
+                    "end": 9,
                 }
             ],
             "start": 0,
-            "end": 0,
+            "end": 9,
         });
     }
 

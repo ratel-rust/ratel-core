@@ -133,9 +133,12 @@ create_handlers! {
     };
 
     pub const OP = |par| {
+        let start = par.lexer.start();
         let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
         par.lexer.consume();
-        par.prefix_expression(op)
+        let expression = par.prefix_expression(op);
+        let end = par.lexer.end();
+        par.alloc_at_loc(start, end, expression)
     };
 
     pub const PRN = |par| {
@@ -307,13 +310,13 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionNode<'ast> {
+    pub fn prefix_expression(&mut self, operator: OperatorKind) -> PrefixExpression<'ast> {
         let operand = self.expression::<B15>();
 
-        self.alloc_at_loc(0, 0, PrefixExpression {
+        PrefixExpression {
             operator: operator,
             operand: operand,
-        })
+        }
     }
 
     #[inline]
@@ -469,11 +472,13 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn regular_expression(&mut self) -> ExpressionNode<'ast> {
+        let start = self.lexer.start();
         let value = self.lexer.read_regular_expression();
+        let end = self.lexer.end();
 
         expect!(self, LiteralRegEx);
 
-        self.alloc_at_loc(0, 0, Literal::RegEx(value))
+        self.alloc_at_loc(start, end, Literal::RegEx(value))
     }
 
     #[inline]

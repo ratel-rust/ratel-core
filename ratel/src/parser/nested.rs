@@ -240,8 +240,8 @@ const SEQ: NestedHandler = Some(|par, left| {
         par.lexer.consume();
         builder.push(par.arena, par.expression::<B0>());
     }
-
-    par.alloc_at_loc(0, 0, SequenceExpression {
+    let end = par.lexer.end();
+    par.alloc_at_loc(left.start, end, SequenceExpression {
         body: builder.as_list()
     })
 });
@@ -316,12 +316,12 @@ const CALL: NestedHandler = Some(|par, left| {
 
 const CMEM: NestedHandler = Some(|par, left| {
     par.lexer.consume();
-
     let property = par.expression::<ANY>();
 
     expect!(par, BracketClose);
+    let end = par.lexer.end();
 
-    par.alloc_at_loc(0, 0, ComputedMemberExpression {
+    par.alloc_at_loc(left.start, end, ComputedMemberExpression {
         object: left,
         property: property,
     })
