@@ -1,16 +1,37 @@
 use toolshed::list::ListBuilder;
 use parser::Parser;
+use lexer::Token;
 use lexer::Token::*;
 use ast::{NodeList, OperatorKind, Expression, ExpressionNode};
 use ast::expression::*;
 use ast::OperatorKind::*;
 
 
+const TOTAL_TOKENS: usize = 108;
+
 type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>) -> ExpressionNode<'ast>>;
-pub type Lookup = &'static [NestedHandler; 108];
+
+pub trait BindingPower {
+    const LUT: [NestedHandler; TOTAL_TOKENS];
+
+    #[inline]
+    fn handler(token: Token) -> NestedHandler {
+        unsafe { *(&Self::LUT as *const NestedHandler).offset(token as isize) }
+    }
+}
+
+macro_rules! bp {
+    ($name:ident, $table:tt) => {
+        pub struct $name;
+
+        impl BindingPower for $name {
+            const LUT: [NestedHandler; TOTAL_TOKENS] = $table;
+        }
+    }
+}
 
 /// All potential tokens, including Comma for sequence expressions
-pub static B0: Lookup = &[
+bp!(B0, [
     ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
@@ -37,9 +58,9 @@ pub static B0: Lookup = &[
 
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
-];
+]);
 
-pub static B1: Lookup = &[
+bp!(B1, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -49,9 +70,9 @@ pub static B1: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B4: Lookup = &[
+bp!(B4, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -61,9 +82,9 @@ pub static B4: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B5: Lookup = &[
+bp!(B5, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -73,9 +94,9 @@ pub static B5: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B6: Lookup = &[
+bp!(B6, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -85,9 +106,9 @@ pub static B6: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B7: Lookup = &[
+bp!(B7, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -97,9 +118,9 @@ pub static B7: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B8: Lookup = &[
+bp!(B8, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -109,9 +130,9 @@ pub static B8: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B9: Lookup = &[
+bp!(B9, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -121,9 +142,9 @@ pub static B9: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B10: Lookup = &[
+bp!(B10, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -133,9 +154,9 @@ pub static B10: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B11: Lookup = &[
+bp!(B11, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   ____, ____,
@@ -145,9 +166,9 @@ pub static B11: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B12: Lookup = &[
+bp!(B12, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -157,9 +178,9 @@ pub static B12: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B13: Lookup = &[
+bp!(B13, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -169,9 +190,9 @@ pub static B13: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B14: Lookup = &[
+bp!(B14, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -181,9 +202,9 @@ pub static B14: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
+]);
 
-pub static B15: Lookup = &[
+bp!(B15, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -193,43 +214,7 @@ pub static B15: Lookup = &[
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-];
-
-// pub static B17: Lookup = &[
-//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-//     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-// ];
-
-// pub static B18: Lookup = &[
-//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-//     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-// ];
-
-// pub static B19: Lookup = &[
-//     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-// ];
+]);
 
 const ____: NestedHandler = None;
 
@@ -237,11 +222,11 @@ const SEQ: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     let builder = ListBuilder::new(par.arena, left);
-    builder.push(par.arena, par.expression(B1));
+    builder.push(par.arena, par.expression::<B1>());
 
     while let Comma = par.lexer.token {
         par.lexer.consume();
-        builder.push(par.arena, par.expression(B1));
+        builder.push(par.arena, par.expression::<B1>());
     }
 
     par.alloc_at_loc(0, 0, SequenceExpression {
@@ -272,9 +257,9 @@ const DEC: NestedHandler = Some(|par, left| {
 const COND: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let consequent = par.expression(B4);
+    let consequent = par.expression::<B4>();
     expect!(par, Colon);
-    let alternate = par.expression(B4);
+    let alternate = par.expression::<B4>();
 
     par.alloc_at_loc(left.start, alternate.end, ConditionalExpression {
         test: left,
@@ -320,7 +305,7 @@ const CALL: NestedHandler = Some(|par, left| {
 const CMEM: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let property = par.expression(B0);
+    let property = par.expression::<B0>();
 
     expect!(par, BracketClose);
 
@@ -344,12 +329,12 @@ const TPLE: NestedHandler = Some(|par, left| {
 });
 
 macro_rules! binary {
-    ($name:ident, $bp:expr => $op:ident) => {
+    ($name:ident, $bp:ident => $op:ident) => {
         const $name: NestedHandler = {
             fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
                 par.lexer.consume();
 
-                let right = par.expression($bp);
+                let right = par.expression::<$bp>();
 
                 par.alloc_at_loc(left.start, right.end, BinaryExpression {
                     operator: $op,
@@ -404,12 +389,14 @@ binary!(EXPN , B15 => Exponent);
 
 impl<'ast> Parser<'ast> {
     #[inline]
-    pub fn nested_expression(&mut self, mut left: ExpressionNode<'ast>, lookup: Lookup) -> ExpressionNode<'ast> {
-        loop {
-            left = match lookup[self.lexer.token as usize] {
-                Some(handler) => handler(self, left),
-                None          => return left,
-            }
+    pub fn nested_expression<B>(&mut self, mut left: ExpressionNode<'ast>) -> ExpressionNode<'ast>
+    where
+        B: BindingPower
+    {
+        while let Some(handler) = B::handler(self.lexer.token) {
+            left = handler(self, left);
         }
+
+        left
     }
 }
