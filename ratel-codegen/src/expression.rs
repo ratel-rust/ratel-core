@@ -482,7 +482,11 @@ mod test {
     }
 
     #[test]
-    fn method_on_binary() {
-        assert_min("(denominator / divider * 100).toFixed(2);", "(denominator/divider*100).toFixed(2);")
+    fn binding_power() {
+        assert_min("1 + 2 * 3;", "1+2*3;");
+        assert_min("1 + (2 * 3);", "1+2*3;");
+        assert_min("(1 + 2) * 3;", "(1+2)*3;");
+        assert_min("(denominator / divider * 100).toFixed(2);", "(denominator/divider*100).toFixed(2);");
+        assert_min("(1 + 1)[0];", "(1+1)[0];");
     }
 }
