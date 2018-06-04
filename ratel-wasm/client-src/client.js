@@ -71,7 +71,7 @@
       } else if (mode === 2) {
         output = generateASTEstree(value, minify);
       }
-      ast_output.innerText = output;
+      ast_output.innerHTML = output;
     }, immediate ? 0 : DISPLAY_TIMEOUT);
   }
 
