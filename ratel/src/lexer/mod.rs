@@ -417,6 +417,7 @@ const SLH: ByteHandler = Some(|lex| {
                 match lex.next_byte() {
                     b'*' => {
                         match lex.next_byte() {
+                            b'*' => lex.retreat(),
                             b'/' => {
                                 lex.bump();
                                 return lex.consume();
@@ -819,6 +820,11 @@ impl<'arena> Lexer<'arena> {
     fn bump(&mut self) {
         self.index += 1;
     }
+    
+    #[inline]
+    fn retreat(&mut self) {
+        self.index -= 1;
+    }
 
     #[inline]
     fn next_byte(&mut self) -> u8 {
@@ -1063,6 +1069,7 @@ mod test {
     #[test]
     fn block_comment() {
         assert_lex(" /* foo */ bar", [(Identifier, "bar")]);
+        assert_lex(" /** foo **/ bar", [(Identifier, "bar")]);
     }
 
     #[test]
