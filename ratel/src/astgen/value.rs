@@ -256,7 +256,11 @@ impl<'ast> SerializeInLoc for Pattern<'ast> {
         use self::Pattern::*;
 
         match *self {
+            Void => unreachable!(),
             Identifier(a) => Expression::Identifier(a).serialize(serializer),
+            ObjectPattern { properties } => self.in_loc(serializer, "ObjectPattern", 1, |state| {
+                state.serialize_field("keys", &properties)
+            }),
             ArrayPattern { elements } => self.in_loc(serializer, "ArrayPattern", 1, |state| {
                 state.serialize_field("elements", &elements)
             }),
@@ -269,7 +273,6 @@ impl<'ast> SerializeInLoc for Pattern<'ast> {
             RestElement { argument } => self.in_loc(serializer, "RestElement", 1, |state| {
                 state.serialize_field("argument", &argument)
             }),
-            _ => unimplemented!(),
         }
     }
 }
@@ -738,6 +741,160 @@ mod test {
             ],
             "start": 0,
             "end": 14,
+        });
+    }
+
+    #[test]
+    fn test_pattern() {
+        expect_parse!("let {a, b} = { a: 1, b: 2 };", {
+            "type":"Program",
+            "body":[
+                {
+                    "type":"VariableDeclaration",
+                    "kind":"let",
+                    "declarations":[
+                        {
+                            "type":"VariableDeclarator",
+                            "id":{
+                                "type":"ObjectPattern",
+                                "keys":[
+                                    {
+                                        "type":"Identifier",
+                                        "name":"a",
+                                        "start":5,
+                                        "end":6
+                                    },
+                                    {
+                                        "type":"Identifier",
+                                        "name":"b",
+                                        "start":8,
+                                        "end":9
+                                    }
+                                ],
+                                "start":4,
+                                "end":10
+                            },
+                            "init":{
+                                "type":"ObjectExpression",
+                                "properties":[
+                                    {
+                                        "type":"Property",
+                                        "key":{
+                                            "type":"Identifier",
+                                            "name":"a",
+                                            "start":15,
+                                            "end":16
+                                        },
+                                        "method":false,
+                                        "shorthand":false,
+                                        "computed":false,
+                                        "value":{
+                                            "type":"Literal",
+                                            "value":1,
+                                            "raw":"1",
+                                            "start":18,
+                                            "end":19
+                                        },
+                                        "kind":"init",
+                                        "start":15,
+                                        "end":19
+                                    },
+                                    {
+                                        "type":"Property",
+                                        "key":{
+                                            "type":"Identifier",
+                                            "name":"b",
+                                            "start":21,
+                                            "end":22
+                                        },
+                                        "method":false,
+                                        "shorthand":false,
+                                        "computed":false,
+                                        "value":{
+                                            "type":"Literal",
+                                            "value":2,
+                                            "raw":"2",
+                                            "start":24,
+                                            "end":25
+                                        },
+                                        "kind":"init",
+                                        "start":21,
+                                        "end":25
+                                    }
+                                ],
+                                "start":13,
+                                "end":27
+                            },
+                            "start":4,
+                            "end":27
+                        }
+                    ],
+                    "start":0,
+                    "end":28
+                }
+            ],
+            "start":0,
+            "end":28
+        });
+        expect_parse!("let [a, b] = [1, 2];", {
+            "type":"Program",
+            "body":[
+                {
+                    "type":"VariableDeclaration",
+                    "kind":"let",
+                    "declarations":[
+                        {
+                            "type":"VariableDeclarator",
+                            "id":{
+                                "type":"ArrayPattern",
+                                "elements":[
+                                    {
+                                        "type":"Identifier",
+                                        "name":"a",
+                                        "start":5,
+                                        "end":6
+                                    },
+                                    {
+                                        "type":"Identifier",
+                                        "name":"b",
+                                        "start":8,
+                                        "end":9
+                                    }
+                                ],
+                                "start":4,
+                                "end":10
+                            },
+                            "init":{
+                                "type":"ArrayExpression",
+                                "elements":[
+                                    {
+                                        "type":"Literal",
+                                        "value":1,
+                                        "raw":"1",
+                                        "start":14,
+                                        "end":15
+                                    },
+                                    {
+                                        "type":"Literal",
+                                        "value":2,
+                                        "raw":"2",
+                                        "start":17,
+                                        "end":18
+                                    }
+                                ],
+                                "start":13,
+                                "end":19
+                            },
+                            "start":4,
+                            "end":19
+                        }
+                    ],
+                    "start":0,
+                    "end":20
+                }
+            ],
+            "start":0,
+            "end":20
         });
     }
 }
