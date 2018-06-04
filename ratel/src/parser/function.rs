@@ -1,5 +1,5 @@
 use toolshed::list::ListBuilder;
-use parser::{Parser, Parse, B0, B1};
+use parser::{Parser, Parse, ANY, B0};
 use lexer::Token::*;
 use ast::{Node, NodeList, EmptyName, OptionalName, MandatoryName, Name};
 use ast::{MethodKind, Pattern, Function, Class, ClassMember, PropertyKey};
@@ -139,7 +139,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             BracketOpen => {
                 par.lexer.consume();
 
-                let expression = par.expression::<B0>();
+                let expression = par.expression::<ANY>();
 
                 expect!(par, BracketClose);
 
@@ -165,7 +165,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             OperatorAssign => {
                 par.lexer.consume();
 
-                let expression = par.expression::<B1>();
+                let expression = par.expression::<B0>();
 
                 end = expression.end;
 
@@ -199,7 +199,7 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
             Extends => {
                 par.lexer.consume();
 
-                Some(par.expression::<B1>())
+                Some(par.expression::<B0>())
             },
             _ => None
         };
@@ -257,7 +257,7 @@ impl<'ast> Parser<'ast> {
             OperatorAssign => {
                 self.lexer.consume();
 
-                let right = self.expression::<B1>();
+                let right = self.expression::<B0>();
 
                 self.alloc_at_loc(left.start, right.end, Pattern::AssignmentPattern {
                     left,

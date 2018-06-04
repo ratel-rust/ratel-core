@@ -31,7 +31,7 @@ macro_rules! bp {
 }
 
 /// All potential tokens, including Comma for sequence expressions
-bp!(B0, [
+bp!(ANY, [
     ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
@@ -60,7 +60,7 @@ bp!(B0, [
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 ]);
 
-bp!(B1, [
+bp!(B0, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -72,7 +72,7 @@ bp!(B1, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B4, [
+bp!(B1, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -84,7 +84,7 @@ bp!(B4, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B5, [
+bp!(B4, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -96,7 +96,7 @@ bp!(B5, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B6, [
+bp!(B5, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -108,7 +108,7 @@ bp!(B6, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B7, [
+bp!(B6, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -120,7 +120,7 @@ bp!(B7, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B8, [
+bp!(B7, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -132,7 +132,7 @@ bp!(B8, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B9, [
+bp!(B8, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -144,7 +144,7 @@ bp!(B9, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B10, [
+bp!(B9, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
@@ -156,7 +156,7 @@ bp!(B10, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B11, [
+bp!(B10, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   ____, ____,
@@ -168,7 +168,7 @@ bp!(B11, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B12, [
+bp!(B11, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -180,7 +180,7 @@ bp!(B12, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B13, [
+bp!(B12, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -192,7 +192,7 @@ bp!(B13, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B14, [
+bp!(B13, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -204,9 +204,21 @@ bp!(B14, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-bp!(B15, [
+bp!(B14, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
+]);
+
+bp!(B15, [
+    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
+    INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -222,11 +234,11 @@ const SEQ: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
     let builder = ListBuilder::new(par.arena, left);
-    builder.push(par.arena, par.expression::<B1>());
+    builder.push(par.arena, par.expression::<B0>());
 
     while let Comma = par.lexer.token {
         par.lexer.consume();
-        builder.push(par.arena, par.expression::<B1>());
+        builder.push(par.arena, par.expression::<B0>());
     }
 
     par.alloc_at_loc(0, 0, SequenceExpression {
@@ -305,7 +317,7 @@ const CALL: NestedHandler = Some(|par, left| {
 const CMEM: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let property = par.expression::<B0>();
+    let property = par.expression::<ANY>();
 
     expect!(par, BracketClose);
 
