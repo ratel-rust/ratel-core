@@ -3,7 +3,7 @@
 extern crate pretty_assertions;
 extern crate ratel;
 
-use ratel::ast::{Node, Loc, Block, Pattern};
+use ratel::ast::{Node, ExpressionNode, Loc, Block, Pattern};
 use ratel::Module;
 
 mod expression;
@@ -23,6 +23,18 @@ pub trait Generator: Sized {
         T: ToCode<Self>,
     {
         item.to_code(self);
+    }
+
+    /// Helper that adds parenthesis if required by the binding power of inner expression
+    #[inline]
+    fn write_expression<'ast>(&mut self, item: &ExpressionNode<'ast>, bp: u8) {
+        if item.binding_power() < bp {
+            self.write_byte(b'(');
+            item.to_code(self);
+            self.write_byte(b')');
+        } else {
+            item.to_code(self);
+        }
     }
 
     #[inline]

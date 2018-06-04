@@ -122,7 +122,7 @@ impl<'ast, G: Generator> ToCode<G> for ArrayExpression<'ast> {
 impl<'ast, G: Generator> ToCode<G> for MemberExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write(&self.object);
+        gen.write_expression(&self.object, 19);
         gen.write_byte(b'.');
         gen.write(&self.property);
     }
@@ -131,7 +131,7 @@ impl<'ast, G: Generator> ToCode<G> for MemberExpression<'ast> {
 impl<'ast, G: Generator> ToCode<G> for ComputedMemberExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
-        gen.write(&self.object);
+        gen.write_expression(&self.object, 19);
         gen.write_byte(b'[');
         gen.write(&self.property);
         gen.write_byte(b']');
@@ -154,13 +154,7 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
         let bp = self.operator.binding_power();
         let spacing = self.operator.is_word();
 
-        if self.left.binding_power() < bp {
-            gen.write_byte(b'(');
-            gen.write(&self.left);
-            gen.write_byte(b')');
-        } else {
-            gen.write(&self.left);
-        }
+        gen.write_expression(&self.left, bp);
 
         if spacing {
             gen.write_byte(b' ');
@@ -174,13 +168,7 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
             gen.write_pretty(b' ');
         }
 
-        if self.right.binding_power() <= bp {
-            gen.write_byte(b'(');
-            gen.write(&self.right);
-            gen.write_byte(b')');
-        } else {
-            gen.write(&self.right);
-        }
+        gen.write_expression(&self.right, bp);
     }
 }
 
@@ -491,5 +479,14 @@ mod test {
         assert_min("({ foo(bar, baz) {} });", "({foo(bar,baz){}});");
         let expected = "({\n    foo: true,\n    bar: false\n});";
         assert_pretty("({ foo: true, bar: false })", expected);
+    }
+
+    #[test]
+    fn binding_power() {
+        assert_min("1 + 2 * 3;", "1+2*3;");
+        assert_min("1 + (2 * 3);", "1+2*3;");
+        assert_min("(1 + 2) * 3;", "(1+2)*3;");
+        assert_min("(denominator / divider * 100).toFixed(2);", "(denominator/divider*100).toFixed(2);");
+        assert_min("(1 + 1)[0];", "(1+1)[0];");
     }
 }
