@@ -277,6 +277,11 @@ impl<'ast> Parser<'ast> {
                 ParenClose => break,
                 Comma      => {
                     self.lexer.consume();
+
+                    if self.lexer.token == ParenClose {
+                        break
+                    }
+                    
                     self.expression_in_context::<B0>(CALL_CONTEXT)
                 }
                 _ => {
@@ -747,15 +752,75 @@ mod test {
 
     #[test]
     fn call_expression() {
-        let src = "foo();";
-        let mock = Mock::new();
+        {
+            let src = "foo();";
+            let mock = Mock::new();
 
-        let expected = CallExpression {
-            callee: mock.ptr("foo"),
-            arguments: NodeList::empty(),
-        };
+            let expected = CallExpression {
+                callee: mock.ptr("foo"),
+                arguments: NodeList::empty(),
+            };
 
-        assert_expr!(src, expected);
+            assert_expr!(src, expected);
+        }
+        
+        {
+            let src = "foo(1);";
+            let mock = Mock::new();
+
+            let expected = CallExpression {
+                callee: mock.ptr("foo"),
+                arguments: mock.list([
+                    Literal::Number("1"),
+                ]),
+            };
+
+            assert_expr!(src, expected);
+        }
+
+        {
+            let src = "foo(1,2);";
+            let mock = Mock::new();
+
+            let expected = CallExpression {
+                callee: mock.ptr("foo"),
+                arguments: mock.list([
+                    Literal::Number("1"),
+                    Literal::Number("2"),
+                ]),
+            };
+
+            assert_expr!(src, expected);
+        }
+
+        {
+            let src = "foo(1,);";
+            let mock = Mock::new();
+
+            let expected = CallExpression {
+                callee: mock.ptr("foo"),
+                arguments: mock.list([
+                    Literal::Number("1"),
+                ]),
+            };
+
+            assert_expr!(src, expected);
+        }
+
+        {
+            let src = "foo(1,2,);";
+            let mock = Mock::new();
+
+            let expected = CallExpression {
+                callee: mock.ptr("foo"),
+                arguments: mock.list([
+                    Literal::Number("1"),
+                    Literal::Number("2"),
+                ]),
+            };
+
+            assert_expr!(src, expected);
+        }
     }
 
     #[test]
