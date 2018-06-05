@@ -956,6 +956,7 @@ mod test {
 
         let expected = Function {
             name: None.into(),
+            generator: false,
             params: NodeList::empty(),
             body: mock.empty_block()
         };
@@ -970,6 +971,7 @@ mod test {
 
         let expected = Function {
             name: mock.name("foo"),
+            generator: false,
             params: NodeList::empty(),
             body: mock.empty_block()
         };

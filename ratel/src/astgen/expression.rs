@@ -886,6 +886,7 @@ mod test {
                                         "computed": false,
                                         "value": {
                                             "type": "FunctionExpression",
+                                            "generator": false,
                                             "id": null,
                                             "params": [
                                                 {
@@ -1000,6 +1001,7 @@ mod test {
             "body": [
                 {
                     "type": "FunctionDeclaration",
+                    "generator": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1249,6 +1251,7 @@ mod test {
             "body": [
                 {
                     "type": "FunctionDeclaration",
+                    "generator": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1275,6 +1278,7 @@ mod test {
             "body": [
                 {
                     "type": "FunctionDeclaration",
+                    "generator": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1410,6 +1414,7 @@ mod test {
                             },
                             "value": {
                                 "type": "FunctionExpression",
+                                "generator": false,
                                 "id": null,
                                 "params": [],
                                 "body": {
@@ -1465,6 +1470,7 @@ mod test {
                             },
                             "value": {
                                 "type": "FunctionExpression",
+                                "generator": false,
                                 "id": null,
                                 "params": [],
                                 "body": {
