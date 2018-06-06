@@ -32,8 +32,7 @@ impl<'ast> SerializeInLoc for ClassMember<'ast> {
                     state.serialize_field("kind", &kind)?;
                     state.serialize_field("static", &is_static)?;
                     state.serialize_field("computed", &false)?;
-                    // FIXME
-                    state.serialize_field("key", &Loc::new(0, 0, key))?;
+                    state.serialize_field("key", &*key)?;
                     state.serialize_field("value", &value)
                 })
             },

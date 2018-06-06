@@ -82,13 +82,13 @@ pub enum ClassMember<'ast> {
     Error,
     Method {
         is_static: bool,
-        key: PropertyKey<'ast>,
+        key: Node<'ast, PropertyKey<'ast>>,
         kind: MethodKind,
         value: Node<'ast, Function<'ast, EmptyName>>,
     },
     Literal {
         is_static: bool,
-        key: PropertyKey<'ast>,
+        key: Node<'ast, PropertyKey<'ast>>,
         value: ExpressionNode<'ast>,
     }
 }

@@ -142,7 +142,6 @@ create_handlers! {
     };
 
     pub const PRN = |par| {
-        par.lexer.consume();
         par.paren_expression()
     };
 
@@ -249,7 +248,7 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ExpressionNode<'ast> {
+    pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ArrowExpression<'ast> {
         let params = self.params_from_expressions(params);
 
         let body = match self.lexer.token {
@@ -257,10 +256,10 @@ impl<'ast> Parser<'ast> {
             _         => ArrowBody::Expression(self.expression::<B0>()),
         };
 
-        self.alloc_at_loc(0, 0, ArrowExpression {
+        ArrowExpression {
             params,
             body,
-        })
+        }
     }
 
     #[inline]
@@ -293,11 +292,14 @@ impl<'ast> Parser<'ast> {
 
     #[inline]
     pub fn paren_expression(&mut self) -> ExpressionNode<'ast> {
+        let start = self.lexer.start_then_consume();
         match self.lexer.token {
             ParenClose => {
                 self.lexer.consume();
                 expect!(self, OperatorFatArrow);
-                self.arrow_function_expression(NodeList::empty())
+                let expression = self.arrow_function_expression(NodeList::empty());
+                let end = self.lexer.end();
+                self.alloc_at_loc(start, end, expression)
             },
             _ => {
                 let expression = self.expression::<ANY>();

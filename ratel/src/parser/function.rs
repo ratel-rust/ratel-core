@@ -107,10 +107,13 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
 
         let mut kind = MethodKind::Method;
 
+        let token_start = par.lexer.start();
+        let token_end;
+
         let key = match par.lexer.token {
             _ if par.lexer.token.is_word() => {
                 let mut label = par.lexer.token_as_str();
-                par.lexer.consume();
+                token_end = par.lexer.end_then_consume();
 
                 if par.lexer.token.is_word() {
                     kind = match label {
@@ -128,18 +131,19 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             },
             LiteralNumber => {
                 let num = par.lexer.token_as_str();
-                par.lexer.consume();
+                token_end = par.lexer.end_then_consume();
                 PropertyKey::Literal(num)
             },
             LiteralBinary => {
                 let num = par.lexer.token_as_str();
-                par.lexer.consume();
+                token_end = par.lexer.end_then_consume();
                 PropertyKey::Binary(num)
             },
             BracketOpen => {
                 par.lexer.consume();
 
                 let expression = par.expression::<ANY>();
+                token_end = par.lexer.end();
 
                 expect!(par, BracketClose);
 
@@ -148,6 +152,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             _ => return par.error()
         };
 
+        let key = par.alloc_at_loc(token_start, token_end, key);
         let end;
         let member = match par.lexer.token {
             ParenOpen => {
@@ -591,7 +596,7 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: PropertyKey::Literal("constructor"),
+                        key: mock.ptr(PropertyKey::Literal("constructor")),
                         kind: MethodKind::Constructor,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -639,7 +644,7 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: PropertyKey::Literal("doge"),
+                        key: mock.ptr(PropertyKey::Literal("doge")),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -654,7 +659,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: PropertyKey::Literal("toThe"),
+                        key: mock.ptr(PropertyKey::Literal("toThe")),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -668,7 +673,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: false,
-                        key: PropertyKey::Literal("function"),
+                        key: mock.ptr(PropertyKey::Literal("function")),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -678,7 +683,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: PropertyKey::Literal("function"),
+                        key: mock.ptr(PropertyKey::Literal("function")),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -688,7 +693,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: true,
-                        key: PropertyKey::Literal("constructor"),
+                        key: mock.ptr(PropertyKey::Literal("constructor")),
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -724,22 +729,22 @@ mod test {
                 body: mock.block([
                     ClassMember::Literal {
                         is_static: false,
-                        key: PropertyKey::Literal("doge"),
+                        key: mock.ptr(PropertyKey::Literal("doge")),
                         value: mock.number("10")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        key: PropertyKey::Literal("to"),
+                        key: mock.ptr(PropertyKey::Literal("to")),
                         value: mock.number("20")
                     },
                     ClassMember::Literal {
                         is_static: false,
-                        key: PropertyKey::Literal("the"),
+                        key: mock.ptr(PropertyKey::Literal("the")),
                         value: mock.number("30")
                     },
                     ClassMember::Literal {
                         is_static: true,
-                        key: PropertyKey::Literal("moon"),
+                        key: mock.ptr(PropertyKey::Literal("moon")),
                         value: mock.number("42")
                     },
                 ])
@@ -785,7 +790,7 @@ mod test {
                 body: mock.block([
                     ClassMember::Method {
                         is_static: false,
-                        key: PropertyKey::Literal("length"),
+                        key: mock.ptr(PropertyKey::Literal("length")),
                         kind: MethodKind::Get,
                         value: mock.ptr(Function {
                             name: EmptyName,
@@ -797,7 +802,7 @@ mod test {
                     },
                     ClassMember::Method {
                         is_static: false,
-                        key: PropertyKey::Literal("length"),
+                        key: mock.ptr(PropertyKey::Literal("length")),
                         kind: MethodKind::Set,
                         value: mock.ptr(Function {
                             name: EmptyName,

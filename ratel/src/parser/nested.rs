@@ -288,7 +288,10 @@ const ARRW: NestedHandler = Some(|par, left| {
         _ => NodeList::from(par.arena, left)
     };
 
-    return par.arrow_function_expression(params);
+    let expression = par.arrow_function_expression(params);
+    let start = left.start;
+    let end = par.lexer.end();
+    return par.alloc_at_loc(start, end, expression)
 });
 
 const ACCS: NestedHandler = Some(|par, left| {

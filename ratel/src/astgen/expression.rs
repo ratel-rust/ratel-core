@@ -1074,15 +1074,15 @@ mod test {
                             "start": 7,
                             "end": 8
                         },
-                        "start": 0,
-                        "end": 0
+                        "start": 1,
+                        "end": 8
                     },
-                    "start": 0,
-                    "end": 0
+                    "start": 1,
+                    "end": 8
                 }
               ],
-              "start": 0,
-              "end": 0,
+              "start": 1,
+              "end": 8,
         });
         expect_parse!("(b) => {}", {
             "type": "Program",
@@ -1105,15 +1105,15 @@ mod test {
                             "start": 7,
                             "end": 9
                         },
-                        "start": 0,
-                        "end": 0
+                        "start": 1,
+                        "end": 9
                     },
-                    "start": 0,
-                    "end": 0
+                    "start": 1,
+                    "end": 9
                 }
               ],
-              "start": 0,
-              "end": 0,
+              "start": 1,
+              "end": 9,
         });
         expect_parse!("() => {}", {
             "type": "Program",
@@ -1130,14 +1130,45 @@ mod test {
                             "end": 8
                         },
                         "start": 0,
-                        "end": 0
+                        "end": 8
                     },
                     "start": 0,
-                    "end": 0
+                    "end": 8
                 }
               ],
               "start": 0,
-              "end": 0,
+              "end": 8,
+        });
+        expect_parse!("n => n", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "ArrowFunctionExpression",
+                        "params": [
+                            {
+                                "type": "Identifier",
+                                "name": "n",
+                                "start": 0,
+                                "end": 1
+                            }
+                        ],
+                        "body": {
+                            "type": "Identifier",
+                            "name": "n",
+                            "start": 5,
+                            "end": 6
+                        },
+                        "start": 0,
+                        "end": 6
+                    },
+                    "start": 0,
+                    "end": 6
+                }
+              ],
+              "start": 0,
+              "end": 6,
         });
     }
 
@@ -1303,9 +1334,8 @@ mod test {
                             "key": {
                                 "type": "Identifier",
                                 "name": "bar",
-                                // FIXME
-                                "start": 0,
-                                "end": 0,
+                                "start": 12,
+                                "end": 15,
                             },
                             "value": {
                                 "type": "FunctionExpression",
@@ -1358,9 +1388,8 @@ mod test {
                             "key": {
                                 "type": "Identifier",
                                 "name": "bar",
-                                // FIXME
-                                "start": 0,
-                                "end": 0,
+                                "start": 19,
+                                "end": 22,
                             },
                             "value": {
                                 "type": "FunctionExpression",
