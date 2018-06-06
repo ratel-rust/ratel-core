@@ -1,6 +1,6 @@
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 use astgen::SerializeInLoc;
-use ast::{Loc, Function, Class, Name, MandatoryName, OptionalName, EmptyName, ClassMember, Block};
+use ast::{Function, Class, Name, MandatoryName, OptionalName, EmptyName, ClassMember, Block};
 use ast::MethodKind;
 
 impl<'ast> Serialize for MethodKind {

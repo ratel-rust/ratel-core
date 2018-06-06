@@ -60,8 +60,8 @@ impl<'ast> Serialize for TemplateQuasis<'ast> {
 
         while let Some(q) = quasis.next() {
             seq.serialize_element(&Loc::new(
-                q.start,
-                q.end,
+                q.start + 1,
+                q.end - 1,
                 TemplateElement {
                     tail: quasis.peek().is_none(),
                     value: q.item,
@@ -604,8 +604,8 @@ mod test {
                                     "raw": "",
                                     "cooked": "",
                                 },
-                                "start": 0,
-                                "end": 2
+                                "start": 1,
+                                "end": 1
                             }
                         ],
                         "expressions": [],
@@ -643,8 +643,8 @@ mod test {
                                         "raw": "",
                                         "cooked": "",
                                     },
-                                    "start": 3,
-                                    "end": 5
+                                    "start": 4,
+                                    "end": 4
                                 }
                             ],
                             "expressions": [],
@@ -677,8 +677,8 @@ mod test {
                                     "raw": "",
                                     "cooked": "",
                                 },
-                                "start": 0,
-                                "end": 2
+                                "start": 1,
+                                "end": 1
                             }
                         ],
                         "expressions": [],
@@ -708,8 +708,8 @@ mod test {
                                     "raw": "foo",
                                     "cooked": "foo",
                                 },
-                                "start": 0,
-                                "end": 6
+                                "start": 1,
+                                "end": 5
                             },
                             {
                                 "type": "TemplateElement",
@@ -718,8 +718,8 @@ mod test {
                                     "raw": "baz",
                                     "cooked": "baz",
                                 },
-                                "start": 9,
-                                "end": 14
+                                "start": 10,
+                                "end": 13
                             }
                         ],
                         "expressions": [

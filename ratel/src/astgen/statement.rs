@@ -498,7 +498,6 @@ mod test {
                     "argument": {
                         "type": "Identifier",
                         "name": "foo",
-                        // FIXME
                         "start": 7,
                         "end": 10
                     },

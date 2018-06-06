@@ -603,9 +603,35 @@ mod test {
               "end": 2,
         });
     }
-
+    // FIXME
     #[test]
-    fn test_postfix_expression () {}
+    fn test_postfix_expression () {
+        expect_parse!("i++;", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                        "type": "UpdateExpression",
+                        "operator": "++",
+                        "argument": {
+                            "type": "Identifier",
+                            "name": "i",
+                            "start": 0,
+                            "end": 1
+                        },
+                        "prefix": false,
+                        "start": 0,
+                        "end": 1 // FIXME
+                    },
+                    "start": 0,
+                    "end": 1 // FIXME
+                }
+              ],
+              "start": 0,
+              "end": 1 // FIXME
+        });
+    }
 
     #[test]
     fn test_object_expression () {
@@ -998,7 +1024,7 @@ mod test {
                             "end": 3
                         },
                         "arguments": [],
-                        "start": 3, // FIXME?
+                        "start": 3,
                         "end": 5
                     },
                     "start": 0,
