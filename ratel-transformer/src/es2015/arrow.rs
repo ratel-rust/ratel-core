@@ -10,7 +10,7 @@ pub struct TransformArrow;
 impl<'ast> StaticVisitor<'ast> for TransformArrow {
     type Context = Transformer<'ast>;
 
-    fn on_arrow_expression(node: &ArrowExpression<'ast>, ptr: &ExpressionNode<'ast>, t: &mut Transformer<'ast>) {
+    fn on_arrow_expression(node: &ArrowExpression<'ast>, ptr: &'ast ExpressionNode<'ast>, t: &mut Transformer<'ast>) {
         let body = match node.body {
             ArrowBody::Block(block)     => block,
             ArrowBody::Expression(expr) => {

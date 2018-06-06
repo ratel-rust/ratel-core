@@ -1,96 +1,116 @@
 use ratel::ast::{Identifier, Expression, ExpressionNode, StatementNode, Literal};
 use ratel::ast::expression::*;
 
-use {Visitor, Visitable};
+use {Visitor, Visitable, ParentNode};
 
 
 impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
     type Parent = StatementNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         use self::Expression::*;
 
         match self.item {
-            Void => {},
+            Void => { return; },
             This(_) => {
-                visitor.on_this_expression(self, ctx);
+                visitor.on_this_expression(&self, ctx);
+                return;
             },
             Identifier(ref ident) => {
-                ident.traverse(visitor, ctx);
                 visitor.on_identifier_expression(ident, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                ident.traverse(visitor, ctx);
             },
             Literal(ref literal) => {
                 visitor.on_literal_expression(literal, self, ctx);
+                return;
             },
             Sequence(ref sequence) => {
-                sequence.traverse(visitor, ctx);
                 visitor.on_sequence_expression(sequence, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                sequence.traverse(visitor, ctx);
             },
             Array(ref array) => {
-                array.traverse(visitor, ctx);
                 visitor.on_array_expression(array, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                array.traverse(visitor, ctx);
             },
             Member(ref member) => {
-                member.traverse(visitor, ctx);
                 visitor.on_member_expression(member, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                member.traverse(visitor, ctx);
             },
             ComputedMember(ref computed) => {
-                computed.traverse(visitor, ctx);
                 visitor.on_computed_member_expression(computed, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                computed.traverse(visitor, ctx);
             },
             Call(ref call) => {
-                call.traverse(visitor, ctx);
                 visitor.on_call_expression(call, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                call.traverse(visitor, ctx);
             },
             Binary(ref binary) => {
-                binary.traverse(visitor, ctx);
                 visitor.on_binary_expression(binary, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                binary.traverse(visitor, ctx);
             },
             Prefix(ref prefix) => {
-                prefix.traverse(visitor, ctx);
                 visitor.on_prefix_expression(prefix, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                prefix.traverse(visitor, ctx);
             },
             Postfix(ref postfix) => {
-                postfix.traverse(visitor, ctx);
                 visitor.on_postfix_expression(postfix, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                postfix.traverse(visitor, ctx);
             },
             Conditional(ref conditional) => {
-                conditional.traverse(visitor, ctx);
                 visitor.on_conditional_expression(conditional, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                conditional.traverse(visitor, ctx);
             },
             Template(ref template) => {
-                template.traverse(visitor, ctx);
                 visitor.on_template_literal(template, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                template.traverse(visitor, ctx);
             },
             TaggedTemplate(ref tagged) => {
-                tagged.traverse(visitor, ctx);
                 visitor.on_tagged_template_expression(tagged, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                tagged.traverse(visitor, ctx);
             },
             Spread(ref spread) => {
-                spread.traverse(visitor, ctx);
                 visitor.on_spread_expression(spread, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                spread.traverse(visitor, ctx);
             },
             Arrow(ref arrow) => {
-                arrow.traverse(visitor, ctx);
                 visitor.on_arrow_expression(arrow, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                arrow.traverse(visitor, ctx);
             },
             Object(ref object) => {
-                object.traverse(visitor, ctx);
                 visitor.on_object_expression(object, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                object.traverse(visitor, ctx);
             },
             Function(ref function) => {
-                function.traverse(visitor, ctx);
                 visitor.on_function_expression(function, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                function.traverse(visitor, ctx);
             },
             Class(ref class) => {
-                class.traverse(visitor, ctx);
                 visitor.on_class_expression(class, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                class.traverse(visitor, ctx);
             }
         }
+        visitor.pop_parent(ctx);
     }
 }
 
@@ -121,7 +141,7 @@ impl<'ast> Visitable<'ast> for SequenceExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -133,7 +153,7 @@ impl<'ast> Visitable<'ast> for ArrayExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -145,7 +165,7 @@ impl<'ast> Visitable<'ast> for MemberExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -157,7 +177,7 @@ impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -170,7 +190,7 @@ impl<'ast> Visitable<'ast> for CallExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -183,7 +203,7 @@ impl<'ast> Visitable<'ast> for BinaryExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -196,7 +216,7 @@ impl<'ast> Visitable<'ast> for PrefixExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -208,7 +228,7 @@ impl<'ast> Visitable<'ast> for PostfixExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -220,7 +240,7 @@ impl<'ast> Visitable<'ast> for ConditionalExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -234,7 +254,7 @@ impl<'ast> Visitable<'ast> for TemplateLiteral<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -246,7 +266,7 @@ impl<'ast> Visitable<'ast> for TaggedTemplateExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -259,7 +279,7 @@ impl<'ast> Visitable<'ast> for SpreadExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -271,7 +291,7 @@ impl<'ast> Visitable<'ast> for ArrowBody<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -286,7 +306,7 @@ impl<'ast> Visitable<'ast> for ArrowExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -299,7 +319,7 @@ impl<'ast> Visitable<'ast> for ObjectExpression<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
