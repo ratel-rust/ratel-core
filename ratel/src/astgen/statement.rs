@@ -789,7 +789,7 @@ mod test {
                         },
                         "prefix": false,
                         "start": 16,
-                        "end": 17,
+                        "end": 19,
                     },
                     "body": {
                         "type": "BlockStatement",

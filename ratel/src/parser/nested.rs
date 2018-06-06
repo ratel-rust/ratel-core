@@ -247,20 +247,20 @@ const SEQ: NestedHandler = Some(|par, left| {
 });
 
 const INC: NestedHandler = Some(|par, left| {
+    let end = par.lexer.end();
     par.lexer.consume();
 
-    // TODO: op.end
-    par.alloc_at_loc(left.start, left.end, PostfixExpression {
+    par.alloc_at_loc(left.start, end, PostfixExpression {
         operator: OperatorKind::Increment,
         operand: left,
     })
 });
 
 const DEC: NestedHandler = Some(|par, left| {
+    let end = par.lexer.end();
     par.lexer.consume();
 
-    // TODO: op.end
-    par.alloc_at_loc(left.start, left.end, PostfixExpression {
+    par.alloc_at_loc(left.start, end, PostfixExpression {
         operator: OperatorKind::Decrement,
         operand: left,
     })

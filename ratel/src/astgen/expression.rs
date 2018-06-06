@@ -622,14 +622,14 @@ mod test {
                         },
                         "prefix": false,
                         "start": 0,
-                        "end": 1 // FIXME
+                        "end": 3
                     },
                     "start": 0,
-                    "end": 1 // FIXME
+                    "end": 3
                 }
               ],
               "start": 0,
-              "end": 1 // FIXME
+              "end": 3
         });
     }
 
