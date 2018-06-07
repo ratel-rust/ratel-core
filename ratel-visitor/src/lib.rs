@@ -86,11 +86,6 @@ build! {
     fn on_switch_statement(item: &SwitchStatement, node: &'ast StatementNode<'ast>);
     fn on_function_statement(item: &FunctionStatement<'ast>, node: &'ast StatementNode<'ast>);
     fn on_class_statement(item: &ClassStatement<'ast>, node: &'ast StatementNode<'ast>);
-
-    // parent tracking
-    // fn push_parent(node: ParentNode<'ast>) {}
-    // fn pop_parent() -> Option<ParentNode<'ast>> { None }
-    // fn get_parent() -> Option<ParentNode<'ast>> { None }
 }
 
 #[derive(Debug, Clone, Copy)]

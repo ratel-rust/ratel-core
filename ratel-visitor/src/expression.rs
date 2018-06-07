@@ -15,7 +15,10 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
         use self::Expression::*;
 
         match self.item {
-            Void => { return; },
+            Void => { 
+                // Void doesn't have children, we return early to avoid calling pop_parent
+                return; 
+            },
             This(_) => {
                 visitor.on_this_expression(&self, ctx);
                 return;

@@ -15,7 +15,10 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
         use self::Statement::*;
 
         match self.item {
-            Empty => { return; },
+            Empty => { 
+                // EmptyStatement doesn't have children, we return early to avoid calling pop_parent
+                return;
+            },
             Expression(ref expression) => {
                 visitor.on_expression_statement(expression, self, ctx);
                 visitor.push_parent(ParentNode::from(self), ctx);
