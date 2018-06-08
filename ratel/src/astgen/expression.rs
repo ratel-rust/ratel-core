@@ -270,7 +270,7 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
             Spread(ref expression)         => expression.serialize(serializer),
             Member(ref expression)         => expression.serialize(serializer),
             ComputedMember(ref expression) => expression.serialize(serializer),
-            MetaMember(ref expression)     => expression.serialize(serializer),
+            MetaProperty(ref expression)   => expression.serialize(serializer),
             Call(ref expression)           => expression.serialize(serializer),
             Conditional(ref expression)    => expression.serialize(serializer),
             Arrow(ref expression)          => expression.serialize(serializer),

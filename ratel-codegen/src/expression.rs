@@ -18,7 +18,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Array(ref array)             => gen.write(array),
             Member(ref member)           => gen.write(member),
             ComputedMember(ref computed) => gen.write(computed),
-            MetaMember(ref property)     => gen.write(property),
+            MetaProperty(ref property)   => gen.write(property),
             Call(ref call)               => gen.write(call),
             Binary(ref binary)           => gen.write(binary),
             Prefix(ref prefix)           => gen.write(prefix),

@@ -52,9 +52,9 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
                 visitor.push_parent(ParentNode::from(self), ctx);
                 computed.traverse(visitor, ctx);
             },
-            MetaMember(ref property) => {
+            MetaProperty(ref property) => {
                 property.traverse(visitor, ctx);
-                visitor.on_meta_member_expression(property, self, ctx);
+                visitor.on_meta_property(property, self, ctx);
             },
             Call(ref call) => {
                 visitor.on_call_expression(call, self, ctx);
