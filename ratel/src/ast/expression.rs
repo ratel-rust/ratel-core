@@ -188,7 +188,7 @@ impl<'ast> Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Member(_) | Arrow(_) => 18,
+            Member(_) | MetaProperty(_) | Arrow(_) => 18,
 
             Call(_) => 17,
 
