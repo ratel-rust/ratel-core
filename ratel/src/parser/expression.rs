@@ -1,7 +1,7 @@
 use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, BindingPower, ANY, B0, B15};
 use lexer::Token::*;
-use ast::{Node, NodeList, Expression, ExpressionNode, ExpressionList};
+use ast::{Node, NodeList, Expression, ExpressionNode, IdentifierNode, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
 use ast::expression::*;
 
@@ -133,12 +133,22 @@ create_handlers! {
     };
 
     pub const OP = |par| {
-        let start = par.lexer.start();
+        let (start, op_end) = par.lexer.loc();
         let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
+
         par.lexer.consume();
-        let expression = par.prefix_expression(op);
-        let end = par.lexer.end();
-        par.alloc_at_loc(start, end, expression)
+
+        if op == OperatorKind::New && par.lexer.token == Accessor {
+            let meta = par.alloc_at_loc(start, op_end, op.as_str());
+            let expression = par.meta_property_expression(meta);
+            let end = par.lexer.end();
+            par.lexer.consume();
+            par.alloc_at_loc(start, end, expression)
+        } else {
+            let expression = par.prefix_expression(op);
+            let end = par.lexer.end();
+            par.alloc_at_loc(start, end, expression)
+        }
     };
 
     pub const PRN = |par| {
@@ -330,6 +340,23 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, end, ObjectExpression {
             body
         })
+    }
+
+    #[inline]
+    pub fn meta_property_expression(&mut self, meta: IdentifierNode<'ast>) -> MetaPropertyExpression<'ast> {
+        let property = self.lexer.accessor_as_str();
+
+        // Only `NewTarget` is a valid MetaProperty.
+        if property != "target" {
+            self.error::<()>();
+        }
+
+        let property = self.alloc_in_loc(property);
+
+        MetaPropertyExpression {
+            meta,
+            property,
+        }
     }
 
     #[inline]
@@ -797,6 +824,22 @@ mod test {
         };
 
         assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn meta_property_expression() {
+        let src = "new.target";
+        let mock = Mock::new();
+        let expected = MetaPropertyExpression {
+            meta: mock.ptr("new"),
+            property: mock.ptr("target"),
+        };
+        assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn meta_property_expression_throws() {
+        assert!(parse("new.callee").is_err());
     }
 
     #[test]
