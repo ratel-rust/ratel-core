@@ -3,17 +3,17 @@
 extern crate pretty_assertions;
 extern crate ratel;
 
-use ratel::ast::{Node, NodeList, Identifier, Literal, Pattern};
-use ratel::ast::{ExpressionList, StatementList, ExpressionNode, StatementNode};
 use ratel::ast::expression::*;
 use ratel::ast::statement::*;
+use ratel::ast::{ExpressionList, ExpressionNode, StatementList, StatementNode};
+use ratel::ast::{Identifier, Literal, Node, NodeList, Pattern};
 
 use ratel::Module;
 
 #[macro_use]
 mod build;
-mod function;
 mod expression;
+mod function;
 mod statement;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -26,6 +26,11 @@ pub enum ScopeKind {
 pub type NoParent = ();
 
 build! {
+    // after visiting a node, add it to the stack of parents
+    fn push_parent(node: ParentNode<'ast>);
+    // after visiting a node's children, pop it from the stack of parents
+    fn pop_parent();
+
     // Enters a new statement list (program body, block body, switch case, etc.)
     fn on_statement_list(body: StatementList<'ast>);
 
@@ -42,63 +47,102 @@ build! {
     fn on_reference_declaration(ident: &Identifier<'ast>);
 
     // expressions
-    fn on_this_expression(node: &ExpressionNode<'ast>);
-    fn on_identifier_expression(item: &Identifier<'ast>, node: &ExpressionNode<'ast>);
-    fn on_literal_expression(item: &Literal<'ast>, node: &ExpressionNode<'ast>);
-    fn on_sequence_expression(item: &SequenceExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_array_expression(item: &ArrayExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_member_expression(item: &MemberExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_computed_member_expression(item: &ComputedMemberExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_call_expression(item: &CallExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_binary_expression(item: &BinaryExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_prefix_expression(item: &PrefixExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_postfix_expression(item: &PostfixExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_conditional_expression(item: &ConditionalExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_template_literal(item: &TemplateLiteral<'ast>, node: &ExpressionNode<'ast>);
-    fn on_tagged_template_expression(item: &TaggedTemplateExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_spread_expression(item: &SpreadExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_arrow_expression(item: &ArrowExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_object_expression(item: &ObjectExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_function_expression(item: &FunctionExpression<'ast>, node: &ExpressionNode<'ast>);
-    fn on_class_expression(item: &ClassExpression<'ast>, node: &ExpressionNode<'ast>);
+    fn on_this_expression(node: &'ast ExpressionNode<'ast>);
+    fn on_identifier_expression(item: &Identifier<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_literal_expression(item: &Literal<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_sequence_expression(item: &SequenceExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_array_expression(item: &ArrayExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_member_expression(item: &MemberExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_computed_member_expression(item: &ComputedMemberExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_call_expression(item: &CallExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_binary_expression(item: &BinaryExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_prefix_expression(item: &PrefixExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_postfix_expression(item: &PostfixExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_conditional_expression(item: &ConditionalExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_template_literal(item: &TemplateLiteral<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_tagged_template_expression(item: &TaggedTemplateExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_spread_expression(item: &SpreadExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_arrow_expression(item: &ArrowExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_object_expression(item: &ObjectExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_function_expression(item: &FunctionExpression<'ast>, node: &'ast ExpressionNode<'ast>);
+    fn on_class_expression(item: &ClassExpression<'ast>, node: &'ast ExpressionNode<'ast>);
 
     // statements
-    fn on_expression_statement(item: &ExpressionNode<'ast>, node: &StatementNode<'ast>);
-    fn on_declaration_statement(item: &DeclarationStatement, node: &StatementNode<'ast>);
-    fn on_return_statement(item: &ReturnStatement, node: &StatementNode<'ast>);
-    fn on_break_statement(item: &BreakStatement, node: &StatementNode<'ast>);
-    fn on_continue_statement(item: &ContinueStatement, node: &StatementNode<'ast>);
-    fn on_throw_statement(item: &ThrowStatement, node: &StatementNode<'ast>);
-    fn on_if_statement(item: &IfStatement, node: &StatementNode<'ast>);
-    fn on_while_statement(item: &WhileStatement, node: &StatementNode<'ast>);
-    fn on_do_statement(item: &DoStatement, node: &StatementNode<'ast>);
-    fn on_for_statement(item: &ForStatement, node: &StatementNode<'ast>);
-    fn on_for_in_statement(item: &ForInStatement, node: &StatementNode<'ast>);
-    fn on_for_of_statement(item: &ForOfStatement, node: &StatementNode<'ast>);
-    fn on_try_statement(item: &TryStatement, node: &StatementNode<'ast>);
-    fn on_block_statement(item: &BlockStatement<'ast>, node: &StatementNode<'ast>);
-    fn on_labeled_statement(item: &LabeledStatement, node: &StatementNode<'ast>);
-    fn on_switch_statement(item: &SwitchStatement, node: &StatementNode<'ast>);
-    fn on_function_statement(item: &FunctionStatement<'ast>, node: &StatementNode<'ast>);
-    fn on_class_statement(item: &ClassStatement<'ast>, node: &StatementNode<'ast>);
+    fn on_expression_statement(item: &'ast ExpressionNode<'ast>, node: &'ast StatementNode<'ast>);
+    fn on_declaration_statement(item: &DeclarationStatement, node: &'ast StatementNode<'ast>);
+    fn on_return_statement(item: &ReturnStatement, node: &'ast StatementNode<'ast>);
+    fn on_break_statement(item: &BreakStatement, node: &'ast StatementNode<'ast>);
+    fn on_continue_statement(item: &ContinueStatement, node: &'ast StatementNode<'ast>);
+    fn on_throw_statement(item: &ThrowStatement, node: &'ast StatementNode<'ast>);
+    fn on_if_statement(item: &IfStatement, node: &'ast StatementNode<'ast>);
+    fn on_while_statement(item: &WhileStatement, node: &'ast StatementNode<'ast>);
+    fn on_do_statement(item: &DoStatement, node: &'ast StatementNode<'ast>);
+    fn on_for_statement(item: &ForStatement, node: &'ast StatementNode<'ast>);
+    fn on_for_in_statement(item: &ForInStatement, node: &'ast StatementNode<'ast>);
+    fn on_for_of_statement(item: &ForOfStatement, node: &'ast StatementNode<'ast>);
+    fn on_try_statement(item: &TryStatement, node: &'ast StatementNode<'ast>);
+    fn on_block_statement(item: &BlockStatement<'ast>, node: &'ast StatementNode<'ast>);
+    fn on_labeled_statement(item: &LabeledStatement, node: &'ast StatementNode<'ast>);
+    fn on_switch_statement(item: &SwitchStatement, node: &'ast StatementNode<'ast>);
+    fn on_function_statement(item: &FunctionStatement<'ast>, node: &'ast StatementNode<'ast>);
+    fn on_class_statement(item: &ClassStatement<'ast>, node: &'ast StatementNode<'ast>);
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ParentNode<'ast> {
+    Statement(&'ast StatementNode<'ast>),
+    Expression(&'ast ExpressionNode<'ast>),
+}
+
+impl<'ast> From<&'ast StatementNode<'ast>> for ParentNode<'ast> {
+    #[inline]
+    fn from(node: &'ast StatementNode<'ast>) -> ParentNode<'ast> {
+        ParentNode::Statement(node)
+    }
+}
+
+impl<'ast> From<&'ast ExpressionNode<'ast>> for ParentNode<'ast> {
+    #[inline]
+    fn from(node: &'ast ExpressionNode<'ast>) -> ParentNode<'ast> {
+        ParentNode::Expression(node)
+    }
+}
+
+pub trait ParentTrackingContext<'ast> {
+    #[inline]
+    fn push_parent(&mut self, ParentNode<'ast>) {}
+
+    #[inline]
+    fn pop_parent(&mut self) -> Option<ParentNode<'ast>> {
+        None
+    }
+
+    #[inline]
+    fn get_parent(&mut self) -> Option<ParentNode<'ast>> {
+        None
+    }
 }
 
 pub trait Visitable<'ast>: 'ast {
     type Parent;
 
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context) where V: Visitor<'ast>;
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    where
+        V: Visitor<'ast>;
 }
 
 impl<'ast> Visitable<'ast> for Module<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         let body = self.body();
-        body.traverse(visitor, ctx);
+        for item in body {
+            item.traverse(visitor, ctx);
+        }
     }
 }
 
@@ -106,28 +150,22 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         match *self {
-            Pattern::Void => {},
+            Pattern::Void => {}
             Pattern::Identifier(ref ident) => visitor.on_reference_declaration(ident, ctx),
-            Pattern::ObjectPattern {
-                ref properties,
-            } => {
+            Pattern::ObjectPattern { ref properties } => {
                 properties.traverse(visitor, ctx);
-            },
-            Pattern::ArrayPattern {
-                ref elements,
-            } => {
+            }
+            Pattern::ArrayPattern { ref elements } => {
                 elements.traverse(visitor, ctx);
-            },
-            Pattern::RestElement {
-                ref argument,
-            } => {
+            }
+            Pattern::RestElement { ref argument } => {
                 argument.traverse(visitor, ctx);
-            },
+            }
             Pattern::AssignmentPattern {
                 ref left,
                 ref right,
@@ -143,13 +181,13 @@ impl<'ast> Visitable<'ast> for PropertyKey<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         match *self {
             PropertyKey::Computed(ref expression) => expression.traverse(visitor, ctx),
-            PropertyKey::Literal(_) | PropertyKey::Binary(_) => {},
+            PropertyKey::Literal(_) | PropertyKey::Binary(_) => {}
         }
     }
 }
@@ -158,23 +196,17 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
         match *self {
             Property::Shorthand(ref ident) => visitor.on_reference_use(ident, ctx),
-            Property::Literal {
-                ref key,
-                ref value,
-            } => {
+            Property::Literal { ref key, ref value } => {
                 key.traverse(visitor, ctx);
                 value.traverse(visitor, ctx);
-            },
-            Property::Method {
-                ref key,
-                ref value,
-            } => {
+            }
+            Property::Method { ref key, ref value } => {
                 key.traverse(visitor, ctx);
                 value.traverse(visitor, ctx);
             }
@@ -182,13 +214,14 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
     }
 }
 
-impl<'ast, T> Visitable<'ast> for Option<T> where
-    T: Visitable<'ast>
+impl<'ast, T> Visitable<'ast> for Option<T>
+where
+    T: Visitable<'ast>,
 {
     type Parent = T::Parent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -200,13 +233,14 @@ impl<'ast, T> Visitable<'ast> for Option<T> where
 
 // Requiring that `Parent = Node<'ast, T>` means that we avoid having
 // a default implementation for (Expression|Statement)(Node|List)
-impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
+impl<'ast, T> Visitable<'ast> for Node<'ast, T>
+where
     T: Visitable<'ast, Parent = Node<'ast, T>>,
 {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -214,13 +248,14 @@ impl<'ast, T> Visitable<'ast> for Node<'ast, T> where
     }
 }
 
-impl<'ast, T> Visitable<'ast> for NodeList<'ast, T> where
+impl<'ast, T> Visitable<'ast> for NodeList<'ast, T>
+where
     T: Visitable<'ast, Parent = Node<'ast, T>>,
 {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -234,7 +269,7 @@ impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -248,7 +283,7 @@ impl<'ast> Visitable<'ast> for StatementList<'ast> {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&self, visitor: &V, ctx: &mut V::Context)
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
     {
@@ -365,7 +400,10 @@ mod test {
         assert_eq!(ctx.scopes, &[]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 0);
-        assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 0), ("the", 0), ("moon", 0)]);
+        assert_eq!(
+            ctx.used_vars,
+            &[("doge", 0), ("to", 0), ("the", 0), ("moon", 0)]
+        );
         assert_eq!(ctx.declared_vars, &[]);
     }
 
@@ -379,7 +417,10 @@ mod test {
         assert_eq!(ctx.scopes, &[Block, Block, Block]);
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 3);
-        assert_eq!(ctx.used_vars, &[("doge", 0), ("to", 1), ("the", 2), ("moon", 3)]);
+        assert_eq!(
+            ctx.used_vars,
+            &[("doge", 0), ("to", 1), ("the", 2), ("moon", 3)]
+        );
         assert_eq!(ctx.declared_vars, &[]);
     }
 
@@ -427,7 +468,8 @@ mod test {
 
     #[test]
     fn functions_and_object_methods_are_scopes() {
-        let module = parse(r"
+        let module = parse(
+            r"
             function doge() {
                 foo;
 
@@ -437,7 +479,8 @@ mod test {
                     }
                 };
             }
-        ").unwrap();
+        ",
+        ).unwrap();
 
         let mut ctx = TestContext::new();
 
@@ -475,6 +518,72 @@ mod test {
         assert_eq!(ctx.depth, 0);
         assert_eq!(ctx.max_depth, 1);
         assert_eq!(ctx.used_vars, &[]);
-        assert_eq!(ctx.declared_vars, &[("doge", 0), ("to", 1), ("the", 1), ("moon", 1)]);
+        assert_eq!(
+            ctx.declared_vars,
+            &[("doge", 0), ("to", 1), ("the", 1), ("moon", 1)]
+        );
+    }
+
+    struct ParentsTestContext<'ast> {
+        count: u32,
+        parents: Vec<ParentNode<'ast>>,
+    }
+
+    impl<'ast> ParentsTestContext<'ast> {
+        fn new() -> ParentsTestContext<'ast> {
+            ParentsTestContext {
+                count: 0,
+                parents: Vec::new(),
+            }
+        }
+    }
+
+    impl<'ast> ParentTrackingContext<'ast> for ParentsTestContext<'ast> {
+        #[inline]
+        fn push_parent(&mut self, node: ParentNode<'ast>) {
+            self.parents.push(node);
+        }
+
+        #[inline]
+        fn pop_parent(&mut self) -> Option<ParentNode<'ast>> {
+            self.parents.pop()
+        }
+
+        #[inline]
+        fn get_parent(&mut self) -> Option<ParentNode<'ast>> {
+            self.parents.last().cloned()
+        }
+    }
+
+    struct ParentsTest;
+
+    impl<'ast> StaticVisitor<'ast> for ParentsTest {
+        type Context = ParentsTestContext<'ast>;
+
+        fn push_parent(node: ParentNode<'ast>, ctx: &mut ParentsTestContext<'ast>) {
+            ctx.count += 1;
+            ctx.parents.push(node);
+        }
+
+        fn pop_parent(ctx: &mut ParentsTestContext<'ast>) {
+            assert_eq!(ctx.parents.pop().is_some(), true);
+        }
+
+        fn register(_dv: &mut DynamicVisitor<'ast, ParentsTestContext<'ast>>) {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn should_track_1_parent_for_every_statement_or_expression_node() {
+        let module = parse("{{{1+2}}}").unwrap();
+        let mut ctx = ParentsTestContext::new();
+
+        module.traverse(&ParentsTest, &mut ctx);
+
+        // 3 BlockStatements + 1 ExpressionStatement + 1 BinaryExpression = 5 Parents tracked
+        // The 2 Literals don't have children, therefore they aren't tracked
+        assert_eq!(ctx.count, 5);
+        assert_eq!(ctx.parents.len(), 0);
     }
 }
