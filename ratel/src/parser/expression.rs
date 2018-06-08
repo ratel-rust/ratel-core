@@ -11,7 +11,7 @@ type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>
 pub type Context = &'static [ExpressionHandler; 108];
 
 static DEF_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
@@ -41,7 +41,7 @@ static DEF_CONTEXT: Context = &[
 
 // Adds handlers for VoidExpression and SpreadExpression
 pub static ARRAY_CONTEXT: Context = &[
-    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, OP,
+    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, NEW,
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
     OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -54,7 +54,7 @@ pub static ARRAY_CONTEXT: Context = &[
 
 // Adds handler for SpreadExpression
 pub static CALL_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
     OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -133,12 +133,21 @@ create_handlers! {
     };
 
     pub const OP = |par| {
+        let start = par.lexer.start();
+        let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
+        par.lexer.consume();
+        let expression = par.prefix_expression(op);
+        let end = par.lexer.end();
+        par.alloc_at_loc(start, end, expression)
+    };
+
+    pub const NEW = |par| {
         let (start, op_end) = par.lexer.loc();
         let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
 
         par.lexer.consume();
 
-        if op == OperatorKind::New && par.lexer.token == Accessor {
+        if par.lexer.token == Accessor {
             let meta = par.alloc_at_loc(start, op_end, op.as_str());
             let expression = par.meta_property_expression(meta);
             let end = par.lexer.end();

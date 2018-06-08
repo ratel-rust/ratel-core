@@ -15,7 +15,7 @@ use ast::OperatorKind::*;
 type StatementHandler = for<'ast> fn(&mut Parser<'ast>) -> StatementNode<'ast>;
 
 static STMT_HANDLERS: [StatementHandler; 108] = [
-    ____, EMPT, ____, ____, PRN,  ____, ARR,  ____, BLCK, ____, ____, OP,
+    ____, EMPT, ____, ____, PRN,  ____, ARR,  ____, BLCK, ____, ____, NEW,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
@@ -57,7 +57,7 @@ macro_rules! create_handlers {
 
 /// Shared expression handlers that produce StatementNode<'ast>
 use parser::expression::handlers::{
-    PRN, ARR, OP, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
+    PRN, ARR, OP, NEW, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
 };
 
 create_handlers! {
