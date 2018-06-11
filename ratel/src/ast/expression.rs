@@ -43,6 +43,12 @@ pub struct MemberExpression<'ast> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub struct MetaPropertyExpression<'ast> {
+    pub meta: IdentifierNode<'ast>,
+    pub property: IdentifierNode<'ast>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComputedMemberExpression<'ast> {
     pub object: ExpressionNode<'ast>,
     pub property: ExpressionNode<'ast>,
@@ -127,6 +133,7 @@ pub enum Expression<'ast> {
     Array(ArrayExpression<'ast>),
     Member(MemberExpression<'ast>),
     ComputedMember(ComputedMemberExpression<'ast>),
+    MetaProperty(MetaPropertyExpression<'ast>),
     Call(CallExpression<'ast>),
     Binary(BinaryExpression<'ast>),
     Prefix(PrefixExpression<'ast>),
@@ -160,6 +167,7 @@ impl_from! {
     ArrayExpression<'ast> => Array,
     MemberExpression<'ast> => Member,
     ComputedMemberExpression<'ast> => ComputedMember,
+    MetaPropertyExpression<'ast> => MetaProperty,
     CallExpression<'ast> => Call,
     BinaryExpression<'ast> => Binary,
     PrefixExpression<'ast> => Prefix,
@@ -180,7 +188,7 @@ impl<'ast> Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Member(_) | Arrow(_) => 18,
+            Member(_) | MetaProperty(_) | Arrow(_) => 18,
 
             Call(_) => 17,
 

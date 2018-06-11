@@ -74,6 +74,18 @@ impl<'ast> SerializeInLoc for ComputedMemberExpression<'ast> {
     }
 }
 
+impl<'ast> SerializeInLoc for MetaPropertyExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "MetaProperty", 2, |state| {
+                state.serialize_field("meta", &self.meta)?;
+                state.serialize_field("property", &self.property)
+        })
+    }
+}
+
 impl<'ast> SerializeInLoc for CallExpression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
@@ -274,6 +286,7 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
             Spread(ref expression)         => expression.serialize(serializer),
             Member(ref expression)         => expression.serialize(serializer),
             ComputedMember(ref expression) => expression.serialize(serializer),
+            MetaProperty(ref expression)   => expression.serialize(serializer),
             Call(ref expression)           => expression.serialize(serializer),
             Conditional(ref expression)    => expression.serialize(serializer),
             Arrow(ref expression)          => expression.serialize(serializer),
@@ -949,6 +962,58 @@ mod test {
             ],
             "start": 0,
             "end": 24
+        });
+    }
+
+    #[test]
+    fn test_meta_property_expression() {
+        expect_parse!("function Handler () { new.target; }", {
+          "type": "Program",
+          "body": [
+            {
+              "type": "FunctionDeclaration",
+              "id": {
+                "type": "Identifier",
+                "name": "Handler",
+                "start": 9,
+                "end": 16,
+              },
+              "params": [],
+              "body": {
+                "type": "BlockStatement",
+                "body": [
+                  {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                      "type": "MetaProperty",
+                      "meta": {
+                        "type": "Identifier",
+                        "name": "new",
+                        "start": 22,
+                        "end": 25,
+                      },
+                      "property": {
+                        "type": "Identifier",
+                        "name": "target",
+                        "start": 25,
+                        "end": 32,
+                      },
+                      "start": 22,
+                      "end": 32,
+                    },
+                    "start": 22,
+                    "end": 32,
+                  }
+                ],
+                "start": 20,
+                "end": 35,
+              },
+              "start": 0,
+              "end": 35,
+            }
+          ],
+          "start": 0,
+          "end": 35,
         });
     }
 

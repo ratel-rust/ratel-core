@@ -15,9 +15,9 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
         use self::Expression::*;
 
         match self.item {
-            Void => { 
+            Void => {
                 // Void doesn't have children, we return early to avoid calling pop_parent
-                return; 
+                return;
             },
             This(_) => {
                 visitor.on_this_expression(&self, ctx);
@@ -51,6 +51,11 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
                 visitor.on_computed_member_expression(computed, self, ctx);
                 visitor.push_parent(ParentNode::from(self), ctx);
                 computed.traverse(visitor, ctx);
+            },
+            MetaProperty(ref property) => {
+                visitor.on_meta_property(property, self, ctx);
+                visitor.push_parent(ParentNode::from(self), ctx);
+                property.traverse(visitor, ctx);
             },
             Call(ref call) => {
                 visitor.on_call_expression(call, self, ctx);
@@ -185,6 +190,19 @@ impl<'ast> Visitable<'ast> for ComputedMemberExpression<'ast> {
         V: Visitor<'ast>,
     {
         self.object.traverse(visitor, ctx);
+        self.property.traverse(visitor, ctx);
+    }
+}
+
+impl<'ast> Visitable<'ast> for MetaPropertyExpression<'ast> {
+    type Parent = ExpressionNode<'ast>;
+
+    #[inline]
+    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    where
+        V: Visitor<'ast>,
+    {
+        self.meta.traverse(visitor, ctx);
         self.property.traverse(visitor, ctx);
     }
 }

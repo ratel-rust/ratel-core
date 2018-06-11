@@ -1,7 +1,7 @@
 use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, BindingPower, ANY, B0, B15};
 use lexer::Token::*;
-use ast::{Node, NodeList, Expression, ExpressionNode, ExpressionList};
+use ast::{Node, NodeList, Expression, ExpressionNode, IdentifierNode, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
 use ast::expression::*;
 
@@ -11,7 +11,7 @@ type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>
 pub type Context = &'static [ExpressionHandler; 108];
 
 static DEF_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
 
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
@@ -41,7 +41,7 @@ static DEF_CONTEXT: Context = &[
 
 // Adds handlers for VoidExpression and SpreadExpression
 pub static ARRAY_CONTEXT: Context = &[
-    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, OP,
+    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, NEW,
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
     OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -54,7 +54,7 @@ pub static ARRAY_CONTEXT: Context = &[
 
 // Adds handler for SpreadExpression
 pub static CALL_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, OP,
+    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
     OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
     OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -139,6 +139,24 @@ create_handlers! {
         let expression = par.prefix_expression(op);
         let end = par.lexer.end();
         par.alloc_at_loc(start, end, expression)
+    };
+
+    pub const NEW = |par| {
+        let (start, op_end) = par.lexer.loc();
+
+        par.lexer.consume();
+
+        if par.lexer.token == Accessor {
+            let meta = par.alloc_at_loc(start, op_end, "new");
+            let expression = par.meta_property_expression(meta);
+            let end = par.lexer.end();
+            par.lexer.consume();
+            par.alloc_at_loc(start, end, expression)
+        } else {
+            let expression = par.prefix_expression(OperatorKind::New);
+            let end = par.lexer.end();
+            par.alloc_at_loc(start, end, expression)
+        }
     };
 
     pub const PRN = |par| {
@@ -335,6 +353,23 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, end, ObjectExpression {
             body
         })
+    }
+
+    #[inline]
+    pub fn meta_property_expression(&mut self, meta: IdentifierNode<'ast>) -> MetaPropertyExpression<'ast> {
+        let property = self.lexer.accessor_as_str();
+
+        // Only `NewTarget` is a valid MetaProperty.
+        if property != "target" {
+            self.error::<()>();
+        }
+
+        let property = self.alloc_in_loc(property);
+
+        MetaPropertyExpression {
+            meta,
+            property,
+        }
     }
 
     #[inline]
@@ -862,6 +897,22 @@ mod test {
         };
 
         assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn meta_property_expression() {
+        let src = "new.target";
+        let mock = Mock::new();
+        let expected = MetaPropertyExpression {
+            meta: mock.ptr("new"),
+            property: mock.ptr("target"),
+        };
+        assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn meta_property_expression_throws() {
+        assert!(parse("new.callee").is_err());
     }
 
     #[test]
