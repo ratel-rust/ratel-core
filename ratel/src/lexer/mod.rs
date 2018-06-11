@@ -412,9 +412,10 @@ const SLH: ByteHandler = Some(|lex| {
 
         // block comment
         b'*' => {
+            lex.bump();
             // Keep consuming bytes until */ happens in a row
             unwind_loop!({
-                match lex.next_byte() {
+                match lex.read_byte() {
                     b'*' => {
                         match lex.next_byte() {
                             b'/' => {
@@ -426,7 +427,7 @@ const SLH: ByteHandler = Some(|lex| {
                         }
                     },
                     0 => return lex.token = UnexpectedEndOfProgram,
-                    _ => {}
+                    _ => lex.bump()
                 }
             });
         },
@@ -1063,6 +1064,8 @@ mod test {
     #[test]
     fn block_comment() {
         assert_lex(" /* foo */ bar", [(Identifier, "bar")]);
+        assert_lex(" /** foo **/ bar", [(Identifier, "bar")]);
+        assert_lex(" /*abc foo **/ bar", [(Identifier, "bar")]);
     }
 
     #[test]

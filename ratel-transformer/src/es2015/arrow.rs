@@ -26,6 +26,7 @@ impl<'ast> StaticVisitor<'ast> for TransformArrow {
 
         t.swap(ptr, Function {
             name: OptionalName::empty(),
+            generator: false,
             params: node.params,
             body,
         });

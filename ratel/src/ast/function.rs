@@ -65,6 +65,7 @@ impl<'ast> From<Option<IdentifierNode<'ast>>> for OptionalName<'ast> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
+    pub generator: bool,
     pub params: PatternList<'ast>,
     pub body: BlockNode<'ast, Statement<'ast>>,
 }

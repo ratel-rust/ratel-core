@@ -66,10 +66,18 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
+        let generator: bool = if par.lexer.token == OperatorMultiplication {
+            par.lexer.consume();
+            true
+        } else {
+            false
+        };
+
         let name = N::parse(par);
 
         Function {
             name,
+            generator,
             params: par.params(),
             body: par.block(),
         }
@@ -391,12 +399,64 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: NodeList::empty(),
                 body: mock.empty_block(),
             }
         ]);
 
         assert_eq!(parse(src).unwrap().body(), expected);
+    }
+
+    #[test]
+    fn function_with_generator_flag() {
+        {
+            let src = "function* foo() {}";
+            let mock = Mock::new();
+
+            let expected = mock.list([
+                Function {
+                    name: mock.name("foo"),
+                    generator: true,
+                    params: NodeList::empty(),
+                    body: mock.empty_block(),
+                }
+            ]);
+
+            assert_eq!(parse(src).unwrap().body(), expected);
+        }
+        
+        {
+            let src = "function * foo() {}";
+            let mock = Mock::new();
+
+            let expected = mock.list([
+                Function {
+                    name: mock.name("foo"),
+                    generator: true,
+                    params: NodeList::empty(),
+                    body: mock.empty_block(),
+                }
+            ]);
+
+            assert_eq!(parse(src).unwrap().body(), expected);
+        }
+
+        {
+            let src = "function *foo() {}";
+            let mock = Mock::new();
+
+            let expected = mock.list([
+                Function {
+                    name: mock.name("foo"),
+                    generator: true,
+                    params: NodeList::empty(),
+                    body: mock.empty_block(),
+                }
+            ]);
+
+            assert_eq!(parse(src).unwrap().body(), expected);
+        }
     }
 
     #[test]
@@ -407,6 +467,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: mock.list([
                     Pattern::Identifier("bar"),
                     Pattern::Identifier("baz"),
@@ -426,6 +487,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: NodeList::empty(),
                 body: mock.block([
                     mock.ptr("bar"),
@@ -445,6 +507,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: mock.list([
                     Pattern::AssignmentPattern {
                         left: mock.ptr(Pattern::Identifier("a")),
@@ -477,6 +540,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: mock.list([
                     Pattern::Identifier("a"),
                     Pattern::Identifier("b"),
@@ -504,6 +568,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: mock.list([
                     Pattern::RestElement {
                         argument: mock.ptr("rest"),
@@ -523,6 +588,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: mock.list([
                     Pattern::Identifier("a"),
                     Pattern::AssignmentPattern {
@@ -600,6 +666,7 @@ mod test {
                         kind: MethodKind::Constructor,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: mock.list([
                                 Pattern::Identifier("bar"),
                                 Pattern::Identifier("baz")
@@ -648,6 +715,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: mock.list([
                                 Pattern::Identifier("bar"),
                                 Pattern::Identifier("baz")
@@ -663,6 +731,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: mock.list([
                                 Pattern::Identifier("moon")
                             ]),
@@ -677,6 +746,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -687,6 +757,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -697,6 +768,7 @@ mod test {
                         kind: MethodKind::Method,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -794,6 +866,7 @@ mod test {
                         kind: MethodKind::Get,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: mock.list([
                                 Pattern::Identifier("foo")
                             ]),
@@ -806,6 +879,7 @@ mod test {
                         kind: MethodKind::Set,
                         value: mock.ptr(Function {
                             name: EmptyName,
+                            generator: false,
                             params: mock.list([
                                 Pattern::Identifier("bar")
                             ]),

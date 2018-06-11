@@ -945,6 +945,7 @@ mod test {
             "body": [
                 {
                     "type": "FunctionDeclaration",
+                    "generator": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -966,11 +967,39 @@ mod test {
             "end": 18,
         });
 
+        expect_parse!("function* foo () {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "generator": true,
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 10,
+                        "end": 13
+                    },
+                    "params": [],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 17,
+                        "end": 19,
+                    },
+                    "start": 0,
+                    "end": 19,
+                }
+            ],
+            "start": 0,
+            "end": 19,
+        });
+
         expect_parse!("function foo (a, value = true) {}", {
             "type": "Program",
             "body": [
                 {
                     "type": "FunctionDeclaration",
+                    "generator": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",

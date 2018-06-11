@@ -1132,6 +1132,7 @@ mod test {
         let expected = mock.list([
             Function {
                 name: mock.name("foo"),
+                generator: false,
                 params: NodeList::empty(),
                 body: mock.empty_block(),
             }
