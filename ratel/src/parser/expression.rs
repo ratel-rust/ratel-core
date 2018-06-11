@@ -143,18 +143,17 @@ create_handlers! {
 
     pub const NEW = |par| {
         let (start, op_end) = par.lexer.loc();
-        let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
 
         par.lexer.consume();
 
         if par.lexer.token == Accessor {
-            let meta = par.alloc_at_loc(start, op_end, op.as_str());
+            let meta = par.alloc_at_loc(start, op_end, "new");
             let expression = par.meta_property_expression(meta);
             let end = par.lexer.end();
             par.lexer.consume();
             par.alloc_at_loc(start, end, expression)
         } else {
-            let expression = par.prefix_expression(op);
+            let expression = par.prefix_expression(OperatorKind::New);
             let end = par.lexer.end();
             par.alloc_at_loc(start, end, expression)
         }
