@@ -382,7 +382,7 @@ mod test {
             "end": 5
         });
     }
-    
+
     #[test]
     fn test_this_expression() {
         expect_parse!("this;", {
@@ -972,6 +972,7 @@ mod test {
           "body": [
             {
               "type": "FunctionDeclaration",
+              "generator": false,
               "id": {
                 "type": "Identifier",
                 "name": "Handler",
