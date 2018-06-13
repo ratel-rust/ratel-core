@@ -181,7 +181,16 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
         // `2 / 2 * 2` and `2 / (2 * 2)` are different expressions,
         // hence the need for parenthesis in a right-balanced tree
         // even if binding power of operators is exactly the same.
-        gen.write_expression(&self.right, bp + 1);
+        //
+        // For `PrefixExpression` and `PostfixExpression`, the
+        // precendence is always 17.
+        let bp = match self.left.item {
+            Expression::Postfix(_) => { 17 },
+            Expression::Prefix(_) => { 17 },
+            _ => { bp + 1}
+        };
+
+        gen.write_expression(&self.right, bp);
     }
 }
 
@@ -504,5 +513,10 @@ mod test {
         assert_min("2 * 2 / 2;", "2*2/2;");
         assert_min("2 * (2 / 2);", "2*(2/2);");
         assert_min("(2 * 2) / 2;", "2*2/2;");
+    }
+
+    #[test]
+    fn regression_increments() {
+        assert_min("x++ + ++y", "x+++(++y);");
     }
 }

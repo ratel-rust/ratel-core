@@ -206,7 +206,6 @@ impl<'ast> Parser<'ast> {
 
         let expression = self.alloc_at_loc(start, end, label);
         let expression = self.nested_expression::<ANY>(expression);
-
         self.expect_semicolon();
 
         self.alloc_at_loc(start, expression.end, expression)

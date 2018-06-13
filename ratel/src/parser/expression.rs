@@ -298,7 +298,7 @@ impl<'ast> Parser<'ast> {
                     if self.lexer.token == ParenClose {
                         break
                     }
-                    
+
                     self.expression_in_context::<B0>(CALL_CONTEXT)
                 }
                 _ => {
@@ -800,7 +800,7 @@ mod test {
 
             assert_expr!(src, expected);
         }
-        
+
         {
             let src = "foo(1);";
             let mock = Mock::new();
@@ -1187,4 +1187,51 @@ mod test {
 
         assert_expr!(src, expected);
     }
+
+    #[test]
+    fn regression_increments() {
+        let src = "x++ + ++y";
+        let mock = Mock::new();
+
+        let expected = BinaryExpression {
+            operator: OperatorKind::Addition,
+            left: mock.ptr(PostfixExpression {
+                operator: OperatorKind::Increment,
+                operand: mock.ptr("x"),
+            }),
+            right: mock.ptr(PrefixExpression {
+                operator: OperatorKind::Increment,
+                operand: mock.ptr("y"),
+            })
+        };
+
+        assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn regression_decrements() {
+        let src = "x-- - --y";
+        let mock = Mock::new();
+
+        let expected = BinaryExpression {
+            operator: OperatorKind::Subtraction,
+            left: mock.ptr(PostfixExpression {
+                operator: OperatorKind::Decrement,
+                operand: mock.ptr("x"),
+            }),
+            right: mock.ptr(PrefixExpression {
+                operator: OperatorKind::Decrement,
+                operand: mock.ptr("y"),
+            })
+        };
+
+        assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn assignment_to_lvalue() {
+        assert!(parse("(x++)++").is_err());
+        assert!(parse("x+++++y").is_err());
+    }
+
 }

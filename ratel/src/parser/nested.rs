@@ -246,25 +246,6 @@ const SEQ: NestedHandler = Some(|par, left| {
     })
 });
 
-const INC: NestedHandler = Some(|par, left| {
-    let end = par.lexer.end();
-    par.lexer.consume();
-
-    par.alloc_at_loc(left.start, end, PostfixExpression {
-        operator: OperatorKind::Increment,
-        operand: left,
-    })
-});
-
-const DEC: NestedHandler = Some(|par, left| {
-    let end = par.lexer.end();
-    par.lexer.consume();
-
-    par.alloc_at_loc(left.start, end, PostfixExpression {
-        operator: OperatorKind::Decrement,
-        operand: left,
-    })
-});
 
 const COND: NestedHandler = Some(|par, left| {
     par.lexer.consume();
@@ -343,6 +324,52 @@ const TPLE: NestedHandler = Some(|par, left| {
     par.tagged_template_expression(left)
 });
 
+macro_rules! postfix {
+    ($name:ident => $op:ident) => {
+        const $name: NestedHandler = {
+            fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
+                let end = par.lexer.end();
+                par.lexer.consume();
+
+                if !left.is_lvalue() {
+                    par.error::<()>();
+                }
+
+                par.alloc_at_loc(left.start, end, PostfixExpression {
+                    operator: $op,
+                    operand: left,
+                })
+            }
+
+            Some(handler)
+        };
+    }
+}
+
+macro_rules! assign {
+    ($name:ident => $op:ident) => {
+        const $name: NestedHandler = {
+            fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
+                par.lexer.consume();
+
+                if !left.is_lvalue() {
+                    par.error::<()>();
+                }
+
+                let right = par.expression::<B1>();
+
+                par.alloc_at_loc(left.start, right.end, BinaryExpression {
+                    operator: $op,
+                    left,
+                    right,
+                })
+            }
+
+            Some(handler)
+        };
+    }
+}
+
 macro_rules! binary {
     ($name:ident, $bp:ident => $op:ident) => {
         const $name: NestedHandler = {
@@ -363,19 +390,23 @@ macro_rules! binary {
     }
 }
 
-binary!(ASGN , B1  => Assign);
-binary!(ADDA , B1  => AddAssign);
-binary!(SUBA , B1  => SubtractAssign);
-binary!(EXPA , B1  => ExponentAssign);
-binary!(MULA , B1  => MultiplyAssign);
-binary!(DIVA , B1  => DivideAssign);
-binary!(REMA , B1  => RemainderAssign);
-binary!(BSLA , B1  => BSLAssign);
-binary!(BSRA , B1  => BSRAssign);
-binary!(UBSA , B1  => UBSRAssign);
-binary!(BWAA , B1  => BitAndAssign);
-binary!(XORA , B1  => BitXorAssign);
-binary!(BORA , B1  => BitOrAssign);
+postfix!(INC => Increment);
+postfix!(DEC => Decrement);
+
+assign!(ASGN => Assign);
+assign!(ADDA => AddAssign);
+assign!(SUBA => SubtractAssign);
+assign!(EXPA => ExponentAssign);
+assign!(MULA => MultiplyAssign);
+assign!(DIVA => DivideAssign);
+assign!(REMA => RemainderAssign);
+assign!(BSLA => BSLAssign);
+assign!(BSRA => BSRAssign);
+assign!(UBSA => UBSRAssign);
+assign!(BWAA => BitAndAssign);
+assign!(XORA => BitXorAssign);
+assign!(BORA => BitOrAssign);
+
 binary!(OR   , B5  => LogicalOr);
 binary!(AND  , B6  => LogicalAnd);
 binary!(BWOR , B7  => BitwiseOr);

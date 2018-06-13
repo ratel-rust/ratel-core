@@ -216,4 +216,19 @@ impl<'ast> Expression<'ast> {
             _           => true,
         }
     }
+
+    #[inline]
+    pub fn is_lvalue(&self) -> bool {
+        use self::Expression::*;
+
+        match *self {
+            Expression::Identifier(_) |
+            Expression::Member(_)     |
+            Expression::Object(_)     |
+            Expression::Array(_)      |
+            Expression::Spread(_)     => true,
+            _                         => false
+        }
+    }
+
 }
