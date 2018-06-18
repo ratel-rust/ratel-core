@@ -5,7 +5,7 @@ use lexer::Token::*;
 use ast::{NodeList, OperatorKind, Expression, ExpressionNode};
 use ast::expression::*;
 use ast::OperatorKind::*;
-
+use lexer::Asi;
 
 const TOTAL_TOKENS: usize = 108;
 
@@ -440,6 +440,12 @@ impl<'ast> Parser<'ast> {
         B: BindingPower
     {
         while let Some(handler) = B::handler(self.lexer.token) {
+
+            match self.asi() {
+                Asi::ImplicitSemicolon |
+                Asi::ExplicitSemicolon => break,
+                _                      => {}
+            };
             left = handler(self, left);
         }
 

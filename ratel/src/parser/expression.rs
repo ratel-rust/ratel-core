@@ -1234,4 +1234,37 @@ mod test {
         assert!(parse("x+++++y").is_err());
     }
 
+    #[test]
+    fn regression_asi_increments() {
+        let src = r#"x
+        ++
+        y"#;
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            mock.ptr(Expression::Identifier("x")),
+            mock.ptr(PrefixExpression {
+                operator: OperatorKind::Increment,
+                operand: mock.ptr("y"),
+            }),
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+    }
+
+    #[test]
+    fn regression_asi_decrements() {
+        let src = r#"x
+        --
+        y"#;
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            mock.ptr(Expression::Identifier("x")),
+            mock.ptr(PrefixExpression {
+                operator: OperatorKind::Decrement,
+                operand: mock.ptr("y"),
+            }),
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+    }
 }
