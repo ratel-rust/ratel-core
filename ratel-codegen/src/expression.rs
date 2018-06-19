@@ -162,9 +162,32 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
         let bp = self.operator.binding_power();
+
         let spacing = self.operator.is_word();
 
+        let wrap_left = match self.left.item {
+            Expression::Postfix(PostfixExpression { operator, .. }) => {
+                self.operator == OperatorKind::Addition && operator == OperatorKind::Increment ||
+                self.operator == OperatorKind::Subtraction && operator == OperatorKind::Decrement
+            },
+            _ => false
+        };
+
+        let wrap_right = match self.right.item {
+            Expression::Prefix(PrefixExpression { operator, .. }) => {
+                self.operator == OperatorKind::Addition && operator == OperatorKind::Increment ||
+                self.operator == OperatorKind::Subtraction && operator == OperatorKind::Decrement
+            },
+            _ => false
+        };
+
+        if wrap_left {
+            gen.write_byte(b'(');
+        }
         gen.write_expression(&self.left, bp);
+        if wrap_left {
+            gen.write_byte(b')');
+        }
 
         if spacing {
             gen.write_byte(b' ');
@@ -178,19 +201,16 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
             gen.write_pretty(b' ');
         }
 
+        if wrap_right {
+            gen.write_byte(b'(');
+        }
         // `2 / 2 * 2` and `2 / (2 * 2)` are different expressions,
         // hence the need for parenthesis in a right-balanced tree
         // even if binding power of operators is exactly the same.
-        //
-        // For `PrefixExpression` and `PostfixExpression`, the
-        // precendence is always 17.
-        let bp = match self.left.item {
-            Expression::Postfix(_) => { 17 },
-            Expression::Prefix(_) => { 17 },
-            _ => { bp + 1}
-        };
-
-        gen.write_expression(&self.right, bp);
+        gen.write_expression(&self.right, bp + 1);
+        if wrap_right {
+            gen.write_byte(b')');
+        }
     }
 }
 
@@ -517,6 +537,6 @@ mod test {
 
     #[test]
     fn regression_increments() {
-        assert_min("x++ + ++y", "x+++(++y);");
+        assert_min("x++ + ++y", "(x++)+(++y);");
     }
 }
