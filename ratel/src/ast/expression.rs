@@ -222,13 +222,12 @@ impl<'ast> Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Expression::Identifier(_) |
-            Expression::Member(_)     |
-            Expression::Object(_)     |
-            Expression::Array(_)      |
-            Expression::Spread(_)     => true,
-            _                         => false
+            Identifier(_) |
+            Member(_)     |
+            Object(_)     |
+            Array(_)      |
+            Spread(_)     => true,
+            _             => false
         }
     }
-
 }

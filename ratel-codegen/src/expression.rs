@@ -1,4 +1,4 @@
-use ratel::ast::{Expression, Literal, OperatorKind, Property, PropertyKey, Pattern};
+use ratel::ast::{Expression, Literal, OperatorKind, OperatorCategory, Property, PropertyKey, Pattern};
 use ratel::ast::expression::*;
 
 use {ToCode, Generator};
@@ -162,55 +162,50 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
         let bp = self.operator.binding_power();
+        let category = self.operator.category();
 
-        let spacing = self.operator.is_word();
+        let (spacing_left, spacing_right) = match category {
+            OperatorCategory::Word => (true, true),
+            OperatorCategory::Safe => (false, false),
+            category => {
+                let spacing_left = match self.left.item {
+                    Expression::Postfix(PostfixExpression { operator, .. }) => {
+                        category == operator.category()
+                    },
+                    _ => false
+                };
 
-        let wrap_left = match self.left.item {
-            Expression::Postfix(PostfixExpression { operator, .. }) => {
-                self.operator == OperatorKind::Addition && operator == OperatorKind::Increment ||
-                self.operator == OperatorKind::Subtraction && operator == OperatorKind::Decrement
-            },
-            _ => false
+                let spacing_right = match self.right.item {
+                    Expression::Prefix(PrefixExpression { operator, .. }) => {
+                        category == operator.category()
+                    },
+                    _ => false
+                };
+
+                (spacing_left, spacing_right)
+            }
         };
 
-        let wrap_right = match self.right.item {
-            Expression::Prefix(PrefixExpression { operator, .. }) => {
-                self.operator == OperatorKind::Addition && operator == OperatorKind::Increment ||
-                self.operator == OperatorKind::Subtraction && operator == OperatorKind::Decrement
-            },
-            _ => false
-        };
-
-        if wrap_left {
-            gen.write_byte(b'(');
-        }
         gen.write_expression(&self.left, bp);
-        if wrap_left {
-            gen.write_byte(b')');
-        }
 
-        if spacing {
+        if spacing_left {
             gen.write_byte(b' ');
         } else {
             gen.write_pretty(b' ');
         }
+
         gen.write(&self.operator);
-        if spacing {
+
+        if spacing_right {
             gen.write_byte(b' ');
         } else {
             gen.write_pretty(b' ');
         }
 
-        if wrap_right {
-            gen.write_byte(b'(');
-        }
         // `2 / 2 * 2` and `2 / (2 * 2)` are different expressions,
         // hence the need for parenthesis in a right-balanced tree
         // even if binding power of operators is exactly the same.
         gen.write_expression(&self.right, bp + 1);
-        if wrap_right {
-            gen.write_byte(b')');
-        }
     }
 }
 
@@ -218,7 +213,7 @@ impl<'ast, G: Generator> ToCode<G> for PrefixExpression<'ast> {
     #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.operator);
-        if self.operator.is_word() {
+        if self.operator.category() == OperatorCategory::Word {
             gen.write_byte(b' ');
         }
         gen.write(&self.operand);
@@ -537,6 +532,6 @@ mod test {
 
     #[test]
     fn regression_increments() {
-        assert_min("x++ + ++y", "(x++)+(++y);");
+        assert_min("x++ + ++y", "x++ + ++y;");
     }
 }

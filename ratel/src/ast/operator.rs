@@ -53,6 +53,15 @@ pub enum OperatorKind {
     Spread,           //     ... …
 }
 
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum OperatorCategory {
+    Minus,
+    Plus,
+    Safe,
+    Word,
+}
+
 use self::OperatorKind::*;
 
 impl OperatorKind {
@@ -320,16 +329,22 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn is_word(&self) -> bool {
-        match *self {
-            In         |
-            New        |
-            Typeof     |
-            Void       |
-            Delete     |
-            Instanceof => true,
+    pub fn category(&self) -> OperatorCategory {
+        use self::Token::*;
 
-            _          => false,
+        match *self {
+            In            |
+            New           |
+            Typeof        |
+            Void          |
+            Delete        |
+            Instanceof    => OperatorCategory::Word,
+            Addition      |
+            Increment     => OperatorCategory::Plus,
+            Subtraction   |
+            Decrement     => OperatorCategory::Minus,
+
+            _             => OperatorCategory::Safe,
         }
     }
 }
