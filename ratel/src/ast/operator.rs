@@ -330,8 +330,6 @@ impl OperatorKind {
 
     #[inline]
     pub fn category(&self) -> OperatorCategory {
-        use self::Token::*;
-
         match *self {
             In            |
             New           |

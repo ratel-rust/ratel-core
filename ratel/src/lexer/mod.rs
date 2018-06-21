@@ -39,7 +39,7 @@ macro_rules! unwind_loop {
 }
 
 /// Contextual check describing which Automatic Semicolon Insertion rules can be applied.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Asi {
     /// Current token is a semicolon. Parser should consume it and finalize the statement.
     ExplicitSemicolon,

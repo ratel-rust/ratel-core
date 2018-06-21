@@ -2,7 +2,7 @@ use toolshed::list::ListBuilder;
 use parser::Parser;
 use lexer::Token;
 use lexer::Token::*;
-use ast::{NodeList, OperatorKind, Expression, ExpressionNode};
+use ast::{NodeList, Expression, ExpressionNode};
 use ast::expression::*;
 use ast::OperatorKind::*;
 use lexer::Asi;
@@ -15,8 +15,16 @@ pub trait BindingPower {
     const LUT: [NestedHandler; TOTAL_TOKENS];
 
     #[inline]
-    fn handler(token: Token) -> NestedHandler {
-        unsafe { *(&Self::LUT as *const NestedHandler).offset(token as isize) }
+    fn handler(asi: Asi, token: Token) -> NestedHandler {
+        // TODO: find a cleaner solution, roll it the ASI check into lookup table somehow?
+        if asi == Asi::ImplicitSemicolon {
+            match token {
+                OperatorIncrement | OperatorDecrement => return None,
+                _ => {}
+            }
+        }
+
+        Self::LUT[token as usize]
     }
 }
 
@@ -439,13 +447,7 @@ impl<'ast> Parser<'ast> {
     where
         B: BindingPower
     {
-        while let Some(handler) = B::handler(self.lexer.token) {
-
-            match self.asi() {
-                Asi::ImplicitSemicolon |
-                Asi::ExplicitSemicolon => break,
-                _                      => {}
-            };
+        while let Some(handler) = B::handler(self.asi(), self.lexer.token) {
             left = handler(self, left);
         }
 

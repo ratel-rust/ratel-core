@@ -1267,4 +1267,18 @@ mod test {
         ]);
         assert_eq!(parse(src).unwrap().body(), expected);
     }
+
+    #[test]
+    fn regression_asi_safe() {
+        let src = r#"foo
+        .bar"#;
+        let mock = Mock::new();
+
+        let expected = MemberExpression {
+            object: mock.ptr("foo"),
+            property: mock.ptr("bar"),
+        };
+
+        assert_expr!(src, expected);
+    }
 }
