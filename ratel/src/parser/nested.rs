@@ -7,236 +7,579 @@ use ast::expression::*;
 use ast::OperatorKind::*;
 use lexer::Asi;
 
-const TOTAL_TOKENS: usize = 108;
-
 type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>) -> ExpressionNode<'ast>>;
 
 pub trait BindingPower {
-    const LUT: [NestedHandler; TOTAL_TOKENS];
-
     #[inline]
-    fn handler(asi: Asi, token: Token) -> NestedHandler {
-        // TODO: find a cleaner solution, roll it the ASI check into lookup table somehow?
-        if asi == Asi::ImplicitSemicolon {
-            match token {
-                OperatorIncrement | OperatorDecrement => return None,
-                _ => {}
-            }
-        }
-
-        Self::LUT[token as usize]
-    }
-}
-
-macro_rules! bp {
-    ($name:ident, $table:tt) => {
-        pub struct $name;
-
-        impl BindingPower for $name {
-            const LUT: [NestedHandler; TOTAL_TOKENS] = $table;
-        }
-    }
+    fn handler(asi: Asi, token: Token) -> NestedHandler;
 }
 
 /// All potential tokens, including Comma for sequence expressions
-bp!(ANY, [
-    ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-//  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
+pub struct ANY;
 
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-//  ++    --    !     ~     TYPOF VOID  DELET *     /     %     **    +
+impl BindingPower for ANY {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            Comma => SEQ,
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            OperatorLogicalAnd => AND,
+            OperatorLogicalOr => OR,
+            OperatorConditional => COND,
+            OperatorAssign => ASGN,
+            OperatorAddAssign => ADDA,
+            OperatorSubtractAssign => SUBA,
+            OperatorExponentAssign => EXPA,
+            OperatorMultiplyAssign => MULA,
+            OperatorDivideAssign => DIVA,
+            OperatorRemainderAssign => REMA,
+            OperatorBSLAssign => BSLA,
+            OperatorBSRAssign => BSRA,
+            OperatorUBSRAssign => UBSA,
+            OperatorBitAndAssign => BWAA,
+            OperatorBitXorAssign => XORA,
+            OperatorBitOrAssign => BORA,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-//  -     <<    >>    >>>   <     <=    >     >=    INSOF IN    ===   !==
+            _ => None,
+        }
+    }
+}
 
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ASGN, ADDA, SUBA, EXPA,
-//  ==    !=    &     ^     |     &&    ||    ?     =     +=    -=    **=
+pub struct B0;
 
-    MULA, DIVA, REMA, BSLA, BSRA, UBSA, BWAA, XORA, BORA, ____, ____, ____,
-//  *=    /=    %=    <<=   >>=   >>>=  &=    ^=    |=    ...   VAR   LET
+impl BindingPower for B0 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            OperatorLogicalAnd => AND,
+            OperatorLogicalOr => OR,
+            OperatorConditional => COND,
+            OperatorAssign => ASGN,
+            OperatorAddAssign => ADDA,
+            OperatorSubtractAssign => SUBA,
+            OperatorExponentAssign => EXPA,
+            OperatorMultiplyAssign => MULA,
+            OperatorDivideAssign => DIVA,
+            OperatorRemainderAssign => REMA,
+            OperatorBSLAssign => BSLA,
+            OperatorBSRAssign => BSRA,
+            OperatorUBSRAssign => UBSA,
+            OperatorBitAndAssign => BWAA,
+            OperatorBitXorAssign => XORA,
+            OperatorBitOrAssign => BORA,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
+            _ => None,
+        }
+    }
+}
 
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
+pub struct B1;
 
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
+impl BindingPower for B1 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            OperatorLogicalAnd => AND,
+            OperatorLogicalOr => OR,
+            OperatorConditional => COND,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-//  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
-]);
+            _ => None,
+        }
+    }
+}
 
-bp!(B0, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ASGN, ADDA, SUBA, EXPA,
-    MULA, DIVA, REMA, BSLA, BSRA, UBSA, BWAA, XORA, BORA, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+pub struct B4;
 
-bp!(B1, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+impl BindingPower for B4 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            OperatorLogicalAnd => AND,
+            OperatorLogicalOr => OR,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-bp!(B4, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+            _ => None,
+        }
+    }
+}
 
-bp!(B5, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+pub struct B5;
 
-bp!(B6, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+impl BindingPower for B5 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            OperatorLogicalAnd => AND,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-bp!(B7, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+            _ => None,
+        }
+    }
+}
 
-bp!(B8, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+pub struct B6;
 
-bp!(B9, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+impl BindingPower for B6 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            OperatorBitwiseOr => BWOR,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-bp!(B10, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+            _ => None,
+        }
+    }
+}
 
-bp!(B11, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+pub struct B7;
 
-bp!(B12, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+impl BindingPower for B7 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            OperatorBitwiseXor => BWXO,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-bp!(B13, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+            _ => None,
+        }
+    }
+}
 
-bp!(B14, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, EXPN, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+pub struct B8;
 
-bp!(B15, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
+impl BindingPower for B8 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            OperatorBitwiseAnd => BWAN,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
 
-const ____: NestedHandler = None;
+            _ => None,
+        }
+    }
+}
+
+pub struct B9;
+
+impl BindingPower for B9 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            OperatorStrictEquality => STEQ,
+            OperatorStrictInequality => SIEQ,
+            OperatorEquality => EQ,
+            OperatorInequality => INEQ,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B10;
+
+impl BindingPower for B10 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            OperatorLesser => LESS,
+            OperatorLesserEquals => LSEQ,
+            OperatorGreater => GRTR,
+            OperatorGreaterEquals => GREQ,
+            OperatorInstanceof => INOF,
+            OperatorIn => IN,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B11;
+
+impl BindingPower for B11 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            OperatorBitShiftLeft => BSL,
+            OperatorBitShiftRight => BSR,
+            OperatorUBitShiftRight => UBSR,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B12;
+
+impl BindingPower for B12 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            OperatorAddition => ADD,
+            OperatorSubtraction => SUB,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B13;
+
+impl BindingPower for B13 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorMultiplication => MUL,
+            OperatorDivision => DIV,
+            OperatorRemainder => REM,
+            OperatorExponent => EXPN,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B14;
+
+impl BindingPower for B14 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            OperatorExponent => EXPN,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
+
+pub struct B15;
+
+impl BindingPower for B15 {
+    #[inline]
+    fn handler(_asi: Asi, token: Token) -> NestedHandler {
+        match token {
+            ParenOpen => CALL,
+            BracketOpen => CMEM,
+            OperatorFatArrow => ARRW,
+            OperatorIncrement => INC,
+            OperatorDecrement => DEC,
+            Accessor => ACCS,
+            TemplateOpen => TPLE,
+            TemplateClosed => TPLS,
+
+            _ => None,
+        }
+    }
+}
 
 const SEQ: NestedHandler = Some(|par, left| {
     par.lexer.consume();
