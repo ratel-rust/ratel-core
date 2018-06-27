@@ -889,6 +889,32 @@ mod test {
     }
 
     #[test]
+    fn variable_declaration_statement_spread() {
+        let src = "const a = {...foo}";
+        let mock = Mock::new();
+
+        let expected = mock.list([
+            DeclarationStatement {
+                kind: DeclarationKind::Const,
+                declarators: mock.list([
+                    Declarator {
+                        id: mock.ptr(Pattern::Identifier("a")),
+                        init: Some(mock.ptr(ObjectExpression {
+                            body: mock.list([
+                                Property::Spread {
+                                    argument: mock.ptr("foo")
+                                },
+                            ])
+                        }))
+                    }
+                ])
+            }
+        ]);
+
+        assert_eq!(parse(src).unwrap().body(), expected);
+    }
+
+    #[test]
     fn variable_declaration_statement_destructuring_array() {
         let src = "let [x, y] = [1, 2];";
         let mock = Mock::new();

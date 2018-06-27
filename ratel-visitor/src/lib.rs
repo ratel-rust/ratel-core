@@ -210,6 +210,9 @@ impl<'ast> Visitable<'ast> for Property<'ast> {
             Property::Method { ref key, ref value } => {
                 key.traverse(visitor, ctx);
                 value.traverse(visitor, ctx);
+            },
+            Property::Spread { ref argument } => {
+                argument.traverse(visitor, ctx);
             }
         }
     }

@@ -99,6 +99,12 @@ impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
             } => {
                 gen.write(key);
                 gen.write(value);
+            },
+            Spread {
+                ref argument
+            } => {
+                gen.write_bytes(b"...");
+                gen.write(argument);
             }
         }
     }
