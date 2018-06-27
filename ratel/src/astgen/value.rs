@@ -143,6 +143,9 @@ impl<'ast> SerializeInLoc for Property<'ast> {
                 state.serialize_field("value", &value)?;
                 state.serialize_field("kind", &"init")
             }),
+            Spread { argument } => self.in_loc(serializer, "SpreadProperty", 1, |state| {
+                state.serialize_field("argument", &argument)
+            })
         }
     }
 }

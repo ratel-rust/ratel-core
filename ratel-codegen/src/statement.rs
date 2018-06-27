@@ -344,6 +344,7 @@ mod test {
         assert_min("var foo = 10, bar = 20;", "var foo=10,bar=20;");
         assert_min("let foo = 10, bar = 20;", "let foo=10,bar=20;");
         assert_min("const foo = 10, bar = 20;", "const foo=10,bar=20;");
+        assert_min("const a = {...foo};", "const a={...foo};");
     }
 
     #[test]

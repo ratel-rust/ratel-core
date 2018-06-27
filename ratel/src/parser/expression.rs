@@ -379,7 +379,6 @@ impl<'ast> Parser<'ast> {
         }
 
         let builder = ListBuilder::new(self.arena, self.property());
-
         loop {
             match self.lexer.token {
                 BraceClose => break,
@@ -415,6 +414,12 @@ impl<'ast> Parser<'ast> {
 
                     _ => return self.alloc_at_loc(start, end, Property::Shorthand(label)),
                 }
+            },
+            OperatorSpread => {
+                let start = self.lexer.start_then_consume();
+                let argument = self.expression::<B0>();
+                let end = self.lexer.end();
+                return self.alloc_at_loc(start, end, Property::Spread { argument });
             },
             LiteralString |
             LiteralNumber => {
@@ -995,7 +1000,6 @@ mod test {
 
         assert_expr!(src, expected);
     }
-
 
     #[test]
     fn spread_expression_illegal_bare() {

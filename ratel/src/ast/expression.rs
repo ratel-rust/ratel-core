@@ -19,6 +19,9 @@ pub enum Property<'ast> {
         key: Node<'ast, PropertyKey<'ast>>,
         value: Node<'ast, Function<'ast, EmptyName>>,
     },
+    Spread {
+        argument: ExpressionNode<'ast>,
+    }
 }
 
 /// While not technically necessary, having a type
