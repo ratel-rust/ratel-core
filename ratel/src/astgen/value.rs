@@ -209,7 +209,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                         let is_hexdecimal = prefix == "0x" || prefix == "0X";
                         let is_octal = prefix == "0o" || prefix == "0O";
                         if is_hexdecimal || is_octal {
-                            let value = unsafe { number.slice_unchecked(2, number.len()) };
+                            let value = unsafe { number.get_unchecked(2..number.len()) };
                             let radix = if is_hexdecimal { 16 } else { 8 };
                             state.serialize_field(
                                 "value",
@@ -230,7 +230,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                     state.serialize_field("raw", &number)
                 }
                 Binary(number) => {
-                    let value = unsafe { number.slice_unchecked(2, number.len()) };
+                    let value = unsafe { number.get_unchecked(2..number.len()) };
                     state.serialize_field(
                         "value",
                         &i32::from_str_radix(value, 2).expect("Invalid number"),
@@ -238,7 +238,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                     state.serialize_field("raw", &number)
                 }
                 String(value) => {
-                    let parsed_value = unsafe { value.slice_unchecked(1, value.len() - 1) };
+                    let parsed_value = unsafe { value.get_unchecked(1..value.len() - 1) };
                     state.serialize_field("value", &parsed_value)?;
                     state.serialize_field("raw", &value)
                 },
