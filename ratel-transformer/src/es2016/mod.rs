@@ -1,10 +1,12 @@
 use ratel::ast::{Node, Loc, Expression, ExpressionNode, OperatorKind};
 use ratel::ast::expression::{BinaryExpression, MemberExpression, CallExpression};
-use ratel_visitor::{StaticVisitor, DynamicVisitor};
+use ratel_visitor::Visitor;
 
-use Transformer;
+use TransformerCtxt;
 
-pub struct PresetES2016;
+pub struct PresetES2016<'ast> {
+    ctx: TransformerCtxt<'ast>
+}
 
 static MATH: &Loc<Expression> = &Loc {
     start: 0,
@@ -17,36 +19,34 @@ static POW: &Loc<&str> = &Loc {
     item: "pow"
 };
 
-impl<'ast> StaticVisitor<'ast> for PresetES2016 {
-    type Context = Transformer<'ast>;
-
-    fn on_binary_expression(node: &BinaryExpression<'ast>, ptr: &ExpressionNode<'ast>, t: &mut Transformer<'ast>) {
+impl<'ast> Visitor<'ast> for PresetES2016<'ast> {
+    fn on_binary_expression(&mut self, node: &BinaryExpression<'ast>, ptr: &ExpressionNode<'ast>) {
         match node.operator {
             OperatorKind::Exponent => {
-                let callee = t.alloc(MemberExpression {
-                    object: Node::from_static(MATH),
-                    property: Node::from_static(POW),
+                let callee = self.ctx.alloc(MemberExpression {
+                    object: Node::new(MATH),
+                    property: Node::new(POW),
                 });
-                let arguments = t.list([node.left, node.right]);
+                let arguments = self.ctx.list([node.left, node.right]);
 
-                t.swap(ptr, CallExpression {
+                self.ctx.swap(ptr, CallExpression {
                     callee,
                     arguments
                 });
             },
 
             OperatorKind::ExponentAssign => {
-                let callee = t.alloc(MemberExpression {
-                    object: Node::from_static(MATH),
-                    property: Node::from_static(POW),
+                let callee = self.ctx.alloc(MemberExpression {
+                    object: Node::new(MATH),
+                    property: Node::new(POW),
                 });
-                let arguments = t.list([node.left, node.right]);
-                let right = t.alloc(CallExpression {
+                let arguments = self.ctx.list([node.left, node.right]);
+                let right = self.ctx.alloc(CallExpression {
                     callee,
                     arguments
                 });
 
-                t.swap(ptr, BinaryExpression {
+                self.ctx.swap(ptr, BinaryExpression {
                     operator: OperatorKind::Assign,
                     left: node.left,
                     right,
@@ -55,10 +55,5 @@ impl<'ast> StaticVisitor<'ast> for PresetES2016 {
 
             _ => {}
         }
-    }
-
-    #[inline]
-    fn register(dv: &mut DynamicVisitor<'ast, Transformer<'ast>>) {
-        dv.on_binary_expression.push(PresetES2016::on_binary_expression);
     }
 }

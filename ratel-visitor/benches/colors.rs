@@ -4,7 +4,7 @@ extern crate test;
 extern crate ratel;
 extern crate ratel_visitor;
 
-use ratel_visitor::{Visitable, StaticVisitor, DynamicVisitor};
+use ratel_visitor::{Visitable, Visitor};
 use test::{Bencher, black_box};
 
 static SOURCE: &'static str = r#"
@@ -94,14 +94,7 @@ module.exports = {
 
 struct DummyStaticVisitor;
 
-impl<'ast> StaticVisitor<'ast> for DummyStaticVisitor {
-    type Context = ();
-
-    #[inline]
-    fn register(_: &mut DynamicVisitor<'ast, Self::Context>) {
-        unimplemented!();
-    }
-}
+impl<'ast> Visitor<'ast> for DummyStaticVisitor {}
 
 #[bench]
 fn empty_traverse(b: &mut Bencher) {
@@ -112,6 +105,6 @@ fn empty_traverse(b: &mut Bencher) {
     b.iter(|| {
         unsafe { arena.reset_to(offset) };
 
-        black_box(module.traverse(&DummyStaticVisitor, &mut ()));
+        black_box(module.visit_with(&mut DummyStaticVisitor));
     });
 }
