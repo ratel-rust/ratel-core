@@ -103,6 +103,11 @@ impl<'ast> StaticVisitor<'ast> for DummyStaticVisitor {
     }
 }
 
+// looks like clippy mistakenly reports an issue here
+// even though there's an error if you change anything
+// TODO: resolve upstream
+#[cfg_attr(feature = "cargo-clippy", allow(unit_arg))]
+
 #[bench]
 fn empty_traverse(b: &mut Bencher) {
     let module = ratel::parse(SOURCE).expect("Must parse");

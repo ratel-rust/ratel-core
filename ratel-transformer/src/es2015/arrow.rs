@@ -14,17 +14,17 @@ impl<'ast> StaticVisitor<'ast> for TransformArrow {
         let body = match node.body {
             ArrowBody::Block(block)     => block,
             ArrowBody::Expression(expr) => {
-                let ret = t.alloc_as_loc(expr, ReturnStatement {
+                let ret = t.alloc_as_loc(&expr, ReturnStatement {
                     value: Some(expr)
                 });
 
-                t.alloc_as_loc(ret, Block {
+                t.alloc_as_loc(&ret, Block {
                     body: NodeList::from(t.arena, ret)
                 })
             }
         };
 
-        t.swap(ptr, Function {
+        t.swap(*ptr, Function {
             name: OptionalName::empty(),
             generator: false,
             params: node.params,

@@ -121,8 +121,8 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn as_str(&self) -> &'static str {
-        match *self {
+    pub fn as_str(self) -> &'static str {
+        match self {
             FatArrow         => "=>",
             New              => "new",
             Increment        => "++",
@@ -177,8 +177,8 @@ impl OperatorKind {
     /// According to the Operator Precedence Table
     /// Note: Unary operators default to 15!
     #[inline]
-    pub fn binding_power(&self) -> u8 {
-        match *self {
+    pub fn binding_power(self) -> u8 {
+        match self {
             FatArrow         => 18,
 
             New              => 17,
@@ -242,8 +242,8 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn prefix(&self) -> bool {
-        match *self {
+    pub fn prefix(self) -> bool {
+        match self {
             LogicalNot       |
             BitwiseNot       |
             Typeof           |
@@ -261,8 +261,8 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn infix(&self) -> bool {
-        match *self {
+    pub fn infix(self) -> bool {
+        match self {
             FatArrow         |
             Multiplication   |
             Division         |
@@ -308,8 +308,8 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn assignment(&self) -> bool {
-        match *self {
+    pub fn assignment(self) -> bool {
+        match self {
             Assign           |
             AddAssign        |
             SubtractAssign   |
@@ -329,8 +329,8 @@ impl OperatorKind {
     }
 
     #[inline]
-    pub fn category(&self) -> OperatorCategory {
-        match *self {
+    pub fn category(self) -> OperatorCategory {
+        match self {
             In            |
             New           |
             Typeof        |

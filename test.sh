@@ -4,6 +4,7 @@ echo "TESTING: ratel + crates"
 echo "#######################"
 echo ""
 
+cargo +nightly clippy || exit
 cargo test || exit
 
 echo ""

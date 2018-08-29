@@ -9,13 +9,13 @@ use ratel::error::{Error, ParseError};
 
 fn main() {}
 
-fn format_errors(errors: Vec<Error>, source: String) -> String {
+fn format_errors(errors: Vec<Error>, source: &str) -> String {
     let error = errors
     .into_iter()
     .map(|err| {
         match err {
             Error { start, end, .. } => {
-               ParseError::UnexpectedToken { start, end, source: source.clone() }
+               ParseError::UnexpectedToken { start, end, source: source.to_string() }
             }
         }
     })
@@ -25,6 +25,9 @@ fn format_errors(errors: Vec<Error>, source: String) -> String {
 
 	format!("Error: {}", error)
 }
+
+// TODO: convert to unsafe function
+#[cfg_attr(feature = "cargo-clippy", allow(not_unsafe_ptr_arg_deref))]
 
 #[no_mangle]
 pub fn transform(i: *const c_char, minify: bool) -> *const c_char {
@@ -36,11 +39,14 @@ pub fn transform(i: *const c_char, minify: bool) -> *const c_char {
 		Ok(module) => {
 			ratel_codegen::codegen(&module, minify)
 		},
-		Err(errors) => format_errors(errors, data.to_string())
+		Err(errors) => format_errors(errors, data)
 	};
 
 	CString::new(result.as_str()).unwrap().into_raw()
 }
+
+// TODO: convert to unsafe function
+#[cfg_attr(feature = "cargo-clippy", allow(not_unsafe_ptr_arg_deref))]
 
 #[no_mangle]
 pub fn generate_ast(i: *const c_char, minify: bool) -> *const c_char {
@@ -56,11 +62,14 @@ pub fn generate_ast(i: *const c_char, minify: bool) -> *const c_char {
 		    	format!("{:#?}", module.body())
 			}
 		},
-		Err(errors) => format_errors(errors, data.to_string())
+		Err(errors) => format_errors(errors, data)
 	};
 
 	CString::new(result.as_str()).unwrap().into_raw()
 }
+
+// TODO: convert to unsafe function
+#[cfg_attr(feature = "cargo-clippy", allow(not_unsafe_ptr_arg_deref))]
 
 #[no_mangle]
 pub fn generate_ast_estree(i: *const c_char, minify: bool) -> *const c_char {
@@ -76,7 +85,7 @@ pub fn generate_ast_estree(i: *const c_char, minify: bool) -> *const c_char {
 				serde_json::to_string_pretty(&module).unwrap()
 			}
 		},
-		Err(errors) => format_errors(errors, data.to_string())
+		Err(errors) => format_errors(errors, data)
 	};
 
 	CString::new(result.as_str()).unwrap().into_raw()

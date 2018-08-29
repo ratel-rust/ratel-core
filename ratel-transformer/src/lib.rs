@@ -31,7 +31,7 @@ impl<'ast> Transformer<'ast> {
     }
 
     #[inline]
-    pub fn alloc_as_loc<T, I, L>(&self, loc: Node<'ast, L>, item: I) -> Node<'ast, T> where
+    pub fn alloc_as_loc<T, I, L>(&self, loc: &Node<'ast, L>, item: I) -> Node<'ast, T> where
         T: Copy + 'ast,
         I: Into<T>,
     {
@@ -58,7 +58,7 @@ impl<'ast> Transformer<'ast> {
     }
 
     #[inline]
-    pub fn swap<T, I>(&self, ptr: &Node<'ast, T>, item: I) where
+    pub fn swap<T, I>(&self, ptr: Node<'ast, T>, item: I) where
         T: Copy + 'ast,
         I: Into<T>,
     {

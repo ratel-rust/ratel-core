@@ -169,7 +169,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
                 end = value.end;
 
                 ClassMember::Method {
-                    is_static: is_static,
+                    is_static,
                     key,
                     kind,
                     value,
@@ -218,7 +218,7 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
         };
 
         Class {
-            name: name.into(),
+            name,
             extends: super_class,
             body: par.block(),
         }

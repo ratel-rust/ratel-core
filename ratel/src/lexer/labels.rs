@@ -20,6 +20,12 @@ macro_rules! match_label {
         }
     };
 
+    ($lex:ident { $match:tt $cont:tt }) => {
+        if $lex.next_byte() == $match {
+            match_label!($lex $cont)
+        }
+    };
+
     ($lex:ident { $( $match:tt $cont:tt )+ }) => {
         match $lex.next_byte() {
             $(

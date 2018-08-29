@@ -10,7 +10,7 @@ pub struct RegExLiteral<'ast> {
 }
 
 #[inline]
-pub fn parse_regex<'ast>(value: &'ast str) -> RegExLiteral<'ast> {
+pub fn parse_regex(value: &str) -> RegExLiteral {
     let mut end = value.len() - 1;
     for index in (0..value.len()).rev() {
         if "/" == &value[index..(index + 1)] {
@@ -26,7 +26,7 @@ pub fn parse_regex<'ast>(value: &'ast str) -> RegExLiteral<'ast> {
 }
 
 #[inline]
-pub fn is_float<'ast>(value: &'ast str) -> bool {
+pub fn is_float(value: &str) -> bool {
     for index in 0..value.len() {
         if "." == &value[index..(index + 1)] {
             return true;
@@ -116,8 +116,7 @@ impl<'ast> SerializeInLoc for Property<'ast> {
         use self::Property::*;
         match *self {
             Shorthand(value) => {
-                let state = Expression::Identifier(value).serialize(serializer);
-                state
+                Expression::Identifier(value).serialize(serializer)
             }
             Literal { key, value } => {
                 let computed = if let PropertyKey::Computed(_) = key.item {
@@ -209,7 +208,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                         let is_hexdecimal = prefix == "0x" || prefix == "0X";
                         let is_octal = prefix == "0o" || prefix == "0O";
                         if is_hexdecimal || is_octal {
-                            let value = unsafe { number.slice_unchecked(2, number.len()) };
+                            let value = unsafe { number.get_unchecked(2..number.len()) };
                             let radix = if is_hexdecimal { 16 } else { 8 };
                             state.serialize_field(
                                 "value",
@@ -230,7 +229,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                     state.serialize_field("raw", &number)
                 }
                 Binary(number) => {
-                    let value = unsafe { number.slice_unchecked(2, number.len()) };
+                    let value = unsafe { number.get_unchecked(2..number.len()) };
                     state.serialize_field(
                         "value",
                         &i32::from_str_radix(value, 2).expect("Invalid number"),
@@ -238,7 +237,7 @@ impl<'ast> SerializeInLoc for Literal<'ast> {
                     state.serialize_field("raw", &number)
                 }
                 String(value) => {
-                    let parsed_value = unsafe { value.slice_unchecked(1, value.len() - 1) };
+                    let parsed_value = unsafe { value.get_unchecked(1..value.len() - 1) };
                     state.serialize_field("value", &parsed_value)?;
                     state.serialize_field("raw", &value)
                 },

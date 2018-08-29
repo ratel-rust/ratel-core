@@ -44,7 +44,7 @@ pub trait Generator: Sized {
     {
         let mut items = items.into_iter();
 
-        for item in items.next() {
+        if let Some(item) = items.next() {
             self.write(item);
         }
 
@@ -177,7 +177,7 @@ impl Generator for PrettyGenerator {
     }
 }
 
-pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
+pub fn codegen(module: &Module, minify: bool) -> String {
     if minify {
         let mut gen = MinifyingGenerator::new();
 
@@ -190,7 +190,7 @@ pub fn codegen<'ast>(module: &Module, minify: bool) -> String {
         let mut gen = PrettyGenerator::new();
         let mut body = module.body().iter();
 
-        gen.write(&body.next().map(|s| *s));
+        gen.write(&body.next().cloned());
 
         for statement in body {
             gen.new_line();

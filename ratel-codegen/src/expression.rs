@@ -45,7 +45,7 @@ impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
             Null              => gen.write_bytes(b"null"),
             True              => gen.write_bytes(b"true"),
             False             => gen.write_bytes(b"false"),
-            Binary(n)         => gen.write(&format!("{}", n).as_str()),
+            Binary(n)         => gen.write(&n.to_string().as_str()),
             Number(ref val)   |
             String(ref val)   |
             RegEx(ref val)    => gen.write(val),

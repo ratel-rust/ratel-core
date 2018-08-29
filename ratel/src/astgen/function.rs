@@ -36,7 +36,7 @@ impl<'ast> SerializeInLoc for ClassMember<'ast> {
                     state.serialize_field("value", &value)
                 })
             },
-            Literal { is_static: _, key: _, value: _ } => {
+            Literal { .. } => {
                 unimplemented!()
             }
         }

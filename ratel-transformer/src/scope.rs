@@ -161,24 +161,24 @@ mod test {
 
     #[test]
     fn scope_analysis() {
-        let module = parse("function foo(bar) { doge; { moon; } return 10; }").unwrap();
+        let module = parse("function test_function(bar) { doge; { moon; } return 10; }").unwrap();
         let root = analyze(&module);
 
         assert_eq!(root.parent, None);
         assert_eq!(root.kind, ScopeKind::Function);
         assert_eq!(root.used_refs.is_empty(), true);
-        assert_eq!(root.declared_refs.contains_key("foo"), true);
+        assert_eq!(root.declared_refs.contains_key("test_function"), true);
 
-        let foo = *root.children.as_list().only_element().unwrap();
+        let test_function = *root.children.as_list().only_element().unwrap();
 
-        assert_eq!(foo.parent, Some(root));
-        assert_eq!(foo.kind, ScopeKind::Function);
-        assert_eq!(foo.used_refs.contains_key("doge"), true);
-        assert_eq!(foo.declared_refs.contains_key("bar"), true);
+        assert_eq!(test_function.parent, Some(root));
+        assert_eq!(test_function.kind, ScopeKind::Function);
+        assert_eq!(test_function.used_refs.contains_key("doge"), true);
+        assert_eq!(test_function.declared_refs.contains_key("bar"), true);
 
-        let moon = *foo.children.as_list().only_element().unwrap();
+        let moon = *test_function.children.as_list().only_element().unwrap();
 
-        assert_eq!(moon.parent, Some(foo));
+        assert_eq!(moon.parent, Some(test_function));
         assert_eq!(moon.kind, ScopeKind::Block);
         assert_eq!(moon.used_refs.contains_key("moon"), true);
         assert_eq!(moon.declared_refs.is_empty(), true);
