@@ -125,7 +125,7 @@ pub enum Token {
 
 impl Token {
     #[inline]
-    pub fn is_word(self) -> bool {
+    pub fn is_word(&self) -> bool {
         use self::Token::*;
 
         match self {

@@ -4,7 +4,7 @@ echo "TESTING: ratel + crates"
 echo "#######################"
 echo ""
 
-cargo +nightly clippy || exit
+cargo +$CLIPPY_TOOLCHAIN clippy || exit
 cargo test || exit
 
 echo ""
