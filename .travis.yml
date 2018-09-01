@@ -10,7 +10,7 @@ rust:
 
 env:
   global:
-    - CLIPPY_TOOLCHAIN=nightly-2018-08-02
+    - CLIPPY_TOOLCHAIN=nightly
 
 matrix:
   allow_failures:
