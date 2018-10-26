@@ -11,8 +11,51 @@
 // IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
 // IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Token {
+macro_rules! count {
+    () => (0);
+    ( $x:tt $($xs:tt)* ) => (1 + count!($($xs)*));
+}
+
+macro_rules! token {
+    ($( $name:ident, )*) => {
+        #[derive(Debug, PartialEq, Clone, Copy)]
+        pub enum Token {
+            $( $name, )*
+        }
+
+        const TOKEN_SIZE: usize = count!($( $name )*);
+
+        pub struct TokenTable<T>([T; TOKEN_SIZE]);
+
+        impl Token {
+            pub fn size() -> usize {
+                TOKEN_SIZE
+            }
+
+            pub fn table<T>(fill: T) -> TokenTable<T>
+            where
+                T: Copy
+            {
+                TokenTable([fill; TOKEN_SIZE])
+            }
+        }
+
+        impl<T> TokenTable<T>
+        where
+            T: Copy
+        {
+            pub fn set(&mut self, index: Token, value: T) {
+                self.0[index as usize] = value;
+            }
+
+            pub fn get(&self, index: Token) -> T {
+                self.0[index as usize]
+            }
+        }
+    }
+}
+
+token! {
     EndOfProgram,
     Semicolon,
     Colon,
@@ -37,7 +80,7 @@ pub enum Token {
     OperatorRemainder,        //   …  %  …
     OperatorExponent,         //   …  ** …
     OperatorAddition,         //   …  +  … | + …
-    OperatorSubtraction,     //   …  -  … | - …
+    OperatorSubtraction,      //   …  -  … | - …
     OperatorBitShiftLeft,     //   …  << …
     OperatorBitShiftRight,    //   …  >> …
     OperatorUBitShiftRight,   //   … >>> …
