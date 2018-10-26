@@ -4,12 +4,10 @@ use {ToCode, Generator};
 
 
 impl<G: Generator> ToCode<G> for EmptyName {
-    #[inline]
     fn to_code(&self, _: &mut G) {}
 }
 
 impl<'ast, G: Generator> ToCode<G> for MandatoryName<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_byte(b' ');
         gen.write(&self.0);
@@ -17,7 +15,6 @@ impl<'ast, G: Generator> ToCode<G> for MandatoryName<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for OptionalName<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.0 {
             Some(ref name) => {
@@ -30,22 +27,18 @@ impl<'ast, G: Generator> ToCode<G> for OptionalName<'ast> {
 }
 
 pub trait ClassFunctionDeclaration<G: Generator> {
-    #[inline]
     fn write_class(gen: &mut G) {
         gen.write_bytes(b"class");
     }
 
-    #[inline]
     fn write_function(gen: &mut G) {
         gen.write_bytes(b"function");
     }
 }
 
 impl<G: Generator> ClassFunctionDeclaration<G> for EmptyName {
-    #[inline]
     fn write_class(_: &mut G) {}
 
-    #[inline]
     fn write_function(_: &mut G) {}
 }
 
@@ -56,7 +49,6 @@ impl<'ast, G, N> ToCode<G> for Function<'ast, N> where
     G: Generator,
     N: Name<'ast> + ToCode<G> + ClassFunctionDeclaration<G>,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         N::write_function(gen);
         gen.write(&self.name);
@@ -69,7 +61,6 @@ impl<'ast, G, N> ToCode<G> for Function<'ast, N> where
 }
 
 impl<'ast, G: Generator> ToCode<G> for ClassMember<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::ClassMember::*;
 
@@ -115,7 +106,6 @@ impl<'ast, G, N> ToCode<G> for Class<'ast, N> where
     G: Generator,
     N: Name<'ast> + ToCode<G> + ClassFunctionDeclaration<G>,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         N::write_class(gen);
         gen.write(&self.name);

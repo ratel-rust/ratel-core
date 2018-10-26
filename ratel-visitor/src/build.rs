@@ -12,7 +12,6 @@ macro_rules! build { (
 
         // Construct methods
         $(
-            #[inline]
             fn $name(&self, $( $type, )* &mut Self::Context) {}
         )*
 
@@ -24,7 +23,6 @@ macro_rules! build { (
 
         // Construct associated functions
         $(
-            #[inline]
             fn $name($( $type, )* &mut Self::Context) {}
         )*
 
@@ -38,13 +36,11 @@ macro_rules! build { (
 
         // Construct methods
         $(
-            #[inline]
             fn $name(&self, $( $arg: $type, )* ctx: &mut Self::Context) {
                 SV::$name($( $arg, )* ctx);
             }
         )*
 
-        #[inline]
         fn register(&self, dv: &mut DynamicVisitor<'ast, Self::Context>) {
             SV::register(dv)
         }
@@ -72,7 +68,6 @@ macro_rules! build { (
 
         // Construct methods
         $(
-            #[inline]
             fn $name(&self, $( $arg: $type, )* ctx: &mut Self::Context) {
                 for handler in &self.$name {
                     handler($( $arg, )* ctx);
@@ -95,14 +90,12 @@ macro_rules! build { (
 
         // Construct associated functions
         $(
-            #[inline]
             fn $name($( $arg: $type, )* ctx: &mut CTX) {
                 A::$name($( $arg, )* ctx);
                 B::$name($( $arg, )* ctx);
             }
         )*
 
-        #[inline]
         fn register(dv: &mut DynamicVisitor<'ast, Self::Context>) {
             A::register(dv);
             B::register(dv);

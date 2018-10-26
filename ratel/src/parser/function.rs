@@ -7,7 +7,6 @@ use ast::{MethodKind, Pattern, Function, Class, ClassMember, PropertyKey};
 impl<'ast> Parse<'ast> for EmptyName {
     type Output = Self;
 
-    #[inline]
     fn parse(_: &mut Parser<'ast>) -> Self::Output {
         EmptyName
     }
@@ -16,7 +15,6 @@ impl<'ast> Parse<'ast> for EmptyName {
 impl<'ast> Parse<'ast> for OptionalName<'ast> {
     type Output = Self;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         if par.lexer.token != Identifier {
             return OptionalName(None);
@@ -32,7 +30,6 @@ impl<'ast> Parse<'ast> for OptionalName<'ast> {
 impl<'ast> Parse<'ast> for MandatoryName<'ast> {
     type Output = Self;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         if par.lexer.token != Identifier {
             return par.error();
@@ -48,7 +45,6 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
 impl<'ast> Parse<'ast> for Pattern<'ast> {
     type Output = Node<'ast, Self>;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         match par.lexer.token {
             Identifier  => par.pattern_identifier(),
@@ -64,7 +60,6 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
 {
     type Output = Self;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         let generator: bool = if par.lexer.token == OperatorMultiplication {
             par.lexer.consume();
@@ -89,7 +84,6 @@ impl<'ast, N> Parse<'ast> for Node<'ast, Function<'ast, N>> where
 {
     type Output = Self;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         let start = par.lexer.start();
         let function = Function::parse(par);
@@ -101,7 +95,6 @@ impl<'ast, N> Parse<'ast> for Node<'ast, Function<'ast, N>> where
 impl<'ast> Parse<'ast> for ClassMember<'ast> {
     type Output = Node<'ast, ClassMember<'ast>>;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         let start = par.lexer.start();
 
@@ -204,7 +197,6 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
 {
     type Output = Self;
 
-    #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
         let name = N::parse(par);
 
@@ -226,13 +218,11 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
 }
 
 impl<'ast> Parser<'ast> {
-    #[inline]
     fn pattern_void(&mut self) -> Node<'ast, Pattern<'ast>> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Pattern::Void)
     }
 
-    #[inline]
     fn pattern_identifier(&mut self) -> Node<'ast, Pattern<'ast>> {
         let ident = Pattern::Identifier(self.lexer.token_as_str());
         let ident = self.alloc_in_loc(ident);
@@ -242,7 +232,6 @@ impl<'ast> Parser<'ast> {
         ident
     }
 
-    #[inline]
     fn pattern_array(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let elements = self.array_elements(Parser::pattern_array_element);
@@ -253,7 +242,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     fn pattern_object(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let properties = self.property_list();
@@ -264,7 +252,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     fn pattern_assign(&mut self, left: Node<'ast, Pattern<'ast>>) -> Node<'ast, Pattern<'ast>> {
         match self.lexer.token {
             OperatorAssign => {
@@ -281,7 +268,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     fn pattern_array_element(&mut self) -> Node<'ast, Pattern<'ast>> {
         let left = match self.lexer.token {
             Identifier           => self.pattern_identifier(),
@@ -294,7 +280,6 @@ impl<'ast> Parser<'ast> {
         self.pattern_assign(left)
     }
 
-    #[inline]
     fn pattern_param(&mut self) -> Node<'ast, Pattern<'ast>> {
         let left = match self.lexer.token {
             Identifier           => self.pattern_identifier(),
@@ -306,7 +291,6 @@ impl<'ast> Parser<'ast> {
         self.pattern_assign(left)
     }
 
-    #[inline]
     fn rest_element(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let argument = match self.lexer.token {
@@ -328,7 +312,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     fn params(&mut self) -> NodeList<'ast, Pattern<'ast>> {
         expect!(self, ParenOpen);
 
@@ -425,7 +408,7 @@ mod test {
 
             assert_eq!(parse(src).unwrap().body(), expected);
         }
-        
+
         {
             let src = "function * foo() {}";
             let mock = Mock::new();

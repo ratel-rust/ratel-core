@@ -235,17 +235,14 @@ create_handlers! {
 }
 
 impl<'ast> Parser<'ast> {
-    #[inline]
     fn bound_expression(&mut self) -> ExpressionNode<'ast> {
         unsafe { (*(DEF_CONTEXT as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
     }
 
-    #[inline]
     fn context_bound_expression(&mut self, context: Context) -> ExpressionNode<'ast> {
         unsafe { (*(context as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
     }
 
-    #[inline]
     pub fn expression<B>(&mut self) -> ExpressionNode<'ast>
     where
         B: BindingPower
@@ -255,7 +252,6 @@ impl<'ast> Parser<'ast> {
         self.nested_expression::<B>(left)
     }
 
-    #[inline]
     pub fn expression_in_context<B>(&mut self, context: Context) -> ExpressionNode<'ast>
     where
         B: BindingPower
@@ -265,7 +261,6 @@ impl<'ast> Parser<'ast> {
         self.nested_expression::<B>(left)
     }
 
-    #[inline]
     pub fn arrow_function_expression(&mut self, params: ExpressionList<'ast>) -> ArrowExpression<'ast> {
         let params = self.params_from_expressions(params);
 
@@ -280,7 +275,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     pub fn call_arguments(&mut self) -> ExpressionList<'ast> {
         if self.lexer.token == ParenClose {
             return NodeList::empty();
@@ -313,7 +307,6 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    #[inline]
     pub fn paren_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         match self.lexer.token {
@@ -334,7 +327,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     pub fn prefix_expression(&mut self, operator: OperatorKind) -> PrefixExpression<'ast> {
         let operand = self.expression::<B15>();
 
@@ -344,7 +336,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     pub fn object_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let body = self.property_list();
@@ -355,7 +346,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     pub fn meta_property_expression(&mut self, meta: IdentifierNode<'ast>) -> MetaPropertyExpression<'ast> {
         let property = self.lexer.accessor_as_str();
 
@@ -372,7 +362,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     pub fn property_list(&mut self) -> NodeList<'ast, Property<'ast>> {
         if self.lexer.token == BraceClose {
             return NodeList::empty();
@@ -399,7 +388,6 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    #[inline]
     pub fn property(&mut self) -> Node<'ast, Property<'ast>> {
         let start = self.lexer.start();
 
@@ -468,7 +456,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     pub fn array_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let body = self.array_elements(|par| par.expression_in_context::<B0>(ARRAY_CONTEXT));
@@ -477,14 +464,12 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, end, ArrayExpression { body })
     }
 
-    #[inline]
     /// Only in ArrayExpression
     pub fn void_expression(&mut self) -> ExpressionNode<'ast> {
         let loc = self.lexer.start();
         self.alloc_at_loc(loc, loc, Expression::Void)
     }
 
-    #[inline]
     pub fn array_elements<F, I>(&mut self, get: F) -> NodeList<'ast, I> where
         F: Fn(&mut Parser<'ast>) -> Node<'ast, I>,
         I: 'ast + Copy,
@@ -512,7 +497,6 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    #[inline]
     pub fn regular_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start();
         let value = self.lexer.read_regular_expression();
@@ -523,7 +507,6 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, end, Literal::RegEx(value))
     }
 
-    #[inline]
     pub fn template_string<T>(&mut self) -> Node<'ast, T>
     where
         T: Copy + From<TemplateLiteral<'ast>>,
@@ -539,7 +522,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     pub fn template_literal<T>(&mut self) -> Node<'ast, T>
     where
         T: Copy + From<TemplateLiteral<'ast>>,
@@ -597,12 +579,10 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     pub fn template_expression(&mut self) -> ExpressionNode<'ast> {
         self.template_literal()
     }
 
-    #[inline]
     pub fn tagged_template_expression(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
         let quasi = self.template_literal();
 
@@ -612,7 +592,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    #[inline]
     pub fn function_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let function = Function::parse(self);
@@ -620,7 +599,6 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, function.body.end, function)
     }
 
-    #[inline]
     pub fn class_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let class = Class::parse(self);

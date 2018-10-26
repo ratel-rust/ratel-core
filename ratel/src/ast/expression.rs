@@ -151,7 +151,6 @@ pub enum Expression<'ast> {
 macro_rules! impl_from {
     ($( $type:ty => $variant:ident ),*) => ($(
         impl<'ast> From<$type> for Expression<'ast> {
-            #[inline]
             fn from(val: $type) -> Expression<'ast> {
                 Expression::$variant(val)
             }
@@ -183,7 +182,6 @@ impl_from! {
 }
 
 impl<'ast> Expression<'ast> {
-    #[inline]
     pub fn binding_power(&self) -> u8 {
         use self::Expression::*;
 
@@ -205,7 +203,6 @@ impl<'ast> Expression<'ast> {
         }
     }
 
-    #[inline]
     pub fn is_allowed_as_bare_statement(&self) -> bool {
         use self::Expression::*;
 
@@ -217,7 +214,6 @@ impl<'ast> Expression<'ast> {
         }
     }
 
-    #[inline]
     pub fn is_lvalue(&self) -> bool {
         use self::Expression::*;
 

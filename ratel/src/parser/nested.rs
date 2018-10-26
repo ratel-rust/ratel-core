@@ -14,7 +14,7 @@ type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>
 pub trait BindingPower {
     const LUT: [NestedHandler; TOTAL_TOKENS];
 
-    #[inline]
+
     fn handler(asi: Asi, token: Token) -> NestedHandler {
         // TODO: find a cleaner solution, roll it the ASI check into lookup table somehow?
         if asi == Asi::ImplicitSemicolon {
@@ -442,7 +442,7 @@ binary!(EXPN , B15 => Exponent);
 
 
 impl<'ast> Parser<'ast> {
-    #[inline]
+
     pub fn nested_expression<B>(&mut self, mut left: ExpressionNode<'ast>) -> ExpressionNode<'ast>
     where
         B: BindingPower

@@ -5,7 +5,6 @@ use {ToCode, Generator};
 
 
 impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::Expression::*;
 
@@ -36,7 +35,6 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::Literal::*;
 
@@ -54,14 +52,12 @@ impl<'ast, G: Generator> ToCode<G> for Literal<'ast> {
 }
 
 impl<G: Generator> ToCode<G> for OperatorKind {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(self.as_str().as_bytes())
     }
 }
 
 impl<'ast, G: Generator> ToCode<G> for PropertyKey<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::PropertyKey::*;
 
@@ -78,7 +74,6 @@ impl<'ast, G: Generator> ToCode<G> for PropertyKey<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::Property::*;
 
@@ -105,14 +100,12 @@ impl<'ast, G: Generator> ToCode<G> for Property<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for SequenceExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_list(&self.body);
     }
 }
 
 impl<'ast, G: Generator> ToCode<G> for ArrayExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_byte(b'[');
         gen.write_list(&self.body);
@@ -121,7 +114,6 @@ impl<'ast, G: Generator> ToCode<G> for ArrayExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for MemberExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_expression(&self.object, 19);
         gen.write_byte(b'.');
@@ -130,7 +122,6 @@ impl<'ast, G: Generator> ToCode<G> for MemberExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ComputedMemberExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_expression(&self.object, 19);
         gen.write_byte(b'[');
@@ -140,7 +131,6 @@ impl<'ast, G: Generator> ToCode<G> for ComputedMemberExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for MetaPropertyExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.meta);
         gen.write_byte(b'.');
@@ -149,7 +139,6 @@ impl<'ast, G: Generator> ToCode<G> for MetaPropertyExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for CallExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.callee);
         gen.write_byte(b'(');
@@ -159,7 +148,6 @@ impl<'ast, G: Generator> ToCode<G> for CallExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         let bp = self.operator.binding_power();
         let category = self.operator.category();
@@ -210,7 +198,6 @@ impl<'ast, G: Generator> ToCode<G> for BinaryExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for PrefixExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.operator);
         if self.operator.category() == OperatorCategory::Word {
@@ -221,7 +208,6 @@ impl<'ast, G: Generator> ToCode<G> for PrefixExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for PostfixExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.operand);
         gen.write(&self.operator);
@@ -229,7 +215,6 @@ impl<'ast, G: Generator> ToCode<G> for PostfixExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ConditionalExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.test);
         gen.write_pretty(b' ');
@@ -244,7 +229,6 @@ impl<'ast, G: Generator> ToCode<G> for ConditionalExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for TemplateLiteral<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_byte(b'`');
 
@@ -273,7 +257,6 @@ impl<'ast, G: Generator> ToCode<G> for TemplateLiteral<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for TaggedTemplateExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.tag);
         gen.write(&self.quasi);
@@ -281,7 +264,6 @@ impl<'ast, G: Generator> ToCode<G> for TaggedTemplateExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for SpreadExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"...");
         gen.write(&self.argument);
@@ -289,7 +271,6 @@ impl<'ast, G: Generator> ToCode<G> for SpreadExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ArrowBody<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match *self {
             ArrowBody::Expression(ref expression) => gen.write(expression),
@@ -299,7 +280,6 @@ impl<'ast, G: Generator> ToCode<G> for ArrowBody<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ArrowExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.params.only_element().map(|el| &el.item) {
             Some(&Pattern::Identifier(ref ident)) => gen.write(ident),
@@ -317,7 +297,6 @@ impl<'ast, G: Generator> ToCode<G> for ArrowExpression<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ObjectExpression<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         let mut properties = self.body.iter();
 

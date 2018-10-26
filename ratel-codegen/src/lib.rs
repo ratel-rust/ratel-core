@@ -18,7 +18,6 @@ pub trait Generator: Sized {
     fn write_bytes(&mut self, &[u8]);
     fn write_pretty(&mut self, u8);
 
-    #[inline]
     fn write<T>(&mut self, item: &T) where
         T: ToCode<Self>,
     {
@@ -26,7 +25,6 @@ pub trait Generator: Sized {
     }
 
     /// Helper that adds parenthesis if required by the binding power of inner expression
-    #[inline]
     fn write_expression<'ast>(&mut self, item: &ExpressionNode<'ast>, bp: u8) {
         if item.binding_power() < bp {
             self.write_byte(b'(');
@@ -37,7 +35,6 @@ pub trait Generator: Sized {
         }
     }
 
-    #[inline]
     fn write_list<'a, T, I>(&mut self, items: I) where
         T: ToCode<Self> + 'a,
         I: IntoIterator<Item = &'a Node<'a, T>>,
@@ -55,7 +52,6 @@ pub trait Generator: Sized {
         }
     }
 
-    #[inline]
     fn write_block<'a, T, I>(&mut self, items: I) where
         T: ToCode<Self> + 'a,
         I: IntoIterator<Item = &'a Node<'a, T>>,
@@ -79,13 +75,10 @@ pub trait Generator: Sized {
         self.new_line();
     }
 
-    #[inline]
     fn new_line(&mut self) {}
 
-    #[inline]
     fn indent(&mut self) {}
 
-    #[inline]
     fn dedent(&mut self) {}
 }
 
@@ -108,15 +101,12 @@ impl Generator for MinifyingGenerator {
         unsafe { String::from_utf8_unchecked(self.code) }
     }
 
-    #[inline]
     fn write_byte(&mut self, ch: u8) {
         self.code.push(ch);
     }
 
-    #[inline]
     fn write_pretty(&mut self, _: u8) {}
 
-    #[inline]
     fn write_bytes(&mut self, slice: &[u8]) {
         extend_from_slice(&mut self.code, slice);
     }
@@ -143,22 +133,18 @@ impl Generator for PrettyGenerator {
         unsafe { String::from_utf8_unchecked(self.code) }
     }
 
-    #[inline]
     fn write_byte(&mut self, ch: u8) {
         self.code.push(ch);
     }
 
-    #[inline]
     fn write_pretty(&mut self, ch: u8) {
         self.code.push(ch);
     }
 
-    #[inline]
     fn write_bytes(&mut self, slice: &[u8]) {
         extend_from_slice(&mut self.code, slice);
     }
 
-    #[inline]
     fn new_line(&mut self) {
         self.write_byte(b'\n');
         for _ in 0..self.dent {
@@ -166,12 +152,10 @@ impl Generator for PrettyGenerator {
         }
     }
 
-    #[inline]
     fn indent(&mut self) {
         self.dent += 1;
     }
 
-    #[inline]
     fn dedent(&mut self) {
         self.dent -= 1;
     }
@@ -211,7 +195,6 @@ impl<'ast, G, T> ToCode<G> for Node<'ast, T> where
     G: Generator,
     T: 'ast + ToCode<G>,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         (**self).to_code(gen)
     }
@@ -221,7 +204,6 @@ impl<G, T> ToCode<G> for Loc<T> where
     G: Generator,
     T: ToCode<G>,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         self.item.to_code(gen)
     }
@@ -231,7 +213,6 @@ impl<'a, G, T> ToCode<G> for &'a Loc<T> where
     G: Generator,
     T: ToCode<G>,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         self.item.to_code(gen)
     }
@@ -240,14 +221,12 @@ impl<'a, G, T> ToCode<G> for &'a Loc<T> where
 impl<'a, G> ToCode<G> for &'a str where
     G: Generator,
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(self.as_bytes())
     }
 }
 
 impl<G: Generator> ToCode<G> for u64 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(format!("{}", self).as_str().as_bytes())
     }
@@ -257,7 +236,6 @@ impl<G, T> ToCode<G> for Option<T> where
     G: Generator,
     T: ToCode<G>
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         if let Some(ref val) = *self {
             gen.write(val);
@@ -269,7 +247,6 @@ impl<'ast, G, T> ToCode<G> for Block<'ast, T> where
     G: Generator,
     T: ToCode<G>
 {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_byte(b'{');
         gen.write_block(&self.body);
@@ -278,7 +255,6 @@ impl<'ast, G, T> ToCode<G> for Block<'ast, T> where
 }
 
 impl<'ast, G: Generator> ToCode<G> for Pattern<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::Pattern::*;
 
@@ -323,7 +299,6 @@ impl<'ast, G: Generator> ToCode<G> for Pattern<'ast> {
 //
 // LLVM is not able to lower `Vec::extend_from_slice` into a memcpy, so this
 // helps eke out that last bit of performance.
-#[inline]
 fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
     let dst_len = dst.len();
     let src_len = src.len();

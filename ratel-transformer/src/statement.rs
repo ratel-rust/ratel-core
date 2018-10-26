@@ -2,7 +2,6 @@ use transformer::{Transformer, Transformable};
 use ast::{Statement, StatementNode, StatementList};
 
 impl<'ast> Transformable<'ast> for StatementList<'ast> {
-    #[inline]
     fn transform(&self, t: &Transformer) {
         for statement in self.ptr_iter() {
             statement.transform(t);

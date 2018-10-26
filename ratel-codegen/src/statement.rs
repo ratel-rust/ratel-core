@@ -5,7 +5,6 @@ use {ToCode, Generator};
 
 
 impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::Statement::*;
 
@@ -46,7 +45,6 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
 }
 
 impl<G: Generator> ToCode<G> for DeclarationKind {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         use ratel::ast::DeclarationKind::*;
 
@@ -59,7 +57,6 @@ impl<G: Generator> ToCode<G> for DeclarationKind {
 }
 
 impl<'ast, G: Generator> ToCode<G> for Declarator<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.id);
 
@@ -73,7 +70,6 @@ impl<'ast, G: Generator> ToCode<G> for Declarator<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for DeclarationStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.kind);
         gen.write_list(&self.declarators);
@@ -81,7 +77,6 @@ impl<'ast, G: Generator> ToCode<G> for DeclarationStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ReturnStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.value {
             Some(ref value) => {
@@ -95,7 +90,6 @@ impl<'ast, G: Generator> ToCode<G> for ReturnStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for BreakStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.label {
             Some(ref label) => {
@@ -109,7 +103,6 @@ impl<'ast, G: Generator> ToCode<G> for BreakStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ThrowStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"throw ");
         gen.write(&self.value);
@@ -118,7 +111,6 @@ impl<'ast, G: Generator> ToCode<G> for ThrowStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for IfStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"if");
         gen.write_pretty(b' ');
@@ -146,7 +138,6 @@ impl<'ast, G: Generator> ToCode<G> for IfStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for WhileStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"while");
         gen.write_pretty(b' ');
@@ -159,7 +150,6 @@ impl<'ast, G: Generator> ToCode<G> for WhileStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for DoStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"do");
         if self.body.is_block() {
@@ -177,7 +167,6 @@ impl<'ast, G: Generator> ToCode<G> for DoStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ForInit<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match *self {
             ForInit::Declaration(ref declaration) => gen.write(declaration),
@@ -187,7 +176,6 @@ impl<'ast, G: Generator> ToCode<G> for ForInit<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ForStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"for");
         gen.write_pretty(b' ');
@@ -206,7 +194,6 @@ impl<'ast, G: Generator> ToCode<G> for ForStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ForInStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"for");
         gen.write_pretty(b' ');
@@ -221,7 +208,6 @@ impl<'ast, G: Generator> ToCode<G> for ForInStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ForOfStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"for");
         gen.write_pretty(b' ');
@@ -236,7 +222,6 @@ impl<'ast, G: Generator> ToCode<G> for ForOfStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for TryStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"try");
         gen.write_pretty(b' ');
@@ -259,7 +244,6 @@ impl<'ast, G: Generator> ToCode<G> for TryStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for LabeledStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write(&self.label);
         gen.write_byte(b':');
@@ -269,7 +253,6 @@ impl<'ast, G: Generator> ToCode<G> for LabeledStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for ContinueStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.label {
             Some(ref label) => {
@@ -283,7 +266,6 @@ impl<'ast, G: Generator> ToCode<G> for ContinueStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for SwitchStatement<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         gen.write_bytes(b"switch");
         gen.write_pretty(b' ');
@@ -295,7 +277,6 @@ impl<'ast, G: Generator> ToCode<G> for SwitchStatement<'ast> {
 }
 
 impl<'ast, G: Generator> ToCode<G> for SwitchCase<'ast> {
-    #[inline]
     fn to_code(&self, gen: &mut G) {
         match self.test {
             Some(ref test) => {

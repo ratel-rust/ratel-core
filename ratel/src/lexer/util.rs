@@ -1,4 +1,3 @@
-#[inline]
 pub fn legal_in_label(byte: u8) -> bool {
     // Look up table that marks which ASCII characters are allowed in identifiers
     const NU: bool = true; // digit

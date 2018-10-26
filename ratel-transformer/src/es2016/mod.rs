@@ -57,7 +57,6 @@ impl<'ast> StaticVisitor<'ast> for PresetES2016 {
         }
     }
 
-    #[inline]
     fn register(dv: &mut DynamicVisitor<'ast, Transformer<'ast>>) {
         dv.on_binary_expression.push(PresetES2016::on_binary_expression);
     }

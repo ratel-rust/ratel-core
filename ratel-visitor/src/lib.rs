@@ -96,29 +96,24 @@ pub enum ParentNode<'ast> {
 }
 
 impl<'ast> From<&'ast StatementNode<'ast>> for ParentNode<'ast> {
-    #[inline]
     fn from(node: &'ast StatementNode<'ast>) -> ParentNode<'ast> {
         ParentNode::Statement(node)
     }
 }
 
 impl<'ast> From<&'ast ExpressionNode<'ast>> for ParentNode<'ast> {
-    #[inline]
     fn from(node: &'ast ExpressionNode<'ast>) -> ParentNode<'ast> {
         ParentNode::Expression(node)
     }
 }
 
 pub trait ParentTrackingContext<'ast> {
-    #[inline]
     fn push_parent(&mut self, ParentNode<'ast>) {}
 
-    #[inline]
     fn pop_parent(&mut self) -> Option<ParentNode<'ast>> {
         None
     }
 
-    #[inline]
     fn get_parent(&mut self) -> Option<ParentNode<'ast>> {
         None
     }
@@ -135,7 +130,6 @@ pub trait Visitable<'ast>: 'ast {
 impl<'ast> Visitable<'ast> for Module<'ast> {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -150,7 +144,6 @@ impl<'ast> Visitable<'ast> for Module<'ast> {
 impl<'ast> Visitable<'ast> for Pattern<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -181,7 +174,6 @@ impl<'ast> Visitable<'ast> for Pattern<'ast> {
 impl<'ast> Visitable<'ast> for PropertyKey<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -196,7 +188,6 @@ impl<'ast> Visitable<'ast> for PropertyKey<'ast> {
 impl<'ast> Visitable<'ast> for Property<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -221,7 +212,6 @@ where
 {
     type Parent = T::Parent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -240,7 +230,6 @@ where
 {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -255,7 +244,6 @@ where
 {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -269,7 +257,6 @@ where
 impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -283,7 +270,6 @@ impl<'ast> Visitable<'ast> for ExpressionList<'ast> {
 impl<'ast> Visitable<'ast> for StatementList<'ast> {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -540,17 +526,14 @@ mod test {
     }
 
     impl<'ast> ParentTrackingContext<'ast> for ParentsTestContext<'ast> {
-        #[inline]
         fn push_parent(&mut self, node: ParentNode<'ast>) {
             self.parents.push(node);
         }
 
-        #[inline]
         fn pop_parent(&mut self) -> Option<ParentNode<'ast>> {
             self.parents.pop()
         }
 
-        #[inline]
         fn get_parent(&mut self) -> Option<ParentNode<'ast>> {
             self.parents.last().cloned()
         }

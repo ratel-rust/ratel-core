@@ -20,27 +20,23 @@ trait Take {
 }
 
 impl<T> Take for T where T: Default {
-    #[inline]
     fn take(&mut self) -> Self {
         mem::replace(self, Default::default())
     }
 }
 
 impl Default for Expression {
-    #[inline]
     fn default() -> Self {
         Expression::Void
     }
 }
 
 impl Default for ObjectKey {
-    #[inline]
     fn default() -> Self {
         ObjectKey::Binary(0)
     }
 }
 
-#[inline]
 fn bind_this(function: Expression) -> Expression {
     Expression::call(Expression::member(function, "bind"), vec![Expression::This])
 }
@@ -85,24 +81,20 @@ impl Settings {
 /// The `Transformable` trait provides an interface for instances of grammar
 /// to alter the AST.
 trait Transformable {
-    #[inline]
     fn transform(&mut self, _: &Settings) {}
 
-    #[inline]
     fn contains_this(&self) -> bool {
         false
     }
 }
 
 impl<T: Transformable> Transformable for Option<T> {
-    #[inline]
     fn transform(&mut self, settings: &Settings) {
         if let Some(ref mut value) = *self {
             value.transform(settings);
         }
     }
 
-    #[inline]
     fn contains_this(&self) -> bool {
         match *self {
             Some(ref value) => value.contains_this(),
@@ -112,12 +104,10 @@ impl<T: Transformable> Transformable for Option<T> {
 }
 
 impl<T: Transformable> Transformable for Box<T> {
-    #[inline]
     fn transform(&mut self, settings: &Settings) {
         self.as_mut().transform(settings)
     }
 
-    #[inline]
     fn contains_this(&self) -> bool {
         self.as_ref().contains_this()
     }
@@ -125,7 +115,6 @@ impl<T: Transformable> Transformable for Box<T> {
 
 impl Transformable for Parameter {}
 
-#[inline]
 fn transform_default_parameters(params: &mut Vec<Parameter>, body: &mut Vec<Statement>) {
     for param in params.iter_mut() {
         match param.default.take() {
@@ -587,7 +576,6 @@ impl Transformable for Expression {
 }
 
 impl Transformable for ObjectKey {
-    #[inline]
     fn transform(&mut self, settings: &Settings) {
         match *self {
             ObjectKey::Computed(ref mut expression) => {
@@ -597,7 +585,6 @@ impl Transformable for ObjectKey {
         }
     }
 
-    #[inline]
     fn contains_this(&self) -> bool {
         match *self {
             ObjectKey::Computed(ref expression) => {
@@ -713,12 +700,10 @@ impl Transformable for ClassMember {
 }
 
 impl Transformable for VariableDeclarator {
-    #[inline]
     fn transform(&mut self, settings: &Settings) {
         self.value.transform(settings);
     }
 
-    #[inline]
     fn contains_this(&self) -> bool {
         self.value.contains_this()
     }
@@ -746,7 +731,6 @@ fn add_props_to_body(body: &mut Vec<Statement>, mut props: Vec<ClassMember>) {
     }
 }
 
-#[inline]
 fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
         -> (Vec<Parameter>, Vec<Statement>, Vec<ClassMember>) {
     let mut constructor = None;
@@ -777,7 +761,6 @@ fn class_transform_props(body: &mut Vec<ClassMember>, prop_count: usize)
     (cnst_params, cnst_body, methods)
 }
 
-#[inline]
 fn class_transform_methods_to_prototype(
     methods: &mut Vec<ClassMember>,
     body: &mut Vec<Statement>,
@@ -811,7 +794,6 @@ fn class_transform_methods_to_prototype(
     }
 }
 
-#[inline]
 fn class_prop_count(body: &mut Vec<ClassMember>) -> usize {
     body.iter().filter(|member| match **member {
         ClassMember::Property { .. } => true,
@@ -819,7 +801,6 @@ fn class_prop_count(body: &mut Vec<ClassMember>) -> usize {
     }).count()
 }
 
-#[inline]
 fn class_key_to_member(object: Expression, key: &mut ClassKey) -> Expression {
     let expr = match *key {
         ClassKey::Literal(ref name) => {
@@ -1078,14 +1059,12 @@ impl Transformable for Statement {
 }
 
 impl<T: Transformable> Transformable for Vec<T> {
-    #[inline]
     fn transform(&mut self, settings: &Settings) {
         for item in self.iter_mut() {
             item.transform(settings);
         }
     }
 
-    #[inline]
     fn contains_this(&self) -> bool {
         for item in self {
             if item.contains_this() {
@@ -1096,7 +1075,6 @@ impl<T: Transformable> Transformable for Vec<T> {
     }
 }
 
-#[inline]
 fn partition_vec<T, F: Fn(&T) -> bool>(source: &mut Vec<T>, f: F) -> Vec<T> {
     let mut other = Vec::new();
     let indexes = 0 .. source.len();

@@ -7,7 +7,6 @@ use {Visitor, Visitable, ParentNode, ScopeKind, NoParent};
 impl<'ast> Visitable<'ast> for StatementNode<'ast> {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -15,7 +14,7 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
         use self::Statement::*;
 
         match self.item {
-            Empty => { 
+            Empty => {
                 // EmptyStatement doesn't have children, we return early to avoid calling pop_parent
                 return;
             },
@@ -117,7 +116,6 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
 impl<'ast> Visitable<'ast> for BlockStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -131,7 +129,6 @@ impl<'ast> Visitable<'ast> for BlockStatement<'ast> {
 impl<'ast> Visitable<'ast> for Node<'ast, BlockStatement<'ast>> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -143,7 +140,6 @@ impl<'ast> Visitable<'ast> for Node<'ast, BlockStatement<'ast>> {
 impl<'ast> Visitable<'ast> for Declarator<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -156,7 +152,6 @@ impl<'ast> Visitable<'ast> for Declarator<'ast> {
 impl<'ast> Visitable<'ast> for DeclarationStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -168,7 +163,6 @@ impl<'ast> Visitable<'ast> for DeclarationStatement<'ast> {
 impl<'ast> Visitable<'ast> for ReturnStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -180,7 +174,6 @@ impl<'ast> Visitable<'ast> for ReturnStatement<'ast> {
 impl<'ast> Visitable<'ast> for BreakStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V: Visitor<'ast>>(&self, _visitor: &V, _ctx: &mut V::Context) {
         // FIXME:
         // INTENTIONALLY KEPT EMPTY FOR NOW!
@@ -191,7 +184,6 @@ impl<'ast> Visitable<'ast> for BreakStatement<'ast> {
 impl<'ast> Visitable<'ast> for ContinueStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V: Visitor<'ast>>(&self, _visitor: &V, _ctx: &mut V::Context) {
         // FIXME:
         // INTENTIONALLY KEPT EMPTY FOR NOW!
@@ -202,7 +194,6 @@ impl<'ast> Visitable<'ast> for ContinueStatement<'ast> {
 impl<'ast> Visitable<'ast> for ThrowStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -214,7 +205,6 @@ impl<'ast> Visitable<'ast> for ThrowStatement<'ast> {
 impl<'ast> Visitable<'ast> for IfStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -228,7 +218,6 @@ impl<'ast> Visitable<'ast> for IfStatement<'ast> {
 impl<'ast> Visitable<'ast> for WhileStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -241,7 +230,6 @@ impl<'ast> Visitable<'ast> for WhileStatement<'ast> {
 impl<'ast> Visitable<'ast> for DoStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -254,7 +242,6 @@ impl<'ast> Visitable<'ast> for DoStatement<'ast> {
 impl<'ast> Visitable<'ast> for ForInit<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -269,7 +256,6 @@ impl<'ast> Visitable<'ast> for ForInit<'ast> {
 impl<'ast> Visitable<'ast> for ForStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -284,7 +270,6 @@ impl<'ast> Visitable<'ast> for ForStatement<'ast> {
 impl<'ast> Visitable<'ast> for ForInStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -298,7 +283,6 @@ impl<'ast> Visitable<'ast> for ForInStatement<'ast> {
 impl<'ast> Visitable<'ast> for ForOfStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -312,7 +296,6 @@ impl<'ast> Visitable<'ast> for ForOfStatement<'ast> {
 impl<'ast> Visitable<'ast> for CatchClause<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -325,7 +308,6 @@ impl<'ast> Visitable<'ast> for CatchClause<'ast> {
 impl<'ast> Visitable<'ast> for TryStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -339,7 +321,6 @@ impl<'ast> Visitable<'ast> for TryStatement<'ast> {
 impl<'ast> Visitable<'ast> for LabeledStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -352,7 +333,6 @@ impl<'ast> Visitable<'ast> for LabeledStatement<'ast> {
 impl<'ast> Visitable<'ast> for SwitchCase<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -365,7 +345,6 @@ impl<'ast> Visitable<'ast> for SwitchCase<'ast> {
 impl<'ast> Visitable<'ast> for SwitchStatement<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,

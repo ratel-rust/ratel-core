@@ -7,7 +7,6 @@ use {Visitable, Visitor, ScopeKind, NoParent};
 impl<'ast> Visitable<'ast> for EmptyName {
     type Parent = NoParent;
 
-    #[inline]
     fn traverse<V>(&'ast self, _: &V, _: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -17,7 +16,6 @@ impl<'ast> Visitable<'ast> for EmptyName {
 impl<'ast> Visitable<'ast> for OptionalName<'ast> {
     type Parent = ExpressionNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, _: &V, _: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -27,7 +25,6 @@ impl<'ast> Visitable<'ast> for OptionalName<'ast> {
 impl<'ast> Visitable<'ast> for MandatoryName<'ast> {
     type Parent = StatementNode<'ast>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -42,7 +39,6 @@ where
 {
     type Parent = N::Parent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -61,7 +57,6 @@ where
 impl<'ast> Visitable<'ast> for ClassMember<'ast> {
     type Parent = Node<'ast, Self>;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,
@@ -96,7 +91,6 @@ where
 {
     type Parent = N::Parent;
 
-    #[inline]
     fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
     where
         V: Visitor<'ast>,

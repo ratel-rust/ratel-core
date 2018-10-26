@@ -11,7 +11,6 @@ use neon::js::error::{JsError, Kind};
 use ratel::Module;
 use ratel::error::{Error, ParseError};
 
-#[inline]
 fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec<String> {
     errors
     .into_iter()
@@ -26,7 +25,6 @@ fn format_errors(errors: Vec<Error>, source: neon::mem::Handle<JsString>) -> Vec
     .collect()
 }
 
-#[inline]
 fn generate_ast(module: &Module, minify: bool) -> Result<String, serde_json::Error> {
     if minify {
         serde_json::to_string(&module)

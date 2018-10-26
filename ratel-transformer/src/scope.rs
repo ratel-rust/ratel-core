@@ -8,7 +8,6 @@ use toolshed::list::GrowableList;
 use toolshed::map::BloomMap;
 
 /// Traverse the AST and produce a tree of `Scope`s.
-#[inline]
 pub fn analyze<'ast>(module: &'ast Module<'ast>) -> &'ast Scope<'ast> {
     let mut ctx = ScopeContext::new(module.arena());
 
@@ -44,7 +43,6 @@ pub struct Scope<'ast> {
 }
 
 impl<'ast> Scope<'ast> {
-    #[inline]
     pub fn new(kind: ScopeKind, parent: Option<&'ast Scope<'ast>>) -> Self {
         Scope {
             kind,
@@ -57,12 +55,10 @@ impl<'ast> Scope<'ast> {
         }
     }
 
-    #[inline]
     pub fn as_usize(&'ast self) -> usize {
         self as *const Scope as usize
     }
 
-    #[inline]
     pub unsafe fn from_usize(ptr: usize) -> &'ast Self {
         &*(ptr as *const Scope)
     }
@@ -84,7 +80,6 @@ impl<'ast> Debug for Scope<'ast> {
 
 /// Enough to check if the pointers are the same
 impl<'ast> PartialEq for &'ast Scope<'ast> {
-    #[inline]
     fn eq(&self, other: &&'ast Scope<'ast>) -> bool {
         self.as_usize() == other.as_usize()
     }
@@ -96,7 +91,6 @@ struct ScopeContext<'ast> {
 }
 
 impl<'ast> ScopeContext<'ast> {
-    #[inline]
     fn new(arena: &'ast Arena) -> Self {
         let current = CopyCell::new(
             arena.alloc(Scope::new(ScopeKind::Function, None))
@@ -114,14 +108,12 @@ struct ScopeAnalizer;
 impl<'ast> StaticVisitor<'ast> for ScopeAnalizer {
     type Context = ScopeContext<'ast>;
 
-    #[inline]
     fn on_enter_scope(kind: ScopeKind, ctx: &mut Self::Context) {
         ctx.current.set(
             ctx.arena.alloc(Scope::new(kind, Some(ctx.current.get())))
         );
     }
 
-    #[inline]
     fn on_leave_scope(ctx: &mut Self::Context) {
         let popped = ctx.current.get();
 
@@ -129,22 +121,18 @@ impl<'ast> StaticVisitor<'ast> for ScopeAnalizer {
         ctx.current.get().children.push(ctx.arena, popped);
     }
 
-    #[inline]
     fn on_reference_use(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
         ctx.current.get().used_refs.insert(ctx.arena, *ident, ());
     }
 
-    #[inline]
     fn on_reference_declaration(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
         ctx.current.get().declared_refs.insert(ctx.arena, *ident, ());
     }
 
-    #[inline]
     fn on_this_expression(_: &ExpressionNode<'ast>, ctx: &mut Self::Context) {
         ctx.current.get().used_this.set(true);
     }
 
-    #[inline]
     fn register(dv: &mut DynamicVisitor<'ast, Self::Context>) {
         dv.on_enter_scope.push(Self::on_enter_scope);
         dv.on_leave_scope.push(Self::on_leave_scope);

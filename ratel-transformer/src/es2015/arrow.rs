@@ -32,7 +32,6 @@ impl<'ast> StaticVisitor<'ast> for TransformArrow {
         });
     }
 
-    #[inline]
     fn register(dv: &mut DynamicVisitor<'ast, Transformer<'ast>>) {
         dv.on_arrow_expression.push(TransformArrow::on_arrow_expression);
     }

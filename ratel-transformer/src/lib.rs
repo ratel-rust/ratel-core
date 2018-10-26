@@ -22,7 +22,6 @@ pub struct Transformer<'ast> {
 }
 
 impl<'ast> Transformer<'ast> {
-    #[inline]
     pub fn alloc<T, I>(&self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
@@ -30,7 +29,6 @@ impl<'ast> Transformer<'ast> {
         Node::new(self.arena.alloc(Loc::new(0, 0, item.into())))
     }
 
-    #[inline]
     pub fn alloc_as_loc<T, I, L>(&self, loc: Node<'ast, L>, item: I) -> Node<'ast, T> where
         T: Copy + 'ast,
         I: Into<T>,
@@ -38,7 +36,6 @@ impl<'ast> Transformer<'ast> {
         Node::new(self.arena.alloc(Loc::new(loc.start, loc.end, item.into())))
     }
 
-    #[inline]
     pub fn list<T, I>(&mut self, source: I) -> NodeList<'ast, T> where
         T: 'ast + Copy,
         I: AsRef<[Node<'ast, T>]>
@@ -57,7 +54,6 @@ impl<'ast> Transformer<'ast> {
         builder.as_list()
     }
 
-    #[inline]
     pub fn swap<T, I>(&self, ptr: &Node<'ast, T>, item: I) where
         T: Copy + 'ast,
         I: Into<T>,

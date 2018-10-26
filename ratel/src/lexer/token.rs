@@ -167,7 +167,6 @@ token! {
 }
 
 impl Token {
-    #[inline]
     pub fn is_word(&self) -> bool {
         use self::Token::*;
 

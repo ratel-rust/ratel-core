@@ -58,31 +58,26 @@ impl<'ast> Parser<'ast> {
         T::to_error()
     }
 
-    #[inline]
     fn asi(&mut self) -> Asi {
         self.lexer.asi()
     }
 
-    #[inline]
     fn loc(&self) -> (u32, u32) {
         self.lexer.loc()
     }
 
-    #[inline]
     fn in_loc<T>(&self, item: T) -> Loc<T> {
         let (start, end) = self.loc();
 
         Loc::new(start, end, item)
     }
 
-    #[inline]
     fn alloc<T>(&mut self, val: Loc<T>) -> Node<'ast, T> where
         T: Copy,
     {
         Node::new(self.arena.alloc(val.into()))
     }
 
-    #[inline]
     fn alloc_in_loc<T, I>(&mut self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
@@ -91,7 +86,6 @@ impl<'ast> Parser<'ast> {
         self.alloc(node)
     }
 
-    #[inline]
     fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
@@ -99,7 +93,6 @@ impl<'ast> Parser<'ast> {
         self.alloc(Loc::new(start, end, item.into()))
     }
 
-    #[inline]
     fn parse(&mut self) {
         if self.lexer.token == EndOfProgram {
             return;
@@ -115,7 +108,6 @@ impl<'ast> Parser<'ast> {
         self.body = builder.as_list()
     }
 
-    #[inline]
     fn block<I>(&mut self) -> BlockNode<'ast, I> where
         I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
@@ -133,7 +125,6 @@ impl<'ast> Parser<'ast> {
     }
 
     /// Same as above, but assumes that the opening brace has already been checked
-    #[inline]
     fn unchecked_block<I>(&mut self) -> BlockNode<'ast, I> where
         I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
@@ -144,7 +135,6 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(start, end, block)
     }
 
-    #[inline]
     fn raw_block<I>(&mut self) -> Block<'ast, I> where
         I: Parse<'ast, Output = Node<'ast, I>> + Copy
     {
@@ -162,7 +152,6 @@ impl<'ast> Parser<'ast> {
         Block { body: builder.as_list() }
     }
 
-    #[inline]
     fn identifier(&mut self) -> IdentifierNode<'ast> {
         match self.lexer.token {
             Identifier => {
@@ -175,7 +164,6 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    #[inline]
     fn pattern_from_expression(&mut self, expression: ExpressionNode<'ast>) -> Node<'ast, Pattern<'ast>> {
         let pattern = match expression.item {
             Expression::Binary(BinaryExpression {
@@ -197,7 +185,6 @@ impl<'ast> Parser<'ast> {
         self.alloc_at_loc(expression.start, expression.end, pattern)
     }
 
-    #[inline]
     fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> NodeList<'ast, Pattern<'ast>> {
         let mut expressions = expressions.iter();
 

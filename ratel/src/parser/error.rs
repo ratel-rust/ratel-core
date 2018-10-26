@@ -72,14 +72,12 @@ impl<'ast> ToError for Node<'ast, &'ast str> {
 
 
 impl<'ast> ToError for Pattern<'ast> {
-    #[inline]
     fn to_error() -> Self {
         Pattern::Void
     }
 }
 
 impl<'ast> ToError for Node<'ast, Pattern<'ast>> {
-    #[inline]
     fn to_error() -> Self {
         Node::new(&Loc {
             start: 0,
@@ -90,7 +88,6 @@ impl<'ast> ToError for Node<'ast, Pattern<'ast>> {
 }
 
 impl<'ast> ToError for Node<'ast, PropertyKey<'ast>> {
-    #[inline]
     fn to_error() -> Self {
         Node::new(&Loc {
             start: 0,
@@ -101,7 +98,6 @@ impl<'ast> ToError for Node<'ast, PropertyKey<'ast>> {
 }
 
 impl ToError for () {
-    #[inline]
     fn to_error() -> Self {
         ()
     }

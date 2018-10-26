@@ -97,7 +97,6 @@ struct DummyStaticVisitor;
 impl<'ast> StaticVisitor<'ast> for DummyStaticVisitor {
     type Context = ();
 
-    #[inline]
     fn register(_: &mut DynamicVisitor<'ast, Self::Context>) {
         unimplemented!();
     }
