@@ -5,6 +5,7 @@ mod expression;
 mod statement;
 mod function;
 mod nested;
+mod feature;
 
 use toolshed::list::ListBuilder;
 use toolshed::Arena;

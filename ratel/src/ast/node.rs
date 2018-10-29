@@ -72,4 +72,12 @@ mod node {
         assert_eq!(*foo_ptr, Loc::new(0, 0, "foo"));
         assert_eq!(*bar_ptr, Loc::new(0, 0, "bar"));
     }
+
+    #[test]
+    fn test_size() {
+        let size1 = ::std::mem::size_of::<Node<&'static str>>();
+        let size2 = ::std::mem::size_of::<Option<Node<&'static str>>>();
+
+        assert_eq!(size1, size2);
+    }
 }

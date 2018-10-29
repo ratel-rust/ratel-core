@@ -1,116 +1,104 @@
 use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, BindingPower, ANY, B0, B15};
+use lexer::{Token, TokenTable};
 use lexer::Token::*;
 use ast::{Node, NodeList, Expression, ExpressionNode, IdentifierNode, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
 use ast::expression::*;
 
+mod literal;
 
-type ExpressionHandler = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
+pub use self::literal::*;
 
-pub type Context = &'static [ExpressionHandler; 108];
+pub type ExpressionHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
 
-static DEF_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
-//  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
+pub type Context = &'static TokenTable<ExpressionHandlerFn>;
 
-    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
-//  ++    --    !     ~     TYPOF VOID  DELET *     /     %     **    +
+lazy_static! {
+    pub static ref EXPRESSION_TABLE: TokenTable<ExpressionHandlerFn> = Token::table(ErrorHandler::expression, &[
+        (ParenOpen,           ParenHandler::expression),
+        (BracketOpen,         ArrayExpressionHandler::expression),
+        (BraceOpen,           |par| par.object_expression()),
+        (OperatorNew,         NewHandler::expression),
+        (OperatorIncrement,   |par| par.prefix_expression(OperatorKind::Increment)),
+        (OperatorDecrement,   |par| par.prefix_expression(OperatorKind::Decrement)),
+        (OperatorLogicalNot,  |par| par.prefix_expression(OperatorKind::LogicalNot)),
+        (OperatorBitwiseNot,  |par| par.prefix_expression(OperatorKind::BitwiseNot)),
+        (OperatorTypeof,      |par| par.prefix_expression(OperatorKind::Typeof)),
+        (OperatorVoid,        |par| par.prefix_expression(OperatorKind::Void)),
+        (OperatorDelete,      |par| par.prefix_expression(OperatorKind::Delete)),
+        (OperatorDivision,    RegExHandler::expression),
+        (OperatorAddition,    |par| par.prefix_expression(OperatorKind::Addition)),
+        (OperatorSubtraction, |par| par.prefix_expression(OperatorKind::Subtraction)),
+        (Class,               |par| par.class_expression()),
+        (Function,            |par| par.function_expression()),
+        (This,                ThisHandler::expression),
+        (LiteralTrue,         TrueLiteralHandler::expression),
+        (LiteralFalse,        FalseLiteralHandler::expression),
+        (LiteralNull,         NullLiteralHandler::expression),
+        (LiteralUndefined,    UndefinedLiteralHandler::expression),
+        (LiteralString,       StringLiteralHandler::expression),
+        (LiteralNumber,       NumberLiteralHandler::expression),
+        (LiteralBinary,       BinaryLiteralHandler::expression),
+        (Identifier,          IdentExpressionHandler::expression),
+        (TemplateOpen,        TemplateExpressionHandler::expression),
+        (TemplateClosed,      TemplateStringLiteralHandler::expression),
+    ]);
 
-    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  -     <<    >>    >>>   <     <=    >     >=    INSOF IN    ===   !==
+    // Adds handler for SpreadExpression
+    pub static ref CALL_CONTEXT: TokenTable<ExpressionHandlerFn> = EXPRESSION_TABLE.extend(&[
+        (OperatorSpread, SpreadExpressionHandler::expression),
+    ]);
 
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  ==    !=    &     ^     |     &&    ||    ?     =     +=    -=    **=
-
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  *=    /=    %=    <<=   >>=   >>>=  &=    ^=    |=    ...   VAR   LET
-
-    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
-//  CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
-
-    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
-//  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
-
-    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
-//  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
-
-    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
-//  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
-];
-
-// Adds handlers for VoidExpression and SpreadExpression
-pub static ARRAY_CONTEXT: Context = &[
-    ____, ____, ____, VOID, PRN,  ____, ARR,  VOID, OBJ,  ____, ____, NEW,
-    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
-    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, SPRD, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
-    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
-    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
-];
-
-// Adds handler for SpreadExpression
-pub static CALL_CONTEXT: Context = &[
-    ____, ____, ____, ____, PRN,  ____, ARR,  ____, OBJ,  ____, ____, NEW,
-    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
-    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, SPRD, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, CLAS, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, FUNC, THIS, ____, ____, ____,
-    ____, ____, ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
-    ____, ____, ____, ____, ____, ____, IDEN, ____, TPLE, TPLS, ____, ____,
-];
+    // Adds handlers for VoidExpression and SpreadExpression
+    pub static ref ARRAY_CONTEXT: TokenTable<ExpressionHandlerFn> = EXPRESSION_TABLE.extend(&[
+        (BracketClose, VoidExpressionHandler::expression),
+        (Comma, VoidExpressionHandler::expression),
+        (OperatorSpread, SpreadExpressionHandler::expression),
+    ]);
+}
 
 macro_rules! create_handlers {
-    ($( const $name:ident = |$par:ident| $code:expr; )* $( pub const $pname:ident = |$ppar:ident| $pcode:expr; )*) => {
+    ($( const $name:ident = |$par:ident| $code:expr; )*) => {
         $(
-            #[allow(non_snake_case)]
-            fn $name<'ast>($par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
-                $code
-            }
-        )*
+            pub struct $name;
 
-        pub(crate) mod handlers {
-            use super::*;
-
-            $(
-                #[allow(non_snake_case)]
-                pub fn $pname<'ast>($ppar: &mut Parser<'ast>) -> StatementNode<'ast> {
-                    let expression = $pcode;
-                    $ppar.expression_statement(expression)
+            impl ExpressionHandler for $name {
+                fn expression<'ast>($par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
+                    $code
                 }
-            )*
-        }
-
-        $(
-            #[allow(non_snake_case)]
-            fn $pname<'ast>($ppar: &mut Parser<'ast>) -> ExpressionNode<'ast> {
-                $pcode
             }
         )*
     };
 }
 
+pub trait ExpressionHandler {
+    fn expression<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast>;
+}
+
+impl<E> crate::parser::statement::StatementHandler for E
+where
+    E: ExpressionHandler
+{
+    fn statement<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast> {
+        let expression = Self::expression(par);
+        par.expression_statement(expression)
+    }
+}
+
 create_handlers! {
-    const ____ = |par| {
+    const ErrorHandler = |par| {
         let loc = par.lexer.start();
         par.error::<()>();
         par.alloc_at_loc(loc, loc, Expression::Void)
     };
 
-    const VOID = |par| par.void_expression();
+    const VoidExpressionHandler = |par| {
+        let loc = par.lexer.start();
+        par.alloc_at_loc(loc, loc, Expression::Void)
+    };
 
-    const OBJ = |par| par.object_expression();
-
-    const CLAS = |par| par.class_expression();
-
-    const FUNC = |par| par.function_expression();
-
-    const IDEN = |par| {
+    const IdentExpressionHandler = |par| {
         let ident = par.lexer.token_as_str();
         let expr = par.alloc_in_loc(ident);
 
@@ -118,30 +106,21 @@ create_handlers! {
         expr
     };
 
-    const SPRD = |par| {
+    const SpreadExpressionHandler = |par| {
         let start = par.lexer.start_then_consume();
         let argument = par.expression::<B0>();
 
         par.alloc_at_loc(start, argument.end, SpreadExpression { argument })
     };
 
-    pub const THIS = |par| {
+    const ThisHandler = |par| {
         let expr = par.alloc_in_loc(ThisExpression);
         par.lexer.consume();
 
         expr
     };
 
-    pub const OP = |par| {
-        let start = par.lexer.start();
-        let op = OperatorKind::from_token(par.lexer.token).expect("Must be a prefix operator");
-        par.lexer.consume();
-        let expression = par.prefix_expression(op);
-        let end = par.lexer.end();
-        par.alloc_at_loc(start, end, expression)
-    };
-
-    pub const NEW = |par| {
+    const NewHandler = |par| {
         let (start, op_end) = par.lexer.loc();
 
         par.lexer.consume();
@@ -149,77 +128,27 @@ create_handlers! {
         if par.lexer.token == Accessor {
             let meta = par.alloc_at_loc(start, op_end, "new");
             let expression = par.meta_property_expression(meta);
-            let end = par.lexer.end();
-            par.lexer.consume();
+            let end = par.lexer.end_then_consume();
+
             par.alloc_at_loc(start, end, expression)
         } else {
-            let expression = par.prefix_expression(OperatorKind::New);
-            let end = par.lexer.end();
-            par.alloc_at_loc(start, end, expression)
+            let operand = par.expression::<B15>();
+            let end = operand.end;
+
+            par.alloc_at_loc(start, end, PrefixExpression {
+                operator: OperatorKind::New,
+                operand,
+            })
         }
     };
 
-    pub const PRN = |par| {
-        par.paren_expression()
-    };
+    const ParenHandler = |par| par.paren_expression();
 
-    pub const ARR = |par| par.array_expression();
+    const ArrayExpressionHandler = |par| par.array_expression();
 
-    pub const REG = |par| par.regular_expression();
+    const RegExHandler = |par| par.regular_expression();
 
-    pub const TRUE = |par| {
-        let expr = par.alloc_in_loc(Literal::True);
-        par.lexer.consume();
-
-        expr
-    };
-
-    pub const FALS = |par| {
-        let expr = par.alloc_in_loc(Literal::False);
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const NULL = |par| {
-        let expr = par.alloc_in_loc(Literal::Null);
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const UNDE = |par| {
-        let expr = par.alloc_in_loc(Literal::Undefined);
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const STR = |par| {
-        let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Literal::String(value));
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const NUM = |par| {
-        let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Literal::Number(value));
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const BIN = |par| {
-        let value = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(Literal::Binary(value));
-
-        par.lexer.consume();
-        expr
-    };
-
-    pub const TPLS = |par| {
+    const TemplateStringLiteralHandler = |par| {
         let quasi = par.lexer.quasi;
         let quasi = par.alloc_in_loc(quasi);
 
@@ -231,16 +160,16 @@ create_handlers! {
         })
     };
 
-    pub const TPLE = |par| par.template_expression();
+    const TemplateExpressionHandler = |par| par.template_expression();
 }
 
 impl<'ast> Parser<'ast> {
     fn bound_expression(&mut self) -> ExpressionNode<'ast> {
-        unsafe { (*(DEF_CONTEXT as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
+        EXPRESSION_TABLE.get(self.lexer.token)(self)
     }
 
     fn context_bound_expression(&mut self, context: Context) -> ExpressionNode<'ast> {
-        unsafe { (*(context as *const ExpressionHandler).offset(self.lexer.token as isize))(self) }
+        context.get(self.lexer.token)(self)
     }
 
     pub fn expression<B>(&mut self) -> ExpressionNode<'ast>
@@ -280,7 +209,7 @@ impl<'ast> Parser<'ast> {
             return NodeList::empty();
         }
 
-        let expression = self.expression_in_context::<B0>(CALL_CONTEXT);
+        let expression = self.expression_in_context::<B0>(&CALL_CONTEXT);
         let builder = ListBuilder::new(self.arena, expression);
 
         loop {
@@ -293,7 +222,7 @@ impl<'ast> Parser<'ast> {
                         break
                     }
 
-                    self.expression_in_context::<B0>(CALL_CONTEXT)
+                    self.expression_in_context::<B0>(&CALL_CONTEXT)
                 }
                 _ => {
                     self.error::<()>();
@@ -327,13 +256,15 @@ impl<'ast> Parser<'ast> {
         }
     }
 
-    pub fn prefix_expression(&mut self, operator: OperatorKind) -> PrefixExpression<'ast> {
+    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionNode<'ast> {
+        let start = self.lexer.start_then_consume();
         let operand = self.expression::<B15>();
+        let end = operand.end;
 
-        PrefixExpression {
-            operator: operator,
-            operand: operand,
-        }
+        self.alloc_at_loc(start, end, PrefixExpression {
+            operator,
+            operand,
+        })
     }
 
     pub fn object_expression(&mut self) -> ExpressionNode<'ast> {
@@ -458,16 +389,10 @@ impl<'ast> Parser<'ast> {
 
     pub fn array_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
-        let body = self.array_elements(|par| par.expression_in_context::<B0>(ARRAY_CONTEXT));
+        let body = self.array_elements(|par| par.expression_in_context::<B0>(&ARRAY_CONTEXT));
         let end = self.lexer.end_then_consume();
 
         self.alloc_at_loc(start, end, ArrayExpression { body })
-    }
-
-    /// Only in ArrayExpression
-    pub fn void_expression(&mut self) -> ExpressionNode<'ast> {
-        let loc = self.lexer.start();
-        self.alloc_at_loc(loc, loc, Expression::Void)
     }
 
     pub fn array_elements<F, I>(&mut self, get: F) -> NodeList<'ast, I> where

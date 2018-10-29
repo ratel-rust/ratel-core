@@ -585,14 +585,14 @@ mod test {
                         },
                         "arguments": [],
                         "start": 0,
-                        "end": 10
+                        "end": 9
                     },
                     "start": 0,
-                    "end": 10
+                    "end": 9
                 }
               ],
               "start": 0,
-              "end": 10,
+              "end": 9,
         });
 
         expect_parse!("new Foo(0, true);", {
@@ -625,14 +625,14 @@ mod test {
                             },
                         ],
                         "start": 0,
-                        "end": 17
+                        "end": 16,
                     },
                     "start": 0,
-                    "end": 17
+                    "end": 16,
                 }
               ],
               "start": 0,
-              "end": 17,
+              "end": 16,
         });
 
         expect_parse!("new 'foo';", {
@@ -651,14 +651,14 @@ mod test {
                         },
                         "arguments": [],
                         "start": 0,
-                        "end": 10
+                        "end": 9
                     },
                     "start": 0,
-                    "end": 10
+                    "end": 9,
                 }
               ],
               "start": 0,
-              "end": 10,
+              "end": 9,
         });
     }
 

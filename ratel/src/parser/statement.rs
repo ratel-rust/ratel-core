@@ -1,8 +1,9 @@
 use toolshed::list::{ListBuilder, GrowableList};
 use parser::{Parser, Parse, ANY, B0};
+use lexer::{Token, TokenTable};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Node, NodeList, Declarator, DeclarationKind};
+use ast::{Node, NodeList, Declarator, DeclarationKind, OperatorKind};
 use ast::{Statement, StatementNode, Expression, ExpressionNode, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
@@ -11,84 +12,90 @@ use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfSt
 use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
 use ast::OperatorKind::*;
 
+// use parser::expression::{
+    // TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
+// };
 
-type StatementHandler = for<'ast> fn(&mut Parser<'ast>) -> StatementNode<'ast>;
-
-static STMT_HANDLERS: [StatementHandler; 108] = [
-    ____, EMPT, ____, ____, PRN,  ____, ARR,  ____, BLCK, ____, ____, NEW,
-//  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
-
-    OP,   OP,   OP,   OP,   OP,   OP,   OP,   ____, REG,  ____, ____, OP,
-//  ++    --    !     ~     TYPOF VOID  DELET *     /     %     **    +
-
-    OP,   ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  -     <<    >>    >>>   <     <=    >     >=    INSOF IN    ===   !==
-
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-//  ==    !=    &     ^     |     &&    ||    ?     =     +=    -=    **=
-
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, VAR,  LET,
-//  *=    /=    %=    <<=   >>=   >>>=  &=    ^=    |=    ...   VAR   LET
-
-    CONS, BRK,  DO,   ____, ____, ____, ____, CLAS, ____, RET,  WHL,  ____,
-//  CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
-
-    ____, ____, CONT, FOR,  SWCH, ____, ____, FUNC, THIS, ____, IF,   THRW,
-//  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
-
-    ____, TRY,  ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
-//  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
-
-    ____, ____, ____, ____, ____, ____, LABL, ____, TPLE, TPLS, ____, ____,
-//  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
-];
-
-
-macro_rules! create_handlers {
-    ($( const $name:ident = |$par:ident| $code:expr; )*) => {
-        $(
-            #[allow(non_snake_case)]
-            fn $name<'ast>($par: &mut Parser<'ast>) -> StatementNode<'ast> {
-                $code
-            }
-        )*
-    };
-}
-
-/// Shared expression handlers that produce StatementNode<'ast>
-use parser::expression::handlers::{
-    PRN, ARR, OP, NEW, REG, THIS, TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
+/// Shared expression handlers that implement `StatementHandler`.
+use parser::expression::{
+    ParenHandler,
+    ArrayExpressionHandler,
+    NewHandler,
+    RegExHandler,
+    ThisHandler,
+    TrueLiteralHandler,
+    FalseLiteralHandler,
+    NullLiteralHandler,
+    UndefinedLiteralHandler,
+    StringLiteralHandler,
+    NumberLiteralHandler,
+    BinaryLiteralHandler,
+    TemplateStringLiteralHandler,
+    TemplateExpressionHandler,
 };
 
-create_handlers! {
-    const ____ = |par| {
-        let loc = par.lexer.start();
-        par.error::<()>();
-        par.alloc_at_loc(loc, loc, Statement::Empty)
-    };
-    const EMPT = |par| {
-        let stmt = par.alloc_in_loc(Statement::Empty);
-        par.lexer.consume();
+pub type StatementHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> StatementNode<'ast>;
 
-        stmt
-    };
-    const BLCK = |par| par.block_statement();
-    const VAR  = |par| par.variable_declaration_statement(DeclarationKind::Var);
-    const LET  = |par| par.variable_declaration_statement(DeclarationKind::Let);
-    const CONS = |par| par.variable_declaration_statement(DeclarationKind::Const);
-    const RET  = |par| par.return_statement();
-    const BRK  = |par| par.break_statement();
-    const THRW = |par| par.throw_statement();
-    const CONT = |par| par.continue_statement();
-    const FUNC = |par| par.function_statement();
-    const CLAS = |par| par.class_statement();
-    const IF   = |par| par.if_statement();
-    const WHL  = |par| par.while_statement();
-    const DO   = |par| par.do_statement();
-    const FOR  = |par| par.for_statement();
-    const TRY  = |par| par.try_statement();
-    const SWCH = |par| par.switch_statement();
-    const LABL = |par| par.labeled_or_expression_statement();
+pub trait StatementHandler {
+    fn statement<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast>;
+}
+
+lazy_static! {
+    static ref HANDLERS: TokenTable<StatementHandlerFn> = Token::table(
+        |par| {
+            let loc = par.lexer.start();
+            par.error::<()>();
+            par.alloc_at_loc(loc, loc, Statement::Empty)
+        },
+        &[
+            (Semicolon,           |par| {
+                let stmt = par.alloc_in_loc(Statement::Empty);
+                par.lexer.consume();
+
+                stmt
+            }),
+            (ParenOpen,           ParenHandler::statement),
+            (BracketOpen,         ArrayExpressionHandler::statement),
+            (BraceOpen,           |par| par.block_statement()),
+            (OperatorNew,         NewHandler::statement),
+            (OperatorIncrement,   |par| par.prefix_expression_statement(OperatorKind::Increment)),
+            (OperatorDecrement,   |par| par.prefix_expression_statement(OperatorKind::Decrement)),
+            (OperatorLogicalNot,  |par| par.prefix_expression_statement(OperatorKind::LogicalNot)),
+            (OperatorBitwiseNot,  |par| par.prefix_expression_statement(OperatorKind::BitwiseNot)),
+            (OperatorTypeof,      |par| par.prefix_expression_statement(OperatorKind::Typeof)),
+            (OperatorVoid,        |par| par.prefix_expression_statement(OperatorKind::Void)),
+            (OperatorDelete,      |par| par.prefix_expression_statement(OperatorKind::Delete)),
+            (OperatorDivision,    RegExHandler::statement),
+            (OperatorAddition,    |par| par.prefix_expression_statement(OperatorKind::Addition)),
+            (OperatorSubtraction, |par| par.prefix_expression_statement(OperatorKind::Subtraction)),
+            (DeclarationVar,      |par| par.variable_declaration_statement(DeclarationKind::Var)),
+            (DeclarationLet,      |par| par.variable_declaration_statement(DeclarationKind::Let)),
+            (DeclarationConst,    |par| par.variable_declaration_statement(DeclarationKind::Const)),
+            (Break,               |par| par.break_statement()),
+            (Do,                  |par| par.do_statement()),
+            (Class,               |par| par.class_statement()),
+            (Return,              |par| par.return_statement()),
+            (While,               |par| par.while_statement()),
+            (Continue,            |par| par.continue_statement()),
+            (For,                 |par| par.for_statement()),
+            (Switch,              |par| par.switch_statement()),
+            (Function,            |par| par.function_statement()),
+            (This,                ThisHandler::statement),
+            (If,                  |par| par.if_statement()),
+            (Throw,               |par| par.throw_statement()),
+            (Try,                 |par| par.try_statement()),
+            (LiteralTrue,         TrueLiteralHandler::statement),
+            (LiteralFalse,        FalseLiteralHandler::statement),
+            (LiteralNull,         NullLiteralHandler::statement),
+            (LiteralUndefined,    UndefinedLiteralHandler::statement),
+            (LiteralString,       StringLiteralHandler::statement),
+            (LiteralNumber,       NumberLiteralHandler::statement),
+            (LiteralBinary,       BinaryLiteralHandler::statement),
+            (Identifier,          |par| par.labeled_or_expression_statement()),
+            (TemplateOpen,        TemplateExpressionHandler::statement),
+            (TemplateClosed,      TemplateStringLiteralHandler::statement),
+        ]
+    );
 }
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
@@ -147,7 +154,7 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
 
 impl<'ast> Parser<'ast> {
     pub fn statement(&mut self) -> StatementNode<'ast> {
-        unsafe { (*(&STMT_HANDLERS as *const StatementHandler).offset(self.lexer.token as isize))(self) }
+        HANDLERS.get(self.lexer.token)(self)
     }
 
     /// Expect a semicolon to terminate a statement. Will assume a semicolon
@@ -170,6 +177,12 @@ impl<'ast> Parser<'ast> {
 
     pub fn expression_statement(&mut self, expression: ExpressionNode<'ast>) -> StatementNode<'ast> {
         let expression = self.nested_expression::<ANY>(expression);
+
+        self.wrap_expression(expression)
+    }
+
+    pub fn prefix_expression_statement(&mut self, operator: OperatorKind) -> StatementNode<'ast> {
+        let expression = self.prefix_expression(operator);
 
         self.wrap_expression(expression)
     }
