@@ -1036,7 +1036,7 @@ mod test {
                         "property": {
                             "type": "Identifier",
                             "name": "bar",
-                            "start": 7,
+                            "start": 3,
                             "end": 7
                         },
                         "computed": false,

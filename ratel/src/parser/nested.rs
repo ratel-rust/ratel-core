@@ -249,7 +249,7 @@ const SEQ: NestedHandler = Some(|par, left| {
         builder.push(par.arena, par.expression::<B0>());
     }
     let end = par.lexer.end();
-    par.alloc_at_loc(left.start, end, SequenceExpression {
+    par.node_at(left.start, end, SequenceExpression {
         body: builder.as_list()
     })
 });
@@ -262,7 +262,7 @@ const COND: NestedHandler = Some(|par, left| {
     expect!(par, Colon);
     let alternate = par.expression::<B4>();
 
-    par.alloc_at_loc(left.start, alternate.end, ConditionalExpression {
+    par.node_at(left.start, alternate.end, ConditionalExpression {
         test: left,
         consequent: consequent,
         alternate: alternate,
@@ -280,16 +280,17 @@ const ARRW: NestedHandler = Some(|par, left| {
     let expression = par.arrow_function_expression(params);
     let start = left.start;
     let end = par.lexer.end();
-    return par.alloc_at_loc(start, end, expression)
+    return par.node_at(start, end, expression)
 });
 
 const ACCS: NestedHandler = Some(|par, left| {
     let member = par.lexer.accessor_as_str();
+    let (start, end) = par.lexer.loc();
     par.lexer.consume();
 
-    let right = par.alloc_in_loc(member);
+    let right = par.node_at(start, end, member);
 
-    par.alloc_at_loc(left.start, right.end, MemberExpression {
+    par.node_at(left.start, right.end, MemberExpression {
         object: left,
         property: right,
     })
@@ -300,7 +301,7 @@ const CALL: NestedHandler = Some(|par, left| {
     let arguments = par.call_arguments();
     let end = par.lexer.end_then_consume();
 
-    par.alloc_at_loc(start, end, CallExpression {
+    par.node_at(start, end, CallExpression {
         callee: left,
         arguments,
     })
@@ -313,7 +314,7 @@ const CMEM: NestedHandler = Some(|par, left| {
     expect!(par, BracketClose);
     let end = par.lexer.end();
 
-    par.alloc_at_loc(left.start, end, ComputedMemberExpression {
+    par.node_at(left.start, end, ComputedMemberExpression {
         object: left,
         property: property,
     })
@@ -322,7 +323,7 @@ const CMEM: NestedHandler = Some(|par, left| {
 const TPLS: NestedHandler = Some(|par, left| {
     let quasi = par.template_string();
 
-    par.alloc_at_loc(left.start, quasi.end, TaggedTemplateExpression {
+    par.node_at(left.start, quasi.end, TaggedTemplateExpression {
         tag: left,
         quasi,
     })
@@ -343,7 +344,7 @@ macro_rules! postfix {
                     par.error::<()>();
                 }
 
-                par.alloc_at_loc(left.start, end, PostfixExpression {
+                par.node_at(left.start, end, PostfixExpression {
                     operator: $op,
                     operand: left,
                 })
@@ -366,7 +367,7 @@ macro_rules! assign {
 
                 let right = par.expression::<B1>();
 
-                par.alloc_at_loc(left.start, right.end, BinaryExpression {
+                par.node_at(left.start, right.end, BinaryExpression {
                     operator: $op,
                     left,
                     right,
@@ -386,7 +387,7 @@ macro_rules! binary {
 
                 let right = par.expression::<$bp>();
 
-                par.alloc_at_loc(left.start, right.end, BinaryExpression {
+                par.node_at(left.start, right.end, BinaryExpression {
                     operator: $op,
                     left,
                     right,

@@ -153,20 +153,6 @@ where
         self.0[index as usize]
     }
 
-    pub fn map<Q>(&self, mapper: impl Fn(T) -> Q) -> TokenTable<Q> {
-        let mut table: TokenTable<Q> = unsafe { ::std::mem::uninitialized() };
-
-        for (index, val) in (self.0).iter().enumerate() {
-            table.0[index] = mapper(*val)
-        }
-
-        table
-    }
-
-    pub fn register(&mut self, reg: fn(table: &mut TokenTable<T>)) {
-        reg(self)
-    }
-
     pub fn extend(&self, inserts: &[(Token, T)]) -> TokenTable<T> {
         let mut table = *self;
 

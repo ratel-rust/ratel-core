@@ -73,25 +73,39 @@ impl<'ast> Parser<'ast> {
         Loc::new(start, end, item)
     }
 
-    fn alloc<T>(&mut self, val: Loc<T>) -> Node<'ast, T> where
-        T: Copy,
-    {
-        Node::new(self.arena.alloc(val.into()))
-    }
-
-    fn alloc_in_loc<T, I>(&mut self, item: I) -> Node<'ast, T> where
+    fn node_at<T, I>(&mut self, start: u32, end: u32, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
+        Node::new(self.arena.alloc(Loc::new(start, end, item.into())))
+    }
+
+    fn node<T, I>(&mut self, item: I) -> Node<'ast, T> where
+        T: Copy,
+        I: Into<T>,
+    {
+
         let node = self.in_loc(item.into());
-        self.alloc(node)
+        Node::new(self.arena.alloc(node))
     }
 
-    fn alloc_at_loc<T, I>(&mut self, start: u32, end: u32, item: I) -> Node<'ast, T> where
+    fn node_consume<T, I>(&mut self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
-        self.alloc(Loc::new(start, end, item.into()))
+        let item = self.node(item);
+        self.lexer.consume();
+        item
+    }
+
+    fn node_consume_str<T, F, I>(&mut self, make_item: F) -> Node<'ast, T> where
+        T: Copy,
+        F: FnOnce(&'ast str) -> I,
+        I: Into<T>,
+    {
+        let value = self.lexer.token_as_str();
+
+        self.node_consume(make_item(value))
     }
 
     fn parse(&mut self) {
@@ -122,7 +136,7 @@ impl<'ast> Parser<'ast> {
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
 
-        self.alloc_at_loc(start, end, block)
+        self.node_at(start, end, block)
     }
 
     /// Same as above, but assumes that the opening brace has already been checked
@@ -133,7 +147,7 @@ impl<'ast> Parser<'ast> {
         let block = self.raw_block();
         let end   = self.lexer.end_then_consume();
 
-        self.alloc_at_loc(start, end, block)
+        self.node_at(start, end, block)
     }
 
     fn raw_block<I>(&mut self) -> Block<'ast, I> where
@@ -155,13 +169,8 @@ impl<'ast> Parser<'ast> {
 
     fn identifier(&mut self) -> IdentifierNode<'ast> {
         match self.lexer.token {
-            Identifier => {
-                let ident = self.lexer.token_as_str();
-                let ident = self.alloc_in_loc(ident);
-                self.lexer.consume();
-                ident
-            },
-            _ => self.error()
+            Identifier => self.node_consume_str(|ident| ident),
+            _          => self.error()
         }
     }
 
@@ -183,7 +192,7 @@ impl<'ast> Parser<'ast> {
             _ => self.error()
         };
 
-        self.alloc_at_loc(expression.start, expression.end, pattern)
+        self.node_at(expression.start, expression.end, pattern)
     }
 
     fn params_from_expressions(&mut self, expressions: ExpressionList<'ast>) -> NodeList<'ast, Pattern<'ast>> {

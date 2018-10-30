@@ -7,18 +7,22 @@ use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, Stateme
 use ast::expression::*;
 
 mod literal;
+mod array;
+mod object;
 
 pub use self::literal::*;
+pub use self::object::ObjectExpressionHandler;
+pub use self::array::ArrayExpressionHandler;
 
 pub type ExpressionHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
 
 pub type Context = &'static TokenTable<ExpressionHandlerFn>;
 
 lazy_static! {
-    pub static ref EXPRESSION_TABLE: TokenTable<ExpressionHandlerFn> = Token::table(ErrorHandler::expression, &[
+    pub static ref EXPRESSION_TABLE: TokenTable<ExpressionHandlerFn> = Token::table(error, &[
         (ParenOpen,           ParenHandler::expression),
         (BracketOpen,         ArrayExpressionHandler::expression),
-        (BraceOpen,           |par| par.object_expression()),
+        (BraceOpen,           ObjectExpressionHandler::expression),
         (OperatorNew,         NewHandler::expression),
         (OperatorIncrement,   |par| par.prefix_expression(OperatorKind::Increment)),
         (OperatorDecrement,   |par| par.prefix_expression(OperatorKind::Decrement)),
@@ -52,8 +56,8 @@ lazy_static! {
 
     // Adds handlers for VoidExpression and SpreadExpression
     pub static ref ARRAY_CONTEXT: TokenTable<ExpressionHandlerFn> = EXPRESSION_TABLE.extend(&[
-        (BracketClose, VoidExpressionHandler::expression),
-        (Comma, VoidExpressionHandler::expression),
+        (BracketClose, void),
+        (Comma, void),
         (OperatorSpread, SpreadExpressionHandler::expression),
     ]);
 }
@@ -86,38 +90,31 @@ where
     }
 }
 
+fn error<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
+    let loc = par.lexer.start();
+    par.error::<()>();
+    par.node_at(loc, loc, Expression::Void)
+}
+
+fn void<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
+    let loc = par.lexer.start();
+    par.node_at(loc, loc, Expression::Void)
+}
+
 create_handlers! {
-    const ErrorHandler = |par| {
-        let loc = par.lexer.start();
-        par.error::<()>();
-        par.alloc_at_loc(loc, loc, Expression::Void)
-    };
-
-    const VoidExpressionHandler = |par| {
-        let loc = par.lexer.start();
-        par.alloc_at_loc(loc, loc, Expression::Void)
-    };
-
     const IdentExpressionHandler = |par| {
-        let ident = par.lexer.token_as_str();
-        let expr = par.alloc_in_loc(ident);
-
-        par.lexer.consume();
-        expr
+        par.node_consume_str(|ident| ident)
     };
 
     const SpreadExpressionHandler = |par| {
         let start = par.lexer.start_then_consume();
         let argument = par.expression::<B0>();
 
-        par.alloc_at_loc(start, argument.end, SpreadExpression { argument })
+        par.node_at(start, argument.end, SpreadExpression { argument })
     };
 
     const ThisHandler = |par| {
-        let expr = par.alloc_in_loc(ThisExpression);
-        par.lexer.consume();
-
-        expr
+        par.node_consume(ThisExpression)
     };
 
     const NewHandler = |par| {
@@ -126,41 +123,63 @@ create_handlers! {
         par.lexer.consume();
 
         if par.lexer.token == Accessor {
-            let meta = par.alloc_at_loc(start, op_end, "new");
+            let meta = par.node_at(start, op_end, "new");
             let expression = par.meta_property_expression(meta);
             let end = par.lexer.end_then_consume();
 
-            par.alloc_at_loc(start, end, expression)
+            par.node_at(start, end, expression)
         } else {
             let operand = par.expression::<B15>();
             let end = operand.end;
 
-            par.alloc_at_loc(start, end, PrefixExpression {
+            par.node_at(start, end, PrefixExpression {
                 operator: OperatorKind::New,
                 operand,
             })
         }
     };
 
-    const ParenHandler = |par| par.paren_expression();
+    const ParenHandler = |par| {
+        let start = par.lexer.start_then_consume();
+        match par.lexer.token {
+            ParenClose => {
+                par.lexer.consume();
+                expect!(par, OperatorFatArrow);
+                let expression = par.arrow_function_expression(NodeList::empty());
+                let end = par.lexer.end();
+                par.node_at(start, end, expression)
+            },
+            _ => {
+                let expression = par.expression::<ANY>();
 
-    const ArrayExpressionHandler = |par| par.array_expression();
+                expect!(par, ParenClose);
 
-    const RegExHandler = |par| par.regular_expression();
+                expression
+            }
+        }
+    };
+
+    const RegExHandler = |par| {
+        let start = par.lexer.start();
+        let value = par.lexer.read_regular_expression();
+        let end = par.lexer.end();
+
+        expect!(par, LiteralRegEx);
+
+        par.node_at(start, end, Literal::RegEx(value))
+    };
 
     const TemplateStringLiteralHandler = |par| {
         let quasi = par.lexer.quasi;
-        let quasi = par.alloc_in_loc(quasi);
+        let quasi = par.node_consume(quasi);
 
-        par.lexer.consume();
-
-        par.alloc_at_loc(quasi.start, quasi.end, TemplateLiteral {
+        par.node_at(quasi.start, quasi.end, TemplateLiteral {
             expressions: NodeList::empty(),
             quasis: NodeList::from(par.arena, quasi)
         })
     };
 
-    const TemplateExpressionHandler = |par| par.template_expression();
+    const TemplateExpressionHandler = |par| par.template_literal();
 }
 
 impl<'ast> Parser<'ast> {
@@ -236,44 +255,14 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    pub fn paren_expression(&mut self) -> ExpressionNode<'ast> {
-        let start = self.lexer.start_then_consume();
-        match self.lexer.token {
-            ParenClose => {
-                self.lexer.consume();
-                expect!(self, OperatorFatArrow);
-                let expression = self.arrow_function_expression(NodeList::empty());
-                let end = self.lexer.end();
-                self.alloc_at_loc(start, end, expression)
-            },
-            _ => {
-                let expression = self.expression::<ANY>();
-
-                expect!(self, ParenClose);
-
-                expression
-            }
-        }
-    }
-
     pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let operand = self.expression::<B15>();
         let end = operand.end;
 
-        self.alloc_at_loc(start, end, PrefixExpression {
+        self.node_at(start, end, PrefixExpression {
             operator,
             operand,
-        })
-    }
-
-    pub fn object_expression(&mut self) -> ExpressionNode<'ast> {
-        let start = self.lexer.start_then_consume();
-        let body = self.property_list();
-        let end = self.lexer.end_then_consume();
-
-        self.alloc_at_loc(start, end, ObjectExpression {
-            body
         })
     }
 
@@ -285,7 +274,7 @@ impl<'ast> Parser<'ast> {
             self.error::<()>();
         }
 
-        let property = self.alloc_in_loc(property);
+        let property = self.node(property);
 
         MetaPropertyExpression {
             meta,
@@ -330,28 +319,14 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
 
                 match self.lexer.token {
-                    Colon | ParenOpen => self.alloc_at_loc(start, end, PropertyKey::Literal(label)),
+                    Colon | ParenOpen => self.node_at(start, end, PropertyKey::Literal(label)),
 
-                    _ => return self.alloc_at_loc(start, end, Property::Shorthand(label)),
+                    _ => return self.node_at(start, end, Property::Shorthand(label)),
                 }
             },
             LiteralString |
-            LiteralNumber => {
-                let num = self.lexer.token_as_str();
-                let key = self.alloc_in_loc(PropertyKey::Literal(num));
-
-                self.lexer.consume();
-
-                key
-            },
-            LiteralBinary => {
-                let num = self.lexer.token_as_str();
-                let key = self.alloc_in_loc(PropertyKey::Binary(num));
-
-                self.lexer.consume();
-
-                key
-            },
+            LiteralNumber => self.node_consume_str(|num| PropertyKey::Literal(num)),
+            LiteralBinary => self.node_consume_str(|num| PropertyKey::Binary(num)),
             BracketOpen => {
                 let start = self.lexer.start_then_consume();
                 let expression = self.expression::<ANY>();
@@ -359,7 +334,7 @@ impl<'ast> Parser<'ast> {
 
                 expect!(self, BracketClose);
 
-                self.alloc_at_loc(start, end, PropertyKey::Computed(expression))
+                self.node_at(start, end, PropertyKey::Computed(expression))
             },
             _ => return self.error(),
         };
@@ -370,7 +345,7 @@ impl<'ast> Parser<'ast> {
 
                 let value = self.expression::<B0>();
 
-                self.alloc_at_loc(start, value.end, Property::Literal {
+                self.node_at(start, value.end, Property::Literal {
                     key,
                     value,
                 })
@@ -378,21 +353,13 @@ impl<'ast> Parser<'ast> {
             ParenOpen => {
                 let value = Node::parse(self);
 
-                self.alloc_at_loc(start, value.end, Property::Method {
+                self.node_at(start, value.end, Property::Method {
                     key,
                     value,
                 })
             },
             _ => return self.error()
         }
-    }
-
-    pub fn array_expression(&mut self) -> ExpressionNode<'ast> {
-        let start = self.lexer.start_then_consume();
-        let body = self.array_elements(|par| par.expression_in_context::<B0>(&ARRAY_CONTEXT));
-        let end = self.lexer.end_then_consume();
-
-        self.alloc_at_loc(start, end, ArrayExpression { body })
     }
 
     pub fn array_elements<F, I>(&mut self, get: F) -> NodeList<'ast, I> where
@@ -422,26 +389,14 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    pub fn regular_expression(&mut self) -> ExpressionNode<'ast> {
-        let start = self.lexer.start();
-        let value = self.lexer.read_regular_expression();
-        let end = self.lexer.end();
-
-        expect!(self, LiteralRegEx);
-
-        self.alloc_at_loc(start, end, Literal::RegEx(value))
-    }
-
     pub fn template_string<T>(&mut self) -> Node<'ast, T>
     where
         T: Copy + From<TemplateLiteral<'ast>>,
     {
         let quasi = self.lexer.quasi;
-        let quasi = self.alloc_in_loc(quasi);
+        let quasi = self.node_consume(quasi);
 
-        self.lexer.consume();
-
-        self.alloc_at_loc(quasi.start, quasi.end, TemplateLiteral {
+        self.node_at(quasi.start, quasi.end, TemplateLiteral {
             expressions: NodeList::empty(),
             quasis: NodeList::from(self.arena, quasi)
         })
@@ -452,9 +407,8 @@ impl<'ast> Parser<'ast> {
         T: Copy + From<TemplateLiteral<'ast>>,
     {
         let quasi = self.lexer.quasi;
-        let quasi = self.alloc_in_loc(quasi);
-
-        let start = self.lexer.start_then_consume();
+        let quasi = self.node_consume(quasi);
+        let start = quasi.start;
         let end;
 
         let expression = self.expression::<ANY>();
@@ -471,8 +425,7 @@ impl<'ast> Parser<'ast> {
             match self.lexer.token {
                 TemplateOpen => {
                     let quasi = self.lexer.quasi;
-                    quasis.push(self.arena, self.alloc_in_loc(quasi));
-                    self.lexer.consume();
+                    quasis.push(self.arena, self.node_consume(quasi));
                     expressions.push(self.arena, self.expression::<ANY>());
 
                     match self.lexer.token {
@@ -486,8 +439,8 @@ impl<'ast> Parser<'ast> {
                 },
                 TemplateClosed => {
                     let quasi = self.lexer.quasi;
-                    quasis.push(self.arena, self.alloc_in_loc(quasi));
-                    end = self.lexer.end_then_consume();
+                    end = self.lexer.end();
+                    quasis.push(self.arena, self.node_consume(quasi));
                     break;
                 },
                 _ => {
@@ -498,20 +451,16 @@ impl<'ast> Parser<'ast> {
             }
         }
 
-        self.alloc_at_loc(start, end, TemplateLiteral {
+        self.node_at(start, end, TemplateLiteral {
             expressions: expressions.as_list(),
             quasis: quasis.as_list(),
         })
     }
 
-    pub fn template_expression(&mut self) -> ExpressionNode<'ast> {
-        self.template_literal()
-    }
-
     pub fn tagged_template_expression(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
         let quasi = self.template_literal();
 
-        self.alloc_at_loc(tag.start, quasi.end, TaggedTemplateExpression {
+        self.node_at(tag.start, quasi.end, TaggedTemplateExpression {
             tag,
             quasi,
         })
@@ -521,14 +470,14 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start_then_consume();
         let function = Function::parse(self);
 
-        self.alloc_at_loc(start, function.body.end, function)
+        self.node_at(start, function.body.end, function)
     }
 
     pub fn class_expression(&mut self) -> ExpressionNode<'ast> {
         let start = self.lexer.start_then_consume();
         let class = Class::parse(self);
 
-        self.alloc_at_loc(start, class.body.end, class)
+        self.node_at(start, class.body.end, class)
     }
 }
 

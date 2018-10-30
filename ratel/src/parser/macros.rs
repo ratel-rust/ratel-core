@@ -23,24 +23,6 @@ macro_rules! expect {
     }
 }
 
-#[macro_export]
-macro_rules! parameter_key {
-    ($parser:ident) => {
-        match $parser.lexer.token {
-            ParenClose        => {
-                $parser.lexer.consume();
-                break;
-            },
-            Identifier => {
-                let ident = $parser.lexer.token_as_str();
-                $parser.lexer.consume();
-                ParameterKey::Identifier(ident)
-            },
-            _ => return $parser.error()
-        }
-    }
-}
-
 #[cfg(test)]
 #[macro_export]
 macro_rules! assert_expr {

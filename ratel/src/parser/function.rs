@@ -20,10 +20,7 @@ impl<'ast> Parse<'ast> for OptionalName<'ast> {
             return OptionalName(None);
         }
 
-        let name = par.lexer.token_as_str();
-        let name = OptionalName(Some(par.alloc_in_loc(name)));
-        par.lexer.consume();
-        name
+        OptionalName(Some(par.node_consume_str(|name| name)))
     }
 }
 
@@ -35,10 +32,7 @@ impl<'ast> Parse<'ast> for MandatoryName<'ast> {
             return par.error();
         }
 
-        let name = par.lexer.token_as_str();
-        let name = MandatoryName(par.alloc_in_loc(name));
-        par.lexer.consume();
-        name
+        MandatoryName(par.node_consume_str(|name| name))
     }
 }
 
@@ -88,7 +82,7 @@ impl<'ast, N> Parse<'ast> for Node<'ast, Function<'ast, N>> where
         let start = par.lexer.start();
         let function = Function::parse(par);
 
-        par.alloc_at_loc(start, function.body.end, function)
+        par.node_at(start, function.body.end, function)
     }
 }
 
@@ -108,13 +102,13 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
 
         let mut kind = MethodKind::Method;
 
-        let token_start = par.lexer.start();
-        let token_end;
+        let key_start = par.lexer.start();
+        let key_end;
 
         let key = match par.lexer.token {
             _ if par.lexer.token.is_word() => {
                 let mut label = par.lexer.token_as_str();
-                token_end = par.lexer.end_then_consume();
+                key_end = par.lexer.end_then_consume();
 
                 if par.lexer.token.is_word() {
                     kind = match label {
@@ -132,19 +126,19 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             },
             LiteralNumber => {
                 let num = par.lexer.token_as_str();
-                token_end = par.lexer.end_then_consume();
+                key_end = par.lexer.end_then_consume();
                 PropertyKey::Literal(num)
             },
             LiteralBinary => {
                 let num = par.lexer.token_as_str();
-                token_end = par.lexer.end_then_consume();
+                key_end = par.lexer.end_then_consume();
                 PropertyKey::Binary(num)
             },
             BracketOpen => {
                 par.lexer.consume();
 
                 let expression = par.expression::<ANY>();
-                token_end = par.lexer.end();
+                key_end = par.lexer.end();
 
                 expect!(par, BracketClose);
 
@@ -153,7 +147,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             _ => return par.error()
         };
 
-        let key = par.alloc_at_loc(token_start, token_end, key);
+        let key = par.node_at(key_start, key_end, key);
         let end;
         let member = match par.lexer.token {
             ParenOpen => {
@@ -188,7 +182,7 @@ impl<'ast> Parse<'ast> for ClassMember<'ast> {
             par.lexer.consume();
         }
 
-        par.alloc_at_loc(start, end, member)
+        par.node_at(start, end, member)
     }
 }
 
@@ -220,16 +214,11 @@ impl<'ast, N> Parse<'ast> for Class<'ast, N> where
 impl<'ast> Parser<'ast> {
     fn pattern_void(&mut self) -> Node<'ast, Pattern<'ast>> {
         let loc = self.lexer.start();
-        self.alloc_at_loc(loc, loc, Pattern::Void)
+        self.node_at(loc, loc, Pattern::Void)
     }
 
     fn pattern_identifier(&mut self) -> Node<'ast, Pattern<'ast>> {
-        let ident = Pattern::Identifier(self.lexer.token_as_str());
-        let ident = self.alloc_in_loc(ident);
-
-        self.lexer.consume();
-
-        ident
+        self.node_consume_str(|ident| Pattern::Identifier(ident))
     }
 
     fn pattern_array(&mut self) -> Node<'ast, Pattern<'ast>> {
@@ -237,7 +226,7 @@ impl<'ast> Parser<'ast> {
         let elements = self.array_elements(Parser::pattern_array_element);
         let end = self.lexer.end_then_consume();
 
-        self.alloc_at_loc(start, end, Pattern::ArrayPattern {
+        self.node_at(start, end, Pattern::ArrayPattern {
             elements
         })
     }
@@ -247,7 +236,7 @@ impl<'ast> Parser<'ast> {
         let properties = self.property_list();
         let end = self.lexer.end_then_consume();
 
-        self.alloc_at_loc(start, end, Pattern::ObjectPattern {
+        self.node_at(start, end, Pattern::ObjectPattern {
             properties,
         })
     }
@@ -259,7 +248,7 @@ impl<'ast> Parser<'ast> {
 
                 let right = self.expression::<B0>();
 
-                self.alloc_at_loc(left.start, right.end, Pattern::AssignmentPattern {
+                self.node_at(left.start, right.end, Pattern::AssignmentPattern {
                     left,
                     right,
                 })
@@ -294,20 +283,13 @@ impl<'ast> Parser<'ast> {
     fn rest_element(&mut self) -> Node<'ast, Pattern<'ast>> {
         let start = self.lexer.start_then_consume();
         let argument = match self.lexer.token {
-            Identifier => {
-                let ident = self.lexer.token_as_str();
-                let ident = self.alloc_in_loc(ident);
-
-                self.lexer.consume();
-
-                ident
-            },
-            _ => self.error()
+            Identifier => self.node_consume_str(|ident| ident),
+            _          => self.error()
         };
 
         expect!(self, ParenClose);
 
-        self.alloc_at_loc(start, argument.end, Pattern::RestElement {
+        self.node_at(start, argument.end, Pattern::RestElement {
             argument
         })
     }
