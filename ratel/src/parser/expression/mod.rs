@@ -9,10 +9,12 @@ use ast::expression::*;
 mod literal;
 mod array;
 mod object;
+mod template;
 
 pub use self::literal::*;
 pub use self::object::ObjectExpressionHandler;
 pub use self::array::ArrayExpressionHandler;
+pub use self::template::{TemplateStringLiteralHandler, TemplateExpressionHandler};
 
 pub type ExpressionHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
 
@@ -44,7 +46,7 @@ lazy_static! {
         (LiteralString,       StringLiteralHandler::expression),
         (LiteralNumber,       NumberLiteralHandler::expression),
         (LiteralBinary,       BinaryLiteralHandler::expression),
-        (Identifier,          IdentExpressionHandler::expression),
+        (Identifier,          |par| par.node_consume_str(|ident| ident)),
         (TemplateOpen,        TemplateExpressionHandler::expression),
         (TemplateClosed,      TemplateStringLiteralHandler::expression),
     ]);
@@ -102,10 +104,6 @@ fn void<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
 }
 
 create_handlers! {
-    const IdentExpressionHandler = |par| {
-        par.node_consume_str(|ident| ident)
-    };
-
     const SpreadExpressionHandler = |par| {
         let start = par.lexer.start_then_consume();
         let argument = par.expression::<B0>();
@@ -168,18 +166,6 @@ create_handlers! {
 
         par.node_at(start, end, Literal::RegEx(value))
     };
-
-    const TemplateStringLiteralHandler = |par| {
-        let quasi = par.lexer.quasi;
-        let quasi = par.node_consume(quasi);
-
-        par.node_at(quasi.start, quasi.end, TemplateLiteral {
-            expressions: NodeList::empty(),
-            quasis: NodeList::from(par.arena, quasi)
-        })
-    };
-
-    const TemplateExpressionHandler = |par| par.template_literal();
 }
 
 impl<'ast> Parser<'ast> {
@@ -387,83 +373,6 @@ impl<'ast> Parser<'ast> {
         }
 
         builder.as_list()
-    }
-
-    pub fn template_string<T>(&mut self) -> Node<'ast, T>
-    where
-        T: Copy + From<TemplateLiteral<'ast>>,
-    {
-        let quasi = self.lexer.quasi;
-        let quasi = self.node_consume(quasi);
-
-        self.node_at(quasi.start, quasi.end, TemplateLiteral {
-            expressions: NodeList::empty(),
-            quasis: NodeList::from(self.arena, quasi)
-        })
-    }
-
-    pub fn template_literal<T>(&mut self) -> Node<'ast, T>
-    where
-        T: Copy + From<TemplateLiteral<'ast>>,
-    {
-        let quasi = self.lexer.quasi;
-        let quasi = self.node_consume(quasi);
-        let start = quasi.start;
-        let end;
-
-        let expression = self.expression::<ANY>();
-
-        match self.lexer.token {
-            BraceClose => self.lexer.read_template_kind(),
-            _          => self.error(),
-        }
-
-        let quasis = ListBuilder::new(self.arena, quasi);
-        let expressions = ListBuilder::new(self.arena, expression);
-
-        loop {
-            match self.lexer.token {
-                TemplateOpen => {
-                    let quasi = self.lexer.quasi;
-                    quasis.push(self.arena, self.node_consume(quasi));
-                    expressions.push(self.arena, self.expression::<ANY>());
-
-                    match self.lexer.token {
-                        BraceClose => self.lexer.read_template_kind(),
-                        _          => {
-                            end = self.lexer.end();
-                            self.error::<()>();
-                            break;
-                        }
-                    }
-                },
-                TemplateClosed => {
-                    let quasi = self.lexer.quasi;
-                    end = self.lexer.end();
-                    quasis.push(self.arena, self.node_consume(quasi));
-                    break;
-                },
-                _ => {
-                    end = self.lexer.end();
-                    self.error::<()>();
-                    break;
-                }
-            }
-        }
-
-        self.node_at(start, end, TemplateLiteral {
-            expressions: expressions.as_list(),
-            quasis: quasis.as_list(),
-        })
-    }
-
-    pub fn tagged_template_expression(&mut self, tag: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
-        let quasi = self.template_literal();
-
-        self.node_at(tag.start, quasi.end, TaggedTemplateExpression {
-            tag,
-            quasi,
-        })
     }
 
     pub fn function_expression(&mut self) -> ExpressionNode<'ast> {
