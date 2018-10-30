@@ -63,16 +63,7 @@ impl<'ast> Parser<'ast> {
         self.lexer.asi()
     }
 
-    fn loc(&self) -> (u32, u32) {
-        self.lexer.loc()
-    }
-
-    fn in_loc<T>(&self, item: T) -> Loc<T> {
-        let (start, end) = self.loc();
-
-        Loc::new(start, end, item)
-    }
-
+    /// Create a `Node<'ast, T>` at a specified location.
     fn node_at<T, I>(&mut self, start: u32, end: u32, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
@@ -80,15 +71,17 @@ impl<'ast> Parser<'ast> {
         Node::new(self.arena.alloc(Loc::new(start, end, item.into())))
     }
 
+    /// Create a `Node<'ast, T>` at current token location, without consuming the token.
     fn node<T, I>(&mut self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
     {
+        let (start, end) = self.lexer.loc();
 
-        let node = self.in_loc(item.into());
-        Node::new(self.arena.alloc(node))
+        self.node_at(start, end, item)
     }
 
+    /// Create a `Node<'ast, T>` at current token location, consuming the token.
     fn node_consume<T, I>(&mut self, item: I) -> Node<'ast, T> where
         T: Copy,
         I: Into<T>,
@@ -98,6 +91,8 @@ impl<'ast> Parser<'ast> {
         item
     }
 
+    /// Create a `Node<'ast, T>` at current token location from its `&str` value,
+    /// consuming the token.
     fn node_consume_str<T, F, I>(&mut self, make_item: F) -> Node<'ast, T> where
         T: Copy,
         F: FnOnce(&'ast str) -> I,
