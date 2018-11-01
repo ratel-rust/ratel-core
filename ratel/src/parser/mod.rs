@@ -14,6 +14,7 @@ use module::Module;
 
 use self::error::ToError;
 use self::nested::*;
+use self::feature::{FeatureSet, ES5};
 
 use ast::{Loc, Node, Statement, NodeList, Block, BlockNode};
 use ast::{Expression, ExpressionNode, ExpressionList, IdentifierNode};
@@ -39,6 +40,18 @@ pub struct Parser<'ast> {
 
     /// AST under construction
     body: NodeList<'ast, Statement<'ast>>,
+
+    set: &'static FeatureSet,
+}
+
+lazy_static! {
+    static ref DEFAULT_FEATURE_SET: FeatureSet = {
+        let mut set = FeatureSet::default();
+
+        ES5(&mut set);
+
+        set
+    };
 }
 
 impl<'ast> Parser<'ast> {
@@ -48,6 +61,7 @@ impl<'ast> Parser<'ast> {
             lexer: Lexer::new(arena, source),
             errors: Vec::new(),
             body: NodeList::empty(),
+            set: &DEFAULT_FEATURE_SET,
         }
     }
 

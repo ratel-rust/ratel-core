@@ -564,7 +564,7 @@ const PRD: ByteHandler = Some(|lex| {
             }
         },
 
-        _ => lex.read_accessor()
+        _ => lex.token = Accessor,
     };
 });
 
@@ -605,7 +605,7 @@ pub struct Lexer<'arena> {
     /// Flags whether or not a new line was read before the token
     asi: Asi,
 
-    /// Source to parse, must be a C-style buffer ending with 0 byte
+    /// Source to parse, must be a C-style buffer ending with a 0x00 byte
     ptr: *const u8,
 
     /// Current index
@@ -613,8 +613,6 @@ pub struct Lexer<'arena> {
 
     /// Position of current token in source
     token_start: usize,
-
-    accessor_start: usize,
 
     pub quasi: &'arena str,
 }
@@ -643,7 +641,6 @@ impl<'arena> Lexer<'arena> {
             ptr,
             index: 0,
             token_start: 0,
-            accessor_start: 0,
             quasi: "",
         };
 
@@ -679,14 +676,6 @@ impl<'arena> Lexer<'arena> {
     #[inline]
     pub fn token_as_str(&self) -> &'arena str {
         let start = self.token_start;
-        self.slice_from(start)
-    }
-
-    /// Specialized version of `token_as_str` that crates an `&str`
-    /// slice for the identifier following an accessor (`.`).
-    #[inline]
-    pub fn accessor_as_str(&self) -> &'arena str {
-        let start = self.accessor_start;
         self.slice_from(start)
     }
 
@@ -775,6 +764,10 @@ impl<'arena> Lexer<'arena> {
                         _ => self.bump()
                     }
                 },
+                0 => {
+                    self.token = UnexpectedEndOfProgram;
+                    return;
+                }
                 _ => self.bump()
             }
         }
@@ -842,58 +835,6 @@ impl<'arena> Lexer<'arena> {
         }
 
         self.token = LiteralBinary;
-    }
-
-    /// This is a specialized method that expects the next token to be an identifier,
-    /// even if it would otherwise be a keyword.
-    ///
-    /// This is useful when parsing member expressions such as `foo.function`, where
-    /// `function` is actually allowed as a regular identifier, not a keyword.
-    ///
-    /// The perf gain here comes mainly from avoiding having to first match the `&str`
-    /// to a keyword token, and then match that token back to a `&str`.
-    #[inline]
-    pub fn read_accessor(&mut self) {
-        // Look up table that marks which ASCII characters are allowed to start an ident
-        const AL: bool = true; // alphabet
-        const DO: bool = true; // dollar sign $
-        const US: bool = true; // underscore
-        const BS: bool = true; // backslash
-        const __: bool = false;
-
-        static TABLE: [bool; 128] = [
-        // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 0
-          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 1
-          __, __, __, __, DO, __, __, __, __, __, __, __, __, __, __, __, // 2
-          __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 4
-          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, BS, __, __, US, // 5
-          __, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 6
-          AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, __, __, __, __, __, // 7
-        ];
-
-        let mut ch;
-
-        unwind_loop!({
-            ch = self.read_byte();
-
-            if ch > 0x20 {
-                self.accessor_start = self.index;
-
-                if ch > 127 {
-                    unimplemented!();
-                    // return unicode(self)
-                } else if TABLE[ch as usize] {
-                    self.read_label();
-                    return self.token = Accessor;
-                } else {
-                    return self.token = UnexpectedToken;
-                }
-            }
-
-            self.bump();
-        })
     }
 
     #[inline]
@@ -1074,7 +1015,8 @@ mod test {
             "foo.bar();",
             [
                 (Identifier, "foo"),
-                (Accessor, ".bar"),
+                (Accessor, "."),
+                (Identifier, "bar"),
                 (ParenOpen, "("),
                 (ParenClose, ")"),
                 (Semicolon, ";"),
@@ -1088,7 +1030,8 @@ mod test {
             "foo.function();",
             [
                 (Identifier, "foo"),
-                (Accessor, ".function"),
+                (Accessor, "."),
+                (Function, "function"),
                 (ParenOpen, "("),
                 (ParenClose, ")"),
                 (Semicolon, ";"),
@@ -1154,8 +1097,13 @@ mod test {
     }
 
     #[test]
-    fn unexpected_end() {
+    fn unexpected_string_end() {
         assert_lex("'foo", [(UnexpectedEndOfProgram, "'foo")]);
+    }
+
+    #[test]
+    fn unexpected_template_end() {
+        assert_lex("`foo", [(UnexpectedEndOfProgram, "`foo")]);
     }
 
     #[test]

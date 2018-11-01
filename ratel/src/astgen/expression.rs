@@ -996,7 +996,7 @@ mod test {
                       "property": {
                         "type": "Identifier",
                         "name": "target",
-                        "start": 25,
+                        "start": 26,
                         "end": 32,
                       },
                       "start": 22,
@@ -1036,7 +1036,7 @@ mod test {
                         "property": {
                             "type": "Identifier",
                             "name": "bar",
-                            "start": 3,
+                            "start": 4,
                             "end": 7
                         },
                         "computed": false,

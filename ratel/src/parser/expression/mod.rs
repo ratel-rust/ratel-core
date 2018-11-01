@@ -1,16 +1,18 @@
 use toolshed::list::ListBuilder;
 use parser::{Parser, Parse, BindingPower, ANY, B0, B15};
-use lexer::{Token, TokenTable};
+use lexer::TokenTable;
 use lexer::Token::*;
 use ast::{Node, NodeList, Expression, ExpressionNode, IdentifierNode, ExpressionList};
 use ast::{Property, PropertyKey, OperatorKind, Literal, Function, Class, StatementNode};
 use ast::expression::*;
 
+mod prefix;
 mod literal;
 mod array;
 mod object;
 mod template;
 
+pub use self::prefix::*;
 pub use self::literal::*;
 pub use self::object::ObjectExpressionHandler;
 pub use self::array::ArrayExpressionHandler;
@@ -19,50 +21,6 @@ pub use self::template::{TemplateStringLiteralHandler, TemplateExpressionHandler
 pub type ExpressionHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> ExpressionNode<'ast>;
 
 pub type Context = &'static TokenTable<ExpressionHandlerFn>;
-
-lazy_static! {
-    pub static ref EXPRESSION_TABLE: TokenTable<ExpressionHandlerFn> = Token::table(error, &[
-        (ParenOpen,           ParenHandler::expression),
-        (BracketOpen,         ArrayExpressionHandler::expression),
-        (BraceOpen,           ObjectExpressionHandler::expression),
-        (OperatorNew,         NewHandler::expression),
-        (OperatorIncrement,   |par| par.prefix_expression(OperatorKind::Increment)),
-        (OperatorDecrement,   |par| par.prefix_expression(OperatorKind::Decrement)),
-        (OperatorLogicalNot,  |par| par.prefix_expression(OperatorKind::LogicalNot)),
-        (OperatorBitwiseNot,  |par| par.prefix_expression(OperatorKind::BitwiseNot)),
-        (OperatorTypeof,      |par| par.prefix_expression(OperatorKind::Typeof)),
-        (OperatorVoid,        |par| par.prefix_expression(OperatorKind::Void)),
-        (OperatorDelete,      |par| par.prefix_expression(OperatorKind::Delete)),
-        (OperatorDivision,    RegExHandler::expression),
-        (OperatorAddition,    |par| par.prefix_expression(OperatorKind::Addition)),
-        (OperatorSubtraction, |par| par.prefix_expression(OperatorKind::Subtraction)),
-        (Class,               |par| par.class_expression()),
-        (Function,            |par| par.function_expression()),
-        (This,                ThisHandler::expression),
-        (LiteralTrue,         TrueLiteralHandler::expression),
-        (LiteralFalse,        FalseLiteralHandler::expression),
-        (LiteralNull,         NullLiteralHandler::expression),
-        (LiteralUndefined,    UndefinedLiteralHandler::expression),
-        (LiteralString,       StringLiteralHandler::expression),
-        (LiteralNumber,       NumberLiteralHandler::expression),
-        (LiteralBinary,       BinaryLiteralHandler::expression),
-        (Identifier,          |par| par.node_consume_str(|ident| ident)),
-        (TemplateOpen,        TemplateExpressionHandler::expression),
-        (TemplateClosed,      TemplateStringLiteralHandler::expression),
-    ]);
-
-    // Adds handler for SpreadExpression
-    pub static ref CALL_CONTEXT: TokenTable<ExpressionHandlerFn> = EXPRESSION_TABLE.extend(&[
-        (OperatorSpread, SpreadExpressionHandler::expression),
-    ]);
-
-    // Adds handlers for VoidExpression and SpreadExpression
-    pub static ref ARRAY_CONTEXT: TokenTable<ExpressionHandlerFn> = EXPRESSION_TABLE.extend(&[
-        (BracketClose, void),
-        (Comma, void),
-        (OperatorSpread, SpreadExpressionHandler::expression),
-    ]);
-}
 
 macro_rules! create_handlers {
     ($( const $name:ident = |$par:ident| $code:expr; )*) => {
@@ -92,13 +50,13 @@ where
     }
 }
 
-fn error<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
+pub fn error<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
     let loc = par.lexer.start();
     par.error::<()>();
     par.node_at(loc, loc, Expression::Void)
 }
 
-fn void<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
+pub fn void<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
     let loc = par.lexer.start();
     par.node_at(loc, loc, Expression::Void)
 }
@@ -121,6 +79,8 @@ create_handlers! {
         par.lexer.consume();
 
         if par.lexer.token == Accessor {
+            par.lexer.consume();
+
             let meta = par.node_at(start, op_end, "new");
             let expression = par.meta_property_expression(meta);
             let end = par.lexer.end_then_consume();
@@ -170,7 +130,7 @@ create_handlers! {
 
 impl<'ast> Parser<'ast> {
     fn bound_expression(&mut self) -> ExpressionNode<'ast> {
-        EXPRESSION_TABLE.get(self.lexer.token)(self)
+        self.set.expressions.default.get(self.lexer.token)(self)
     }
 
     fn context_bound_expression(&mut self, context: Context) -> ExpressionNode<'ast> {
@@ -186,11 +146,20 @@ impl<'ast> Parser<'ast> {
         self.nested_expression::<B>(left)
     }
 
-    pub fn expression_in_context<B>(&mut self, context: Context) -> ExpressionNode<'ast>
+    pub fn expression_in_array_context<B>(&mut self) -> ExpressionNode<'ast>
     where
         B: BindingPower
     {
-        let left = self.context_bound_expression(context);
+        let left = self.context_bound_expression(&self.set.expressions.array);
+
+        self.nested_expression::<B>(left)
+    }
+
+    pub fn expression_in_call_context<B>(&mut self) -> ExpressionNode<'ast>
+    where
+        B: BindingPower
+    {
+        let left = self.context_bound_expression(&self.set.expressions.call);
 
         self.nested_expression::<B>(left)
     }
@@ -214,7 +183,7 @@ impl<'ast> Parser<'ast> {
             return NodeList::empty();
         }
 
-        let expression = self.expression_in_context::<B0>(&CALL_CONTEXT);
+        let expression = self.expression_in_call_context::<B0>();
         let builder = ListBuilder::new(self.arena, expression);
 
         loop {
@@ -227,7 +196,7 @@ impl<'ast> Parser<'ast> {
                         break
                     }
 
-                    self.expression_in_context::<B0>(&CALL_CONTEXT)
+                    self.expression_in_call_context::<B0>()
                 }
                 _ => {
                     self.error::<()>();
@@ -241,22 +210,11 @@ impl<'ast> Parser<'ast> {
         builder.as_list()
     }
 
-    pub fn prefix_expression(&mut self, operator: OperatorKind) -> ExpressionNode<'ast> {
-        let start = self.lexer.start_then_consume();
-        let operand = self.expression::<B15>();
-        let end = operand.end;
-
-        self.node_at(start, end, PrefixExpression {
-            operator,
-            operand,
-        })
-    }
-
     pub fn meta_property_expression(&mut self, meta: IdentifierNode<'ast>) -> MetaPropertyExpression<'ast> {
-        let property = self.lexer.accessor_as_str();
+        let property = self.lexer.token_as_str();
 
         // Only `NewTarget` is a valid MetaProperty.
-        if property != "target" {
+        if !self.lexer.token.is_word() || property != "target" {
             self.error::<()>();
         }
 

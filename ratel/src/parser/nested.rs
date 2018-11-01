@@ -9,13 +9,13 @@ use lexer::Asi;
 
 const TOTAL_TOKENS: usize = 108;
 
-type NestedHandler = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>) -> ExpressionNode<'ast>>;
+pub type NestedHandlerFn = Option<for<'ast> fn(&mut Parser<'ast>, ExpressionNode<'ast>) -> ExpressionNode<'ast>>;
 
 pub trait BindingPower {
-    const LUT: [NestedHandler; TOTAL_TOKENS];
+    const LUT: [NestedHandlerFn; TOTAL_TOKENS];
 
 
-    fn handler(asi: Asi, token: Token) -> NestedHandler {
+    fn handler(asi: Asi, token: Token) -> NestedHandlerFn {
         // TODO: find a cleaner solution, roll it the ASI check into lookup table somehow?
         if asi == Asi::ImplicitSemicolon {
             match token {
@@ -33,7 +33,7 @@ macro_rules! bp {
         pub struct $name;
 
         impl BindingPower for $name {
-            const LUT: [NestedHandler; TOTAL_TOKENS] = $table;
+            const LUT: [NestedHandlerFn; TOTAL_TOKENS] = $table;
         }
     }
 }
@@ -66,6 +66,20 @@ bp!(ANY, [
 
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 //  IMPL  PCKG  PROT  IFACE PRIV  PUBLI IDENT ACCSS TPL_O TPL_C ERR_T ERR_E
+]);
+
+
+/// Only used in the init section of for loops, skips `OperatorIn`
+bp!(FORLOOP, [
+    ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
+    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
+    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, ____, STEQ, SIEQ,
+    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ASGN, ADDA, SUBA, EXPA,
+    MULA, DIVA, REMA, BSLA, BSRA, UBSA, BWAA, XORA, BORA, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
 bp!(B0, [
@@ -236,9 +250,9 @@ bp!(B15, [
     ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
 ]);
 
-const ____: NestedHandler = None;
+const ____: NestedHandlerFn = None;
 
-const SEQ: NestedHandler = Some(|par, left| {
+const SEQ: NestedHandlerFn = Some(|par, left| {
     par.lexer.consume();
 
     let builder = ListBuilder::new(par.arena, left);
@@ -255,7 +269,7 @@ const SEQ: NestedHandler = Some(|par, left| {
 });
 
 
-const COND: NestedHandler = Some(|par, left| {
+const COND: NestedHandlerFn = Some(|par, left| {
     par.lexer.consume();
 
     let consequent = par.expression::<B4>();
@@ -269,7 +283,7 @@ const COND: NestedHandler = Some(|par, left| {
     })
 });
 
-const ARRW: NestedHandler = Some(|par, left| {
+const ARRW: NestedHandlerFn = Some(|par, left| {
     par.lexer.consume();
 
     let params = match left.item {
@@ -283,12 +297,14 @@ const ARRW: NestedHandler = Some(|par, left| {
     return par.node_at(start, end, expression)
 });
 
-const ACCS: NestedHandler = Some(|par, left| {
-    let member = par.lexer.accessor_as_str();
-    let (start, end) = par.lexer.loc();
+const ACCS: NestedHandlerFn = Some(|par, left| {
     par.lexer.consume();
 
-    let right = par.node_at(start, end, member);
+    if !par.lexer.token.is_word() {
+        par.error::<()>();
+    }
+
+    let right = par.node_consume_str(|member| member);
 
     par.node_at(left.start, right.end, MemberExpression {
         object: left,
@@ -296,7 +312,7 @@ const ACCS: NestedHandler = Some(|par, left| {
     })
 });
 
-const CALL: NestedHandler = Some(|par, left| {
+const CALL: NestedHandlerFn = Some(|par, left| {
     let start = par.lexer.start_then_consume();
     let arguments = par.call_arguments();
     let end = par.lexer.end_then_consume();
@@ -307,7 +323,7 @@ const CALL: NestedHandler = Some(|par, left| {
     })
 });
 
-const CMEM: NestedHandler = Some(|par, left| {
+const CMEM: NestedHandlerFn = Some(|par, left| {
     par.lexer.consume();
     let property = par.expression::<ANY>();
 
@@ -320,7 +336,7 @@ const CMEM: NestedHandler = Some(|par, left| {
     })
 });
 
-const TPLS: NestedHandler = Some(|par, left| {
+const TPLS: NestedHandlerFn = Some(|par, left| {
     let quasi = par.template_string();
 
     par.node_at(left.start, quasi.end, TaggedTemplateExpression {
@@ -329,13 +345,13 @@ const TPLS: NestedHandler = Some(|par, left| {
     })
 });
 
-const TPLE: NestedHandler = Some(|par, left| {
+const TPLE: NestedHandlerFn = Some(|par, left| {
     par.tagged_template_expression(left)
 });
 
 macro_rules! postfix {
     ($name:ident => $op:ident) => {
-        const $name: NestedHandler = {
+        const $name: NestedHandlerFn = {
             fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
                 let end = par.lexer.end();
                 par.lexer.consume();
@@ -357,7 +373,7 @@ macro_rules! postfix {
 
 macro_rules! assign {
     ($name:ident => $op:ident) => {
-        const $name: NestedHandler = {
+        const $name: NestedHandlerFn = {
             fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
                 par.lexer.consume();
 
@@ -381,7 +397,7 @@ macro_rules! assign {
 
 macro_rules! binary {
     ($name:ident, $bp:ident => $op:ident) => {
-        const $name: NestedHandler = {
+        const $name: NestedHandlerFn = {
             fn handler<'ast>(par: &mut Parser<'ast>, left: ExpressionNode<'ast>) -> ExpressionNode<'ast> {
                 par.lexer.consume();
 

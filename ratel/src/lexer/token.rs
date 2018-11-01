@@ -153,14 +153,25 @@ where
         self.0[index as usize]
     }
 
-    pub fn extend(&self, inserts: &[(Token, T)]) -> TokenTable<T> {
-        let mut table = *self;
-
+    pub fn extend(&mut self, inserts: &[(Token, T)]) {
         for (token, value) in inserts {
-            table.set(*token, *value);
+            self.set(*token, *value);
         }
+    }
 
+    pub fn extend_copy(&self, inserts: &[(Token, T)]) -> TokenTable<T> {
+        let mut table = *self;
+        table.extend(inserts);
         table
+    }
+}
+
+impl<T> Default for TokenTable<Option<T>>
+where
+    T: Copy
+{
+    fn default() -> TokenTable<Option<T>> {
+        TokenTable([None; TOKEN_SIZE])
     }
 }
 

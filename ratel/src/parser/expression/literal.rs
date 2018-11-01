@@ -10,19 +10,6 @@ pub struct StringLiteralHandler;
 pub struct NumberLiteralHandler;
 pub struct BinaryLiteralHandler;
 
-pub trait LiteralHandler {
-    const VALUE: Literal<'static>;
-}
-
-impl<L> ExpressionHandler for L
-where
-    L: LiteralHandler
-{
-    fn expression<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
-        par.node_consume(Self::VALUE)
-    }
-}
-
 impl ExpressionHandler for TrueLiteralHandler {
     fn expression<'ast>(par: &mut Parser<'ast>) -> ExpressionNode<'ast> {
         par.node_consume(Literal::True)

@@ -1,38 +1,13 @@
 use toolshed::list::{ListBuilder, GrowableList};
-use parser::{Parser, Parse, ANY, B0};
-use lexer::{Token, TokenTable};
+use parser::{Parser, Parse, ANY, FORLOOP, B0};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Node, NodeList, Declarator, DeclarationKind, OperatorKind};
-use ast::{Statement, StatementNode, Expression, ExpressionNode, Class, Function, Pattern};
-use ast::expression::BinaryExpression;
+use ast::{Node, NodeList, Declarator, DeclarationKind};
+use ast::{Statement, StatementNode, ExpressionNode, Class, Function, Pattern};
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
 use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
 use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
-use ast::OperatorKind::*;
-
-// use parser::expression::{
-    // TRUE, FALS, NULL, UNDE, STR, NUM, BIN, TPLS, TPLE
-// };
-
-/// Shared expression handlers that implement `StatementHandler`.
-use parser::expression::{
-    ParenHandler,
-    ArrayExpressionHandler,
-    NewHandler,
-    RegExHandler,
-    ThisHandler,
-    TrueLiteralHandler,
-    FalseLiteralHandler,
-    NullLiteralHandler,
-    UndefinedLiteralHandler,
-    StringLiteralHandler,
-    NumberLiteralHandler,
-    BinaryLiteralHandler,
-    TemplateStringLiteralHandler,
-    TemplateExpressionHandler,
-};
 
 pub type StatementHandlerFn = for<'ast> fn(&mut Parser<'ast>) -> StatementNode<'ast>;
 
@@ -40,56 +15,14 @@ pub trait StatementHandler {
     fn statement<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast>;
 }
 
-lazy_static! {
-    static ref HANDLERS: TokenTable<StatementHandlerFn> = Token::table(error, &[
-        (Semicolon,           |par| par.node_consume(Statement::Empty)),
-        (ParenOpen,           ParenHandler::statement),
-        (BracketOpen,         ArrayExpressionHandler::statement),
-        (BraceOpen,           |par| par.block_statement()),
-        (OperatorNew,         NewHandler::statement),
-        (OperatorIncrement,   |par| par.prefix_expression_statement(OperatorKind::Increment)),
-        (OperatorDecrement,   |par| par.prefix_expression_statement(OperatorKind::Decrement)),
-        (OperatorLogicalNot,  |par| par.prefix_expression_statement(OperatorKind::LogicalNot)),
-        (OperatorBitwiseNot,  |par| par.prefix_expression_statement(OperatorKind::BitwiseNot)),
-        (OperatorTypeof,      |par| par.prefix_expression_statement(OperatorKind::Typeof)),
-        (OperatorVoid,        |par| par.prefix_expression_statement(OperatorKind::Void)),
-        (OperatorDelete,      |par| par.prefix_expression_statement(OperatorKind::Delete)),
-        (OperatorDivision,    RegExHandler::statement),
-        (OperatorAddition,    |par| par.prefix_expression_statement(OperatorKind::Addition)),
-        (OperatorSubtraction, |par| par.prefix_expression_statement(OperatorKind::Subtraction)),
-        (DeclarationVar,      |par| par.variable_declaration_statement(DeclarationKind::Var)),
-        (DeclarationLet,      |par| par.variable_declaration_statement(DeclarationKind::Let)),
-        (DeclarationConst,    |par| par.variable_declaration_statement(DeclarationKind::Const)),
-        (Break,               |par| par.break_statement()),
-        (Do,                  |par| par.do_statement()),
-        (Class,               |par| par.class_statement()),
-        (Return,              |par| par.return_statement()),
-        (While,               |par| par.while_statement()),
-        (Continue,            |par| par.continue_statement()),
-        (For,                 |par| par.for_statement()),
-        (Switch,              |par| par.switch_statement()),
-        (Function,            |par| par.function_statement()),
-        (This,                ThisHandler::statement),
-        (If,                  |par| par.if_statement()),
-        (Throw,               |par| par.throw_statement()),
-        (Try,                 |par| par.try_statement()),
-        (LiteralTrue,         TrueLiteralHandler::statement),
-        (LiteralFalse,        FalseLiteralHandler::statement),
-        (LiteralNull,         NullLiteralHandler::statement),
-        (LiteralUndefined,    UndefinedLiteralHandler::statement),
-        (LiteralString,       StringLiteralHandler::statement),
-        (LiteralNumber,       NumberLiteralHandler::statement),
-        (LiteralBinary,       BinaryLiteralHandler::statement),
-        (Identifier,          |par| par.labeled_or_expression_statement()),
-        (TemplateOpen,        TemplateExpressionHandler::statement),
-        (TemplateClosed,      TemplateStringLiteralHandler::statement),
-    ]);
-}
-
-fn error<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast> {
+pub fn error<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast> {
     let loc = par.lexer.start();
     par.error::<()>();
     par.node_at(loc, loc, Statement::Empty)
+}
+
+pub fn empty<'ast>(par: &mut Parser<'ast>) -> StatementNode<'ast> {
+    par.node_consume(Statement::Empty)
 }
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
@@ -148,7 +81,7 @@ impl<'ast> Parse<'ast> for SwitchCase<'ast> {
 
 impl<'ast> Parser<'ast> {
     pub fn statement(&mut self) -> StatementNode<'ast> {
-        HANDLERS.get(self.lexer.token)(self)
+        self.set.statements.get(self.lexer.token)(self)
     }
 
     /// Expect a semicolon to terminate a statement. Will assume a semicolon
@@ -171,12 +104,6 @@ impl<'ast> Parser<'ast> {
 
     pub fn expression_statement(&mut self, expression: ExpressionNode<'ast>) -> StatementNode<'ast> {
         let expression = self.nested_expression::<ANY>(expression);
-
-        self.wrap_expression(expression)
-    }
-
-    pub fn prefix_expression_statement(&mut self, operator: OperatorKind) -> StatementNode<'ast> {
-        let expression = self.prefix_expression(operator);
 
         self.wrap_expression(expression)
     }
@@ -218,7 +145,7 @@ impl<'ast> Parser<'ast> {
         self.node_at(start, function.body.end, function)
     }
 
-    fn class_statement(&mut self) -> StatementNode<'ast> {
+    pub fn class_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         let class = Class::parse(self);
 
@@ -468,7 +395,7 @@ impl<'ast> Parser<'ast> {
         declaration
     }
 
-    fn for_statement(&mut self) -> StatementNode<'ast> {
+    pub fn for_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
 
@@ -481,18 +408,7 @@ impl<'ast> Parser<'ast> {
             DeclarationLet   => Some(self.for_init(DeclarationKind::Let)),
             DeclarationConst => Some(self.for_init(DeclarationKind::Const)),
             _ => {
-                let init = self.expression::<ANY>();
-
-                if let Expression::Binary(BinaryExpression {
-                    operator: In,
-                    left,
-                    right,
-                    ..
-                }) = init.item {
-                    let left = self.node_at(left.start, left.end, left);
-
-                    return self.for_in_statement_from_parts(start, left, right);
-                }
+                let init = self.expression::<FORLOOP>();
 
                 Some(self.node_at(init.start, init.end, init))
             },
@@ -500,6 +416,7 @@ impl<'ast> Parser<'ast> {
 
         if let Some(ref init) = init {
             match self.lexer.token {
+                Semicolon => self.lexer.consume(),
                 OperatorIn => {
                     self.lexer.consume();
                     return self.for_in_statement(start, *init);
@@ -508,7 +425,7 @@ impl<'ast> Parser<'ast> {
                     self.lexer.consume();
                     return self.for_of_statement(start, *init);
                 },
-                _ => expect!(self, Semicolon)
+                _ => self.error::<()>()
             }
         }
 
@@ -548,18 +465,6 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn for_in_statement_from_parts(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>, right: ExpressionNode<'ast>) -> StatementNode<'ast> {
-        expect!(self, ParenClose);
-
-        let body = self.statement();
-
-        self.node_at(start, body.end, ForInStatement {
-            left,
-            right,
-            body,
-        })
-    }
-
     fn for_in_statement(&mut self, start: u32, left: Node<'ast, ForInit<'ast>>) -> StatementNode<'ast> {
         let right = self.expression::<ANY>();
 
@@ -588,7 +493,7 @@ impl<'ast> Parser<'ast> {
         })
     }
 
-    fn switch_statement(&mut self) -> StatementNode<'ast> {
+    pub fn switch_statement(&mut self) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
         expect!(self, ParenOpen);
 
