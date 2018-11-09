@@ -30,6 +30,7 @@ impl<'ast, G: Generator> ToCode<G> for Expression<'ast> {
             Object(ref object)           => gen.write(object),
             Function(ref function)       => gen.write(function),
             Class(ref class)             => gen.write(class),
+            Yield(ref expression)        => gen.write(expression),
         }
     }
 }
@@ -324,6 +325,20 @@ impl<'ast, G: Generator> ToCode<G> for ObjectExpression<'ast> {
     }
 }
 
+
+impl<'ast, G: Generator> ToCode<G> for YieldExpression<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        gen.write_bytes(b"yield");
+        gen.write_pretty(b' ');
+        if self.delegate {
+            gen.write_bytes(b"*")
+        }
+        gen.write_byte(b' ');
+        gen.write(&self.argument);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use {assert_min, assert_pretty};
@@ -512,5 +527,12 @@ mod test {
     #[test]
     fn regression_increments() {
         assert_min("x++ + ++y", "x++ + ++y;");
+    }
+
+    #[test]
+    fn yield_expression() {
+        assert_min("yield* foo()", "yield* foo();");
+        assert_min("yield foo()", "yield foo();");
+        assert_min("yield true", "yield true;");
     }
 }

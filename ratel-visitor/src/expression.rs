@@ -115,6 +115,10 @@ impl<'ast> Visitable<'ast> for ExpressionNode<'ast> {
                 visitor.on_class_expression(class, self, ctx);
                 visitor.push_parent(ParentNode::from(self), ctx);
                 class.traverse(visitor, ctx);
+            },
+            Yield(ref expression) => {
+                visitor.on_yield_expression(expression, self, ctx);
+                expression.argument.traverse(visitor, ctx);
             }
         }
         visitor.pop_parent(ctx);

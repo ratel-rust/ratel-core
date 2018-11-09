@@ -4,8 +4,10 @@ use parser::nested::NestedHandlerFn;
 use lexer::{Token, TokenTable};
 
 mod es5;
+mod es2015;
 
 pub use self::es5::ES5;
+pub use self::es2015::ES2015;
 
 pub struct ExpressionTables {
     pub default: TokenTable<ExpressionHandlerFn>,

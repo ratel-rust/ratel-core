@@ -259,6 +259,18 @@ impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
     }
 }
 
+impl<'ast> SerializeInLoc for YieldExpression<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "YieldExpression", 2, |state| {
+            state.serialize_field("argument", &self.argument)?;
+            state.serialize_field("delegate", &self.delegate)
+        })
+    }
+}
+
 impl<'ast> SerializeInLoc for Expression<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
     where
@@ -292,6 +304,7 @@ impl<'ast> SerializeInLoc for Expression<'ast> {
             Arrow(ref expression)          => expression.serialize(serializer),
             Function(ref expression)       => expression.serialize(serializer),
             Class(ref expression)          => expression.serialize(serializer),
+            Yield(ref expression)          => expression.serialize(serializer),
         }
     }
 }
@@ -1447,6 +1460,33 @@ mod test {
             "start": 0,
             "end": 26
         });
+
+        expect_parse!("function* foo () {}", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "FunctionDeclaration",
+                    "generator": true,
+                    "id": {
+                        "type": "Identifier",
+                        "name": "foo",
+                        "start": 10,
+                        "end": 13
+                    },
+                    "params": [],
+                    "body": {
+                        "type": "BlockStatement",
+                        "body": [],
+                        "start": 17,
+                        "end": 19
+                    },
+                    "start": 0,
+                    "end": 19
+                }
+            ],
+            "start": 0,
+            "end": 19
+        });
     }
 
     #[test]
@@ -1618,4 +1658,99 @@ mod test {
             "end": 29
         });
     }
+
+    #[test]
+    fn test_yield_expression() {
+        expect_parse!("function* foo () { yield true; }", {
+          "type": "Program",
+          "body": [
+            {
+              "type": "FunctionDeclaration",
+              "generator": true,
+              "id": {
+                "type": "Identifier",
+                "name": "foo",
+                "start": 10,
+                "end": 13,
+              },
+              "params": [],
+              "body": {
+                "type": "BlockStatement",
+                "body": [
+                  {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                      "type": "YieldExpression",
+                      "delegate": false,
+                      "argument": {
+                        "type": "Literal",
+                        "value": true,
+                        "raw": "true",
+                        "start": 25,
+                        "end": 29,
+                      },
+                      "start": 19,
+                      "end": 30,
+                    },
+                    "start": 19,
+                    "end": 30,
+                  }
+                ],
+                "start": 17,
+                "end": 32,
+              },
+              "start": 0,
+              "end": 32,
+            }
+          ],
+          "start": 0,
+          "end": 32,
+        });
+        expect_parse!("function* foo () { yield* true; }", {
+          "type": "Program",
+          "body": [
+            {
+              "type": "FunctionDeclaration",
+              "generator": true,
+              "id": {
+                "type": "Identifier",
+                "name": "foo",
+                "start": 10,
+                "end": 13,
+              },
+              "params": [],
+              "body": {
+                "type": "BlockStatement",
+                "body": [
+                  {
+                    "type": "ExpressionStatement",
+                    "expression": {
+                      "type": "YieldExpression",
+                      "delegate": true,
+                      "argument": {
+                        "type": "Literal",
+                        "value": true,
+                        "raw": "true",
+                        "start": 26,
+                        "end": 30,
+                      },
+                      "start": 19,
+                      "end": 31,
+                    },
+                    "start": 19,
+                    "end": 31,
+                  }
+                ],
+                "start": 17,
+                "end": 33,
+              },
+              "start": 0,
+              "end": 33,
+            }
+          ],
+          "start": 0,
+          "end": 33,
+        });
+    }
+
 }

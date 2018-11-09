@@ -4,7 +4,7 @@ echo "TESTING: ratel + crates"
 echo "#######################"
 echo ""
 
-cargo test || exit
+cargo test "$@" || exit
 
 echo ""
 echo ""

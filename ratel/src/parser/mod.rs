@@ -14,7 +14,7 @@ use module::Module;
 
 use self::error::ToError;
 use self::nested::*;
-use self::feature::{FeatureSet, ES5};
+use self::feature::{FeatureSet, ES5, ES2015};
 
 use ast::{Loc, Node, Statement, NodeList, Block, BlockNode};
 use ast::{Expression, ExpressionNode, ExpressionList, IdentifierNode};
@@ -49,6 +49,7 @@ lazy_static! {
         let mut set = FeatureSet::default();
 
         ES5(&mut set);
+        ES2015(&mut set);
 
         set
     };
