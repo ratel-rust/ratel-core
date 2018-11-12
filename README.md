@@ -19,9 +19,9 @@ For common usage checkout the [ratel-cli](https://github.com/ratel-rust/ratel-cl
 
 ## Performance
 
-While still incomplete, the Parser part of **Ratel** can run circles around even the fastest parsers built in JavaScript, here it is compared to [Esprima](http://esprima.org/).
+While still incomplete, the Parser part of **Ratel** can run circles around even the fastest parsers built in JavaScript, here it is compared to [Esprima](http://esprima.org/) using the ratel FFI.
 
-![ratel vs esprima chart](http://terhix.com/ratel-perf-1.png)
+![ratel chart](https://user-images.githubusercontent.com/787228/46786973-beee0c80-cd36-11e8-989a-62b92d624d38.png)
 
 ## Contributors
 

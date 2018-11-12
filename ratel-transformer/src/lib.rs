@@ -8,6 +8,8 @@ extern crate toolshed;
 use toolshed::Arena;
 use toolshed::list::ListBuilder;
 use ratel::ast::{Loc, Node, NodeList};
+use ratel::Module;
+use ratel_visitor::{ScopeKind, Visitable};
 
 pub mod es2015;
 // pub mod es2016;
@@ -16,12 +18,13 @@ pub mod scope;
 
 use self::scope::Scope;
 
-pub struct Transformer<'ast> {
+#[derive(Copy, Clone)]
+pub struct TransformerCtxt<'ast> {
     pub arena: &'ast Arena,
     pub scope: &'ast Scope<'ast>,
 }
 
-impl<'ast> Transformer<'ast> {
+impl<'ast> TransformerCtxt<'ast> {
     #[inline]
     pub fn alloc<T, I>(&self, item: I) -> Node<'ast, T> where
         T: Copy,
@@ -72,15 +75,13 @@ impl<'ast> Transformer<'ast> {
     }
 }
 
-// pub fn transform<'ast>(module: &mut Module, settings: Settings) {
-//     let arena = module.arena();
-//     let body = module.body();
+pub fn transform<'ast>(module: &'ast mut Module<'ast>) {
+    let arena = module.arena();
 
-//     let transformer = Transformer {
-//         arena,
-//         settings,
-//         scope: Scope::new(arena),
-//     };
+    let ctx = TransformerCtxt {
+        arena,
+        scope: arena.alloc(Scope::new(ScopeKind::Function, None)),
+    };
 
-//     transformer.transform(body);
-// }
+    module.visit_with(&mut es2015::PresetES2015::new(ctx));
+}

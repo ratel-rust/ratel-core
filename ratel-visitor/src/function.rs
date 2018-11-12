@@ -8,7 +8,7 @@ impl<'ast> Visitable<'ast> for EmptyName {
     type Parent = NoParent;
 
     #[inline]
-    fn traverse<V>(&'ast self, _: &V, _: &mut V::Context)
+    fn visit_with<V>(&'ast self, _: &mut V)
     where
         V: Visitor<'ast>,
     {}
@@ -18,7 +18,7 @@ impl<'ast> Visitable<'ast> for OptionalName<'ast> {
     type Parent = ExpressionNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&'ast self, _: &V, _: &mut V::Context)
+    fn visit_with<V>(&'ast self, _: &mut V)
     where
         V: Visitor<'ast>,
     {}
@@ -28,11 +28,11 @@ impl<'ast> Visitable<'ast> for MandatoryName<'ast> {
     type Parent = StatementNode<'ast>;
 
     #[inline]
-    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    fn visit_with<V>(&'ast self, visitor: &mut V)
     where
         V: Visitor<'ast>,
     {
-        visitor.on_reference_declaration(&(self.0).item, ctx);
+        visitor.on_reference_declaration(&(self.0).item);
     }
 }
 
@@ -43,18 +43,18 @@ where
     type Parent = N::Parent;
 
     #[inline]
-    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    fn visit_with<V>(&'ast self, visitor: &mut V)
     where
         V: Visitor<'ast>,
     {
-        self.name.traverse(visitor, ctx);
+        self.name.visit_with(visitor);
 
         // Call visit on the StatementList instead of BlockNode since we
         // need to make sure that function parameters end up inside the block
-        visitor.on_enter_scope(ScopeKind::Function, ctx);
-        self.params.traverse(visitor, ctx);
-        self.body.body.traverse(visitor, ctx);
-        visitor.on_leave_scope(ctx);
+        visitor.on_enter_scope(ScopeKind::Function);
+        self.params.visit_with(visitor);
+        self.body.body.visit_with(visitor);
+        visitor.on_leave_scope();
     }
 }
 
@@ -62,7 +62,7 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
     type Parent = Node<'ast, Self>;
 
     #[inline]
-    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    fn visit_with<V>(&'ast self, visitor: &mut V)
     where
         V: Visitor<'ast>,
     {
@@ -75,16 +75,16 @@ impl<'ast> Visitable<'ast> for ClassMember<'ast> {
                 ref value,
                 ..
             } => {
-                key.traverse(visitor, ctx);
-                value.traverse(visitor, ctx);
+                key.visit_with(visitor);
+                value.visit_with(visitor);
             },
             Literal {
                 ref key,
                 ref value,
                 ..
             } => {
-                key.traverse(visitor, ctx);
-                value.traverse(visitor, ctx);
+                key.visit_with(visitor);
+                value.visit_with(visitor);
             },
         }
     }
@@ -97,12 +97,12 @@ where
     type Parent = N::Parent;
 
     #[inline]
-    fn traverse<V>(&'ast self, visitor: &V, ctx: &mut V::Context)
+    fn visit_with<V>(&'ast self, visitor: &mut V)
     where
         V: Visitor<'ast>,
     {
-        self.name.traverse(visitor, ctx);
-        self.extends.traverse(visitor, ctx);
-        self.body.body.traverse(visitor, ctx);
+        self.name.visit_with(visitor);
+        self.extends.visit_with(visitor);
+        self.body.body.visit_with(visitor);
     }
 }

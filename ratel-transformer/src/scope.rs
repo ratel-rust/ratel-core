@@ -2,7 +2,7 @@ use std::fmt::{self, Debug};
 
 use ratel::Module;
 use ratel::ast::{Identifier, ExpressionNode};
-use ratel_visitor::{Visitable, StaticVisitor, DynamicVisitor, ScopeKind};
+use ratel_visitor::{Visitable, ScopeKind, Visitor};
 use toolshed::{Arena, CopyCell};
 use toolshed::list::GrowableList;
 use toolshed::map::BloomMap;
@@ -10,11 +10,11 @@ use toolshed::map::BloomMap;
 /// Traverse the AST and produce a tree of `Scope`s.
 #[inline]
 pub fn analyze<'ast>(module: &'ast Module<'ast>) -> &'ast Scope<'ast> {
-    let mut ctx = ScopeContext::new(module.arena());
+    let mut visitor = ScopeAnalyzer::new(module.arena());
 
-    module.traverse(&ScopeAnalizer, &mut ctx);
+    module.visit_with(&mut visitor);
 
-    ctx.current.get()
+    visitor.current.get()
 }
 
 pub type ReferenceData = ();
@@ -90,67 +90,54 @@ impl<'ast> PartialEq for &'ast Scope<'ast> {
     }
 }
 
-struct ScopeContext<'ast> {
+struct ScopeAnalyzer<'ast> {
     arena: &'ast Arena,
     pub current: CopyCell<&'ast Scope<'ast>>,
 }
 
-impl<'ast> ScopeContext<'ast> {
+impl<'ast> ScopeAnalyzer<'ast> {
     #[inline]
     fn new(arena: &'ast Arena) -> Self {
         let current = CopyCell::new(
             arena.alloc(Scope::new(ScopeKind::Function, None))
         );
 
-        ScopeContext {
+        ScopeAnalyzer {
             arena,
             current,
         }
     }
 }
 
-struct ScopeAnalizer;
-
-impl<'ast> StaticVisitor<'ast> for ScopeAnalizer {
-    type Context = ScopeContext<'ast>;
-
+impl<'ast> Visitor<'ast> for ScopeAnalyzer<'ast> {
     #[inline]
-    fn on_enter_scope(kind: ScopeKind, ctx: &mut Self::Context) {
-        ctx.current.set(
-            ctx.arena.alloc(Scope::new(kind, Some(ctx.current.get())))
+    fn on_enter_scope(&mut self, kind: ScopeKind) {
+        self.current.set(
+            self.arena.alloc(Scope::new(kind, Some(self.current.get())))
         );
     }
 
     #[inline]
-    fn on_leave_scope(ctx: &mut Self::Context) {
-        let popped = ctx.current.get();
+    fn on_leave_scope(&mut self) {
+        let popped = self.current.get();
 
-        ctx.current.set(popped.parent.unwrap());
-        ctx.current.get().children.push(ctx.arena, popped);
+        self.current.set(popped.parent.unwrap());
+        self.current.get().children.push(self.arena, popped);
     }
 
     #[inline]
-    fn on_reference_use(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
-        ctx.current.get().used_refs.insert(ctx.arena, *ident, ());
+    fn on_reference_use(&mut self, ident: &Identifier<'ast>) {
+        self.current.get().used_refs.insert(self.arena, *ident, ());
     }
 
     #[inline]
-    fn on_reference_declaration(ident: &Identifier<'ast>, ctx: &mut Self::Context) {
-        ctx.current.get().declared_refs.insert(ctx.arena, *ident, ());
+    fn on_reference_declaration(&mut self, ident: &Identifier<'ast>) {
+        self.current.get().declared_refs.insert(self.arena, *ident, ());
     }
 
     #[inline]
-    fn on_this_expression(_: &ExpressionNode<'ast>, ctx: &mut Self::Context) {
-        ctx.current.get().used_this.set(true);
-    }
-
-    #[inline]
-    fn register(dv: &mut DynamicVisitor<'ast, Self::Context>) {
-        dv.on_enter_scope.push(Self::on_enter_scope);
-        dv.on_leave_scope.push(Self::on_leave_scope);
-        dv.on_reference_use.push(Self::on_reference_use);
-        dv.on_reference_declaration.push(Self::on_reference_declaration);
-        dv.on_this_expression.push(Self::on_this_expression);
+    fn on_this_expression(&mut self, _: &ExpressionNode<'ast>) {
+        self.current.get().used_this.set(true);
     }
 }
 

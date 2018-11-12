@@ -1,29 +1,29 @@
 {
   "name": "ratel-core-ffi",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "description": "",
   "main": "lib/index.js",
   "author": "Matthias Thoemmes <thoemmes@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "neon": "^2.0.0",
-    "neon-cli": "^0.1.22"
+    "neon-cli": "^0.2.0"
   },
   "devDependencies": {
-    "acorn": "^5.5.3",
+    "acorn": "^6.0.2",
     "babylon": "^6.18.0",
     "bench-runner": "^1.3.4",
     "esformatter-parser": "^1.0.0",
-    "espree": "^3.5.4",
-    "esprima": "^4.0.0",
-    "flow-parser": "^0.73.0",
+    "espree": "^4.0.0",
+    "esprima": "^4.0.1",
+    "flow-parser": "^0.83.0",
     "mocha": "^5.2.0",
-    "recast": "^0.14.7",
-    "typescript": "^2.8.3",
-    "typescript-eslint-parser": "^15.0.0"
+    "recast": "^0.16.0",
+    "typescript": "^3.1.3",
+    "typescript-eslint-parser": "^20.0.0"
   },
   "scripts": {
-    "install": "neon build",
+    "install": "neon build --release",
     "test": "mocha",
     "benches": "bench-runner"
   }
