@@ -84,20 +84,8 @@ bp!(B1, [
     ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
     INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
     SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ACCS, TPLE, TPLS, ____, ____,
-]);
-
-bp!(B4, [
-    ____, ____, ____, ____, CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
-    INC,  DEC,  ____, ____, ____, ____, ____, MUL,  DIV,  REM,  EXPN, ADD,
-    SUB,  BSL,  BSR,  UBSR, LESS, LSEQ, GRTR, GREQ, INOF, IN,   STEQ, SIEQ,
-    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   ____, ____, ____, ____, ____,
-    ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
+    EQ,   INEQ, BWAN, BWXO, BWOR, AND,  OR,   COND, ASGN, ADDA, SUBA, EXPA,
+    MULA, DIVA, REMA, BSLA, BSRA, UBSA, BWAA, XORA, BORA, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,
@@ -258,9 +246,9 @@ const SEQ: NestedHandler = Some(|par, left| {
 const COND: NestedHandler = Some(|par, left| {
     par.lexer.consume();
 
-    let consequent = par.expression::<B4>();
+    let consequent = par.expression::<B1>();
     expect!(par, Colon);
-    let alternate = par.expression::<B4>();
+    let alternate = par.expression::<B1>();
 
     par.alloc_at_loc(left.start, alternate.end, ConditionalExpression {
         test: left,
