@@ -128,7 +128,7 @@ impl Token {
     pub fn is_word(&self) -> bool {
         use self::Token::*;
 
-        match *self {
+        match self {
             Identifier         |
             Break              |
             Do                 |

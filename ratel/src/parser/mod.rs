@@ -79,7 +79,7 @@ impl<'ast> Parser<'ast> {
     fn alloc<T>(&mut self, val: Loc<T>) -> Node<'ast, T> where
         T: Copy,
     {
-        Node::new(self.arena.alloc(val.into()))
+        Node::new(self.arena.alloc(val))
     }
 
     #[inline]
@@ -269,7 +269,7 @@ mod mock {
             self.ptr(Literal::Number(number))
         }
 
-        pub fn block<'a, I, T, L>(&'a self, list: L) -> BlockNode<'a, I> where
+        pub fn block<I, T, L>(&self, list: L) -> BlockNode<I> where
             I: Copy,
             T: Into<I> + Copy,
             L: AsRef<[T]>
@@ -277,7 +277,7 @@ mod mock {
             self.ptr(Block { body: self.list(list) })
         }
 
-        pub fn empty_block<'a, I: Copy>(&'a self) -> BlockNode<'a, I> {
+        pub fn empty_block<I: Copy>(&self) -> BlockNode<I> {
             self.ptr(Block { body: NodeList::empty() })
         }
 

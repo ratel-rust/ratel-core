@@ -811,7 +811,7 @@ impl<'arena> Lexer<'arena> {
     /// is virtually irrelevant.
     #[inline]
     fn read_byte(&self) -> u8 {
-        unsafe { *self.ptr.offset(self.index as isize) }
+        unsafe { *self.ptr.add(self.index) }
     }
 
     /// Manually increment the index. Calling `read_byte` and then `bump`
@@ -916,18 +916,18 @@ impl<'arena> Lexer<'arena> {
 
         unsafe {
             from_utf8_unchecked(from_raw_parts(
-                self.ptr.offset(start as isize), end - start
+                self.ptr.add(start), end - start
             ))
         }
     }
 
     #[inline]
     fn read_octal(&mut self) {
-        loop {
-            match self.read_byte() {
-                b'0'...b'7' => self.bump(),
-                _           => break
-            };
+        while match self.read_byte() {
+            b'0'...b'7' => true,
+            _ => false,
+        } {
+            self.bump();
         }
 
         self.token = LiteralNumber;
@@ -935,13 +935,13 @@ impl<'arena> Lexer<'arena> {
 
     #[inline]
     fn read_hexadec(&mut self) {
-        loop {
-            match self.read_byte() {
-                b'0'...b'9' |
-                b'a'...b'f' |
-                b'A'...b'F' => self.bump(),
-                _           => break
-            };
+        while match self.read_byte() {
+            b'0'...b'9' |
+            b'a'...b'f' |
+            b'A'...b'F' => true,
+            _ => false,
+        } {
+            self.bump();
         }
 
         self.token = LiteralNumber;
@@ -970,11 +970,11 @@ impl<'arena> Lexer<'arena> {
             _           => {}
         }
 
-        loop {
-            match self.read_byte() {
-                b'0'...b'9' => self.bump(),
-                _           => break
-            }
+        while match self.read_byte() {
+            b'0'...b'9' => true,
+            _ => false,
+        } {
+            self.bump();
         }
 
         self.token = LiteralNumber;

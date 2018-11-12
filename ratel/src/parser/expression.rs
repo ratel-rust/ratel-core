@@ -339,8 +339,8 @@ impl<'ast> Parser<'ast> {
         let operand = self.expression::<B15>();
 
         PrefixExpression {
-            operator: operator,
-            operand: operand,
+            operator,
+            operand,
         }
     }
 
@@ -469,7 +469,7 @@ impl<'ast> Parser<'ast> {
                     value,
                 })
             },
-            _ => return self.error()
+            _ => self.error()
         }
     }
 

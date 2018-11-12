@@ -4,7 +4,7 @@ use ast::expression::*;
 use astgen::SerializeInLoc;
 
 #[inline]
-fn expression_type<'ast>(operator: OperatorKind, prefix: bool) -> &'static str {
+fn expression_type(operator: OperatorKind, prefix: bool) -> &'static str {
     use self::OperatorKind::*;
 
     match operator {

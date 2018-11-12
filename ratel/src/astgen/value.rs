@@ -10,10 +10,10 @@ pub struct RegExLiteral<'ast> {
 }
 
 #[inline]
-pub fn parse_regex<'ast>(value: &'ast str) -> RegExLiteral<'ast> {
+pub fn parse_regex(value: &str) -> RegExLiteral {
     let mut end = value.len() - 1;
     for index in (0..value.len()).rev() {
-        if "/" == &value[index..(index + 1)] {
+        if "/" == &value[index..=index] {
             end = index;
             break;
         }
@@ -26,13 +26,8 @@ pub fn parse_regex<'ast>(value: &'ast str) -> RegExLiteral<'ast> {
 }
 
 #[inline]
-pub fn is_float<'ast>(value: &'ast str) -> bool {
-    for index in 0..value.len() {
-        if "." == &value[index..(index + 1)] {
-            return true;
-        }
-    }
-    false
+pub fn is_float(value: &str) -> bool {
+    value.bytes().any(|c| c == b'.')
 }
 
 #[derive(Debug)]
@@ -116,8 +111,7 @@ impl<'ast> SerializeInLoc for Property<'ast> {
         use self::Property::*;
         match *self {
             Shorthand(value) => {
-                let state = Expression::Identifier(value).serialize(serializer);
-                state
+                Expression::Identifier(value).serialize(serializer)
             }
             Literal { key, value } => {
                 let computed = if let PropertyKey::Computed(_) = key.item {

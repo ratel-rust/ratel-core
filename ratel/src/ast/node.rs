@@ -53,23 +53,23 @@ impl<'ast, T: 'ast + Debug> Debug for Node<'ast, T> {
 }
 
 #[cfg(test)]
-mod node {
+mod test {
     use super::*;
 
     #[test]
     fn ptr() {
-        let foo = Loc::new(0, 0, "foo");
-        let bar = Loc::new(0, 0, "bar");
+        let one = Loc::new(0, 0, "one");
+        let two = Loc::new(0, 0, "two");
 
-        let foo_ptr = Node::new(&foo);
-        let bar_ptr = foo_ptr.clone();
+        let one_ptr = Node::new(&one);
+        let two_ptr = one_ptr;
 
-        assert_eq!(*foo_ptr, Loc::new(0, 0, "foo"));
-        assert_eq!(*bar_ptr, Loc::new(0, 0, "foo"));
+        assert_eq!(*one_ptr, Loc::new(0, 0, "one"));
+        assert_eq!(*two_ptr, Loc::new(0, 0, "one"));
 
-        bar_ptr.set(&bar);
+        two_ptr.set(&two);
 
-        assert_eq!(*foo_ptr, Loc::new(0, 0, "foo"));
-        assert_eq!(*bar_ptr, Loc::new(0, 0, "bar"));
+        assert_eq!(*one_ptr, Loc::new(0, 0, "one"));
+        assert_eq!(*two_ptr, Loc::new(0, 0, "two"));
     }
 }

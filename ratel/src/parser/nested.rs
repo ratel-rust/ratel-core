@@ -264,8 +264,8 @@ const COND: NestedHandler = Some(|par, left| {
 
     par.alloc_at_loc(left.start, alternate.end, ConditionalExpression {
         test: left,
-        consequent: consequent,
-        alternate: alternate,
+        consequent,
+        alternate,
     })
 });
 
@@ -280,7 +280,7 @@ const ARRW: NestedHandler = Some(|par, left| {
     let expression = par.arrow_function_expression(params);
     let start = left.start;
     let end = par.lexer.end();
-    return par.alloc_at_loc(start, end, expression)
+    par.alloc_at_loc(start, end, expression)
 });
 
 const ACCS: NestedHandler = Some(|par, left| {
@@ -315,7 +315,7 @@ const CMEM: NestedHandler = Some(|par, left| {
 
     par.alloc_at_loc(left.start, end, ComputedMemberExpression {
         object: left,
-        property: property,
+        property,
     })
 });
 

@@ -234,7 +234,7 @@ impl<'ast> Parser<'ast> {
         let declarators = self.variable_declarators();
         let end = self.lexer.end();
         let declaration = self.alloc_at_loc(start, end, DeclarationStatement {
-            kind: kind,
+            kind,
             declarators
         });
 
@@ -475,12 +475,11 @@ impl<'ast> Parser<'ast> {
         let start = self.lexer.start_then_consume();
         let declarators = self.variable_declarators();
         let end = self.lexer.end();
-        let declaration = self.alloc_at_loc(start, end, DeclarationStatement {
-            kind: kind,
+        
+        self.alloc_at_loc(start, end, DeclarationStatement {
+            kind,
             declarators
-        });
-
-        declaration
+        })
     }
 
     #[inline]

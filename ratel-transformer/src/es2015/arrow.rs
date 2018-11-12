@@ -22,17 +22,17 @@ impl<'ast> Visitor<'ast> for TransformArrow<'ast> {
         let body = match node.body {
             ArrowBody::Block(block)     => block,
             ArrowBody::Expression(expr) => {
-                let ret = self.ctx.alloc_as_loc(expr, ReturnStatement {
+                let ret = self.ctx.alloc_as_loc(&expr, ReturnStatement {
                     value: Some(expr)
                 });
 
-                self.ctx.alloc_as_loc(ret, Block {
+                self.ctx.alloc_as_loc(&ret, Block {
                     body: NodeList::from(self.ctx.arena, ret)
                 })
             }
         };
 
-        self.ctx.swap(ptr, Function {
+        self.ctx.swap(*ptr, Function {
             name: OptionalName::empty(),
             generator: false,
             params: node.params,
