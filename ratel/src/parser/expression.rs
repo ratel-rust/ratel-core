@@ -782,8 +782,10 @@ mod test {
     #[test]
     fn complex_conditional_expression() {
         let src = "true ? foo = bar : baz";
-         let mock = Mock::new();
-         let expected = ConditionalExpression {
+
+        let mock = Mock::new();
+
+        let expected = ConditionalExpression {
             test: mock.ptr(Expression::Literal(Literal::True)),
             consequent: mock.ptr(BinaryExpression {
                 operator: OperatorKind::Assign,
@@ -792,7 +794,8 @@ mod test {
             }),
             alternate: mock.ptr("baz"),
         };
-         assert_expr!(src, expected);
+
+        assert_expr!(src, expected);
     }
 
     #[test]
