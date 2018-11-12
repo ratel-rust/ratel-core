@@ -87,6 +87,7 @@ build! {
     fn on_switch_statement(item: &SwitchStatement, node: &'ast StatementNode<'ast>);
     fn on_function_statement(item: &FunctionStatement<'ast>, node: &'ast StatementNode<'ast>);
     fn on_class_statement(item: &ClassStatement<'ast>, node: &'ast StatementNode<'ast>);
+    fn on_yield_expression(item: &YieldExpression<'ast>, node: &'ast ExpressionNode<'ast>);
 }
 
 #[derive(Debug, Clone, Copy)]

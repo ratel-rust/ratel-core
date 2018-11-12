@@ -346,6 +346,23 @@ impl<'ast> Parser<'ast> {
 
         self.node_at(start, class.body.end, class)
     }
+
+    pub fn yield_expression(&mut self) -> ExpressionNode<'ast> {
+        let start = self.lexer.start_then_consume();
+        let delegate = match self.lexer.token {
+            OperatorMultiplication => {
+                self.lexer.consume();
+                true
+            },
+            _ => false
+        };
+        let argument = self.expression::<ANY>();
+        let end = self.lexer.end();
+        self.node_at(start, end, YieldExpression {
+            delegate,
+            argument
+        })
+    }
 }
 
 #[cfg(test)]
@@ -998,6 +1015,30 @@ mod test {
             property: mock.ptr("bar"),
         };
 
+        assert_expr!(src, expected);
+    }
+
+    #[test]
+    fn yield_expression() {
+        let src = "yield true";
+        let mock = Mock::new();
+        let expected = YieldExpression {
+            delegate: false,
+            argument: mock.ptr(Literal::True)
+        };
+        assert_expr!(src, expected);
+    }
+    #[test]
+    fn yield_expression_delegate() {
+        let src = "yield * gen()";
+        let mock = Mock::new();
+        let expected = YieldExpression {
+            delegate: true,
+            argument: mock.ptr(CallExpression {
+                callee: mock.ptr("gen"),
+                arguments: NodeList::empty(),
+            })
+        };
         assert_expr!(src, expected);
     }
 }
