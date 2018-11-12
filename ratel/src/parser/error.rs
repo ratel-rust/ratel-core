@@ -102,7 +102,5 @@ impl<'ast> ToError for Node<'ast, PropertyKey<'ast>> {
 
 impl ToError for () {
     #[inline]
-    fn to_error() -> Self {
-        ()
-    }
+    fn to_error() {}
 }

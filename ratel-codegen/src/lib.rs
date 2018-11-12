@@ -336,7 +336,7 @@ fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
 
         ::std::ptr::copy_nonoverlapping(
             src.as_ptr(),
-            dst.as_mut_ptr().offset(dst_len as isize),
+            dst.as_mut_ptr().add(dst_len),
             src_len);
     }
 }

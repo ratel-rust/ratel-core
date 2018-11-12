@@ -811,7 +811,7 @@ impl<'arena> Lexer<'arena> {
     /// is virtually irrelevant.
     #[inline]
     fn read_byte(&self) -> u8 {
-        unsafe { *self.ptr.offset(self.index as isize) }
+        unsafe { *self.ptr.add(self.index) }
     }
 
     /// Manually increment the index. Calling `read_byte` and then `bump`
@@ -916,7 +916,7 @@ impl<'arena> Lexer<'arena> {
 
         unsafe {
             from_utf8_unchecked(from_raw_parts(
-                self.ptr.offset(start as isize), end - start
+                self.ptr.add(start), end - start
             ))
         }
     }
