@@ -24,6 +24,12 @@ pub enum Property<'ast> {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct VoidExpression<'ast> {
+    pub argument: ExpressionNode<'ast>
+}
+
+
 /// While not technically necessary, having a type
 /// helps with implementing the visitor pattern on AST.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -128,7 +134,7 @@ pub type ClassExpression<'ast> = Class<'ast, OptionalName<'ast>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Expression<'ast> {
-    Void,
+    Void(VoidExpression<'ast>),
     This(ThisExpression),
     Identifier(Identifier<'ast>),
     Literal(Literal<'ast>),
@@ -163,6 +169,7 @@ macro_rules! impl_from {
 }
 
 impl_from! {
+    VoidExpression => Void,
     ThisExpression => This,
     Identifier<'ast> => Identifier,
     Literal<'ast> => Literal,
