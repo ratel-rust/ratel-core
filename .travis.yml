@@ -27,5 +27,6 @@ before_install:
 before_script:
   - rustup install $CLIPPY_TOOLCHAIN
   - rustup component add clippy-preview --toolchain=$CLIPPY_TOOLCHAIN
+  - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
 
 script: ./test.sh

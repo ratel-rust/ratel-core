@@ -1,0 +1,19 @@
+{
+  "name": "ratel-playground",
+  "version": "1.0.0",
+  "description": "WASM playground to try Ratel",
+  "scripts": {
+    "start": "parcel src/index.html",
+    "build": "parcel build src/index.html"
+  },
+  "license": "Apache-2.0 OR MIT",
+  "devDependencies": {
+    "parcel-bundler": "^1.11.0",
+    "parcel-plugin-wasm.rs": "^1.2.8"
+  },
+  "dependencies": {
+    "clipboard": "^2.0.4",
+    "material-design-lite": "^1.3.0",
+    "material-icons": "^0.2.3"
+  }
+}
