@@ -4,7 +4,8 @@
 
 [![Travis CI](https://travis-ci.org/ratel-rust/ratel-core.svg)](https://travis-ci.org/ratel-rust/ratel-core)
 [![Crates.io](https://img.shields.io/crates/v/ratel.svg)](https://crates.io/crates/ratel)
-[![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg)](https://gitter.im/ratel-rust/Lobby)
+[![Discord](https://img.shields.io/discord/530727712969588746.svg?logo=discord)](https://discord.gg/5YmRBvu)
+[![Gitter](https://img.shields.io/gitter/room/ratel-rust/Lobby.svg?logo=gitter)](https://gitter.im/ratel-rust/Lobby)
 
 **Ratel** is a high performance JavaScript to JavaScript compiler with a Rust core. Its goal is to take newest versions of JavaScript as input, and produce output that's compatible with older versions of the language.
 
