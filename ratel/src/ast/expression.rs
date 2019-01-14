@@ -225,12 +225,13 @@ impl<'ast> Expression<'ast> {
         use self::Expression::*;
 
         match *self {
-            Identifier(_) |
-            Member(_)     |
-            Object(_)     |
-            Array(_)      |
-            Spread(_)     => true,
-            _             => false
+            Identifier(_)     |
+            Member(_)         |
+            ComputedMember(_) |
+            Object(_)         |
+            Array(_)          |
+            Spread(_)         => true,
+            _ => false,
         }
     }
 }

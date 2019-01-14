@@ -1258,6 +1258,23 @@ mod test {
     }
 
     #[test]
+    fn regression_member_assignment() {
+        let src = r#"a[i] = 0"#;
+        let mock = Mock::new();
+        
+        let expected = BinaryExpression {
+            operator: OperatorKind::Assign,
+            left: mock.ptr(ComputedMemberExpression {
+                object: mock.ptr("a"),
+                property: mock.ptr("i"),
+            }),
+            right: mock.ptr(Literal::Number("0")),
+        };
+
+        assert_expr!(src, expected);
+    }
+
+    #[test]
     fn regression_asi_increments() {
         let src = r#"x
         ++
