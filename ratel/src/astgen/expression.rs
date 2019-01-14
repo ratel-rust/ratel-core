@@ -251,7 +251,8 @@ impl<'ast> SerializeInLoc for BinaryExpression<'ast> {
     where
         S: Serializer,
     {
-        self.in_loc(serializer, "BinaryExpression", 3, |state| {
+        let prefix = false;
+        self.in_loc(serializer, expression_type(self.operator, prefix), 3, |state| {
             state.serialize_field("operator", &self.operator)?;
             state.serialize_field("left", &self.left)?;
             state.serialize_field("right", &self.right)
