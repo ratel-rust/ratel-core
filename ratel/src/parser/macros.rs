@@ -45,7 +45,8 @@ macro_rules! parameter_key {
 #[macro_export]
 macro_rules! assert_expr {
     ($src:expr, $expr:expr) => ({
-        let mut body = parse($src).unwrap().body().iter();
+        let module = parse($src).unwrap();
+        let mut body = module.body().iter();
 
         match body.next().map(|s| s.item).unwrap() {
             Statement::Expression(ref expression) => assert_eq!(expression.item, Expression::from($expr)),
