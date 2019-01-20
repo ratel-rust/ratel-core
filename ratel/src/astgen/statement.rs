@@ -202,6 +202,17 @@ impl<'ast> SerializeInLoc for IfStatement<'ast> {
         })
     }
 }
+impl<'ast> SerializeInLoc for ImportDeclaration<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+    where
+        S: Serializer,
+    {
+        self.in_loc(serializer, "ImportDeclaration", 1, |state| {
+            // state.serialize_field("specifiers", &self.specifiers)?;
+            state.serialize_field("source", &self.source)
+        })
+    }
+}
 
 impl<'ast> SerializeInLoc for Statement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
@@ -261,6 +272,7 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
             Function(statement) => statement.serialize(serializer),
             Class(statement) => statement.serialize(serializer),
             Switch(statement) => statement.serialize(serializer),
+            Import(statement) => statement.serialize(serializer)
         }
     }
 }

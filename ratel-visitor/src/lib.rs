@@ -86,6 +86,7 @@ pub trait Visitor<'ast> {
     fn on_switch_statement(&mut self, item: &SwitchStatement, node: &'ast StatementNode<'ast>) {}
     fn on_function_statement(&mut self, item: &FunctionStatement<'ast>, node: &'ast StatementNode<'ast>) {}
     fn on_class_statement(&mut self, item:&ClassStatement<'ast>, node: &'ast StatementNode<'ast>) {}
+    fn on_import_declaration_statement(&mut self, item:&ImportDeclaration<'ast>, node: &'ast StatementNode<'ast>) {}
 }
 
 #[derive(Debug, Clone, Copy)]
