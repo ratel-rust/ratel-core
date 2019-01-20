@@ -108,6 +108,10 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
                 visitor.on_class_statement(class, self);
                 visitor.push_parent(ParentNode::from(self));
                 class.visit_with(visitor);
+            },
+            Import(ref import) => {
+                visitor.on_import_declaration_statement(import, self);
+                import.visit_with(visitor);
             }
         }
         visitor.pop_parent();
@@ -374,5 +378,18 @@ impl<'ast> Visitable<'ast> for SwitchStatement<'ast> {
         visitor.on_enter_scope(ScopeKind::Block);
         self.cases.body.visit_with(visitor);
         visitor.on_leave_scope();
+    }
+}
+
+impl<'ast> Visitable<'ast> for ImportDeclaration<'ast> {
+    type Parent = StatementNode<'ast>;
+
+    #[inline]
+    fn visit_with<V>(&'ast self, visitor: &mut V)
+    where
+        V: Visitor<'ast>,
+    {
+        self.source.visit_with(visitor);
+//        self.specifiers.body.visit_with(visitor); // todo
     }
 }

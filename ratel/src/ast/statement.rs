@@ -113,6 +113,37 @@ pub struct SwitchCase<'ast> {
     pub consequent: StatementList<'ast>,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ImportDeclaration<'ast> {
+    pub specifiers: NodeList<'ast, ForImportSpecifier<'ast>>,
+    pub source: &'ast str,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ImportSpecifier<'ast> {
+    pub imported: IdentifierNode<'ast>,
+    pub local: IdentifierNode<'ast>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ImportDefaultSpecifier<'ast> {
+    pub local: IdentifierNode<'ast>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ImportNamespaceSpecifier<'ast> {
+    pub local: IdentifierNode<'ast>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ForImportSpecifier<'ast> {
+    ImportSpecifier(ImportSpecifier<'ast>),
+    ImportDefaultSpecifier(ImportDefaultSpecifier<'ast>),
+    ImportNamespaceSpecifier(ImportNamespaceSpecifier<'ast>),
+}
+
+
+
 pub type BlockStatement<'ast> = Block<'ast, Statement<'ast>>;
 pub type FunctionStatement<'ast> = Function<'ast, MandatoryName<'ast>>;
 pub type ClassStatement<'ast> = Class<'ast, MandatoryName<'ast>>;
@@ -137,7 +168,8 @@ pub enum Statement<'ast> {
     Labeled(LabeledStatement<'ast>),
     Function(FunctionStatement<'ast>),
     Class(ClassStatement<'ast>),
-    Switch(SwitchStatement<'ast>)
+    Switch(SwitchStatement<'ast>),
+    Import(ImportDeclaration<'ast>)
 }
 
 macro_rules! impl_from {
@@ -169,7 +201,8 @@ impl_from! {
     ContinueStatement => Continue,
     FunctionStatement => Function,
     ClassStatement => Class,
-    SwitchStatement => Switch
+    SwitchStatement => Switch,
+    ImportDeclaration => Import
 }
 
 impl<'ast> From<DeclarationStatement<'ast>> for ForInit<'ast> {
@@ -183,6 +216,25 @@ impl<'ast> From<ExpressionNode<'ast>> for ForInit<'ast> {
     #[inline]
     fn from(val: ExpressionNode<'ast>) -> Self {
         ForInit::Expression(val)
+    }
+}
+
+impl<'ast> From<ImportSpecifier<'ast>> for ForImportSpecifier<'ast> {
+    #[inline]
+    fn from(val: ImportSpecifier<'ast>) -> Self {
+        ForImportSpecifier::ImportSpecifier(val)
+    }
+}
+impl<'ast> From<ImportDefaultSpecifier<'ast>> for ForImportSpecifier<'ast> {
+    #[inline]
+    fn from(val: ImportDefaultSpecifier<'ast>) -> Self {
+        ForImportSpecifier::ImportDefaultSpecifier(val)
+    }
+}
+impl<'ast> From<ImportNamespaceSpecifier<'ast>> for ForImportSpecifier<'ast> {
+    #[inline]
+    fn from(val: ImportNamespaceSpecifier<'ast>) -> Self {
+        ForImportSpecifier::ImportNamespaceSpecifier(val)
     }
 }
 

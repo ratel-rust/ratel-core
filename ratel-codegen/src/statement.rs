@@ -40,7 +40,8 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
             Function(ref function)       => gen.write(function),
             Class(ref class)             => gen.write(class),
             Continue(ref cont)           => gen.write(cont),
-            Switch(ref switch)           => gen.write(switch)
+            Switch(ref switch)           => gen.write(switch),
+            Import(ref import)           => gen.write(import)
         }
     }
 }
@@ -308,6 +309,21 @@ impl<'ast, G: Generator> ToCode<G> for SwitchCase<'ast> {
         gen.write_block(&self.consequent);
     }
 }
+
+//impl<'ast, G: Generator> ToCode<G> for ImportDeclaration<'ast> {
+//    #[inline]
+//    fn to_code(&self, gen: &mut G) {
+//        match self.test {
+//            Some(ref test) => {
+//                gen.write_bytes(b"case ");
+//                gen.write(test);
+//                gen.write_byte(b':');
+//            }
+//            None => gen.write_bytes(b"default:")
+//        }
+//        gen.write_block(&self.consequent);
+//    }
+//}
 
 #[cfg(test)]
 mod test {
