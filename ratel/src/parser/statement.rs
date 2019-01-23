@@ -628,12 +628,21 @@ impl<'ast> Parser<'ast> {
     }
 
     fn import_declaration(&mut self) -> StatementNode<'ast> {
-        let start = self.lexer.start_then_consume();
+        let import = self.lexer.token_as_str();
+        let (start , end) = self.lexer.loc();
 
         let builder: GrowableList<Node<'ast, ForImportSpecifier>> = GrowableList::new();
+        self.lexer.consume();
+        if self.lexer.token == Comma || self.lexer.token == ParenOpen {
+            // call or access. example: `import()` `import.filed`
+            let expression = self.alloc_at_loc(start, end, import);
+            let expression = self.nested_expression::<ANY>(expression);
+            self.expect_semicolon();
+            return self.alloc_at_loc(start, expression.end, expression)
+        }
 
         let has_next = match self.lexer.token {
-            Identifier => {
+            Identifier => { // default import. example `import LocalName from "file"`
                 let start = self.lexer.start();
                 let id = self.identifier();
                 let end = self.lexer.end();
@@ -650,7 +659,8 @@ impl<'ast> Parser<'ast> {
                     _ => false
                 }
             }
-            LiteralString => {
+            LiteralString => { // empty import entry
+                let start = self.lexer.start();
                 let str_ltr = self.lexer.token_as_str();
                 let source = &str_ltr[1..str_ltr.len() - 1];
                 let end = self.lexer.end_then_consume();
@@ -794,11 +804,17 @@ mod test {
         ]);
         assert_eq!(parse(src).unwrap().body(), expected);
 
-        let src = "import default_name, { one as ONE, tow } from 'file'";
+        let src = "import()";
+        let expected = mock.list([
+            mock.ptr(CallExpression{
+                callee: mock.ptr("import"),
+                arguments: NodeList::empty(),
+            })
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+
+        let src = "import { one as ONE, tow } from 'file'";
         let specifiers: List<Node<ForImportSpecifier>> = mock.list([
-            ImportDefaultSpecifier {
-                local: mock.ptr("default_name"),
-            },
             ImportSpecifier{
                 imported: mock.ptr("one"),
                 local: mock.ptr("ONE"),
