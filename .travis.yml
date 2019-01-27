@@ -25,8 +25,7 @@ before_install:
   - nvm use 8
 
 before_script:
-  - rustup install $CLIPPY_TOOLCHAIN
-  - rustup component add clippy-preview --toolchain=$CLIPPY_TOOLCHAIN
+  - if [ $TRAVIS_RUST_VERSION = $CLIPPY_TOOLCHAIN ]; then rustup component add clippy-preview --toolchain=$CLIPPY_TOOLCHAIN; fi
   - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
 
 script: ./test.sh
