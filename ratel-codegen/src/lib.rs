@@ -94,7 +94,7 @@ pub struct MinifyingGenerator {
 }
 
 impl MinifyingGenerator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         MinifyingGenerator {
             code: Vec::with_capacity(128)
         }
@@ -122,13 +122,13 @@ impl Generator for MinifyingGenerator {
     }
 }
 
-struct PrettyGenerator {
+pub struct PrettyGenerator {
     code: Vec<u8>,
     dent: usize,
 }
 
 impl PrettyGenerator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         PrettyGenerator {
             code: Vec::with_capacity(128),
             dent: 0,
