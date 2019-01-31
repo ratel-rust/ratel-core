@@ -390,6 +390,59 @@ impl<'ast> Visitable<'ast> for ImportDeclaration<'ast> {
         V: Visitor<'ast>,
     {
         self.source.visit_with(visitor);
-//        self.specifiers.body.visit_with(visitor); // todo
+        self.specifiers.visit_with(visitor);
+    }
+}
+
+impl<'ast> Visitable<'ast> for ForImportSpecifier<'ast> {
+    type Parent = Node<'ast, ForImportSpecifier<'ast>>;
+
+    #[inline]
+    fn visit_with<V>(&'ast self, visitor: &mut V)
+    where
+        V: Visitor<'ast>,
+    {
+        match *self {
+            ForImportSpecifier::ImportSpecifier(ref spec) => spec.visit_with(visitor),
+            ForImportSpecifier::ImportDefaultSpecifier(ref spec) => spec.visit_with(visitor),
+            ForImportSpecifier::ImportNamespaceSpecifier(ref spec) => spec.visit_with(visitor),
+        }
+    }
+}
+
+impl<'ast> Visitable<'ast> for ImportSpecifier<'ast> {
+    type Parent = ForImportSpecifier<'ast>;
+
+    #[inline]
+    fn visit_with<V>(&'ast self, visitor: &mut V)
+    where
+        V: Visitor<'ast>,
+    {
+        self.local.visit_with(visitor);
+        self.imported.visit_with(visitor);
+    }
+}
+
+impl<'ast> Visitable<'ast> for ImportDefaultSpecifier<'ast> {
+    type Parent = ForImportSpecifier<'ast>;
+
+    #[inline]
+    fn visit_with<V>(&'ast self, visitor: &mut V)
+    where
+        V: Visitor<'ast>,
+    {
+        self.local.visit_with(visitor);
+    }
+}
+
+impl<'ast> Visitable<'ast> for ImportNamespaceSpecifier<'ast> {
+    type Parent = ForImportSpecifier<'ast>;
+
+    #[inline]
+    fn visit_with<V>(&'ast self, visitor: &mut V)
+    where
+        V: Visitor<'ast>,
+    {
+        self.local.visit_with(visitor);
     }
 }
