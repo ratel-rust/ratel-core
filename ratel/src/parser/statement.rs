@@ -1,14 +1,15 @@
-use toolshed::list::{ListBuilder, GrowableList};
+use toolshed::list::{ListBuilder, GrowableList, List};
 use parser::{Parser, Parse, ANY, B0};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Node, NodeList, Declarator, DeclarationKind};
+use ast::{Node, NodeList, Declarator, DeclarationKind, Literal};
 use ast::{Statement, StatementNode, Expression, ExpressionNode, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
 use ast::statement::{TryStatement, CatchClause, IfStatement, WhileStatement, DoStatement};
 use ast::statement::{DeclarationStatement, ForStatement, ForInStatement, ForOfStatement};
 use ast::statement::{SwitchStatement, SwitchCase, LabeledStatement, ForInit};
+use ast::statement::{ImportDeclaration, ImportDefaultSpecifier, ImportNamespaceSpecifier, ImportSpecifier, ForImportSpecifier};
 use ast::OperatorKind::*;
 
 
@@ -36,7 +37,7 @@ static STMT_HANDLERS: [StatementHandler; 108] = [
     ____, ____, CONT, FOR,  SWCH, ____, ____, FUNC, THIS, ____, IF,   THRW,
 //  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
 
-    ____, TRY,  ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
+    IMPT, TRY,  ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
 //  IMPRT TRY   STATI TRUE  FALSE NULL  UNDEF STR   NUM   BIN   REGEX ENUM
 
     ____, ____, ____, ____, ____, ____, LABL, ____, TPLE, TPLS, ____, ____,
@@ -89,6 +90,7 @@ create_handlers! {
     const TRY  = |par| par.try_statement();
     const SWCH = |par| par.switch_statement();
     const LABL = |par| par.labeled_or_expression_statement();
+    const IMPT = |par| par.import_declaration();
 }
 
 impl<'ast> Parse<'ast> for Statement<'ast> {
@@ -615,7 +617,136 @@ impl<'ast> Parser<'ast> {
 
         self.alloc_at_loc(start, cases.end, SwitchStatement {
             discriminant,
-            cases
+            cases,
+        })
+    }
+
+    fn import_declaration(&mut self) -> StatementNode<'ast> {
+        let import = self.lexer.token_as_str();
+        let (start , end) = self.lexer.loc();
+
+        let builder: GrowableList<Node<'ast, ForImportSpecifier>> = GrowableList::new();
+        self.lexer.consume();
+        if self.lexer.token == Comma || self.lexer.token == ParenOpen {
+            // call or access. example: `import()` `import.filed`
+            let expression = self.alloc_at_loc(start, end, import);
+            let expression = self.nested_expression::<ANY>(expression);
+            self.expect_semicolon();
+            return self.alloc_at_loc(start, expression.end, expression)
+        }
+
+        let has_next = match self.lexer.token {
+            Identifier => { // default import. example `import LocalName from "file"`
+                let start = self.lexer.start();
+                let id = self.identifier();
+                let end = self.lexer.end();
+                let node = self.alloc_at_loc(start, end, ImportDefaultSpecifier {
+                    local: id,
+                });
+                builder.push(self.arena, node);
+
+                match self.lexer.token {
+                    Comma => {
+                        self.lexer.consume();
+                        true
+                    },
+                    _ => false
+                }
+            }
+            LiteralString => { // empty import entry
+                let start = self.lexer.start();
+                let str_ltr = self.lexer.token_as_str();
+                let source = &str_ltr[1..str_ltr.len() - 1];
+                let end = self.lexer.end_then_consume();
+
+                return self.alloc_at_loc(start, end, ImportDeclaration {
+                    specifiers: NodeList::empty(),
+                    source,
+                })
+            }
+            _ => true,
+        };
+
+        if has_next {
+            match self.lexer.token {
+                BraceOpen => {
+                    self.lexer.consume();
+                    loop {
+                        match self.lexer.token {
+                            Identifier => {
+                                let start = self.lexer.start();
+                                let name = self.identifier();
+                                let mut import = ImportSpecifier {
+                                    imported: name,
+                                    local: name,
+                                };
+                                if self.lexer.token == Identifier && self.lexer.token_as_str() == "as" {
+                                    self.lexer.consume();
+                                    let local = self.identifier();
+                                    import.local = local;
+                                }
+                                let end = self.lexer.end();
+                                builder.push(self.arena, self.alloc_at_loc(start, end, import));
+                                match self.lexer.token {
+                                    Comma => {
+                                        self.lexer.consume();
+                                    },
+                                    BraceClose => {
+                                        self.lexer.consume();
+                                        break;
+                                    },
+                                    _ => {
+                                        self.error::<()>();
+                                    }
+                                }
+                            },
+                            _ => {
+                                self.error::<()>();
+                                break;
+                            }
+                        }
+                    }
+                },
+                OperatorMultiplication => {
+                    let start = self.lexer.start_then_consume();
+                    if self.lexer.token == Identifier && self.lexer.token_as_str() == "as" {
+                        self.lexer.consume();
+                    } else {
+                        self.error::<()>();
+                    };
+                    let local = self.identifier();
+                    let end = self.lexer.end();
+                    let ns = self.alloc_at_loc(start, end, ImportNamespaceSpecifier{
+                        local,
+                    });
+                    builder.push(self.arena, ns);
+                },
+                _ => {
+                    self.error::<()>();
+                }
+            }
+        }
+
+        if self.lexer.token == Identifier && self.lexer.token_as_str() == "from" {
+            self.lexer.consume()
+        } else {
+            self.error::<()>()
+        }
+
+        let source = match self.lexer.token {
+            LiteralString => {
+                let str_ltr = self.lexer.token_as_str();
+                &str_ltr[1..str_ltr.len() - 1]
+            },
+            _ => {
+                self.error::<()>();
+                ""
+            }
+        };
+        let end = self.lexer.end_then_consume();
+        self.alloc_at_loc(start, end, ImportDeclaration {
+            specifiers: builder.as_list(),
+            source,
         })
     }
 }
@@ -627,6 +758,74 @@ mod test {
     use parser::mock::Mock;
     use ast::{NodeList, Literal, Function, Class, OperatorKind, BlockStatement};
     use ast::expression::*;
+
+    #[test]
+    fn import_declaration() {
+        let mock = Mock::new();
+
+        let src = "import 'file'";
+        let expected = mock.list([
+            ImportDeclaration {
+                specifiers: NodeList::empty(),
+                source: &"file",
+            }
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+
+        let src = "import local from 'file'";
+        let expected = mock.list([
+            ImportDeclaration {
+                specifiers: mock.list([
+                    ImportDefaultSpecifier{
+                        local: mock.ptr("local"),
+                    },
+                ]),
+                source: &"file",
+            }
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+
+        let src = "import * as local from 'file'";
+        let expected = mock.list([
+            ImportDeclaration {
+                specifiers: mock.list([
+                    ImportNamespaceSpecifier{
+                        local: mock.ptr("local"),
+                    },
+                ]),
+                source: &"file",
+            }
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+
+        let src = "import()";
+        let expected = mock.list([
+            mock.ptr(CallExpression{
+                callee: mock.ptr("import"),
+                arguments: NodeList::empty(),
+            })
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+
+        let src = "import { one as ONE, tow } from 'file'";
+        let specifiers: List<Node<ForImportSpecifier>> = mock.list([
+            ImportSpecifier{
+                imported: mock.ptr("one"),
+                local: mock.ptr("ONE"),
+            },
+            ImportSpecifier{
+                imported: mock.ptr("tow"),
+                local: mock.ptr("tow"),
+            },
+        ]);
+        let expected = mock.list([
+            ImportDeclaration {
+                specifiers,
+                source: &"file",
+            }
+        ]);
+        assert_eq!(parse(src).unwrap().body(), expected);
+    }
 
     #[test]
     fn block_statement() {
@@ -656,7 +855,7 @@ mod test {
                     body: mock.list([
                         mock.ptr(Literal::True)
                     ])
-                })
+                }),
             }
         ]);
 
@@ -672,7 +871,7 @@ mod test {
             IfStatement {
                 test: mock.ptr(Literal::True),
                 consequent: mock.ptr(mock.ptr("foo")),
-                alternate: None
+                alternate: None,
             }
         ]);
 

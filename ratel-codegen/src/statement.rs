@@ -40,7 +40,8 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
             Function(ref function)       => gen.write(function),
             Class(ref class)             => gen.write(class),
             Continue(ref cont)           => gen.write(cont),
-            Switch(ref switch)           => gen.write(switch)
+            Switch(ref switch)           => gen.write(switch),
+            Import(ref import)           => gen.write(import)
         }
     }
 }
@@ -309,6 +310,72 @@ impl<'ast, G: Generator> ToCode<G> for SwitchCase<'ast> {
     }
 }
 
+impl<'ast, G: Generator> ToCode<G> for ImportDeclaration<'ast> {
+    #[inline]
+    fn to_code(&self, gen: &mut G) {
+        let mut tail = false;
+        gen.write_bytes(b"import ");
+        if self.specifiers.is_empty() {
+            gen.write_byte(b'\'');
+            gen.write_bytes(self.source.as_bytes());
+            gen.write_byte(b'\'');
+            return
+        }
+
+        for spec in self.specifiers {
+            match spec.item {
+                ForImportSpecifier::ImportDefaultSpecifier(import) => {
+                    if tail {
+                        gen.write_bytes(b", ");
+                    }
+                    gen.write(&import.local);
+                    tail = true;
+                },
+                ForImportSpecifier::ImportNamespaceSpecifier(import) => {
+                    if tail {
+                        gen.write_bytes(b", ");
+                    }
+                    gen.write_bytes(b"* as ");
+                    gen.write(&import.local);
+                    tail = true;
+                },
+                _ => {},
+            }
+        }
+        let mut need_close = false;
+        for spec in self.specifiers {
+            match spec.item {
+                ForImportSpecifier::ImportSpecifier(import) => {
+                    if tail {
+                        gen.write_bytes(b", ");
+                    }
+                    if !need_close {
+                        gen.write_byte(b'{')
+                    }
+                    need_close = true;
+                    if import.imported == import.local {
+                        gen.write(&import.local);
+                    } else {
+                        gen.write(&import.imported);
+                        gen.write_bytes(b" as ");
+                        gen.write(&import.local);
+                    }
+
+                    tail = true;
+                },
+                _ => {},
+            }
+        }
+        if need_close {
+            gen.write_byte(b'}');
+        }
+
+        gen.write_bytes(b" from '");
+        gen.write_bytes(self.source.as_bytes());
+        gen.write_byte(b'\'');
+    }
+}
+
 #[cfg(test)]
 mod test {
     use assert_min;
@@ -378,5 +445,12 @@ mod test {
         assert_min("for (let foo in bar){}", "for(let foo in bar){}");
         assert_min("for (foo of bar){}", "for(foo of bar){}");
         assert_min("for (let foo of bar){}", "for(let foo of bar){}");
+    }
+
+    #[test]
+    fn import_statement() {
+        assert_min("import 'fuga'", "import 'fuga'");
+        assert_min("import foo from 'fuga'", "import foo from 'fuga'");
+        assert_min("import foo, {hoge as HOGE} from 'fuga'", "import foo, {hoge as HOGE} from 'fuga'");
     }
 }
