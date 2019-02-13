@@ -1,10 +1,14 @@
+set -e
+
 echo ""
 echo ""
 echo "CHECKING: clippy"
 echo "#######################"
 echo ""
 
-cargo +$CLIPPY_TOOLCHAIN clippy || exit
+if [ $TRAVIS_RUST_VERSION = $CLIPPY_TOOLCHAIN ]; then
+  cargo +$CLIPPY_TOOLCHAIN clippy
+fi
 
 echo ""
 echo ""
@@ -12,7 +16,7 @@ echo "TESTING: ratel + crates"
 echo "#######################"
 echo ""
 
-cargo test || exit
+cargo test
 
 echo ""
 echo ""
@@ -21,6 +25,6 @@ echo "############"
 echo ""
 
 cd ffi
-npm i || exit
-npm test || exit
+npm i
+npm test
 cd ..
