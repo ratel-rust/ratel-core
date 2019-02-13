@@ -80,6 +80,7 @@ impl<T> Deref for Loc<T> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Program<'ast> {
     pub source: &'ast str,
     pub body: NodeList<'ast, Statement<'ast>>,
