@@ -1,8 +1,8 @@
-use toolshed::list::{ListBuilder, GrowableList, List};
+use toolshed::list::{ListBuilder, GrowableList};
 use parser::{Parser, Parse, ANY, B0};
 use lexer::Token::*;
 use lexer::Asi;
-use ast::{Node, NodeList, Declarator, DeclarationKind, Literal};
+use ast::{Node, NodeList, Declarator, DeclarationKind};
 use ast::{Statement, StatementNode, Expression, ExpressionNode, Class, Function, Pattern};
 use ast::expression::BinaryExpression;
 use ast::statement::{ThrowStatement, ContinueStatement, BreakStatement, ReturnStatement};
@@ -762,8 +762,10 @@ mod test {
     use super::*;
     use parser::parse;
     use parser::mock::Mock;
+    use toolshed::list::List;
     use ast::{NodeList, Literal, Function, Class, OperatorKind, BlockStatement};
     use ast::expression::*;
+    
 
     #[test]
     fn import_declaration() {
