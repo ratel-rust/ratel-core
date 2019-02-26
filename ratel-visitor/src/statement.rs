@@ -19,6 +19,9 @@ impl<'ast> Visitable<'ast> for StatementNode<'ast> {
                 // EmptyStatement doesn't have children, we return early to avoid calling pop_parent
                 return;
             },
+            Debugger => {
+                return;
+            },
             Expression(ref expression) => {
                 visitor.on_expression_statement(expression, self);
                 visitor.push_parent(ParentNode::from(self));
