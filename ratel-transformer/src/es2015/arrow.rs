@@ -35,6 +35,7 @@ impl<'ast> Visitor<'ast> for TransformArrow<'ast> {
         self.ctx.swap(*ptr, Function {
             name: OptionalName::empty(),
             generator: false,
+            is_async: false,
             params: node.params,
             body,
         });

@@ -946,6 +946,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": false,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -973,6 +974,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": true,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1000,6 +1002,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": false,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",

@@ -59,6 +59,29 @@ impl<'ast> Parse<'ast> for Pattern<'ast> {
     }
 }
 
+impl<'ast, N> Function<'ast, N> where
+    N: Name<'ast> + Parse<'ast, Output = N>,
+{
+    #[inline]
+    pub fn with_async_flag(par: &mut Parser<'ast>, is_async: bool) -> Function<'ast, N> {
+        let is_generator: bool = if par.lexer.token == OperatorMultiplication {
+            par.lexer.consume();
+            true
+        } else {
+            false
+        };
+        let name = N::parse(par);
+
+        Function {
+            name,
+            generator: is_generator,
+            is_async,
+            params: par.params(),
+            body: par.block(),
+        }
+    }
+}
+
 impl<'ast, N> Parse<'ast> for Function<'ast, N> where
     N: Name<'ast> + Parse<'ast, Output = N>,
 {
@@ -66,21 +89,7 @@ impl<'ast, N> Parse<'ast> for Function<'ast, N> where
 
     #[inline]
     fn parse(par: &mut Parser<'ast>) -> Self::Output {
-        let generator: bool = if par.lexer.token == OperatorMultiplication {
-            par.lexer.consume();
-            true
-        } else {
-            false
-        };
-
-        let name = N::parse(par);
-
-        Function {
-            name,
-            generator,
-            params: par.params(),
-            body: par.block(),
-        }
+        Self::with_async_flag(par, false)
     }
 }
 
@@ -400,6 +409,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: NodeList::empty(),
                 body: mock.empty_block(),
             }
@@ -418,6 +428,7 @@ mod test {
                 Function {
                     name: mock.name("foo"),
                     generator: true,
+                    is_async: false,
                     params: NodeList::empty(),
                     body: mock.empty_block(),
                 }
@@ -434,6 +445,7 @@ mod test {
                 Function {
                     name: mock.name("foo"),
                     generator: true,
+                    is_async: false,
                     params: NodeList::empty(),
                     body: mock.empty_block(),
                 }
@@ -450,6 +462,7 @@ mod test {
                 Function {
                     name: mock.name("foo"),
                     generator: true,
+                    is_async: false,
                     params: NodeList::empty(),
                     body: mock.empty_block(),
                 }
@@ -468,6 +481,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: mock.list([
                     Pattern::Identifier("bar"),
                     Pattern::Identifier("baz"),
@@ -488,6 +502,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: NodeList::empty(),
                 body: mock.block([
                     mock.ptr("bar"),
@@ -508,6 +523,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: mock.list([
                     Pattern::AssignmentPattern {
                         left: mock.ptr(Pattern::Identifier("a")),
@@ -541,6 +557,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: mock.list([
                     Pattern::Identifier("a"),
                     Pattern::Identifier("b"),
@@ -569,6 +586,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: mock.list([
                     Pattern::RestElement {
                         argument: mock.ptr("rest"),
@@ -589,6 +607,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: mock.list([
                     Pattern::Identifier("a"),
                     Pattern::AssignmentPattern {
@@ -667,6 +686,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: mock.list([
                                 Pattern::Identifier("bar"),
                                 Pattern::Identifier("baz")
@@ -716,6 +736,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: mock.list([
                                 Pattern::Identifier("bar"),
                                 Pattern::Identifier("baz")
@@ -732,6 +753,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: mock.list([
                                 Pattern::Identifier("moon")
                             ]),
@@ -747,6 +769,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -758,6 +781,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -769,6 +793,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: NodeList::empty(),
                             body: mock.empty_block()
                         })
@@ -867,6 +892,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: mock.list([
                                 Pattern::Identifier("foo")
                             ]),
@@ -880,6 +906,7 @@ mod test {
                         value: mock.ptr(Function {
                             name: EmptyName,
                             generator: false,
+                            is_async: false,
                             params: mock.list([
                                 Pattern::Identifier("bar")
                             ]),

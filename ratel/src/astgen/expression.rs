@@ -927,6 +927,7 @@ mod test {
                                         "value": {
                                             "type": "FunctionExpression",
                                             "generator": false,
+                                            "is_async": false,
                                             "id": null,
                                             "params": [
                                                 {
@@ -974,6 +975,7 @@ mod test {
             {
               "type": "FunctionDeclaration",
               "generator": false,
+              "is_async": false,
               "id": {
                 "type": "Identifier",
                 "name": "Handler",
@@ -1095,6 +1097,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": false,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1376,6 +1379,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": false,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1403,6 +1407,7 @@ mod test {
                 {
                     "type": "FunctionDeclaration",
                     "generator": false,
+                    "is_async": false,
                     "id": {
                         "type": "Identifier",
                         "name": "foo",
@@ -1538,6 +1543,7 @@ mod test {
                             "value": {
                                 "type": "FunctionExpression",
                                 "generator": false,
+                                "is_async": false,
                                 "id": null,
                                 "params": [],
                                 "body": {
@@ -1593,6 +1599,7 @@ mod test {
                             "value": {
                                 "type": "FunctionExpression",
                                 "generator": false,
+                                "is_async": false,
                                 "id": null,
                                 "params": [],
                                 "body": {

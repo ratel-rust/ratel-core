@@ -122,6 +122,7 @@ where
     {
         self.in_loc(serializer, N::IN_FUNCTION, 3, |state| {
             state.serialize_field("generator", &self.generator)?;
+            state.serialize_field("is_async", &self.is_async)?;
             state.serialize_field("id", &self.name)?;
             state.serialize_field("params", &self.params)?;
             state.serialize_field("body", &self.body)

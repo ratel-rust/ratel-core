@@ -171,7 +171,10 @@ impl<'ast> Parser<'ast> {
                 self.lexer.consume();
                 ident
             },
-            _ => self.error()
+            _ => {
+                println!("eeeee:.....", );
+                self.error()
+            }
         }
     }
 

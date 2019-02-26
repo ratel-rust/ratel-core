@@ -1033,6 +1033,7 @@ mod test {
         let expected = Function {
             name: None.into(),
             generator: false,
+            is_async: false,
             params: NodeList::empty(),
             body: mock.empty_block()
         };
@@ -1048,6 +1049,7 @@ mod test {
         let expected = Function {
             name: mock.name("foo"),
             generator: false,
+            is_async: false,
             params: NodeList::empty(),
             body: mock.empty_block()
         };
