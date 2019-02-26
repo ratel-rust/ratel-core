@@ -212,6 +212,7 @@ impl<'ast> SerializeInLoc for Statement<'ast> {
 
         match *self {
             Empty => self.in_loc(serializer, "EmptyStatement", 0, |_| Ok(())),
+            Debugger => self.in_loc(serializer, "DebuggerStatement", 0, |_| Ok(())),
             Expression(ref expression) => {
                 self.in_loc(serializer, "ExpressionStatement", 1, |state| {
                     state.serialize_field("expression", expression)

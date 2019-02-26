@@ -11,6 +11,9 @@ impl<'ast, G: Generator> ToCode<G> for Statement<'ast> {
 
         match *self {
             Empty => {},
+            Debugger => {
+                gen.write_bytes(b"debugger");
+            },
             Expression(ref expression) => {
                 if expression.is_allowed_as_bare_statement() {
                     gen.write(expression);
@@ -312,6 +315,12 @@ impl<'ast, G: Generator> ToCode<G> for SwitchCase<'ast> {
 #[cfg(test)]
 mod test {
     use assert_min;
+
+    #[test]
+    fn debugger_statement() {
+        assert_min("debugger", "debugger");
+        assert_min("debugger;", "debugger");
+    }
 
     #[test]
     fn block_statement() {

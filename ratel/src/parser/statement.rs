@@ -33,7 +33,7 @@ static STMT_HANDLERS: [StatementHandler; 108] = [
     CONS, BRK,  DO,   ____, ____, ____, ____, CLAS, ____, RET,  WHL,  ____,
 //  CONST BREAK DO    CASE  ELSE  CATCH EXPRT CLASS EXTND RET   WHILE FINLY
 
-    ____, ____, CONT, FOR,  SWCH, ____, ____, FUNC, THIS, ____, IF,   THRW,
+    ____, ____, CONT, FOR,  SWCH, ____, DBGGR, FUNC, THIS, ____, IF,   THRW,
 //  SUPER WITH  CONT  FOR   SWTCH YIELD DBGGR FUNCT THIS  DEFLT IF    THROW
 
     ____, TRY,  ____, TRUE, FALS, NULL, UNDE, STR,  NUM,  BIN,  ____, ____,
@@ -68,6 +68,12 @@ create_handlers! {
     };
     const EMPT = |par| {
         let stmt = par.alloc_in_loc(Statement::Empty);
+        par.lexer.consume();
+
+        stmt
+    };
+    const DBGGR = |par| {
+        let stmt = par.alloc_in_loc(Statement::Debugger);
         par.lexer.consume();
 
         stmt
