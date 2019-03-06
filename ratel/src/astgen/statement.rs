@@ -208,16 +208,43 @@ impl<'ast> SerializeInLoc for ImportDeclaration<'ast> {
         S: Serializer,
     {
         self.in_loc(serializer, "ImportDeclaration", 1, |state| {
-            // state.serialize_field("specifiers", &self.specifiers)?;
+            state.serialize_field("specifiers", &self.specifiers)?;
             state.serialize_field("source", &self.source)
         })
     }
 }
 
+impl<'ast> SerializeInLoc for ForImportSpecifier<'ast> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
+        where
+            S: Serializer,
+    {
+        match *self {
+            ForImportSpecifier::ImportNamespaceSpecifier(ref value) => {
+                self.in_loc(serializer, "ImportNamespaceSpecifier", 1, |state| {
+                    state.serialize_field("local", &value.local)
+                })
+            }
+            ForImportSpecifier::ImportDefaultSpecifier(ref value) => {
+                self.in_loc(serializer, "ImportDefaultSpecifier", 1, |state| {
+                    state.serialize_field("local", &value.local)
+                })
+            }
+            ForImportSpecifier::ImportSpecifier(ref value) => {
+                self.in_loc(serializer, "ImportSpecifier", 2, |state| {
+                    state.serialize_field("imported", &value.imported)?;
+                    state.serialize_field("local", &value.local)
+                })
+            }
+        }
+    }
+}
+
+
 impl<'ast> SerializeInLoc for Statement<'ast> {
     fn serialize<S>(&self, serializer: S) -> Result<S::SerializeStruct, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         use self::Statement::*;
 
@@ -1057,6 +1084,96 @@ mod test {
             ],
             "start": 0,
             "end": 33,
+        });
+    }
+
+    #[test]
+    fn test_import_statement() {
+        expect_parse!("import defaultName, * as namespace from 'module-name'", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ImportDeclaration",
+                    "specifiers": [
+                        {
+                            "type": "ImportDefaultSpecifier",
+                            "local": {
+                                "type": "Identifier",
+                                "name": "defaultName",
+                                "start": 7,
+                                "end": 18,
+                            },
+                            "start": 7,
+                            "end": 19,
+                        },
+                        {
+                            "type": "ImportNamespaceSpecifier",
+                            "local": {
+                                "type": "Identifier",
+                                "name": "namespace",
+                                "start": 25,
+                                "end": 34,
+                            },
+                            "start": 20,
+                            "end": 39,
+                        },
+                    ],
+                    "source": "module-name",
+                    "start": 0,
+                    "end": 53,
+                }
+            ],
+            "start": 0,
+            "end": 53,
+        });
+        expect_parse!("import {a, b as c} from 'module-name'", {
+            "type": "Program",
+            "body": [
+                {
+                    "type": "ImportDeclaration",
+                    "specifiers": [
+                        {
+                            "type": "ImportSpecifier",
+                            "imported": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 8,
+                                "end": 9,
+                            },
+                            "local": {
+                                "type": "Identifier",
+                                "name": "a",
+                                "start": 8,
+                                "end": 9,
+                            },
+                            "start": 8,
+                            "end": 10,
+                        },
+                        {
+                            "type": "ImportSpecifier",
+                            "imported": {
+                                "type": "Identifier",
+                                "name": "b",
+                                "start": 11,
+                                "end": 12,
+                            },
+                            "local": {
+                                "type": "Identifier",
+                                "name": "c",
+                                "start": 16,
+                                "end": 17,
+                            },
+                            "start": 11,
+                            "end": 18,
+                        },
+                    ],
+                    "source": "module-name",
+                    "start": 0,
+                    "end": 37,
+                }
+            ],
+            "start": 0,
+            "end": 37,
         });
     }
 }

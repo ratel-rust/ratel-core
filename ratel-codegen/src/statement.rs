@@ -320,7 +320,7 @@ impl<'ast, G: Generator> ToCode<G> for ImportDeclaration<'ast> {
         gen.write_bytes(b"import ");
         if self.specifiers.is_empty() {
             gen.write_byte(b'\'');
-            gen.write_bytes(self.source.as_bytes());
+            gen.write(&self.source);
             gen.write_byte(b'\'');
             return
         }
