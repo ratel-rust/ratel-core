@@ -14,7 +14,7 @@
 This repo is split in two separate folders:
 
 - `core` contains the main Rust codebase that does all the heavy lifting.
-- `ffi` contains the Node.js wrapper around the Rust core with [Neon](http://neon.rustbridge.io/) bindings.
+- `ffi` contains the Node.js wrapper around the Rust core with [Neon](https://neon-bindings.com/) bindings.
 
 For common usage checkout the [ratel-cli](https://github.com/ratel-rust/ratel-cli) repo.
 
