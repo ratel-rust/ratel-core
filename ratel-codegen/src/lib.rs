@@ -93,8 +93,9 @@ pub struct MinifyingGenerator {
     code: Vec<u8>
 }
 
-impl MinifyingGenerator {
-    pub fn new() -> Self {
+
+impl Default for MinifyingGenerator {
+    fn default() -> Self {
         MinifyingGenerator {
             code: Vec::with_capacity(128)
         }
@@ -127,8 +128,8 @@ pub struct PrettyGenerator {
     dent: usize,
 }
 
-impl PrettyGenerator {
-    pub fn new() -> Self {
+impl Default for PrettyGenerator {
+    fn default() -> Self {
         PrettyGenerator {
             code: Vec::with_capacity(128),
             dent: 0,
@@ -179,7 +180,7 @@ impl Generator for PrettyGenerator {
 
 pub fn codegen(module: &Module, minify: bool) -> String {
     if minify {
-        let mut gen = MinifyingGenerator::new();
+        let mut gen = MinifyingGenerator::default();
 
         for statement in module.body() {
             gen.write(statement);
@@ -187,7 +188,7 @@ pub fn codegen(module: &Module, minify: bool) -> String {
 
         gen.consume()
     } else {
-        let mut gen = PrettyGenerator::new();
+        let mut gen = PrettyGenerator::default();
         let mut body = module.body().iter();
 
         gen.write(&body.next().cloned());

@@ -46,7 +46,7 @@ impl<'ast> TransformerCtxt<'ast> {
         T: 'ast + Copy,
         I: AsRef<[Node<'ast, T>]>
     {
-        let mut iter = source.as_ref().into_iter();
+        let mut iter = source.as_ref().iter();
 
         let builder = match iter.next() {
             Some(item) => ListBuilder::new(self.arena, *item),

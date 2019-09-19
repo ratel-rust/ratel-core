@@ -11,10 +11,10 @@ crate-type = ["dylib"]
 path = "src/lib.rs"
 
 [build-dependencies]
-neon-build = "0.2"
+neon-build = "0.3"
 
 [dependencies]
-neon = { version = "0.2", default-features = false }
+neon = { version = "0.3", default-features = false }
 ratel = { path = "../../ratel", version = "0.8.0" }
 ratel-codegen = { path = "../../ratel-codegen", version = "0.8.0" }
 serde = "1.0"
