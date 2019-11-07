@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate neon;
 extern crate ratel;
 extern crate ratel_codegen;
