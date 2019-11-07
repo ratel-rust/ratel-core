@@ -501,7 +501,7 @@ const ZER: ByteHandler = Some(|lex| {
 
     loop {
         match lex.read_byte() {
-            b'0'...b'9' => {
+            b'0'..=b'9' => {
                 lex.bump();
             },
             b'.' => {
@@ -525,7 +525,7 @@ const ZER: ByteHandler = Some(|lex| {
 const DIG: ByteHandler = Some(|lex| {
     unwind_loop!({
         match lex.next_byte() {
-            b'0'...b'9' => {},
+            b'0'..=b'9' => {},
             b'.' => {
                 lex.bump();
 
@@ -546,7 +546,7 @@ const DIG: ByteHandler = Some(|lex| {
 // .
 const PRD: ByteHandler = Some(|lex| {
     match lex.next_byte() {
-        b'0'...b'9' => {
+        b'0'..=b'9' => {
             lex.bump();
 
             lex.read_float()
@@ -924,7 +924,7 @@ impl<'arena> Lexer<'arena> {
     #[inline]
     fn read_octal(&mut self) {
         while match self.read_byte() {
-            b'0'...b'7' => true,
+            b'0'..=b'7' => true,
             _ => false,
         } {
             self.bump();
@@ -936,9 +936,9 @@ impl<'arena> Lexer<'arena> {
     #[inline]
     fn read_hexadec(&mut self) {
         while match self.read_byte() {
-            b'0'...b'9' |
-            b'a'...b'f' |
-            b'A'...b'F' => true,
+            b'0'..=b'9' |
+            b'a'..=b'f' |
+            b'A'..=b'F' => true,
             _ => false,
         } {
             self.bump();
@@ -951,7 +951,7 @@ impl<'arena> Lexer<'arena> {
     fn read_float(&mut self) {
         loop {
             match self.read_byte() {
-                b'0'...b'9'  => self.bump(),
+                b'0'..=b'9'  => self.bump(),
                 b'e' | b'E'  => {
                     self.bump();
                     return self.read_scientific();
@@ -971,7 +971,7 @@ impl<'arena> Lexer<'arena> {
         }
 
         while match self.read_byte() {
-            b'0'...b'9' => true,
+            b'0'..=b'9' => true,
             _ => false,
         } {
             self.bump();

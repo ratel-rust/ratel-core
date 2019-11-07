@@ -1,5 +1,5 @@
 #![recursion_limit="128"]
-#![cfg_attr(feature = "cargo-clippy", allow(trivially_copy_pass_by_ref))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::trivially_copy_pass_by_ref))]
 
 extern crate serde;
 extern crate toolshed;

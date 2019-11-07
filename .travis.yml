@@ -21,8 +21,8 @@ os:
 
 before_install:
   - source $HOME/.nvm/nvm.sh
-  - nvm install 8
-  - nvm use 8
+  - nvm install --lts
+  - nvm use --lts
 
 before_script:
   - if [ $TRAVIS_RUST_VERSION = $CLIPPY_TOOLCHAIN ]; then rustup component add clippy-preview --toolchain=$CLIPPY_TOOLCHAIN; fi

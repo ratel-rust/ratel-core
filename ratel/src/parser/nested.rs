@@ -38,7 +38,7 @@ macro_rules! bp {
     }
 }
 
-/// All potential tokens, including Comma for sequence expressions
+// All potential tokens, including Comma for sequence expressions
 bp!(ANY, [
     ____, ____, ____, SEQ,  CALL, ____, CMEM, ____, ____, ____, ARRW, ____,
 //  EOF   ;     :     ,     (     )     [     ]     {     }     =>    NEW
