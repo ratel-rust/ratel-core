@@ -24,6 +24,8 @@ While still incomplete, the Parser part of **Ratel** can run circles around even
 
 ![ratel chart](https://user-images.githubusercontent.com/787228/46786973-beee0c80-cd36-11e8-989a-62b92d624d38.png)
 
+The benchmarks visualized above can be executed in the `ffi` folder using the `npm run benches` command.
+
 ## Contributors
 
 This project is created and maintained by [Maciej Hirsz](https://github.com/maciejhirsz) with the help of awesome [contributors](https://github.com/ratel-rust/ratel-core/graphs/contributors). Extended thanks to:

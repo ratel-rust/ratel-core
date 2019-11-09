@@ -90,7 +90,7 @@ const PARSERS = [
   ['typescript', 'typescript', (module) => {
     module.createSourceFile(__filename, SOURCE, module.ScriptTarget.Latest);
   }],
-  ['typesript-eslint-parser', 'typescript-eslint-parser', (module) => module.parse(SOURCE)]
+  ['@typescript-eslint/parser', '@typescript-eslint/parser', (module) => module.parse(SOURCE)]
 ];
 
 suite('sourcecode', () => {

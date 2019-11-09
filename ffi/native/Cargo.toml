@@ -4,6 +4,7 @@ version = "0.0.2"
 authors = ["Matthias Thoemmes <thoemmes@gmail.com>"]
 license = "MIT"
 build = "build.rs"
+exclude = ["artifacts.json", "index.node"]
 
 [lib]
 name = "ffi"
@@ -11,10 +12,10 @@ crate-type = ["dylib"]
 path = "src/lib.rs"
 
 [build-dependencies]
-neon-build = "0.3"
+neon-build = "0.3.3"
 
 [dependencies]
-neon = { version = "0.3", default-features = false }
+neon = { version = "0.3.3" }
 ratel = { path = "../../ratel", version = "0.8.0" }
 ratel-codegen = { path = "../../ratel-codegen", version = "0.8.0" }
 serde = "1.0"

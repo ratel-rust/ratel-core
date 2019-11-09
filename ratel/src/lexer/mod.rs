@@ -1018,15 +1018,8 @@ impl<'arena> Lexer<'arena> {
             }
         }
 
-        loop {
-            match self.read_byte() {
-                b'g' | b'i' | b'm' | b'u' | b'y' => {
-                    self.bump();
-                },
-                _                                => {
-                    break;
-                }
-            }
+        while let b'g' | b'i' | b'm' | b'u' | b'y' = self.read_byte() {
+            self.bump();
         }
 
         self.token = LiteralRegEx;
