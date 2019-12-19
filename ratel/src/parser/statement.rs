@@ -87,7 +87,7 @@ create_handlers! {
     const BRK  = |par| par.break_statement();
     const THRW = |par| par.throw_statement();
     const CONT = |par| par.continue_statement();
-    const FUNC = |par| par.function_statement();
+    const FUNC = |par| par.function_statement_with_async(false);
     const CLAS = |par| par.class_statement();
     const IF   = |par| par.if_statement();
     const WHL  = |par| par.while_statement();
@@ -198,9 +198,12 @@ impl<'ast> Parser<'ast> {
     pub fn labeled_or_expression_statement(&mut self) -> StatementNode<'ast> {
         let label = self.lexer.token_as_str();
         let (start, end) = self.lexer.loc();
-
+        
         self.lexer.consume();
-
+        if label == "async" && self.lexer.token == Function {
+            return self.function_statement_with_async(true);
+        }
+        
         if self.lexer.token == Colon {
             self.lexer.consume();
 
@@ -221,9 +224,9 @@ impl<'ast> Parser<'ast> {
     }
 
     #[inline]
-    pub fn function_statement(&mut self) -> StatementNode<'ast> {
+    pub fn function_statement_with_async(&mut self, is_async: bool) -> StatementNode<'ast> {
         let start = self.lexer.start_then_consume();
-        let function = Function::parse(self);
+        let function = Function::with_async_flag(self, is_async);
 
         self.alloc_at_loc(start, function.body.end, function)
     }
@@ -1365,6 +1368,7 @@ mod test {
             Function {
                 name: mock.name("foo"),
                 generator: false,
+                is_async: false,
                 params: NodeList::empty(),
                 body: mock.empty_block(),
             }

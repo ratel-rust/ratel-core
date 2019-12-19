@@ -66,6 +66,7 @@ impl<'ast> From<Option<IdentifierNode<'ast>>> for OptionalName<'ast> {
 pub struct Function<'ast, N: Name<'ast>> {
     pub name: N,
     pub generator: bool,
+    pub is_async: bool,
     pub params: PatternList<'ast>,
     pub body: BlockNode<'ast, Statement<'ast>>,
 }
