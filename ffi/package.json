@@ -19,7 +19,7 @@
     "espree": "^6.1.2",
     "esprima": "^4.0.1",
     "flow-parser": "^0.111.3",
-    "mocha": "^6.2.2",
+    "mocha": "^10.2.0",
     "recast": "^0.18.5",
     "typescript": "^3.7.2"
   },
